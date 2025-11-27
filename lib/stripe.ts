@@ -1,9 +1,29 @@
 import Stripe from "stripe"
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-11-17.clover",
-  typescript: true,
-})
+// Lazy initialization to avoid build-time errors when env vars aren't available
+let stripeInstance: Stripe | null = null
+
+export const getStripe = () => {
+  if (!stripeInstance) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error("STRIPE_SECRET_KEY is not set")
+    }
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2025-11-17.clover",
+      typescript: true,
+    })
+  }
+  return stripeInstance
+}
+
+// For backward compatibility - getter that lazily initializes
+export const stripe = {
+  get webhooks() { return getStripe().webhooks },
+  get subscriptions() { return getStripe().subscriptions },
+  get checkout() { return getStripe().checkout },
+  get billingPortal() { return getStripe().billingPortal },
+  get customers() { return getStripe().customers },
+}
 
 export const PLAN_LIMITS = {
   FREE: { projects: 3, collaboration: false },
