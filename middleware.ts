@@ -29,12 +29,16 @@ function isAppSubdomain(host: string): boolean {
   return host.startsWith("app.")
 }
 
-// Get the main domain from host (app.verso.ac -> verso.ac)
+// Get the main domain from host (app.verso.ac -> verso.ac, www.verso.ac -> verso.ac)
 function getMainDomain(host: string): string {
-  if (host.startsWith("app.")) {
-    return host.slice(4)
+  let domain = host
+  if (domain.startsWith("app.")) {
+    domain = domain.slice(4)
   }
-  return host
+  if (domain.startsWith("www.")) {
+    domain = domain.slice(4)
+  }
+  return domain
 }
 
 // Get the app subdomain URL
