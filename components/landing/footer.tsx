@@ -7,11 +7,9 @@ export function Footer() {
       <div className="container max-w-5xl mx-auto px-6 py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
           <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="flex aspect-square size-6 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <span className="text-base font-bold italic">V</span>
-              </div>
-              <span className="font-medium">Verso</span>
+            <Link href="/" className="flex items-center gap-1 mb-4">
+              <span className="text-lg font-bold italic text-primary">V</span>
+              <span className="font-medium">erso</span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Professional screenplay writing software for modern storytellers.

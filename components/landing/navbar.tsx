@@ -10,11 +10,9 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/30 bg-background/50 backdrop-blur-2xl backdrop-saturate-200">
       <div className="container max-w-5xl mx-auto px-6 flex h-14 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex aspect-square size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <span className="text-lg font-bold italic">V</span>
-          </div>
-          <span className="text-lg font-medium">Verso</span>
+        <Link href="/" className="flex items-center gap-1">
+          <span className="text-xl font-bold italic text-primary">V</span>
+          <span className="text-lg font-medium">erso</span>
         </Link>
 
         <nav className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-8">

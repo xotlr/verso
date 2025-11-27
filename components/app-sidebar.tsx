@@ -46,7 +46,6 @@ import {
   SidebarGroupContent,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { NavMenuItem } from "@/components/nav-menu-item";
 
 interface AppSidebarProps {
@@ -95,12 +94,31 @@ export function AppSidebar({ projectId: propProjectId, projectTitle: propProject
 
   // Get project title from props or localStorage
   const [projectTitle, setProjectTitle] = useState(propProjectTitle || 'Current Project');
+  const [sceneCount, setSceneCount] = useState(0);
 
   useEffect(() => {
     if (projectId && !propProjectTitle) {
       setProjectTitle(getProjectTitle(projectId));
     }
   }, [projectId, propProjectTitle]);
+
+  // Get scene count from localStorage
+  useEffect(() => {
+    if (projectId) {
+      try {
+        const data = localStorage.getItem(`screenplay_${projectId}`);
+        if (data) {
+          const parsed = JSON.parse(data);
+          const scenes = parsed.scenes?.length || 0;
+          setSceneCount(scenes);
+        }
+      } catch (e) {
+        console.error('Error getting scene count:', e);
+      }
+    } else {
+      setSceneCount(0);
+    }
+  }, [projectId]);
 
   // Main navigation items
   const mainNavItems = [
@@ -146,11 +164,9 @@ export function AppSidebar({ projectId: propProjectId, projectTitle: propProject
       <SidebarHeader className="border-b border-border/50">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg" className="gap-3">
+            <SidebarMenuButton asChild size="lg" className="gap-2">
               <Link href="/" className="flex items-center">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <span className="text-xl font-bold italic">V</span>
-                </div>
+                <span className="text-xl font-bold italic text-primary">V</span>
                 <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
                   <span className="font-semibold">Verso</span>
                   <span className="text-xs text-muted-foreground">Screenwriting</span>
@@ -161,15 +177,14 @@ export function AppSidebar({ projectId: propProjectId, projectTitle: propProject
         </SidebarMenu>
 
         {/* New Project Button */}
-        <div className="px-2 pb-2">
+        <div className={cn("px-2 pb-2", isCollapsed && "px-1")}>
           <Button
             asChild
             size={isCollapsed ? "icon" : "default"}
             className={cn(
-              "w-full bg-gradient-to-br from-primary via-primary to-primary/80",
-              "hover:from-primary/90 hover:via-primary/90 hover:to-primary/70",
-              "shadow-md hover:shadow-lg transition-all",
-              isCollapsed && "w-10 h-10"
+              "w-full",
+              !isCollapsed && "bg-gradient-to-br from-primary via-primary to-primary/80 hover:from-primary/90 hover:via-primary/90 hover:to-primary/70 shadow-md hover:shadow-lg",
+              isCollapsed && "h-8 w-8"
             )}
           >
             <Link href="/workspace?new=true">
@@ -229,30 +244,39 @@ export function AppSidebar({ projectId: propProjectId, projectTitle: propProject
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+
+        {/* Quick Stats (only when in project) */}
+        {projectId && sceneCount > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>
+              {isCollapsed ? (
+                <BarChart3 className="h-4 w-4" />
+              ) : (
+                "Stats"
+              )}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <div className={cn(
+                "px-3 py-2 text-xs text-muted-foreground space-y-1",
+                isCollapsed && "hidden"
+              )}>
+                <div className="flex justify-between">
+                  <span>Scenes</span>
+                  <span className="font-medium text-foreground">{sceneCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Est. Pages</span>
+                  <span className="font-medium text-foreground">~{Math.round(sceneCount * 1.5)}</span>
+                </div>
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       {/* Footer */}
       <SidebarFooter className="border-t border-border/50">
         <SidebarMenu>
-          {/* Theme Toggle */}
-          <SidebarMenuItem>
-            <div className={cn(
-              "flex items-center justify-center py-2",
-              isCollapsed && "flex-col"
-            )}>
-              <ThemeToggle />
-            </div>
-          </SidebarMenuItem>
-
-          {/* Settings */}
-          <NavMenuItem
-            title="Settings"
-            url="/settings"
-            icon={Settings}
-            pathname={pathname}
-            isCollapsed={isCollapsed}
-          />
-
           {/* User Account */}
           {user && (
             <SidebarMenuItem>
