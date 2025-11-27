@@ -139,7 +139,13 @@ export function Aurora({
   const rendererRef = useRef<Renderer | null>(null);
   const programRef = useRef<Program | null>(null);
   const animationRef = useRef<number>(0);
+  const speedRef = useRef(speed);
   const { resolvedTheme } = useTheme();
+
+  // Keep speedRef in sync with prop
+  useEffect(() => {
+    speedRef.current = speed;
+  }, [speed]);
 
   // Get theme-based colors - rich gradient palette with 5 stops
   const getThemeColors = useCallback((): string[] => {
@@ -215,7 +221,7 @@ export function Aurora({
       if (!program) return;
 
       const elapsed = (performance.now() - startTime) * 0.001;
-      program.uniforms.uTime.value = elapsed * speed;
+      program.uniforms.uTime.value = elapsed * speedRef.current;
 
       renderer.render({ scene: mesh });
     };

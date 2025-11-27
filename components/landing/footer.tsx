@@ -1,5 +1,4 @@
 import Link from "next/link"
-import Image from "next/image"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 export function Footer() {
@@ -9,13 +8,9 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <Image
-                src="/logo.svg"
-                alt="Verso"
-                width={22}
-                height={22}
-                className="dark:invert"
-              />
+              <div className="flex aspect-square size-6 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <span className="text-base font-bold italic">V</span>
+              </div>
               <span className="font-medium">Verso</span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">

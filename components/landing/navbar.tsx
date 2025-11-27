@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 
@@ -12,13 +11,9 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-border/30 bg-background/50 backdrop-blur-2xl backdrop-saturate-200">
       <div className="container max-w-5xl mx-auto px-6 flex h-14 items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <Image
-            src="/logo.svg"
-            alt="Verso"
-            width={28}
-            height={28}
-            className="dark:invert"
-          />
+          <div className="flex aspect-square size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <span className="text-lg font-bold italic">V</span>
+          </div>
           <span className="text-lg font-medium">Verso</span>
         </Link>
 
