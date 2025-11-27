@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -66,16 +67,18 @@ export function AppHeader() {
             </BreadcrumbLink>
           </BreadcrumbItem>
           {breadcrumbs.map((crumb, i) => (
-            <BreadcrumbItem key={i}>
+            <React.Fragment key={i}>
               <BreadcrumbSeparator />
-              {crumb.href ? (
-                <BreadcrumbLink asChild>
-                  <Link href={crumb.href}>{crumb.label}</Link>
-                </BreadcrumbLink>
-              ) : (
-                <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-              )}
-            </BreadcrumbItem>
+              <BreadcrumbItem>
+                {crumb.href ? (
+                  <BreadcrumbLink asChild>
+                    <Link href={crumb.href}>{crumb.label}</Link>
+                  </BreadcrumbLink>
+                ) : (
+                  <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                )}
+              </BreadcrumbItem>
+            </React.Fragment>
           ))}
         </BreadcrumbList>
       </Breadcrumb>

@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { useSettings } from '@/contexts/settings-context';
 import { detectAndFormatScreenplay } from '@/lib/screenplay-formatter';
+import { toast } from 'sonner';
 import {
   Undo2,
   Redo2,
@@ -744,7 +745,7 @@ export function ScreenplayEditor({
 
   const exportAsFDX = () => {
     // In a real implementation, this would convert to Final Draft XML format
-    alert('Final Draft export would be implemented with proper FDX conversion');
+    toast.info('Final Draft export would be implemented with proper FDX conversion');
   };
 
   // Import handlers
@@ -780,7 +781,7 @@ export function ScreenplayEditor({
         }
       } catch (error) {
         console.error('Error importing file:', error);
-        alert('Error importing file. Please check the file format.');
+        toast.error('Error importing file. Please check the file format.');
       }
     };
     input.click();

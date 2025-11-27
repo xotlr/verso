@@ -22,6 +22,7 @@ import {
   exportToPlainText,
   downloadFile,
 } from '@/lib/export-utils';
+import { toast } from 'sonner';
 
 interface ExportDialogProps {
   isOpen: boolean;
@@ -150,7 +151,7 @@ export function ExportDialog({
     } catch (error) {
       console.error('Export error:', error);
       setIsExporting(false);
-      alert('Export failed. Please try again.');
+      toast.error('Export failed. Please try again.');
     }
   };
 

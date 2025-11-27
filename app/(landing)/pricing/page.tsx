@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Check, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 export default function PricingPage() {
   const { data: session } = useSession()
@@ -22,7 +23,7 @@ export default function PricingPage() {
     }
 
     if (!priceId) {
-      alert("This plan is not yet available. Please contact support.")
+      toast.info("This plan is not yet available. Please contact support.")
       return
     }
 
@@ -40,11 +41,11 @@ export default function PricingPage() {
       if (data.url) {
         window.location.href = data.url
       } else {
-        alert(data.error || "Something went wrong")
+        toast.error(data.error || "Something went wrong")
       }
     } catch (error) {
       console.error("Checkout error:", error)
-      alert("Something went wrong")
+      toast.error("Something went wrong")
     } finally {
       setLoadingPlan(null)
     }

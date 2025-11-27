@@ -8,6 +8,16 @@ import { CommandPalette } from '@/components/command-palette';
 import { TemplateSelector } from '@/components/template-selector';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Template } from '@/types/templates';
 import {
   Plus,
@@ -36,6 +46,7 @@ export default function WorkspacePage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   useEffect(() => {
     loadScreenplays();
@@ -99,9 +110,14 @@ export default function WorkspacePage() {
   };
 
   const deleteScreenplay = (id: string) => {
-    if (confirm('Are you sure you want to delete this screenplay?')) {
-      localStorage.removeItem(`screenplay_${id}`);
+    setDeleteTarget(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTarget) {
+      localStorage.removeItem(`screenplay_${deleteTarget}`);
       loadScreenplays();
+      setDeleteTarget(null);
     }
   };
 
@@ -136,6 +152,24 @@ export default function WorkspacePage() {
         onClose={() => setTemplateSelectorOpen(false)}
         onSelect={createFromTemplate}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Screenplay</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this screenplay? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto bg-background">

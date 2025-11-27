@@ -25,6 +25,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ThemePreset, UIFont, ScreenplayFont, SidebarPosition, ToolbarPosition } from '@/types/settings';
 import { downloadFile, createFileInput, readFileAsText } from '@/lib/dom-utils';
+import { toast } from 'sonner';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -55,9 +56,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     createFileInput('.json', async (file) => {
       const json = await readFileAsText(file);
       if (importSettings(json)) {
-        alert('Settings imported successfully!');
+        toast.success('Settings imported successfully!');
       } else {
-        alert('Failed to import settings. Please check the file format.');
+        toast.error('Failed to import settings. Please check the file format.');
       }
     });
   };
