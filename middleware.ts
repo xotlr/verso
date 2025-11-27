@@ -1,0 +1,126 @@
+import { authEdge } from "@/lib/auth.edge"
+import { NextResponse } from "next/server"
+
+// App routes that require authentication
+const appRoutes = [
+  "/workspace",
+  "/editor",
+  "/board",
+  "/cards",
+  "/visualization",
+  "/settings",
+]
+
+// Check if a path is an app route
+function isAppRoute(pathname: string): boolean {
+  return appRoutes.some((route) => pathname.startsWith(route))
+}
+
+// Check if we're on the app subdomain (app.verso.ac or app.lvh.me)
+function isAppSubdomain(host: string): boolean {
+  // Plain localhost doesn't support subdomain cookies
+  // But lvh.me resolves to localhost AND supports subdomain cookies
+  if (host.includes("localhost") && !host.includes("lvh.me")) {
+    return false
+  }
+  if (host.includes("127.0.0.1")) {
+    return false
+  }
+  return host.startsWith("app.")
+}
+
+// Get the main domain from host (app.verso.ac -> verso.ac)
+function getMainDomain(host: string): string {
+  if (host.startsWith("app.")) {
+    return host.slice(4)
+  }
+  return host
+}
+
+// Get the app subdomain URL
+function getAppUrl(host: string, pathname: string, protocol: string): string {
+  const mainDomain = getMainDomain(host)
+  if (host.startsWith("app.")) {
+    return `${protocol}://${host}${pathname}`
+  }
+  return `${protocol}://app.${mainDomain}${pathname}`
+}
+
+export default authEdge((req) => {
+  const isLoggedIn = !!req.auth
+  const { pathname } = req.nextUrl
+  const host = req.headers.get("host") || ""
+  const protocol = req.nextUrl.protocol.replace(":", "")
+
+  // Determine if we're on app subdomain (only in production)
+  const onAppSubdomain = isAppSubdomain(host)
+
+  // If on app subdomain, all routes require auth
+  if (onAppSubdomain) {
+    // Redirect to main domain login if not authenticated
+    if (!isLoggedIn) {
+      const mainDomain = getMainDomain(host)
+      const loginUrl = new URL("/login", `${protocol}://${mainDomain}`)
+
+      // Don't set callbackUrl to auth pages (would cause redirect loop)
+      if (pathname !== "/login" && pathname !== "/signup") {
+        loginUrl.searchParams.set("callbackUrl", `${protocol}://${host}${pathname}`)
+      } else {
+        // User went directly to app.*/login - redirect to workspace after login
+        loginUrl.searchParams.set("callbackUrl", `${protocol}://${host}/workspace`)
+      }
+      return NextResponse.redirect(loginUrl)
+    }
+
+    // User is authenticated, allow access to app subdomain
+    return NextResponse.next()
+  }
+
+  // On main domain (or development without subdomain routing)
+
+  // Check if we should use subdomain routing
+  // Enable for: production (verso.ac) and lvh.me (local dev with subdomain support)
+  // Disable for: plain localhost (no cookie sharing)
+  const useSubdomainRouting = host.includes("lvh.me") ||
+    (!host.includes("localhost") && !host.includes("127.0.0.1"))
+
+  // If trying to access app routes on main domain, redirect to app subdomain (production only)
+  if (useSubdomainRouting && isAppRoute(pathname)) {
+    const appUrl = getAppUrl(host, pathname, protocol)
+    return NextResponse.redirect(appUrl)
+  }
+
+  // Redirect to app subdomain if already logged in and trying to access login/signup (production only)
+  if (useSubdomainRouting && isLoggedIn && (pathname === "/login" || pathname === "/signup")) {
+    const appUrl = getAppUrl(host, "/workspace", protocol)
+    return NextResponse.redirect(appUrl)
+  }
+
+  // In development OR production fallback: protect app routes
+  if (isAppRoute(pathname) && !isLoggedIn) {
+    const loginUrl = new URL("/login", req.nextUrl.origin)
+    loginUrl.searchParams.set("callbackUrl", pathname)
+    return NextResponse.redirect(loginUrl)
+  }
+
+  // Redirect logged-in users from login/signup to workspace (in development)
+  if (!useSubdomainRouting && isLoggedIn && (pathname === "/login" || pathname === "/signup")) {
+    return NextResponse.redirect(new URL("/workspace", req.nextUrl.origin))
+  }
+
+  return NextResponse.next()
+})
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     * - api routes (handled separately)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|api).*)",
+  ],
+}

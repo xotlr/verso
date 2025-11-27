@@ -1,0 +1,588 @@
+'use client';
+
+import React, { useState, useMemo } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+  DragOverEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Scene } from '@/types/screenplay';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  GripVertical,
+  Plus,
+  Trash2,
+  Edit2,
+  Check,
+  X,
+  Film,
+  ChevronLeft,
+} from 'lucide-react';
+
+// Beat/Card types
+export interface Beat {
+  id: string;
+  title: string;
+  description: string;
+  color: string;
+  act: ActId;
+  sceneIds: string[];
+  order: number;
+}
+
+export type ActId = 'act1' | 'act2a' | 'act2b' | 'act3';
+
+export interface BeatBoardProps {
+  scenes: Scene[];
+  beats: Beat[];
+  onBeatsChange: (beats: Beat[]) => void;
+  onSceneClick?: (sceneId: string) => void;
+  onBackToEditor?: () => void;
+}
+
+// Act configuration
+const ACTS: { id: ActId; label: string; color: string }[] = [
+  { id: 'act1', label: 'Act 1 - Setup', color: 'bg-blue-500/10 border-blue-500/30' },
+  { id: 'act2a', label: 'Act 2A - Confrontation', color: 'bg-amber-500/10 border-amber-500/30' },
+  { id: 'act2b', label: 'Act 2B - Complications', color: 'bg-orange-500/10 border-orange-500/30' },
+  { id: 'act3', label: 'Act 3 - Resolution', color: 'bg-green-500/10 border-green-500/30' },
+];
+
+// Color palette for beats
+const BEAT_COLORS = [
+  '#3B82F6', // blue
+  '#10B981', // emerald
+  '#F59E0B', // amber
+  '#EF4444', // red
+  '#8B5CF6', // violet
+  '#EC4899', // pink
+  '#06B6D4', // cyan
+  '#84CC16', // lime
+];
+
+// Sortable Beat Card
+function SortableBeatCard({
+  beat,
+  scenes,
+  onEdit,
+  onDelete,
+  onSceneClick,
+}: {
+  beat: Beat;
+  scenes: Scene[];
+  onEdit: (beat: Beat) => void;
+  onDelete: (beatId: string) => void;
+  onSceneClick?: (sceneId: string) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: beat.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const linkedScenes = scenes.filter(s => beat.sceneIds.includes(s.id));
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'group bg-card border border-border rounded-lg p-3 mb-2',
+        'hover:border-primary/50 transition-colors',
+        isDragging && 'opacity-50 shadow-lg'
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <button
+          {...attributes}
+          {...listeners}
+          className="mt-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <div
+              className="w-3 h-3 rounded-full shrink-0"
+              style={{ backgroundColor: beat.color }}
+            />
+            <h4 className="font-medium text-sm text-foreground truncate">
+              {beat.title}
+            </h4>
+          </div>
+
+          {beat.description && (
+            <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+              {beat.description}
+            </p>
+          )}
+
+          {linkedScenes.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {linkedScenes.map(scene => (
+                <button
+                  key={scene.id}
+                  onClick={() => onSceneClick?.(scene.id)}
+                  className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded hover:bg-accent"
+                >
+                  <Film className="h-3 w-3" />
+                  {scene.number}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-6 w-6"
+            onClick={() => onEdit(beat)}
+          >
+            <Edit2 className="h-3 w-3" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-6 w-6 text-destructive"
+            onClick={() => onDelete(beat.id)}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Beat Card (for drag overlay)
+function BeatCard({ beat }: { beat: Beat }) {
+  return (
+    <div className="bg-card border border-primary rounded-lg p-3 shadow-lg">
+      <div className="flex items-center gap-2">
+        <div
+          className="w-3 h-3 rounded-full"
+          style={{ backgroundColor: beat.color }}
+        />
+        <h4 className="font-medium text-sm">{beat.title}</h4>
+      </div>
+    </div>
+  );
+}
+
+// Act Column
+function ActColumn({
+  act,
+  beats,
+  scenes,
+  onAddBeat,
+  onEditBeat,
+  onDeleteBeat,
+  onSceneClick,
+}: {
+  act: { id: ActId; label: string; color: string };
+  beats: Beat[];
+  scenes: Scene[];
+  onAddBeat: (actId: ActId) => void;
+  onEditBeat: (beat: Beat) => void;
+  onDeleteBeat: (beatId: string) => void;
+  onSceneClick?: (sceneId: string) => void;
+}) {
+  const actBeats = beats
+    .filter(b => b.act === act.id)
+    .sort((a, b) => a.order - b.order);
+
+  return (
+    <div className={cn('flex-1 min-w-[280px] max-w-[350px] rounded-xl border p-4', act.color)}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-foreground">{act.label}</h3>
+        <span className="text-xs text-muted-foreground bg-background/50 px-2 py-0.5 rounded">
+          {actBeats.length} beats
+        </span>
+      </div>
+
+      <SortableContext
+        items={actBeats.map(b => b.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="space-y-2 min-h-[200px]">
+          {actBeats.map(beat => (
+            <SortableBeatCard
+              key={beat.id}
+              beat={beat}
+              scenes={scenes}
+              onEdit={onEditBeat}
+              onDelete={onDeleteBeat}
+              onSceneClick={onSceneClick}
+            />
+          ))}
+        </div>
+      </SortableContext>
+
+      <Button
+        variant="ghost"
+        size="sm"
+        className="w-full mt-2 border-dashed border"
+        onClick={() => onAddBeat(act.id)}
+      >
+        <Plus className="h-4 w-4 mr-2" />
+        Add Beat
+      </Button>
+    </div>
+  );
+}
+
+// Beat Editor Modal
+function BeatEditor({
+  beat,
+  scenes,
+  isOpen,
+  onSave,
+  onCancel,
+}: {
+  beat: Beat | null;
+  scenes: Scene[];
+  isOpen: boolean;
+  onSave: (beat: Beat) => void;
+  onCancel: () => void;
+}) {
+  const [title, setTitle] = useState(beat?.title || '');
+  const [description, setDescription] = useState(beat?.description || '');
+  const [color, setColor] = useState(beat?.color || BEAT_COLORS[0]);
+  const [selectedScenes, setSelectedScenes] = useState<string[]>(beat?.sceneIds || []);
+
+  // Reset form when beat changes
+  React.useEffect(() => {
+    setTitle(beat?.title || '');
+    setDescription(beat?.description || '');
+    setColor(beat?.color || BEAT_COLORS[0]);
+    setSelectedScenes(beat?.sceneIds || []);
+  }, [beat]);
+
+  const handleSave = () => {
+    if (!title.trim()) return;
+
+    onSave({
+      id: beat?.id || `beat-${Date.now()}`,
+      title: title.trim(),
+      description: description.trim(),
+      color,
+      act: beat?.act || 'act1',
+      sceneIds: selectedScenes,
+      order: beat?.order || 0,
+    });
+  };
+
+  const toggleScene = (sceneId: string) => {
+    setSelectedScenes(prev =>
+      prev.includes(sceneId)
+        ? prev.filter(id => id !== sceneId)
+        : [...prev, sceneId]
+    );
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{beat?.id ? 'Edit Beat' : 'New Beat'}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Title</label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Beat title..."
+              className="mt-1"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Description</label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What happens in this beat..."
+              className="mt-1 h-20 resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Color</label>
+            <div className="flex gap-2 mt-1">
+              {BEAT_COLORS.map(c => (
+                <button
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={cn(
+                    'w-6 h-6 rounded-full transition-transform',
+                    color === c && 'ring-2 ring-offset-2 ring-primary scale-110'
+                  )}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Link Scenes</label>
+            <div className="mt-1 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
+              {scenes.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No scenes available</p>
+              ) : (
+                scenes.map(scene => (
+                  <button
+                    key={scene.id}
+                    onClick={() => toggleScene(scene.id)}
+                    className={cn(
+                      'w-full text-left px-2 py-1 rounded text-sm',
+                      selectedScenes.includes(scene.id)
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-muted'
+                    )}
+                  >
+                    Scene {scene.number}: {scene.heading.substring(0, 30)}...
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>
+            <X className="h-4 w-4 mr-2" />
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={!title.trim()}>
+            <Check className="h-4 w-4 mr-2" />
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Main Beat Board Component
+export function BeatBoard({
+  scenes,
+  beats: initialBeats,
+  onBeatsChange,
+  onSceneClick,
+  onBackToEditor,
+}: BeatBoardProps) {
+  const [beats, setBeats] = useState<Beat[]>(initialBeats);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [editingBeat, setEditingBeat] = useState<Beat | null>(null);
+  const [isCreating, setIsCreating] = useState<ActId | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const activeBeat = useMemo(
+    () => beats.find(b => b.id === activeId),
+    [beats, activeId]
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    const activeBeat = beats.find(b => b.id === activeId);
+    const overBeat = beats.find(b => b.id === overId);
+
+    if (!activeBeat) return;
+
+    // If dragging over another beat in a different act
+    if (overBeat && activeBeat.act !== overBeat.act) {
+      setBeats(prev => {
+        const updated = prev.map(b =>
+          b.id === activeId ? { ...b, act: overBeat.act } : b
+        );
+        return updated;
+      });
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    if (activeId === overId) return;
+
+    setBeats(prev => {
+      const oldIndex = prev.findIndex(b => b.id === activeId);
+      const newIndex = prev.findIndex(b => b.id === overId);
+
+      const newBeats = arrayMove(prev, oldIndex, newIndex);
+
+      // Update order values
+      return newBeats.map((b, i) => ({ ...b, order: i }));
+    });
+  };
+
+  const handleAddBeat = (actId: ActId) => {
+    setIsCreating(actId);
+    setEditingBeat({
+      id: '',
+      title: '',
+      description: '',
+      color: BEAT_COLORS[beats.length % BEAT_COLORS.length],
+      act: actId,
+      sceneIds: [],
+      order: beats.filter(b => b.act === actId).length,
+    });
+  };
+
+  const handleSaveBeat = (beat: Beat) => {
+    setBeats(prev => {
+      const existingIndex = prev.findIndex(b => b.id === beat.id);
+      if (existingIndex >= 0) {
+        const updated = [...prev];
+        updated[existingIndex] = beat;
+        return updated;
+      }
+      return [...prev, { ...beat, id: `beat-${Date.now()}` }];
+    });
+    setEditingBeat(null);
+    setIsCreating(null);
+  };
+
+  const handleDeleteBeat = (beatId: string) => {
+    setBeats(prev => prev.filter(b => b.id !== beatId));
+  };
+
+  // Sync changes back to parent
+  React.useEffect(() => {
+    onBeatsChange(beats);
+  }, [beats, onBeatsChange]);
+
+  return (
+    <div className="h-full flex flex-col bg-background">
+      {/* Header */}
+      <div className="border-b border-border bg-card px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {onBackToEditor && (
+              <Button variant="ghost" size="sm" onClick={onBackToEditor}>
+                <ChevronLeft className="h-4 w-4 mr-2" />
+                Back to Editor
+              </Button>
+            )}
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Beat Board</h1>
+              <p className="text-sm text-muted-foreground">
+                Organize your story structure visually
+              </p>
+            </div>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {beats.length} beats · {scenes.length} scenes
+          </div>
+        </div>
+      </div>
+
+      {/* Board */}
+      <div className="flex-1 overflow-x-auto p-6">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-4 min-w-max">
+            {ACTS.map(act => (
+              <ActColumn
+                key={act.id}
+                act={act}
+                beats={beats}
+                scenes={scenes}
+                onAddBeat={handleAddBeat}
+                onEditBeat={setEditingBeat}
+                onDeleteBeat={handleDeleteBeat}
+                onSceneClick={onSceneClick}
+              />
+            ))}
+          </div>
+
+          <DragOverlay>
+            {activeBeat ? <BeatCard beat={activeBeat} /> : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
+
+      {/* Beat Editor Modal */}
+      <BeatEditor
+        beat={editingBeat}
+        scenes={scenes}
+        isOpen={!!(editingBeat || isCreating)}
+        onSave={handleSaveBeat}
+        onCancel={() => {
+          setEditingBeat(null);
+          setIsCreating(null);
+        }}
+      />
+    </div>
+  );
+}
+
+export default BeatBoard;
