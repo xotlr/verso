@@ -347,16 +347,143 @@
   /* ===== SCREENPLAY STYLES ===== */
   .font-screenplay {
     font-family: var(--font-courier-prime), 'Courier New', Courier, monospace;
+    font-size: 12pt;
+    line-height: 1.15; /* Industry standard - tight line spacing */
+    letter-spacing: 0;
+    font-feature-settings: "kern" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   .screenplay-page {
     font-family: var(--font-courier-prime), 'Courier New', Courier, monospace;
     font-size: 12pt;
-    line-height: 1.5;
+    line-height: 1.15;
   }
 
   .screenplay-editor {
     @apply font-screenplay;
+  }
+
+  /* Screenplay element typography - authentic formatting */
+  .screenplay-element-scene-heading {
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .screenplay-element-character {
+    text-transform: uppercase;
+    text-align: center;
+    margin-left: 2in;
+  }
+
+  .screenplay-element-dialogue {
+    margin-left: 1in;
+    margin-right: 1.5in;
+    max-width: 3.5in;
+  }
+
+  .screenplay-element-parenthetical {
+    margin-left: 1.5in;
+    max-width: 2in;
+    font-style: italic;
+  }
+
+  .screenplay-element-transition {
+    text-transform: uppercase;
+    text-align: right;
+  }
+
+  .screenplay-element-action {
+    /* Full width, no special styling */
+  }
+
+  /* Syntax highlighting colors - light mode */
+  .syntax-scene-heading {
+    color: hsl(217 91% 45%); /* Blue */
+    font-weight: 600;
+  }
+
+  .syntax-character {
+    color: hsl(271 81% 50%); /* Purple */
+  }
+
+  .syntax-dialogue {
+    color: hsl(var(--foreground));
+  }
+
+  .syntax-parenthetical {
+    color: hsl(var(--muted-foreground));
+    font-style: italic;
+  }
+
+  .syntax-transition {
+    color: hsl(25 95% 45%); /* Orange */
+  }
+
+  .syntax-action {
+    color: hsl(var(--foreground));
+  }
+
+  /* Dark mode syntax colors */
+  .dark .syntax-scene-heading {
+    color: hsl(217 91% 65%);
+  }
+
+  .dark .syntax-character {
+    color: hsl(271 81% 70%);
+  }
+
+  .dark .syntax-transition {
+    color: hsl(25 95% 60%);
+  }
+
+  /* Syntax overlay container */
+  .syntax-highlight-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow: hidden;
+    font-family: var(--font-courier-prime), 'Courier New', Courier, monospace;
+    font-size: 12pt;
+    line-height: 1.15;
+    padding: 4rem;
+  }
+
+  /* Make textarea text invisible but keep caret visible */
+  .syntax-enabled-textarea {
+    color: transparent !important;
+    caret-color: hsl(var(--foreground)) !important;
+    background: transparent !important;
+  }
+
+  .syntax-enabled-textarea::selection {
+    background: hsl(var(--primary) / 0.3);
+  }
+
+  /* Search highlighting in editor */
+  .search-highlight {
+    background: hsl(48 96% 53% / 0.4); /* Yellow */
+    border-radius: 2px;
+    padding: 0 1px;
+    margin: 0 -1px;
+  }
+
+  .search-highlight-current {
+    background: hsl(25 95% 53% / 0.5); /* Orange - current match */
+    outline: 2px solid hsl(25 95% 53% / 0.8);
+    outline-offset: -1px;
+  }
+
+  .dark .search-highlight {
+    background: hsl(48 96% 53% / 0.3);
+  }
+
+  .dark .search-highlight-current {
+    background: hsl(25 95% 53% / 0.4);
+    outline-color: hsl(25 95% 53% / 0.6);
   }
 
   /* ===== SATISFYING TYPING ===== */
@@ -804,7 +931,26 @@ button {
   min-height: 11in;
   margin: 0 auto;
   background: hsl(var(--card));
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05);
+  /* Realistic paper shadow with depth */
+  box-shadow:
+    0 1px 1px rgba(0,0,0,0.04),
+    0 2px 4px rgba(0,0,0,0.04),
+    0 4px 8px rgba(0,0,0,0.04),
+    0 8px 16px rgba(0,0,0,0.04),
+    0 16px 32px rgba(0,0,0,0.04);
+  /* Subtle paper texture feel */
+  border: 1px solid hsl(var(--border) / 0.5);
+}
+
+/* Dark mode paper adjustments */
+.dark .editor-document {
+  box-shadow:
+    0 1px 1px rgba(0,0,0,0.1),
+    0 2px 4px rgba(0,0,0,0.1),
+    0 4px 8px rgba(0,0,0,0.1),
+    0 8px 16px rgba(0,0,0,0.08),
+    0 16px 32px rgba(0,0,0,0.06);
+  border: 1px solid hsl(var(--border) / 0.3);
 }
 
 /* Editor container background */
@@ -850,6 +996,76 @@ button {
 .page-number {
   color: hsl(var(--muted-foreground) / 0.4) !important;
   font-size: 0.65rem;
+}
+
+/* Page break indicators - elegant and subtle */
+.page-break-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    hsl(var(--border) / 0.3) 10%,
+    hsl(var(--border) / 0.5) 50%,
+    hsl(var(--border) / 0.3) 90%,
+    transparent 100%
+  );
+}
+
+.page-break-indicator::before {
+  content: attr(data-page);
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.65rem;
+  color: hsl(var(--muted-foreground) / 0.4);
+  background: hsl(var(--card));
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-family: var(--font-outfit), sans-serif;
+}
+
+/* Line numbers - refined styling */
+.line-numbers-gutter {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3rem;
+  padding-top: 4rem;
+  padding-right: 0.5rem;
+  text-align: right;
+  font-size: 0.7rem;
+  font-family: var(--font-geist-mono), monospace;
+  color: hsl(var(--muted-foreground) / 0.3);
+  user-select: none;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    hsl(var(--muted) / 0.5) 0%,
+    hsl(var(--muted) / 0.2) 80%,
+    transparent 100%
+  );
+  border-right: 1px solid hsl(var(--border) / 0.2);
+}
+
+.line-number {
+  line-height: 1.15;
+  height: calc(12pt * 1.15);
+}
+
+.line-number:hover {
+  color: hsl(var(--muted-foreground) / 0.6);
+}
+
+/* Current line highlight in gutter */
+.line-number.current {
+  color: hsl(var(--primary) / 0.8);
+  font-weight: 500;
 }
 
 /* Classic: Full-width edge-to-edge like Google Docs */

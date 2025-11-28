@@ -64,7 +64,9 @@ export default authEdge((req) => {
   const isLoggedIn = !!req.auth
   const { pathname } = req.nextUrl
   const host = req.headers.get("host") || ""
-  const protocol = req.nextUrl.protocol.replace(":", "")
+  // Use x-forwarded-proto header (set by Vercel) or default to https in production
+  const forwardedProto = req.headers.get("x-forwarded-proto")
+  const protocol = forwardedProto || (host.includes("localhost") ? "http" : "https")
 
   // Determine if we're on app subdomain (only in production)
   const onAppSubdomain = isAppSubdomain(host)

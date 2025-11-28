@@ -23,6 +23,12 @@ import {
 } from '@/components/ui/select';
 import { useSettings } from '@/contexts/settings-context';
 import { detectAndFormatScreenplay } from '@/lib/screenplay-formatter';
+import {
+  isSceneHeading,
+  isTransition,
+  isParenthetical,
+  couldBeCharacterName,
+} from '@/lib/screenplay-patterns';
 import { toast } from 'sonner';
 import {
   Undo2,
@@ -149,6 +155,7 @@ export function ScreenplayEditor({
   const [isTyping, setIsTyping] = useState(false);
   const [zenMode, setZenMode] = useState(false);
   const [viewMode, setViewMode] = useState<'single' | 'spread'>('single');
+  const [syntaxHighlighting, setSyntaxHighlighting] = useState(true);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Autocomplete state
@@ -1111,63 +1118,101 @@ export function ScreenplayEditor({
     const currentLine = text.substring(lineStart, lineEnd === -1 ? text.length : lineEnd);
     const isAtLineEnd = cursorPos === (lineEnd === -1 ? text.length : lineEnd) || text.substring(cursorPos, lineEnd === -1 ? text.length : lineEnd).trim() === '';
 
-    // Only apply smart behavior at end of line
-    if (!isAtLineEnd) return;
-
     const elementType = detectElementType(text, cursorPos);
 
-    // Tab key - switch to next element type
-    if (e.key === 'Tab' && !e.shiftKey) {
-      let insertText = '';
+    // Tab key - works both at end of line (switch element) and mid-line (insert indent)
+    if (e.key === 'Tab') {
+      e.preventDefault();
 
-      switch (elementType) {
-        case 'scene-heading':
-          // After scene heading, Tab goes to Action
-          insertText = '\n\n';
-          break;
-        case 'action':
-          // After action, Tab goes to Character
-          insertText = '\n\n                              ';
-          break;
-        case 'character':
-          // After character, Tab goes to Dialogue (but shift to parenthetical first?)
-          insertText = '\n                    ';
-          break;
-        case 'dialogue':
-          // After dialogue, Tab goes to next Character
-          insertText = '\n\n                              ';
-          break;
-        case 'parenthetical':
-          // After parenthetical, Tab goes to Dialogue
-          insertText = '\n                    ';
-          break;
-        case 'transition':
-          // After transition, Tab goes to Scene Heading
-          insertText = '\n\n';
-          break;
-        default:
-          return; // Don't prevent default for empty lines
+      if (e.shiftKey) {
+        // Shift+Tab: Remove indentation or go to previous element type
+        if (isAtLineEnd && currentLine.trim() !== '') {
+          // At end of line - cycle backwards through element types
+          let insertText = '';
+          switch (elementType) {
+            case 'character':
+              // Back to Action
+              insertText = '\n\n';
+              break;
+            case 'dialogue':
+              // Back to Character
+              insertText = '\n\n                              ';
+              break;
+            case 'parenthetical':
+              // Back to Character
+              insertText = '\n\n                              ';
+              break;
+            default:
+              // Default: just go to new action line
+              insertText = '\n\n';
+          }
+          const newText = text.substring(0, cursorPos) + insertText + text.substring(cursorPos);
+          const newCursorPos = cursorPos + insertText.length;
+          onChange(newText);
+          setTimeout(() => {
+            textarea.selectionStart = newCursorPos;
+            textarea.selectionEnd = newCursorPos;
+          }, 0);
+        }
+        return;
       }
 
-      e.preventDefault();
-      const newText = text.substring(0, cursorPos) + insertText + text.substring(cursorPos);
-      const newCursorPos = cursorPos + insertText.length;
-      onChange(newText);
-
-      setTimeout(() => {
-        textarea.selectionStart = newCursorPos;
-        textarea.selectionEnd = newCursorPos;
-        textarea.focus();
-      }, 0);
+      // Regular Tab
+      if (isAtLineEnd && currentLine.trim() !== '') {
+        // At end of non-empty line - switch to next element type
+        let insertText = '';
+        switch (elementType) {
+          case 'scene-heading':
+            insertText = '\n\n';
+            break;
+          case 'action':
+            insertText = '\n\n                              '; // Character indent
+            break;
+          case 'character':
+            insertText = '\n                    '; // Dialogue indent
+            break;
+          case 'dialogue':
+            insertText = '\n\n                              '; // Next character
+            break;
+          case 'parenthetical':
+            insertText = '\n                    '; // Dialogue
+            break;
+          case 'transition':
+            insertText = '\n\n';
+            break;
+          default:
+            insertText = '    '; // Just insert spaces for empty/unknown
+        }
+        const newText = text.substring(0, cursorPos) + insertText + text.substring(cursorPos);
+        const newCursorPos = cursorPos + insertText.length;
+        onChange(newText);
+        setTimeout(() => {
+          textarea.selectionStart = newCursorPos;
+          textarea.selectionEnd = newCursorPos;
+        }, 0);
+      } else {
+        // Mid-line or empty line - insert 4 spaces
+        const insertText = '    ';
+        const newText = text.substring(0, cursorPos) + insertText + text.substring(cursorPos);
+        const newCursorPos = cursorPos + insertText.length;
+        onChange(newText);
+        setTimeout(() => {
+          textarea.selectionStart = newCursorPos;
+          textarea.selectionEnd = newCursorPos;
+        }, 0);
+      }
       return;
     }
 
     // Enter key - continue same element or go to next logical element
     if (e.key === 'Enter' && !e.shiftKey) {
-      // Check if we're on an empty line (double enter = new element)
+      // Check if we're on an empty line (double enter = reset to action)
       if (currentLine.trim() === '') {
         return; // Let default Enter behavior happen
       }
+
+      // Only apply smart behavior at end of line
+      if (!isAtLineEnd) return;
 
       let insertText = '\n';
 
@@ -1181,8 +1226,8 @@ export function ScreenplayEditor({
           insertText = '\n';
           break;
         case 'character':
-          // After character, Enter goes to Parenthetical
-          insertText = '\n                    (';
+          // After character, Enter goes to Dialogue (not parenthetical)
+          insertText = '\n                    ';
           break;
         case 'dialogue':
           // After dialogue, Enter continues dialogue
@@ -1254,14 +1299,135 @@ export function ScreenplayEditor({
     };
   }, []);
 
+  // Syntax highlighting - determine element type for each line
+  type SyntaxElementType = 'scene-heading' | 'character' | 'dialogue' | 'parenthetical' | 'transition' | 'action';
+
+  const getElementType = useCallback((line: string, prevLine: string, nextLine: string): SyntaxElementType => {
+    const trimmed = line.trim();
+
+    if (!trimmed) return 'action'; // Empty lines are action
+
+    if (isSceneHeading(trimmed)) return 'scene-heading';
+    if (isTransition(trimmed)) return 'transition';
+    if (isParenthetical(trimmed)) return 'parenthetical';
+
+    // Character detection: uppercase, followed by dialogue or parenthetical
+    if (couldBeCharacterName(trimmed)) {
+      const nextTrimmed = nextLine?.trim() || '';
+      // If next line is dialogue or parenthetical, this is a character
+      if (nextTrimmed && !isSceneHeading(nextTrimmed) && !isTransition(nextTrimmed)) {
+        // Next line exists and isn't empty or a scene heading/transition
+        if (isParenthetical(nextTrimmed) || (nextTrimmed && nextTrimmed !== nextTrimmed.toUpperCase())) {
+          return 'character';
+        }
+      }
+    }
+
+    // Dialogue: after character or parenthetical, lowercase text
+    const prevTrimmed = prevLine?.trim() || '';
+    if (prevTrimmed) {
+      if (couldBeCharacterName(prevTrimmed) || isParenthetical(prevTrimmed)) {
+        // Previous line was character or parenthetical, this might be dialogue
+        if (trimmed && trimmed !== trimmed.toUpperCase() && !isSceneHeading(trimmed)) {
+          return 'dialogue';
+        }
+      }
+      // Also check if previous was dialogue (continuation)
+      if (!isSceneHeading(prevTrimmed) && !isTransition(prevTrimmed) &&
+          prevTrimmed !== prevTrimmed.toUpperCase() && !isParenthetical(prevTrimmed)) {
+        // Check if we're still in a dialogue block (look for character above)
+        // Simple heuristic: if line is mixed case and not a scene/transition, could be dialogue
+      }
+    }
+
+    return 'action';
+  }, []);
+
+  // Helper to highlight search matches within a line
+  const highlightSearchInLine = useCallback((line: string, lineStartIndex: number): React.ReactNode => {
+    if (!findText || searchResults.length === 0) {
+      return line || '\u200B';
+    }
+
+    // Find all search results that fall within this line
+    const lineEndIndex = lineStartIndex + line.length;
+    const matchesInLine = searchResults.filter(
+      (result) => result.index >= lineStartIndex && result.index < lineEndIndex
+    );
+
+    if (matchesInLine.length === 0) {
+      return line || '\u200B';
+    }
+
+    // Build highlighted line
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+
+    matchesInLine.forEach((match, i) => {
+      const matchStart = match.index - lineStartIndex;
+      const matchEnd = matchStart + match.length;
+
+      // Add text before match
+      if (matchStart > lastIndex) {
+        parts.push(line.substring(lastIndex, matchStart));
+      }
+
+      // Check if this is the current match
+      const isCurrentMatch = searchResults.indexOf(match) === currentSearchIndex;
+
+      // Add highlighted match
+      parts.push(
+        <mark
+          key={`match-${i}`}
+          className={cn('search-highlight', isCurrentMatch && 'search-highlight-current')}
+        >
+          {line.substring(matchStart, matchEnd)}
+        </mark>
+      );
+
+      lastIndex = matchEnd;
+    });
+
+    // Add remaining text
+    if (lastIndex < line.length) {
+      parts.push(line.substring(lastIndex));
+    }
+
+    return parts.length > 0 ? parts : '\u200B';
+  }, [findText, searchResults, currentSearchIndex]);
+
+  // Memoized syntax highlighted content
+  const syntaxHighlightedContent = useMemo(() => {
+    if (!syntaxHighlighting) return null;
+
+    const lines = screenplayText.split('\n');
+    let charIndex = 0;
+
+    return lines.map((line, index) => {
+      const prevLine = index > 0 ? lines[index - 1] : '';
+      const nextLine = index < lines.length - 1 ? lines[index + 1] : '';
+      const elementType = getElementType(line, prevLine, nextLine);
+      const className = `syntax-${elementType}`;
+
+      const lineStartIndex = charIndex;
+      charIndex += line.length + 1; // +1 for newline
+
+      return (
+        <div key={index} className={className}>
+          {highlightSearchInLine(line, lineStartIndex)}
+        </div>
+      );
+    });
+  }, [screenplayText, syntaxHighlighting, getElementType, highlightSearchInLine]);
+
   const getLineNumbers = () => {
     if (!showLineNumbers) return null;
-    
+
     const lines = screenplayText.split('\n');
     return (
-      <div className="absolute left-0 top-0 bottom-0 w-12 bg-muted border-r border-border text-right pr-2 pt-16 text-xs text-muted-foreground select-none">
+      <div className="line-numbers-gutter">
         {lines.map((_, i) => (
-          <div key={i} className="leading-relaxed" style={{ lineHeight: '1.5' }}>
+          <div key={i} className="line-number">
             {i + 1}
           </div>
         ))}
@@ -1273,18 +1439,17 @@ export function ScreenplayEditor({
     if (!showPageBreaks) return null;
 
     const pageBreaks = [];
+    // 55 lines per page * line-height 1.15 * 12pt font (16px base * 0.75)
+    const lineHeightPx = 12 * 1.15 * (16 / 12); // ~18.4px per line
     for (let i = 1; i < pageCount; i++) {
-      const topPosition = i * 55 * 1.5 * 16; // 55 lines * line height * font size
+      const topPosition = i * 55 * lineHeightPx + 64; // +64px for padding-top
       pageBreaks.push(
         <div
           key={i}
-          className="absolute left-0 right-0 h-6 bg-muted/30 pointer-events-none flex items-center justify-center border-y border-border/20"
+          className="page-break-indicator"
           style={{ top: `${topPosition}px` }}
-        >
-          <span className="text-xs text-muted-foreground/60 bg-background/80 px-3 py-0.5 rounded-full">
-            Page {i + 1}
-          </span>
-        </div>
+          data-page={`Page ${i + 1}`}
+        />
       );
     }
 
@@ -2018,6 +2183,20 @@ export function ScreenplayEditor({
               >
                 {getLineNumbers()}
                 {getPageBreaks()}
+
+                {/* Syntax highlighting overlay - renders colored text */}
+                {syntaxHighlighting && (
+                  <div
+                    className={cn(
+                      "syntax-highlight-overlay",
+                      showLineNumbers && "pl-20"
+                    )}
+                    aria-hidden="true"
+                  >
+                    {syntaxHighlightedContent}
+                  </div>
+                )}
+
                 <textarea
                   ref={textareaRef}
                   value={screenplayText}
@@ -2049,12 +2228,13 @@ export function ScreenplayEditor({
                   }}
                   onPaste={handlePaste}
                   className={cn(
-                    "w-full min-h-[11in] p-16",
-                    "bg-transparent text-foreground",
+                    "w-full min-h-[11in] p-16 relative z-10",
+                    "bg-transparent",
                     "font-screenplay",
                     "border-0 outline-none resize-none",
                     "typing-textarea",
-                    showLineNumbers && "pl-20"
+                    showLineNumbers && "pl-20",
+                    syntaxHighlighting ? "syntax-enabled-textarea" : "text-foreground"
                   )}
                   placeholder="FADE IN:"
                   spellCheck={settings.editor.spellCheck}
