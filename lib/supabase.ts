@@ -6,7 +6,7 @@ export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export type ImageBucket = 'avatars' | 'banners' | 'team-assets' | 'scene-images'
+export type ImageBucket = 'avatars' | 'banners' | 'team-assets' | 'scene-images' | 'project-assets'
 
 /**
  * Upload an image to Supabase Storage

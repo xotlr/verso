@@ -346,6 +346,7 @@ export default function TeamPage() {
               id: team.id,
               name: team.name,
               logo: team.logo,
+              banner: team.banner,
               description: team.description,
               website: team.website,
               ownerId: team.ownerId,

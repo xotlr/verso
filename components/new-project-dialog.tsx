@@ -19,6 +19,8 @@ interface ProjectItem {
   id: string;
   name: string;
   description: string | null;
+  banner: string | null;
+  logo: string | null;
   updatedAt: string;
   _count: {
     screenplays: number;
@@ -66,9 +68,11 @@ export function NewProjectDialog({ isOpen, onClose, onCreated }: NewProjectDialo
       }
 
       const project = await response.json();
-      // Add default _count for new projects
+      // Add default values for new projects
       const projectWithCount: ProjectItem = {
         ...project,
+        banner: project.banner || null,
+        logo: project.logo || null,
         _count: {
           screenplays: 0,
           notes: 0,

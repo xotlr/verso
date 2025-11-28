@@ -42,7 +42,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && focusMode) {
-        setFocusMode(false);
+        window.dispatchEvent(new CustomEvent('focus-mode-toggle'));
       }
     };
 
@@ -53,36 +53,37 @@ export default function AppLayout({ children }: AppLayoutProps) {
   return (
     <ProductivityProvider>
       <SidebarProvider defaultOpen={!focusMode && !isEditorRoute}>
-        {/* Sidebar - hidden in focus mode */}
+        {/* Sidebar - slides out in focus mode */}
         <div className={cn(
-          "transition-all duration-300",
-          focusMode && "hidden"
+          "transition-all duration-500 ease-out",
+          focusMode && "opacity-0 -translate-x-full pointer-events-none"
         )}>
           <AppSidebar />
         </div>
 
         <SidebarInset className={cn(
-          "flex flex-col h-screen transition-all duration-300",
+          "flex flex-col h-screen transition-all duration-500 ease-out",
           focusMode && "!ml-0"
         )}>
           {/* Header - hidden in focus mode */}
           {showAppHeader && !focusMode && <AppHeader />}
 
-          {/* Focus mode exit button */}
-          {focusMode && (
-            <div className="fixed top-4 right-4 z-50">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 opacity-60 hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm"
-                onClick={() => setFocusMode(false)}
-                title="Exit Focus Mode (Esc)"
-              >
-                <Minimize2 className="h-4 w-4" />
-                <span className="text-xs">Exit Focus</span>
-              </Button>
-            </div>
-          )}
+          {/* Focus mode exit button - appears with fade */}
+          <div className={cn(
+            "fixed top-4 right-4 z-50 transition-all duration-300 ease-out",
+            focusMode ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
+          )}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 opacity-70 hover:opacity-100 transition-opacity bg-background/90 backdrop-blur-sm shadow-lg"
+              onClick={() => window.dispatchEvent(new CustomEvent('focus-mode-toggle'))}
+              title="Exit Focus Mode (Esc)"
+            >
+              <Minimize2 className="h-4 w-4" />
+              <span className="text-xs">Exit Focus</span>
+            </Button>
+          </div>
 
           <main className={cn(
             "flex-1 overflow-hidden transition-all duration-300",

@@ -161,6 +161,8 @@ model Project {
   name        String
   description String?  @db.Text
   coverImage  String?
+  banner      String?  // Banner image URL
+  logo        String?  // Project logo/icon URL
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

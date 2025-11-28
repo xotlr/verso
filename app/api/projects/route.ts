@@ -65,6 +65,8 @@ export async function GET(request: Request) {
         name: true,
         description: true,
         coverImage: true,
+        banner: true,
+        logo: true,
         createdAt: true,
         updatedAt: true,
         teamId: true,

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NewProjectDialog } from '@/components/new-project-dialog';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +19,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Search,
   Clock,
@@ -30,11 +38,14 @@ import {
   Film,
   FileText,
 } from 'lucide-react';
+import { getMeshGradientStyle } from '@/lib/avatar-gradient';
 
 interface ProjectItem {
   id: string;
   name: string;
   description: string | null;
+  banner: string | null;
+  logo: string | null;
   updatedAt: string;
   _count: {
     screenplays: number;
@@ -48,7 +59,6 @@ export default function ProjectsPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
@@ -184,40 +194,58 @@ export default function ProjectsPage() {
               ))}
             </div>
           ) : filteredProjects.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-muted rounded-2xl mb-6">
-                <FolderOpen className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                {searchQuery ? 'No projects found' : 'No projects yet'}
-              </h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                {searchQuery
-                  ? 'Try a different search term'
-                  : 'Create a project to organize your screenplays, notes, schedules, and budgets'}
-              </p>
-              {!searchQuery && (
-                <Button onClick={() => setNewProjectOpen(true)} className="gap-2">
-                  <Plus className="h-5 w-5" />
-                  Create Project
-                </Button>
-              )}
-            </div>
+            <EmptyState
+              icon={<FolderOpen className="h-8 w-8 text-muted-foreground" />}
+              title={searchQuery ? 'No projects found' : 'No projects yet'}
+              description={searchQuery
+                ? 'Try a different search term'
+                : 'Create a project to organize your screenplays, notes, schedules, and budgets'}
+              action={!searchQuery ? {
+                label: 'Create Project',
+                onClick: () => setNewProjectOpen(true),
+                icon: <Plus className="h-5 w-5" />,
+              } : undefined}
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredProjects.map((project) => (
                 <div
                   key={project.id}
-                  className="group relative bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200"
-                  onMouseEnter={() => setHoveredCard(project.id)}
-                  onMouseLeave={() => setHoveredCard(null)}
+                  className="group relative bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200 overflow-hidden"
                 >
                   <Link href={`/project/${project.id}`}>
-                    <div className="p-5 cursor-pointer">
+                    {/* Banner */}
+                    <div className="h-20 relative">
+                      {project.banner ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={project.banner}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div
+                          className="w-full h-full"
+                          style={getMeshGradientStyle(project.id)}
+                        />
+                      )}
+                      {/* Logo overlay */}
+                      {project.logo && (
+                        <div className="absolute -bottom-4 left-4">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={project.logo}
+                            alt=""
+                            className="w-10 h-10 rounded-lg border-2 border-card object-cover shadow-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className={`p-5 cursor-pointer ${project.logo ? 'pt-6' : ''}`}>
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1.5">
-                            <Folder className="h-4 w-4 text-primary flex-shrink-0" />
+                            {!project.logo && <Folder className="h-4 w-4 text-primary flex-shrink-0" />}
                             <h3 className="text-base font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
                               {project.name}
                             </h3>
@@ -229,15 +257,33 @@ export default function ProjectsPage() {
                             </span>
                           </div>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
-                          className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                          <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                        </button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => router.push(`/project/${project.id}`)}>
+                              <FolderOpen className="mr-2 h-4 w-4" />
+                              Open
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setDeleteTarget(project.id)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
 
                       <p className="text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
@@ -259,27 +305,6 @@ export default function ProjectsPage() {
                       </div>
                     </div>
                   </Link>
-
-                  {/* Action Menu */}
-                  {hoveredCard === project.id && (
-                    <div className="absolute top-14 right-4 bg-card border border-border rounded-xl shadow-xl py-1 z-10 min-w-[140px] animate-fade-in">
-                      <button
-                        onClick={() => (window.location.href = `/project/${project.id}`)}
-                        className="w-full px-3 py-2 text-sm text-left text-foreground hover:bg-accent flex items-center gap-2 transition-colors"
-                      >
-                        <FolderOpen className="h-4 w-4" />
-                        Open
-                      </button>
-                      <hr className="my-1 border-border" />
-                      <button
-                        onClick={() => setDeleteTarget(project.id)}
-                        className="w-full px-3 py-2 text-sm text-left text-destructive hover:bg-destructive/10 flex items-center gap-2 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </button>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

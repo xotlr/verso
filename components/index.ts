@@ -1,4 +1,3 @@
-export * from './screenplay-editor';
 export * from './screenplay-editor-wrapper';
 export * from './screenplay-sidebar';
 export * from './character-timeline';

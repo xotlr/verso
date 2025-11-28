@@ -361,10 +361,6 @@
     line-height: 1.15;
   }
 
-  .screenplay-editor {
-    @apply font-screenplay;
-  }
-
   /* Screenplay element typography - authentic formatting */
   .screenplay-element-scene-heading {
     text-transform: uppercase;
@@ -438,31 +434,6 @@
     color: hsl(25 95% 60%);
   }
 
-  /* Syntax overlay container */
-  .syntax-highlight-overlay {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow: hidden;
-    font-family: var(--font-courier-prime), 'Courier New', Courier, monospace;
-    font-size: 12pt;
-    line-height: 1.15;
-    padding: 4rem;
-  }
-
-  /* Make textarea text invisible but keep caret visible */
-  .syntax-enabled-textarea {
-    color: transparent !important;
-    caret-color: hsl(var(--foreground)) !important;
-    background: transparent !important;
-  }
-
-  .syntax-enabled-textarea::selection {
-    background: hsl(var(--primary) / 0.3);
-  }
-
   /* Search highlighting in editor */
   .search-highlight {
     background: hsl(48 96% 53% / 0.4); /* Yellow */
@@ -486,238 +457,58 @@
     outline-color: hsl(25 95% 53% / 0.6);
   }
 
-  /* ===== SATISFYING TYPING ===== */
-  .typing-textarea {
-    caret-color: hsl(var(--foreground));
-    color: hsl(var(--foreground)) !important;
-    transition: box-shadow 0.15s ease-out;
-
-    /* Better typography */
-    font-size: 12pt;
-    line-height: 1.6;
-    letter-spacing: 0.01em;
-    word-spacing: 0.02em;
-    font-variant-numeric: tabular-nums;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  /* Override browser default link colors in textarea */
-  textarea {
-    color: inherit;
-  }
-
-  .typing-textarea:focus {
-    box-shadow: none;
-    outline: none;
-  }
-
-  .typing-textarea::selection {
-    background: hsl(var(--primary) / 0.15);
-  }
-
-  /* Typing pulse effect - subtle feedback on keystrokes */
-  @keyframes typing-pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.001); }
-    100% { transform: scale(1); }
-  }
-
-  .typing-active {
-    animation: typing-pulse 0.1s ease-out;
-  }
-
-  /* Caret pulse on typing */
-  @keyframes caret-pulse {
-    0% { box-shadow: 0 0 0 0 hsl(var(--foreground) / 0.1); }
-    100% { box-shadow: 0 0 0 3px hsl(var(--foreground) / 0); }
-  }
-
-  /* Subtle ink effect on the paper */
-  .typing-container {
-    position: relative;
-    transition: transform 0.05s ease-out;
-  }
-
-  .typing-container.is-typing {
-    animation: typing-pulse 0.08s ease-out;
-  }
-
-  .typing-container::after {
-    content: '';
-    position: absolute;
-    inset: 0;
+  /* Element type indicator */
+  .element-indicator {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.375rem 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 9999px;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    color: hsl(var(--muted-foreground));
+    opacity: 0.8;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 40;
     pointer-events: none;
-    opacity: 0;
-    background: radial-gradient(circle at var(--cursor-x, 50%) var(--cursor-y, 50%), hsl(var(--foreground) / 0.02) 0%, transparent 40%);
-    transition: opacity 0.15s ease-out;
   }
 
-  .typing-container.is-typing::after {
+  .element-indicator:hover {
     opacity: 1;
   }
 
-  /* Smooth caret styling */
-  .typing-textarea {
-    caret-color: hsl(var(--foreground));
+  .element-indicator[data-type="scene-heading"] {
+    color: hsl(217 91% 55%);
+    border-color: hsl(217 91% 55% / 0.3);
   }
 
-  .typing-container.is-typing .typing-textarea {
-    animation: caret-pulse 0.2s ease-out;
+  .element-indicator[data-type="character"] {
+    color: hsl(271 81% 60%);
+    border-color: hsl(271 81% 60% / 0.3);
   }
 
-  /* ===== CUSTOM CURSOR EFFECTS ===== */
-
-  /* CSS Custom Properties for cursor */
-  :root {
-    --cursor-color: hsl(var(--foreground));
-    --cursor-glow-color: hsl(var(--foreground) / 0.5);
-    --cursor-blink-speed: 530ms;
-    --cursor-width: 2px;
-    --cursor-height: 1.2em;
-    --cursor-glow-intensity: 0.3;
+  .element-indicator[data-type="dialogue"] {
+    color: hsl(var(--foreground));
   }
 
-  /* Blink animations - GPU accelerated using opacity only */
-  @keyframes cursor-blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
+  .element-indicator[data-type="parenthetical"] {
+    color: hsl(var(--muted-foreground));
+    font-style: italic;
   }
 
-  @keyframes cursor-blink-smooth {
-    0%, 40% { opacity: 1; }
-    50% { opacity: 0.2; }
-    60%, 100% { opacity: 1; }
+  .element-indicator[data-type="transition"] {
+    color: hsl(25 95% 55%);
+    border-color: hsl(25 95% 55% / 0.3);
   }
 
-  @keyframes cursor-blink-expand {
-    0%, 40% {
-      opacity: 1;
-      transform: scaleY(1);
-    }
-    50% {
-      opacity: 0.7;
-      transform: scaleY(0.85);
-    }
-    60%, 100% {
-      opacity: 1;
-      transform: scaleY(1);
-    }
-  }
-
-  @keyframes cursor-glow-pulse {
-    0%, 100% {
-      filter: drop-shadow(0 0 0px var(--cursor-glow-color));
-    }
-    50% {
-      filter: drop-shadow(0 0 calc(6px * var(--cursor-glow-intensity)) var(--cursor-glow-color));
-    }
-  }
-
-  /* Custom cursor overlay base */
-  .cursor-overlay {
-    position: absolute;
-    pointer-events: none;
-    z-index: 10;
-    will-change: transform, opacity;
-    transform: translateZ(0); /* Force GPU layer */
-    contain: strict; /* Contain layout/paint/style */
-  }
-
-  /* Cursor shapes */
-  .cursor-line {
-    width: var(--cursor-width);
-    height: var(--cursor-height);
-    background: var(--cursor-color);
-    border-radius: 1px;
-  }
-
-  .cursor-block {
-    width: 0.55em;
-    height: var(--cursor-height);
-    background: var(--cursor-color);
-    opacity: 0.35;
-    border-radius: 2px;
-  }
-
-  .cursor-underscore {
-    width: 0.55em;
-    height: 2px;
-    background: var(--cursor-color);
-    margin-top: calc(var(--cursor-height) - 2px);
-  }
-
-  /* Blink style modifiers */
-  .cursor-blink-blink {
-    animation: cursor-blink var(--cursor-blink-speed) step-end infinite;
-  }
-
-  .cursor-blink-smooth {
-    animation: cursor-blink-smooth var(--cursor-blink-speed) ease-in-out infinite;
-  }
-
-  .cursor-blink-expand {
-    animation: cursor-blink-expand var(--cursor-blink-speed) ease-in-out infinite;
-    transform-origin: center bottom;
-  }
-
-  /* Glow effect */
-  .cursor-glow {
-    animation: cursor-glow-pulse calc(var(--cursor-blink-speed) * 1.5) ease-in-out infinite;
-  }
-
-  /* CRITICAL: Disable animations when typing (immediate visual feedback) */
-  .cursor-typing {
-    animation: none !important;
-    opacity: 1 !important;
-  }
-
-  /* Smooth position movement (optional) */
-  .cursor-smooth-move {
-    transition: transform 50ms ease-out;
-  }
-
-  /* Hide native cursor when using custom overlay */
-  .cursor-overlay-active .typing-textarea {
-    caret-color: transparent !important;
-  }
-
-  /* Native cursor color customization */
-  .cursor-native-custom .typing-textarea {
-    caret-color: var(--cursor-color) !important;
-  }
-
-  /* Mobile: Disable custom cursor entirely - use native */
-  @media (max-width: 767px) {
-    .cursor-overlay {
-      display: none !important;
-    }
-
-    .cursor-overlay-active .typing-textarea {
-      caret-color: var(--cursor-color) !important; /* Restore native cursor */
-    }
-  }
-
-  /* Reduced motion: Disable all cursor animations */
-  @media (prefers-reduced-motion: reduce) {
-    .cursor-overlay,
-    .cursor-native-custom .typing-textarea {
-      animation: none !important;
-      transition: none !important;
-    }
-
-    .cursor-blink-blink,
-    .cursor-blink-smooth,
-    .cursor-blink-expand,
-    .cursor-glow {
-      animation: none !important;
-    }
-  }
-
-  /* Animate blink cursor utility class */
-  .animate-blink-cursor {
-    animation: cursor-blink 1s step-end infinite;
+  .element-indicator[data-type="action"] {
+    color: hsl(var(--muted-foreground));
   }
 
   /* ===== TOOLBAR ===== */

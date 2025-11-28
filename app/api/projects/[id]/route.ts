@@ -125,6 +125,8 @@ const updateProjectSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().optional().nullable(),
   coverImage: z.string().optional().nullable(),
+  banner: z.string().url().optional().nullable(),
+  logo: z.string().url().optional().nullable(),
 })
 
 // PUT /api/projects/[id] - Update a project (workspace)

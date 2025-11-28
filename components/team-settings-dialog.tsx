@@ -48,6 +48,7 @@ import {
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { ImageUpload } from '@/components/image-upload'
 
 interface TeamMember {
   id: string
@@ -76,6 +77,7 @@ interface TeamData {
   id: string
   name: string
   logo: string | null
+  banner: string | null
   description: string | null
   website: string | null
   ownerId: string
@@ -119,6 +121,8 @@ export function TeamSettingsDialog({
   const [name, setName] = useState(team.name)
   const [description, setDescription] = useState(team.description || '')
   const [website, setWebsite] = useState(team.website || '')
+  const [banner, setBanner] = useState<string | undefined>(team.banner || undefined)
+  const [logo, setLogo] = useState<string | undefined>(team.logo || undefined)
   const [isSaving, setIsSaving] = useState(false)
 
   // Members state
@@ -162,7 +166,7 @@ export function TeamSettingsDialog({
       const response = await fetch(`/api/teams/${team.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description, website }),
+        body: JSON.stringify({ name, description, website, banner: banner || null, logo: logo || null }),
       })
 
       if (!response.ok) {
@@ -272,6 +276,35 @@ export function TeamSettingsDialog({
 
           {/* General Tab */}
           <TabsContent value="general" className="space-y-4 mt-4">
+            {/* Images Section */}
+            {isAdmin && session?.user?.id && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Banner Image</Label>
+                  <p className="text-xs text-muted-foreground">Recommended: 3:1 aspect ratio</p>
+                  <ImageUpload
+                    value={banner}
+                    onChange={setBanner}
+                    bucket="banners"
+                    userId={session.user.id}
+                    aspectRatio="banner"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Team Logo</Label>
+                  <p className="text-xs text-muted-foreground">Square image works best</p>
+                  <ImageUpload
+                    value={logo}
+                    onChange={setLogo}
+                    bucket="team-assets"
+                    userId={session.user.id}
+                    aspectRatio="square"
+                    className="w-32"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="name">Team Name</Label>
               <Input

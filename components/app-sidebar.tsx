@@ -60,7 +60,8 @@ import { NavMenuItem } from "@/components/nav-menu-item";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import { FormattingGuideDialog } from "@/components/formatting-guide-dialog";
 import { TemplateSelector } from "@/components/template-selector";
-import { Template } from "@/types/templates";
+import { NewProjectDialog } from "@/components/new-project-dialog";
+import { useCreateScreenplay } from "@/hooks/useCreateScreenplay";
 
 interface AppSidebarProps {
   screenplayId?: string;
@@ -145,27 +146,10 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [formattingGuideOpen, setFormattingGuideOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
 
-  // Handle template selection
-  const handleTemplateSelect = async (template: Template) => {
-    try {
-      const response = await fetch('/api/screenplays', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: template.name === 'Blank Screenplay' ? 'Untitled Screenplay' : template.name,
-          content: template.content,
-        }),
-      });
-
-      if (response.ok) {
-        const screenplay = await response.json();
-        router.push(`/editor/${screenplay.id}`);
-      }
-    } catch (error) {
-      console.error('Error creating screenplay:', error);
-    }
-  };
+  // Use shared hook for screenplay creation
+  const { createScreenplay } = useCreateScreenplay();
 
   // Main navigation items
   const mainNavItems = [
@@ -238,33 +222,29 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
         {/* New Buttons */}
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link
-                href="/home?newProject=true"
-                className={cn(
-                  "w-full justify-center border border-dashed border-border rounded-md",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  isCollapsed && "px-0"
-                )}
-              >
-                <FolderOpen className="h-4 w-4" />
-                {!isCollapsed && <span className="ml-2">New Project</span>}
-              </Link>
+            <SidebarMenuButton
+              onClick={() => setNewProjectOpen(true)}
+              className={cn(
+                "w-full justify-center border border-dashed border-border rounded-md",
+                "hover:bg-accent hover:text-accent-foreground",
+                isCollapsed && "px-0"
+              )}
+            >
+              <FolderOpen className="h-4 w-4" />
+              {!isCollapsed && <span className="ml-2">New Project</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link
-                href="/home?new=true"
-                className={cn(
-                  "w-full justify-center border border-dashed border-border rounded-md",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  isCollapsed && "px-0"
-                )}
-              >
-                <Plus className="h-4 w-4" />
-                {!isCollapsed && <span className="ml-2">New Screenplay</span>}
-              </Link>
+            <SidebarMenuButton
+              onClick={() => setTemplateSelectorOpen(true)}
+              className={cn(
+                "w-full justify-center border border-dashed border-border rounded-md",
+                "hover:bg-accent hover:text-accent-foreground",
+                isCollapsed && "px-0"
+              )}
+            >
+              <Plus className="h-4 w-4" />
+              {!isCollapsed && <span className="ml-2">New Screenplay</span>}
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -480,7 +460,15 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
       <TemplateSelector
         isOpen={templateSelectorOpen}
         onClose={() => setTemplateSelectorOpen(false)}
-        onSelect={handleTemplateSelect}
+        onSelect={createScreenplay}
+      />
+      <NewProjectDialog
+        isOpen={newProjectOpen}
+        onClose={() => setNewProjectOpen(false)}
+        onCreated={(project) => {
+          setNewProjectOpen(false);
+          router.push(`/project/${project.id}`);
+        }}
       />
     </Sidebar>
   );

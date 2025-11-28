@@ -1,21 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ScreenplayEditor } from "./screenplay-editor";
+import { ProseMirrorEditor } from "./prosemirror";
 import { EditorFloatingPanel } from "./editor-floating-panel";
 import { VersionHistorySidebar } from "./version-history-sidebar";
 import { VersionCompareDialog } from "./version-compare-dialog";
 import { SceneWorkspacePanel } from "./scene-workspace-panel";
-import { ConnectionStatus } from "./pwa/connection-status";
 import { ConflictDialog } from "./pwa/conflict-dialog";
 import { Scene, Character, Location } from "@/types/screenplay";
 import { ScreenplayVersion } from "@/types/version";
 import { parseScreenplayText } from "@/lib/screenplay-utils";
+import { proseMirrorToPlainText, isProseMirrorContent } from "@/lib/prosemirror";
 import { useSettings } from "@/contexts/settings-context";
 import { useOfflineSave } from "@/hooks/use-offline-save";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import type { SceneInfo, CharacterInfo } from "@/hooks/editor/useProseMirrorEditor";
 
 interface ScreenplayEditorWrapperProps {
   projectId: string; // Actually screenplayId - keeping prop name for compatibility
@@ -249,6 +250,36 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayE
     }
   }, [screenplayId]);
 
+  // Handle scene/character extraction from ProseMirror
+  // Must be declared before early return to follow React hooks rules
+  const handleScenesChange = useCallback((sceneInfos: SceneInfo[], charInfos: CharacterInfo[]) => {
+    // Convert ProseMirror SceneInfo to existing Scene type
+    const convertedScenes: Scene[] = sceneInfos.map((s, idx) => ({
+      id: s.id,
+      number: idx + 1,
+      heading: `${s.type}. ${s.location} - ${s.timeOfDay}`,
+      location: {
+        id: s.location.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+        name: s.location,
+        type: s.type as 'INT' | 'EXT' | 'INT/EXT',
+        color: '#666',
+      },
+      timeOfDay: s.timeOfDay as Scene['timeOfDay'],
+      elements: [],
+      characters: [],
+    }));
+    setScenes(convertedScenes);
+
+    // Convert ProseMirror CharacterInfo to existing Character type
+    const convertedChars: Character[] = charInfos.map((c) => ({
+      id: c.id,
+      name: c.name,
+      color: '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'),
+      appearances: [],
+    }));
+    setCharacters(convertedChars);
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -264,24 +295,15 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayE
 
   return (
     <div className={cn("h-full relative", `layout-${layoutMode}`)}>
-      <ScreenplayEditor
-        projectId={screenplayId}
-        screenplayText={screenplayText}
-        onChange={handleTextChange}
+      <ProseMirrorEditor
+        content={screenplayText}
+        onContentChange={handleTextChange}
+        onScenesChange={handleScenesChange}
         onSave={() => saveScreenplay(screenplayText, true)}
         isSaving={isSaving}
-        scenes={scenes}
-        characters={characters}
-        onSceneClick={(scene) => setSelectedSceneId(scene.id)}
-        selectedSceneId={selectedSceneId}
-        onTogglePanel={() => setIsPanelOpen(!isPanelOpen)}
-        isPanelOpen={isPanelOpen}
-        onToggleVersionHistory={() => setIsVersionHistoryOpen(true)}
-        screenplayType={screenplayType}
-        season={season}
-        episode={episode}
-        episodeTitle={episodeTitle}
-        onEpisodeInfoChange={handleEpisodeInfoChange}
+        editable={true}
+        showElementIndicator={true}
+        showStats={true}
       />
       <EditorFloatingPanel
         isOpen={isPanelOpen}
@@ -315,16 +337,6 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayE
         currentContent={screenplayText}
         version={compareVersion}
         onRestore={handleRestore}
-      />
-
-      {/* Offline/Sync Status Indicator */}
-      <ConnectionStatus
-        syncStatus={syncStatus}
-        isOnline={isOnline}
-        isSyncing={isSyncing}
-        pendingCount={pendingCount}
-        onRetrySync={forceSync}
-        onResolveConflict={() => setShowConflictDialog(true)}
       />
 
       {/* Conflict Resolution Dialog */}

@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
 import Link from 'next/link';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { formatDistanceToNow } from 'date-fns';
-import { toast } from 'sonner';
 
 // Smart algorithm to determine if a greeting works with a name appended
 function shouldShowName(greeting: string): boolean {
@@ -274,7 +273,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Template } from '@/types/templates';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useCreateScreenplay } from '@/hooks/useCreateScreenplay';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ImportDropZoneCard, ImportResult } from '@/components/import-drop-zone';
 import {
@@ -292,6 +299,7 @@ import {
   Folder,
 } from 'lucide-react';
 import { PendingInviteBanner } from '@/components/pending-invite-banner';
+import { getMeshGradientStyle } from '@/lib/avatar-gradient';
 
 interface ScreenplayItem {
   id: string;
@@ -307,6 +315,8 @@ interface ProjectItem {
   id: string;
   name: string;
   description: string | null;
+  banner: string | null;
+  logo: string | null;
   updatedAt: string;
   _count: {
     screenplays: number;
@@ -319,7 +329,6 @@ interface ProjectItem {
 type TabValue = 'screenplays' | 'projects';
 
 function WorkspacePageContent() {
-  const searchParams = useSearchParams();
   const router = useRouter();
   const { data: session } = useSession();
   const [screenplays, setScreenplays] = useState<ScreenplayItem[]>([]);
@@ -332,7 +341,6 @@ function WorkspacePageContent() {
     [session?.user?.name, screenplays.length, Math.floor(Date.now() / 60000)]
   );
   const [searchQuery, setSearchQuery] = useState('');
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
@@ -341,21 +349,12 @@ function WorkspacePageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabValue>('screenplays');
 
+  // Use shared hook for screenplay creation
+  const { createScreenplay } = useCreateScreenplay();
+
   useEffect(() => {
     loadData();
   }, []);
-
-  // Handle ?new=true query parameter
-  useEffect(() => {
-    if (searchParams.get('new') === 'true') {
-      setTemplateSelectorOpen(true);
-      router.replace('/home', { scroll: false });
-    }
-    if (searchParams.get('newProject') === 'true') {
-      setNewProjectOpen(true);
-      router.replace('/home', { scroll: false });
-    }
-  }, [searchParams, router]);
 
   // Command palette keyboard shortcut
   useEffect(() => {
@@ -414,30 +413,6 @@ function WorkspacePageContent() {
 
   const createNewProject = () => {
     setNewProjectOpen(true);
-  };
-
-  const createFromTemplate = async (template: Template) => {
-    try {
-      const response = await fetch('/api/screenplays', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: template.name === 'Blank Screenplay' ? 'Untitled Screenplay' : template.name,
-          content: template.content,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to create screenplay (${response.status})`);
-      }
-
-      const screenplay = await response.json();
-      window.location.href = `/editor/${screenplay.id}`;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to create screenplay';
-      toast.error(message);
-    }
   };
 
   const handleProjectCreated = (project: ProjectItem) => {
@@ -532,7 +507,7 @@ function WorkspacePageContent() {
       <TemplateSelector
         isOpen={templateSelectorOpen}
         onClose={() => setTemplateSelectorOpen(false)}
-        onSelect={createFromTemplate}
+        onSelect={createScreenplay}
       />
       <NewProjectDialog
         isOpen={newProjectOpen}
@@ -643,23 +618,16 @@ function WorkspacePageContent() {
           ) : activeTab === 'screenplays' ? (
             // Screenplays Grid
             filteredScreenplays.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-muted rounded-2xl mb-6">
-                  <FileText className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-xl font-semibold text-foreground mb-2">
-                  {searchQuery ? 'No screenplays found' : 'No screenplays yet'}
-                </h3>
-                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                  {searchQuery ? 'Try a different search term' : 'Create your first screenplay and bring your stories to life'}
-                </p>
-                {!searchQuery && (
-                  <Button onClick={createNewScreenplay} className="gap-2">
-                    <Plus className="h-5 w-5" />
-                    Create Screenplay
-                  </Button>
-                )}
-              </div>
+              <EmptyState
+                icon={<FileText className="h-8 w-8 text-muted-foreground" />}
+                title={searchQuery ? 'No screenplays found' : 'No screenplays yet'}
+                description={searchQuery ? 'Try a different search term' : 'Create your first screenplay and bring your stories to life'}
+                action={!searchQuery ? {
+                  label: 'Create Screenplay',
+                  onClick: createNewScreenplay,
+                  icon: <Plus className="h-5 w-5" />,
+                } : undefined}
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {/* Import Drop Zone Card */}
@@ -672,8 +640,6 @@ function WorkspacePageContent() {
                   <div
                     key={screenplay.id}
                     className="group relative bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200"
-                    onMouseEnter={() => setHoveredCard(screenplay.id)}
-                    onMouseLeave={() => setHoveredCard(null)}
                   >
                     <Link href={`/editor/${screenplay.id}`}>
                       <div className="p-5 cursor-pointer">
@@ -687,15 +653,37 @@ function WorkspacePageContent() {
                               <span>{formatDistanceToNow(new Date(screenplay.updatedAt), { addSuffix: true })}</span>
                             </div>
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }}
-                            className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                          >
-                            <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                          </button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                              >
+                                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => router.push(`/editor/${screenplay.id}`)}>
+                                <Edit3 className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => exportScreenplay(screenplay)}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Export
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => deleteItem(screenplay.id, 'screenplay')}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
 
                         <div className="flex items-center justify-between mt-4">
@@ -717,34 +705,6 @@ function WorkspacePageContent() {
                         </div>
                       </div>
                     </Link>
-
-                    {/* Action Menu */}
-                    {hoveredCard === screenplay.id && (
-                      <div className="absolute top-14 right-4 bg-card border border-border rounded-xl shadow-xl py-1 z-10 min-w-[140px] animate-fade-in">
-                        <button
-                          onClick={() => window.location.href = `/editor/${screenplay.id}`}
-                          className="w-full px-3 py-2 text-sm text-left text-foreground hover:bg-accent flex items-center gap-2 transition-colors"
-                        >
-                          <Edit3 className="h-4 w-4" />
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => exportScreenplay(screenplay)}
-                          className="w-full px-3 py-2 text-sm text-left text-foreground hover:bg-accent flex items-center gap-2 transition-colors"
-                        >
-                          <Download className="h-4 w-4" />
-                          Export
-                        </button>
-                        <hr className="my-1 border-border" />
-                        <button
-                          onClick={() => deleteItem(screenplay.id, 'screenplay')}
-                          className="w-full px-3 py-2 text-sm text-left text-destructive hover:bg-destructive/10 flex items-center gap-2 transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </button>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -752,34 +712,52 @@ function WorkspacePageContent() {
           ) : (
             // Projects Grid
             filteredProjects.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-muted rounded-2xl mb-6">
-                  <FolderOpen className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-xl font-semibold text-foreground mb-2">
-                  {searchQuery ? 'No projects found' : 'No projects yet'}
-                </h3>
-                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                  {searchQuery ? 'Try a different search term' : 'Create a project to organize your screenplays, notes, schedules, and budgets'}
-                </p>
-                {!searchQuery && (
-                  <Button onClick={createNewProject} className="gap-2">
-                    <Plus className="h-5 w-5" />
-                    Create Project
-                  </Button>
-                )}
-              </div>
+              <EmptyState
+                icon={<FolderOpen className="h-8 w-8 text-muted-foreground" />}
+                title={searchQuery ? 'No projects found' : 'No projects yet'}
+                description={searchQuery ? 'Try a different search term' : 'Create a project to organize your screenplays, notes, schedules, and budgets'}
+                action={!searchQuery ? {
+                  label: 'Create Project',
+                  onClick: createNewProject,
+                  icon: <Plus className="h-5 w-5" />,
+                } : undefined}
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {filteredProjects.map((project) => (
                   <div
                     key={project.id}
-                    className="group relative bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200"
-                    onMouseEnter={() => setHoveredCard(project.id)}
-                    onMouseLeave={() => setHoveredCard(null)}
+                    className="group relative bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200 overflow-hidden"
                   >
                     <Link href={`/project/${project.id}`}>
-                      <div className="p-5 cursor-pointer">
+                      {/* Banner */}
+                      <div className="h-20 relative">
+                        {project.banner ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={project.banner}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div
+                            className="w-full h-full"
+                            style={getMeshGradientStyle(project.id)}
+                          />
+                        )}
+                        {/* Logo overlay */}
+                        {project.logo && (
+                          <div className="absolute -bottom-4 left-4">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={project.logo}
+                              alt=""
+                              className="w-10 h-10 rounded-lg border-2 border-card object-cover shadow-sm"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className={`p-5 cursor-pointer ${project.logo ? 'pt-6' : ''}`}>
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1 min-w-0">
                             <h3 className="text-base font-semibold text-foreground mb-1.5 line-clamp-1 group-hover:text-primary transition-colors">
@@ -790,15 +768,33 @@ function WorkspacePageContent() {
                               <span>{formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}</span>
                             </div>
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }}
-                            className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                          >
-                            <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                          </button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                              >
+                                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => router.push(`/project/${project.id}`)}>
+                                <FolderOpen className="mr-2 h-4 w-4" />
+                                Open
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => deleteItem(project.id, 'project')}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
 
                         <p className="text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
@@ -815,27 +811,6 @@ function WorkspacePageContent() {
                         </div>
                       </div>
                     </Link>
-
-                    {/* Action Menu */}
-                    {hoveredCard === project.id && (
-                      <div className="absolute top-14 right-4 bg-card border border-border rounded-xl shadow-xl py-1 z-10 min-w-[140px] animate-fade-in">
-                        <button
-                          onClick={() => window.location.href = `/project/${project.id}`}
-                          className="w-full px-3 py-2 text-sm text-left text-foreground hover:bg-accent flex items-center gap-2 transition-colors"
-                        >
-                          <FolderOpen className="h-4 w-4" />
-                          Open
-                        </button>
-                        <hr className="my-1 border-border" />
-                        <button
-                          onClick={() => deleteItem(project.id, 'project')}
-                          className="w-full px-3 py-2 text-sm text-left text-destructive hover:bg-destructive/10 flex items-center gap-2 transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </button>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>

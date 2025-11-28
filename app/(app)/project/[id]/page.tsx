@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TemplateSelector } from '@/components/template-selector';
-import { Template } from '@/types/templates';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useCreateScreenplay } from '@/hooks/useCreateScreenplay';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +21,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   ArrowLeft,
   Plus,
@@ -95,11 +103,13 @@ export default function ProjectPage() {
   const [project, setProject] = useState<ProjectData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabValue>('screenplays');
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [addLinkDialogOpen, setAddLinkDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: TabValue | 'link' } | null>(null);
   const [externalLinks, setExternalLinks] = useState<ExternalLinkData[]>([]);
+
+  // Use shared hook for screenplay creation
+  const { createScreenplay } = useCreateScreenplay();
 
   useEffect(() => {
     if (projectId) {
@@ -134,27 +144,6 @@ export default function ProjectPage() {
       console.error('Error loading project:', error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const createScreenplay = async (template: Template) => {
-    try {
-      const response = await fetch('/api/screenplays', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: template.name === 'Blank Screenplay' ? 'Untitled Screenplay' : template.name,
-          content: template.content,
-          projectId,
-        }),
-      });
-
-      if (response.ok) {
-        const screenplay = await response.json();
-        router.push(`/editor/${screenplay.id}`);
-      }
-    } catch (error) {
-      console.error('Error creating screenplay:', error);
     }
   };
 
@@ -265,7 +254,7 @@ export default function ProjectPage() {
       <TemplateSelector
         isOpen={templateSelectorOpen}
         onClose={() => setTemplateSelectorOpen(false)}
-        onSelect={createScreenplay}
+        onSelect={(template) => createScreenplay(template, projectId)}
       />
 
       <AddLinkDialog
@@ -367,14 +356,17 @@ export default function ProjectPage() {
             {/* Screenplays Tab */}
             <TabsContent value="screenplays">
               {project.screenplays.length === 0 ? (
-                <div className="text-center py-16 border border-dashed border-border rounded-xl">
-                  <Film className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No screenplays yet</h3>
-                  <p className="text-muted-foreground mb-4">Add a screenplay to this project</p>
-                  <Button onClick={() => setTemplateSelectorOpen(true)} className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Add Screenplay
-                  </Button>
+                <div className="border border-dashed border-border rounded-xl">
+                  <EmptyState
+                    icon={<Film className="h-8 w-8 text-muted-foreground" />}
+                    title="No screenplays yet"
+                    description="Add a screenplay to this project"
+                    action={{
+                      label: 'Add Screenplay',
+                      onClick: () => setTemplateSelectorOpen(true),
+                      icon: <Plus className="h-4 w-4" />,
+                    }}
+                  />
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -382,8 +374,6 @@ export default function ProjectPage() {
                     <div
                       key={screenplay.id}
                       className="group relative bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200"
-                      onMouseEnter={() => setHoveredItem(screenplay.id)}
-                      onMouseLeave={() => setHoveredItem(null)}
                     >
                       <Link href={`/editor/${screenplay.id}`}>
                         <div className="p-5 cursor-pointer">
@@ -391,15 +381,33 @@ export default function ProjectPage() {
                             <h3 className="text-base font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
                               {screenplay.title}
                             </h3>
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                              className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                            >
-                              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                            </button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                                >
+                                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => router.push(`/editor/${screenplay.id}`)}>
+                                  <Edit3 className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setDeleteTarget({ id: screenplay.id, type: 'screenplays' })}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                           <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                             {screenplay.synopsis || 'No synopsis'}
@@ -410,26 +418,6 @@ export default function ProjectPage() {
                           </div>
                         </div>
                       </Link>
-
-                      {hoveredItem === screenplay.id && (
-                        <div className="absolute top-14 right-4 bg-card border border-border rounded-xl shadow-xl py-1 z-10 min-w-[140px]">
-                          <button
-                            onClick={() => router.push(`/editor/${screenplay.id}`)}
-                            className="w-full px-3 py-2 text-sm text-left text-foreground hover:bg-accent flex items-center gap-2"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                            Edit
-                          </button>
-                          <hr className="my-1 border-border" />
-                          <button
-                            onClick={() => setDeleteTarget({ id: screenplay.id, type: 'screenplays' })}
-                            className="w-full px-3 py-2 text-sm text-left text-destructive hover:bg-destructive/10 flex items-center gap-2"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete
-                          </button>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -511,16 +499,17 @@ export default function ProjectPage() {
             {/* Resources Tab */}
             <TabsContent value="resources">
               {externalLinks.length === 0 ? (
-                <div className="text-center py-16 border border-dashed border-border rounded-xl">
-                  <LinkIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No resources yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Add links to Google Docs, research materials, or any external references
-                  </p>
-                  <Button onClick={() => setAddLinkDialogOpen(true)} className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Add Link
-                  </Button>
+                <div className="border border-dashed border-border rounded-xl">
+                  <EmptyState
+                    icon={<LinkIcon className="h-8 w-8 text-muted-foreground" />}
+                    title="No resources yet"
+                    description="Add links to Google Docs, research materials, or any external references"
+                    action={{
+                      label: 'Add Link',
+                      onClick: () => setAddLinkDialogOpen(true),
+                      icon: <Plus className="h-4 w-4" />,
+                    }}
+                  />
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
