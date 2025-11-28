@@ -7,14 +7,99 @@ import { useSession } from 'next-auth/react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
-// Playful, creative greetings based on time, day, season, and activity
-function getGreeting(userName?: string | null, screenplayCount?: number): { text: string; name?: string } {
-  const hour = new Date().getHours();
-  const day = new Date().getDay();
-  const month = new Date().getMonth();
+// Smart algorithm to determine if a greeting works with a name appended
+function shouldShowName(greeting: string): boolean {
+  // Never show name if greeting contains "you" or "your" (already addresses user)
+  if (/\byou\b|\byour\b/i.test(greeting)) return false;
+
+  // Never show name for complete sentences (ends with period, !, or ?)
+  if (/[.!?]$/.test(greeting)) return false;
+
+  // Never show name for metaphorical/poetic phrases
+  const skipPatterns = [
+    /awaits/i, /begins/i, /activated/i, /engaged/i, /incoming/i,
+    /loading/i, /mode:/i, /thickens/i, /calling/i, /strikes/i,
+    /flows/i, /blinks/i, /fears/i, /counts/i, /misses/i
+  ];
+  if (skipPatterns.some(p => p.test(greeting))) return false;
+
+  // Show name for direct address patterns
+  const directAddressPatterns = [
+    /^good (morning|afternoon|evening|night)/i,
+    /^welcome/i, /^hey/i, /^hello/i, /^hi\b/i,
+    /^happy/i
+  ];
+  if (directAddressPatterns.some(p => p.test(greeting))) return true;
+
+  // Show name for short phrases (2-3 words) without colons
+  const words = greeting.split(' ');
+  if (words.length <= 3 && !greeting.includes(':')) return true;
+
+  // Default: don't show name
+  return false;
+}
+
+// Holiday-specific greetings
+function getHolidayGreetings(month: number, day: number): string[] | null {
+  // New Year's (Jan 1-3)
+  if (month === 0 && day <= 3) return [
+    "Happy New Year", "New year, new screenplay", "Fresh start energy",
+    "Time to write your best year yet"
+  ];
+  // Valentine's Day (Feb 14)
+  if (month === 1 && day === 14) return [
+    "Write something romantic today", "Happy Valentine's Day",
+    "Love stories start here"
+  ];
+  // St. Patrick's Day (Mar 17)
+  if (month === 2 && day === 17) return [
+    "Feeling lucky", "May your dialogue be golden"
+  ];
+  // April Fools (Apr 1)
+  if (month === 3 && day === 1) return [
+    "No joke, time to write", "Plot twist ahead"
+  ];
+  // Independence Day (Jul 4)
+  if (month === 6 && day === 4) return [
+    "Happy 4th", "Declare your creative independence"
+  ];
+  // Halloween (Oct 25-31)
+  if (month === 9 && day >= 25) return [
+    "Spooky screenplay season", "Write something scary",
+    "The horror draft awaits", "Frighteningly good writing weather"
+  ];
+  // Thanksgiving (Nov 22-28)
+  if (month === 10 && day >= 22 && day <= 28) return [
+    "Grateful for stories", "Write what you're thankful for"
+  ];
+  // Christmas season (Dec 15-25)
+  if (month === 11 && day >= 15 && day <= 25) return [
+    "Happy holidays", "Tis the season to write",
+    "Holiday magic on the page", "The gift of storytelling"
+  ];
+  // New Year's Eve (Dec 31)
+  if (month === 11 && day === 31) return [
+    "Last writes of the year", "Finish the year strong",
+    "One more scene before midnight"
+  ];
+  // Award Season (Feb-Mar)
+  if (month === 1 || month === 2) return [
+    "Oscar season inspiration", "Award-worthy writing awaits",
+    "And the award goes to"
+  ];
+  return null;
+}
+
+// Playful, creative greetings based on time, day, season, activity, and holidays
+function getGreeting(userName?: string | null, screenplayCount?: number): { text: string; showName: boolean; name?: string } {
+  const now = new Date();
+  const hour = now.getHours();
+  const day = now.getDay();
+  const month = now.getMonth();
+  const dayOfMonth = now.getDate();
   const firstName = userName?.split(' ')[0];
 
-  // Playful time-based greetings (10+ per period)
+  // Time-based greetings (fixed boundaries: night = 9PM-5AM)
   const timeGreetings: Record<string, string[]> = {
     morning: [
       "Rise and write",
@@ -25,37 +110,42 @@ function getGreeting(userName?: string | null, screenplayCount?: number): { text
       "Fresh morning, fresh pages",
       "Sunrise storytelling",
       "Good morning, wordsmith",
+      "Good morning",
       "Time to caffeinate and create",
       "The morning draft awaits",
+      "Bright ideas for a bright morning",
+      "Morning pages",
     ],
     afternoon: [
       "Afternoon plot twist incoming",
       "The afternoon writing window is open",
       "Prime writing hours activated",
-      "Your characters miss you",
       "Post-lunch creativity surge",
       "Afternoon act two",
       "The mid-day muse strikes",
       "Dialogue time",
-      "Your screenplay awaits",
       "Afternoon inspiration loading",
+      "Good afternoon",
+      "Peak creativity hours",
+      "The afternoon shift",
+      "Midday momentum",
     ],
     evening: [
       "Evening pages await",
       "Golden hour for golden dialogue",
       "The evening draft calls",
-      "Sunset, but your story's just beginning",
       "Evening writing ritual",
       "Twilight tales",
       "Wind down with words",
       "The quiet hours begin",
-      "Evening edit session?",
       "Dusk to draft",
+      "Good evening",
+      "Sunset scripting",
+      "Evening edit time",
+      "The evening muse awakens",
     ],
     night: [
-      "Late night writing session?",
       "Burning the midnight oil",
-      "When the world sleeps, writers create",
       "Night owl mode: engaged",
       "The muse works late tonight",
       "Moonlit manuscript time",
@@ -63,81 +153,107 @@ function getGreeting(userName?: string | null, screenplayCount?: number): { text
       "Late night legends are written now",
       "Quiet hours, loud ideas",
       "The night shift begins",
-      "Insomnia? Write something",
       "Stars out, scripts out",
+      "Midnight magic",
+      "The world sleeps, writers create",
+      "Night writer",
+      "After hours creativity",
     ],
   };
 
-  // Day-based additions (every day of the week)
+  // Day-based greetings
   const daySpecial: Record<number, string[]> = {
-    0: ["Sunday story time", "Weekend writing vibes", "Lazy Sunday, busy pen", "Sunday screenplay brunch"],
-    1: ["Monday momentum", "New week, new scenes", "Monday motivation", "Fresh start energy"],
-    2: ["Tuesday tales", "Second day surge", "Two days in, keep going"],
-    3: ["Midweek magic", "Wednesday words", "Hump day hustle", "Halfway there"],
-    4: ["Thursday thoughts", "Almost Friday focus", "The week's best ideas come now"],
-    5: ["Friday finale energy", "End the week with a bang", "Friday flow state", "Weekend's calling, but first..."],
-    6: ["Saturday screenplay marathon?", "Weekend creative mode", "Saturday sprint", "No deadlines, just your deadlines"],
+    0: ["Sunday story time", "Weekend writing vibes", "Lazy Sunday, busy pen", "Sunday screenplay brunch", "Sunday scripting"],
+    1: ["Monday momentum", "New week, new scenes", "Monday motivation", "Fresh start energy", "Monday magic"],
+    2: ["Tuesday tales", "Second day surge", "Two days in, keep going", "Tuesday productivity"],
+    3: ["Midweek magic", "Wednesday words", "Hump day hustle", "Halfway there", "Wednesday writing"],
+    4: ["Thursday thoughts", "Almost Friday focus", "Thursday momentum", "Thursday thunder"],
+    5: ["Friday finale energy", "Friday flow state", "Friday focus", "End the week strong"],
+    6: ["Saturday sprint", "Weekend creative mode", "Saturday scripting", "No deadlines, just passion"],
   };
 
-  // Season-based (4-5 per season)
+  // Season-based greetings
   const getSeason = (m: number) => m >= 2 && m <= 4 ? "spring" : m >= 5 && m <= 7 ? "summer" : m >= 8 && m <= 10 ? "fall" : "winter";
   const seasonGreetings: Record<string, string[]> = {
-    spring: ["Spring into your story", "Fresh season, fresh pages", "Bloom where you're planted", "Spring cleaning your draft?"],
+    spring: ["Spring into your story", "Fresh season, fresh pages", "Bloom where you write", "Spring creativity"],
     summer: ["Summer blockbuster in the making", "Hot takes, hotter scripts", "Beach reads start here", "Summer screenplay season"],
     fall: ["Fall into your narrative", "Sweater weather, screenplay weather", "Autumn acts", "Crisp air, crisp dialogue"],
     winter: ["Cozy writing weather", "Winter drafts (the good kind)", "Hibernation mode: write", "Snowbound and story-bound", "Warm drink, warm story"],
   };
 
-  // Activity-based (5-8 options)
-  const activityGreetings = screenplayCount === 0
-    ? [
-        "Ready to write your first masterpiece?",
-        "Your blank page awaits its destiny",
-        "Every great writer started here",
-        "Chapter one begins now",
-        "The cursor blinks with possibility",
-      ]
-    : [
-        "Your characters are waiting",
-        "Where were we?",
-        "Back for more?",
-        "The plot thickens",
-        "Ready to continue?",
-        "Let's pick up where we left off",
-        "Your story misses you",
-        "Time to add another page",
-      ];
+  // Activity-based greetings (tiered by screenplay count)
+  const getActivityGreetings = (count: number = 0): string[] => {
+    if (count === 0) return [
+      "Your blank page awaits",
+      "Every great writer started here",
+      "Chapter one begins now",
+      "The cursor blinks with possibility",
+      "Your first masterpiece awaits",
+    ];
+    if (count <= 4) return [
+      "Back for more",
+      "The plot thickens",
+      "Let's pick up where we left off",
+      "Time to add another page",
+      "Building momentum",
+    ];
+    if (count <= 9) return [
+      "The prolific writer returns",
+      "Another day, another scene",
+      "Your portfolio grows",
+      "Unstoppable",
+      "On a roll",
+    ];
+    return [
+      "The veteran returns",
+      "Master at work",
+      "Your empire of words",
+      "Legend status",
+      "The writing machine",
+    ];
+  };
 
-  // Generic fallbacks (always in pool)
+  // Generic fallbacks
   const genericGreetings = [
-    "What story will you tell today?",
     "The blank page fears you",
     "Write something brilliant",
-    "Your audience awaits",
     "Every word counts",
     "Make it memorable",
     "The cursor is ready",
     "Let the words flow",
+    "Create something great",
+    "Words await",
+    "Story time",
+    "Let's write",
   ];
 
-  // Determine time period
-  const timePeriod = hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 21 ? "evening" : "night";
+  // Determine time period (fixed: 0-4 AM is night, not morning)
+  const timePeriod =
+    (hour >= 5 && hour < 12) ? "morning" :
+    (hour >= 12 && hour < 17) ? "afternoon" :
+    (hour >= 17 && hour < 21) ? "evening" :
+    "night"; // 21-23 and 0-4
 
-  // Build pool of options (~25-30 at any time)
+  // Check for holiday greetings first (they get priority)
+  const holidayGreetings = getHolidayGreetings(month, dayOfMonth);
+
+  // Build pool of options
   const pool = [
     ...timeGreetings[timePeriod],
     ...daySpecial[day],
     ...seasonGreetings[getSeason(month)],
-    ...activityGreetings,
+    ...getActivityGreetings(screenplayCount),
     ...genericGreetings,
+    ...(holidayGreetings || []),
   ];
 
-  // Pick random from pool (seeded by minute so it doesn't flicker on re-render)
+  // Pick from pool (seeded by minute so it doesn't flicker on re-render)
   const minuteSeed = Math.floor(Date.now() / 60000);
   const greeting = pool[minuteSeed % pool.length];
 
   return {
     text: greeting,
+    showName: shouldShowName(greeting),
     name: firstName || undefined,
   };
 }
@@ -458,7 +574,7 @@ function WorkspacePageContent() {
               <div>
                 <h2 className="text-3xl font-bold text-foreground mb-1">
                   {greeting.text}
-                  {greeting.name && <span className="italic font-normal">, {greeting.name}</span>}
+                  {greeting.showName && greeting.name && <span className="italic font-normal">, {greeting.name}</span>}
                 </h2>
                 <p className="text-sm text-muted-foreground">
                   {projects.length} project{projects.length !== 1 ? 's' : ''} &middot; {screenplays.length} screenplay{screenplays.length !== 1 ? 's' : ''}

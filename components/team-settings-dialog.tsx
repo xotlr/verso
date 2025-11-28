@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { getSimpleGradientStyle } from '@/lib/avatar-gradient'
 import { Badge } from '@/components/ui/badge'
 import {
   Select,
@@ -333,8 +334,11 @@ export function TeamSettingsDialog({
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={member.user.image || undefined} />
-                        <AvatarFallback>
-                          {member.user.name?.[0] || member.user.email?.[0] || '?'}
+                        <AvatarFallback
+                          className="text-white font-medium"
+                          style={getSimpleGradientStyle(member.user.id)}
+                        >
+                          {member.user.name?.[0]?.toUpperCase() || member.user.email?.[0]?.toUpperCase() || '?'}
                         </AvatarFallback>
                       </Avatar>
                       <div>

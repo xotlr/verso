@@ -11,10 +11,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   ArrowLeft,
   Eye,
-  User,
   Calendar,
   Share2,
 } from 'lucide-react';
+import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
 import { formatDistanceToNow } from 'date-fns';
 
 interface PublicScreenplay {
@@ -162,8 +162,11 @@ export default function ReadPage() {
             >
               <Avatar className="h-6 w-6">
                 <AvatarImage src={screenplay.user.image || undefined} />
-                <AvatarFallback className="text-xs">
-                  {screenplay.user.name?.charAt(0) || <User className="h-3 w-3" />}
+                <AvatarFallback
+                  className="text-xs text-white font-medium"
+                  style={getSimpleGradientStyle(screenplay.user.id)}
+                >
+                  {screenplay.user.name?.charAt(0)?.toUpperCase() || '?'}
                 </AvatarFallback>
               </Avatar>
               <span>{screenplay.user.name || 'Anonymous'}</span>
@@ -199,8 +202,11 @@ export default function ReadPage() {
             <div className="flex items-start gap-4">
               <Avatar className="h-12 w-12">
                 <AvatarImage src={screenplay.user.image || undefined} />
-                <AvatarFallback>
-                  {screenplay.user.name?.charAt(0) || <User className="h-5 w-5" />}
+                <AvatarFallback
+                  className="text-white font-medium"
+                  style={getSimpleGradientStyle(screenplay.user.id)}
+                >
+                  {screenplay.user.name?.charAt(0)?.toUpperCase() || '?'}
                 </AvatarFallback>
               </Avatar>
               <div>

@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Loader2, Users, X } from 'lucide-react'
+import { getSimpleGradientStyle } from '@/lib/avatar-gradient'
 import { toast } from 'sonner'
 import { useTeam } from '@/contexts/team-context'
 
@@ -118,7 +119,12 @@ export function PendingInviteBanner() {
             <div className="flex items-start gap-4">
               <Avatar className="h-12 w-12 rounded-lg">
                 <AvatarImage src={invite.team.logo || undefined} className="rounded-lg" />
-                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                <AvatarFallback
+                  className="rounded-lg text-white font-semibold"
+                  style={getSimpleGradientStyle(invite.team.id)}
+                >
+                  {initials}
+                </AvatarFallback>
               </Avatar>
 
               <div className="flex-1 min-w-0">

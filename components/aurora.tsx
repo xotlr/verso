@@ -67,16 +67,16 @@ float snoise(vec2 v){
 }
 
 vec3 getGradientColor(float t) {
-  // 5-stop gradient
-  if (t < 0.25) {
-    return mix(uColorStops[0], uColorStops[1], t / 0.25);
-  } else if (t < 0.5) {
-    return mix(uColorStops[1], uColorStops[2], (t - 0.25) / 0.25);
-  } else if (t < 0.75) {
-    return mix(uColorStops[2], uColorStops[3], (t - 0.5) / 0.25);
-  } else {
-    return mix(uColorStops[3], uColorStops[4], (t - 0.75) / 0.25);
-  }
+  t = clamp(t, 0.0, 1.0);
+
+  // Smooth blend between all 5 stops without hard boundaries
+  vec3 color = uColorStops[0];
+  color = mix(color, uColorStops[1], smoothstep(0.0, 0.25, t));
+  color = mix(color, uColorStops[2], smoothstep(0.25, 0.5, t));
+  color = mix(color, uColorStops[3], smoothstep(0.5, 0.75, t));
+  color = mix(color, uColorStops[4], smoothstep(0.75, 1.0, t));
+
+  return color;
 }
 
 void main() {

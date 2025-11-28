@@ -10,6 +10,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Users, FolderOpen, Link as LinkIcon, Calendar } from 'lucide-react'
+import { getSimpleGradientStyle } from '@/lib/avatar-gradient'
 
 export interface TeamData {
   id: string
@@ -78,7 +79,12 @@ export function TeamHoverCard({
         <div className="px-4 -mt-8 relative">
           <Avatar className="h-16 w-16 border-4 border-card shadow-md rounded-xl">
             <AvatarImage src={team.logo || undefined} alt={team.name} />
-            <AvatarFallback className="text-lg rounded-xl">{initials}</AvatarFallback>
+            <AvatarFallback
+              className="text-lg rounded-xl text-white font-semibold"
+              style={getSimpleGradientStyle(team.id)}
+            >
+              {initials}
+            </AvatarFallback>
           </Avatar>
         </div>
 

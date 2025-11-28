@@ -77,9 +77,9 @@ export default function PricingPage() {
     {
       name: "Pro",
       description: "For serious screenwriters",
-      monthlyPrice: 12,
-      yearlyPrice: 99,
-      yearlyDiscount: "Save $45",
+      monthlyPrice: 12.99,
+      yearlyPrice: 99.99,
+      yearlyDiscount: "Save €56",
       features: [
         "Unlimited projects",
         "All export formats (PDF, FDX, Fountain)",
@@ -96,11 +96,11 @@ export default function PricingPage() {
       priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID,
     },
     {
-      name: "Team",
+      name: "MAX",
       description: "For writing teams & production",
-      monthlyPrice: 29,
-      yearlyPrice: 249,
-      yearlyDiscount: "Save $99",
+      monthlyPrice: 39.99,
+      yearlyPrice: 399.99,
+      yearlyDiscount: "Save €80",
       features: [
         "Everything in Pro",
         "Real-time collaboration",
@@ -111,7 +111,7 @@ export default function PricingPage() {
         "Admin controls",
       ],
       limitations: [],
-      cta: "Upgrade to Team",
+      cta: "Upgrade to MAX",
       priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_TEAM_MONTHLY_PRICE_ID,
       priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_TEAM_YEARLY_PRICE_ID,
     },
@@ -173,7 +173,7 @@ export default function PricingPage() {
               <div className="mb-6">
                 <div className="flex items-baseline gap-1">
                   <span className="text-5xl font-bold">
-                    ${isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                    €{isYearly ? plan.yearlyPrice : plan.monthlyPrice}
                   </span>
                   <span className="text-muted-foreground">
                     /{isYearly ? "year" : "month"}

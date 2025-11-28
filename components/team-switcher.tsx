@@ -51,7 +51,7 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
     return (
       <div className="flex items-center gap-3 px-3 py-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <span className="text-sm font-bold">V</span>
+          <span className="text-sm font-semibold">V</span>
         </div>
         {!isCollapsed && (
           <div className="flex flex-col gap-0.5">
@@ -77,7 +77,7 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
               {currentTeam ? (
                 <Users className="h-4 w-4" />
               ) : (
-                <span className="text-sm font-bold">V</span>
+                <span className="text-sm font-semibold">V</span>
               )}
             </div>
             {!isCollapsed && (
@@ -110,7 +110,7 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
             className="flex items-center gap-3 py-2"
           >
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <span className="text-xs font-bold">V</span>
+              <span className="text-xs font-semibold">V</span>
             </div>
             <div className="flex flex-col gap-0.5 flex-1">
               <span className="text-sm font-medium">Personal</span>

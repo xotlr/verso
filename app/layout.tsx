@@ -40,6 +40,7 @@ const outfit = Outfit({
   subsets: ["latin"],
 });
 
+
 export const metadata: Metadata = {
   title: "VERSO - Professional Screenplay Editor",
   description: "Write and format screenplays with AI assistance",

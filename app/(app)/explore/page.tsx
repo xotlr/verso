@@ -19,9 +19,9 @@ import {
   Search,
   Eye,
   Film,
-  User,
   Compass,
 } from 'lucide-react';
+import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
 
 interface PublicScreenplay {
   id: string;
@@ -187,8 +187,11 @@ export default function ExplorePage() {
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6">
                           <AvatarImage src={screenplay.user.image || undefined} />
-                          <AvatarFallback className="text-xs">
-                            {screenplay.user.name?.charAt(0) || <User className="h-3 w-3" />}
+                          <AvatarFallback
+                            className="text-xs text-white font-medium"
+                            style={getSimpleGradientStyle(screenplay.user.id)}
+                          >
+                            {screenplay.user.name?.charAt(0)?.toUpperCase() || '?'}
                           </AvatarFallback>
                         </Avatar>
                         <span className="text-xs text-muted-foreground">
