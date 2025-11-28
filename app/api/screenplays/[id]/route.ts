@@ -143,30 +143,7 @@ export async function PUT(
       }
     }
 
-    // Optimistic locking: check if server version has changed since client last fetched
-    if (expectedUpdatedAt !== undefined) {
-      const currentScreenplay = await prisma.screenplay.findUnique({
-        where: { id },
-        select: { updatedAt: true, content: true },
-      })
-
-      if (currentScreenplay) {
-        const serverUpdatedAt = currentScreenplay.updatedAt.getTime()
-        // Allow 1 second tolerance for timing differences
-        if (Math.abs(serverUpdatedAt - expectedUpdatedAt) > 1000) {
-          return NextResponse.json(
-            {
-              error: "CONFLICT",
-              message: "Server has newer changes",
-              serverUpdatedAt,
-              serverContent: currentScreenplay.content,
-            },
-            { status: 409 }
-          )
-        }
-      }
-    }
-
+    // Last-write-wins model - no conflict detection
     const screenplay = await prisma.screenplay.update({
       where: { id },
       data: {

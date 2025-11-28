@@ -75,8 +75,6 @@ export default function EditorPage() {
     <ProjectLayout
       projectId={id}
       projectTitle={documentTitle}
-      onToggleRightSidebar={toggleSidebar}
-      showRightSidebarToggle={true}
     >
       <CommandPalette
         isOpen={commandPaletteOpen}

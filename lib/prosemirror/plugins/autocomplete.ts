@@ -173,7 +173,7 @@ function getSuggestions(
     case 'location':
       return locations
         .filter((loc) => loc.toLowerCase().includes(lowerQuery))
-        .slice(0, 10)
+        .slice(0, 5)
         .map((loc) => ({
           label: loc,
           value: loc,
@@ -183,7 +183,7 @@ function getSuggestions(
     case 'character':
       return characters
         .filter((char) => char.toLowerCase().startsWith(lowerQuery))
-        .slice(0, 10)
+        .slice(0, 5)
         .map((char) => ({
           label: char,
           value: char,
@@ -299,14 +299,31 @@ export function createAutocompletePlugin(options: AutocompletePluginOptions = {}
             return true;
           }
 
-          case 'Tab':
-          case 'Enter': {
+          case ' ': {
+            // Space dismisses autocomplete and lets editor handle it
+            const newState = { ...initialState };
+            view.dispatch(view.state.tr.setMeta(autocompletePluginKey, newState));
+            onStateChange?.(newState);
+            return false; // Let space pass through to editor
+          }
+
+          case 'Tab': {
+            // Tab selects the current suggestion
             if (state.suggestions.length > 0) {
               event.preventDefault();
               const suggestion = state.suggestions[state.selectedIndex];
               applySuggestion(view, suggestion);
               return true;
             }
+            return false;
+          }
+
+          case 'Enter': {
+            // Enter dismisses autocomplete and lets element-switching handle it
+            const newState = { ...initialState };
+            view.dispatch(view.state.tr.setMeta(autocompletePluginKey, newState));
+            onStateChange?.(newState);
+            // Return false to allow element-switching plugin to create new block
             return false;
           }
 

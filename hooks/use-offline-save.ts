@@ -13,6 +13,15 @@ import {
   type OfflineDraft,
 } from '@/lib/pwa/offline-db'
 
+// Debug logging for sync operations
+const DEBUG_SYNC = true // Set to false in production
+
+const logSync = (message: string, data?: any) => {
+  if (DEBUG_SYNC) {
+    console.log(`[Sync Debug] ${message}`, data || '')
+  }
+}
+
 export type SyncStatus = 'synced' | 'pending' | 'syncing' | 'conflict' | 'offline'
 
 interface ConflictData {
@@ -80,7 +89,16 @@ export function useOfflineSave({
       if (draft) {
         localVersionRef.current = draft.localVersion
         if (draft.syncStatus === 'conflict') {
-          setSyncStatus('conflict')
+          // Validate conflict state before showing dialog
+          const conflictAge = Date.now() - (draft.lastModified || 0)
+          if (conflictAge > 5 * 60 * 1000) {
+            // Clear stale conflict (older than 5 minutes)
+            console.log('[Sync] Clearing stale conflict state')
+            await updateDraftStatus(screenplayId, 'pending')
+            setSyncStatus('pending')
+          } else {
+            setSyncStatus('conflict')
+          }
         } else if (draft.syncStatus === 'pending') {
           setSyncStatus('pending')
         }
@@ -103,6 +121,12 @@ export function useOfflineSave({
     expectedUpdatedAt?: number
   ): Promise<{ success: boolean; updatedAt?: number; conflict?: boolean; serverContent?: string }> => {
     try {
+      logSync('Starting server save', {
+        screenplayId,
+        hasExpectedUpdatedAt: expectedUpdatedAt !== undefined,
+        expectedUpdatedAt,
+      })
+
       const response = await fetch(`/api/screenplays/${screenplayId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -116,6 +140,11 @@ export function useOfflineSave({
       if (response.status === 409) {
         // Conflict detected
         const data = await response.json()
+        logSync('Conflict detected', {
+          expectedUpdatedAt,
+          serverUpdatedAt: data.serverUpdatedAt,
+          timeDiff: data.serverUpdatedAt - (expectedUpdatedAt || 0),
+        })
         return {
           success: false,
           conflict: true,
@@ -129,12 +158,15 @@ export function useOfflineSave({
       }
 
       const data = await response.json()
+      logSync('Server save successful', {
+        updatedAt: new Date(data.updatedAt).getTime(),
+      })
       return {
         success: true,
         updatedAt: new Date(data.updatedAt).getTime(),
       }
     } catch (error) {
-      console.error('Error saving to server:', error)
+      console.error('[Sync Error] Error saving to server:', error)
       return { success: false }
     }
   }, [screenplayId])
@@ -143,12 +175,14 @@ export function useOfflineSave({
   const processSyncQueue = useCallback(async () => {
     if (!isMountedRef.current || isSyncing) return
 
+    logSync('Processing sync queue')
     setIsSyncing(true)
     setSyncStatus('syncing')
 
     try {
       const queue = await getSyncQueue()
       const screenplayItems = queue.filter(item => item.screenplayId === screenplayId)
+      logSync(`Found ${screenplayItems.length} items in sync queue`)
 
       for (const item of screenplayItems) {
         if (!isMountedRef.current) break
@@ -317,7 +351,12 @@ export function useOfflineSave({
 
     if (resolution === 'local') {
       // Force overwrite server with local version
-      const result = await saveToServer(conflictData.localContent, conflictData.localTitle)
+      // Pass server timestamp to avoid immediate re-conflict
+      const result = await saveToServer(
+        conflictData.localContent,
+        conflictData.localTitle,
+        conflictData.serverUpdatedAt
+      )
       if (result.success) {
         await updateDraftStatus(screenplayId, 'synced', result.updatedAt)
         if (result.updatedAt) {

@@ -91,6 +91,7 @@ model User {
   writingSessions    WritingSession[]
   externalLinks      ExternalLink[]
   invitesSent        TeamInvite[]        @relation("InvitesSent")
+  activities         Activity[]
 
   @@index([plan]) // Used in limit checks
 }
@@ -421,4 +422,19 @@ model ExternalLink {
 
   @@index([projectId])
   @@index([userId])
+}
+
+// Activity feed for dashboard
+model Activity {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // "screenplay_created" | "screenplay_edited" | "project_created" | "screenplay_published"
+  entityId    String?  // ID of screenplay/project
+  entityTitle String?  // Cached title for display
+  metadata    Json?    // Extra context (word count delta, etc.)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }

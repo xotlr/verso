@@ -6,9 +6,6 @@ import { usePathname } from 'next/navigation';
 import {
   Save,
   Download,
-  Share2,
-  PanelRight,
-  MoreHorizontal,
   History,
 } from "lucide-react";
 
@@ -24,23 +21,13 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 interface ProjectHeaderProps {
   projectId: string;
   projectTitle: string;
   onSave?: () => void;
   onExport?: () => void;
-  onShare?: () => void;
   onHistory?: () => void;
-  onToggleRightSidebar?: () => void;
-  showRightSidebarToggle?: boolean;
   isSaving?: boolean;
   hasUnsavedChanges?: boolean;
 }
@@ -50,10 +37,7 @@ export function ProjectHeader({
   projectTitle,
   onSave,
   onExport,
-  onShare,
   onHistory,
-  onToggleRightSidebar,
-  showRightSidebarToggle = false,
   isSaving = false,
   hasUnsavedChanges = false,
 }: ProjectHeaderProps) {
@@ -85,14 +69,22 @@ export function ProjectHeader({
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href={`/editor/${projectId}`}>{projectTitle}</Link>
-              </BreadcrumbLink>
+              {getCurrentPage() === 'Editor' ? (
+                <BreadcrumbPage>{projectTitle}</BreadcrumbPage>
+              ) : (
+                <BreadcrumbLink asChild>
+                  <Link href={`/editor/${projectId}`}>{projectTitle}</Link>
+                </BreadcrumbLink>
+              )}
             </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{getCurrentPage()}</BreadcrumbPage>
-            </BreadcrumbItem>
+            {getCurrentPage() !== 'Editor' && (
+              <>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>{getCurrentPage()}</BreadcrumbPage>
+                </BreadcrumbItem>
+              </>
+            )}
           </BreadcrumbList>
         </Breadcrumb>
 
@@ -152,59 +144,6 @@ export function ProjectHeader({
           </Button>
         )}
 
-        {/* More actions dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {onSave && (
-              <DropdownMenuItem onClick={onSave} disabled={isSaving}>
-                <Save className="h-4 w-4 mr-2" />
-                Save
-              </DropdownMenuItem>
-            )}
-            {onExport && (
-              <DropdownMenuItem onClick={onExport}>
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </DropdownMenuItem>
-            )}
-            {onHistory && (
-              <DropdownMenuItem onClick={onHistory}>
-                <History className="h-4 w-4 mr-2" />
-                Version History
-              </DropdownMenuItem>
-            )}
-            {onShare && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onShare}>
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Right sidebar toggle */}
-        {showRightSidebarToggle && onToggleRightSidebar && (
-          <>
-            <Separator orientation="vertical" className="h-4 hidden sm:block" />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleRightSidebar}
-              className="h-8 w-8"
-              title="Toggle sidebar"
-            >
-              <PanelRight className="h-4 w-4" />
-            </Button>
-          </>
-        )}
       </div>
     </header>
   );

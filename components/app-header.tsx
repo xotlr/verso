@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Search, Bell, Settings, Maximize2 } from "lucide-react";
+import { Search, Bell, Settings } from "lucide-react";
 
 // Generate breadcrumbs from pathname
 function getBreadcrumbs(pathname: string): { label: string; href?: string }[] {
@@ -100,15 +100,6 @@ export function AppHeader() {
         </Button>
         <Button variant="ghost" size="icon" className="h-8 w-8">
           <Bell className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => window.dispatchEvent(new CustomEvent('focus-mode-toggle'))}
-          title="Focus Mode"
-        >
-          <Maximize2 className="h-4 w-4" />
         </Button>
         <ThemeToggle />
         <Button variant="ghost" size="icon" className="h-8 w-8" asChild>

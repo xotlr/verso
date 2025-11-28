@@ -2,6 +2,17 @@ import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 
+// Get cookie domain for subdomain sharing
+// Leading dot = all subdomains can access the cookie
+const getCookieDomain = () => {
+  // Production: enable cookie sharing between verso.ac and app.verso.ac
+  if (process.env.NODE_ENV === "production") {
+    return ".verso.ac"
+  }
+  // Development (localhost): no subdomain cookie sharing needed
+  return undefined
+}
+
 // Edge-compatible auth config for middleware
 // This config does NOT use PrismaAdapter or any database operations
 // It only validates JWT tokens for route protection
@@ -9,6 +20,21 @@ export const { auth: authEdge } = NextAuth({
   // No adapter - purely JWT-based session verification
   session: {
     strategy: "jwt",
+  },
+  // Cookie config MUST match auth.ts for cross-subdomain sessions to work
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === "production"
+        ? "__Secure-authjs.session-token"
+        : "authjs.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        domain: getCookieDomain(),
+      },
+    },
   },
   providers: [
     Google({

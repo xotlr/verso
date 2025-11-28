@@ -213,6 +213,7 @@ export function ProseMirrorEditor({
       className={cn(
         'pm-editor-wrapper',
         viewMode === 'dual' && 'pm-dual-mode',
+        isInFocusMode && 'pm-focus-mode',
         className
       )}
     >

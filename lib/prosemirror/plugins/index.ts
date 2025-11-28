@@ -7,6 +7,7 @@ import { createInputRulesPlugin } from './input-rules';
 import { createElementSwitchingPlugin } from './element-switching';
 import { createKeymapPlugin, createBaseKeymapPlugin } from './keymap';
 import { createPaginationPlugin } from './pagination';
+import { createSmartClickPlugin } from './smart-click';
 import { createAutocompletePlugin, AutocompletePluginOptions } from './autocomplete';
 
 export interface CreatePluginsOptions {
@@ -76,6 +77,9 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
     plugins.push(createPaginationPlugin());
   }
 
+  // Smart click-to-focus (nearest editable line)
+  plugins.push(createSmartClickPlugin());
+
   // Autocomplete suggestions
   if (opts.autocomplete) {
     plugins.push(createAutocompletePlugin(opts.autocompleteOptions || {}));
@@ -98,5 +102,6 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
 export { createInputRulesPlugin } from './input-rules';
 export { createElementSwitchingPlugin, elementCommands, setElementType } from './element-switching';
 export { createKeymapPlugin, createBaseKeymapPlugin, toggleBold, toggleItalic, toggleUnderline } from './keymap';
+export { createSmartClickPlugin, smartClickPluginKey } from './smart-click';
 export { createAutocompletePlugin, autocompletePluginKey, applySuggestion } from './autocomplete';
 export type { AutocompleteState, AutocompleteSuggestion, AutocompletePluginOptions } from './autocomplete';

@@ -9,9 +9,6 @@ interface ProjectLayoutProps {
   projectTitle: string;
   onSave?: () => void;
   onExport?: () => void;
-  onShare?: () => void;
-  onToggleRightSidebar?: () => void;
-  showRightSidebarToggle?: boolean;
   isSaving?: boolean;
   hasUnsavedChanges?: boolean;
   rightSidebar?: React.ReactNode;
@@ -25,9 +22,6 @@ export function ProjectLayout({
   projectTitle,
   onSave,
   onExport,
-  onShare,
-  onToggleRightSidebar,
-  showRightSidebarToggle = false,
   isSaving = false,
   hasUnsavedChanges = false,
   rightSidebar,
@@ -52,9 +46,6 @@ export function ProjectLayout({
           projectTitle={projectTitle}
           onSave={onSave}
           onExport={onExport}
-          onShare={onShare}
-          onToggleRightSidebar={onToggleRightSidebar}
-          showRightSidebarToggle={showRightSidebarToggle}
           isSaving={isSaving}
           hasUnsavedChanges={hasUnsavedChanges}
         />

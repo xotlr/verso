@@ -27,19 +27,21 @@ interface AutocompleteDropdownProps {
  * Get icon for suggestion category.
  */
 function getCategoryIcon(category: AutocompleteSuggestion['category']) {
+  const iconClass = "h-3 w-3 text-muted-foreground/60";
+
   switch (category) {
     case 'character':
-      return <User className="h-3.5 w-3.5" />;
+      return <User className={iconClass} />;
     case 'location':
-      return <MapPin className="h-3.5 w-3.5" />;
+      return <MapPin className={iconClass} />;
     case 'time':
-      return <Clock className="h-3.5 w-3.5" />;
+      return <Clock className={iconClass} />;
     case 'transition':
-      return <ArrowRight className="h-3.5 w-3.5" />;
+      return <ArrowRight className={iconClass} />;
     case 'extension':
-      return <Mic className="h-3.5 w-3.5" />;
+      return <Mic className={iconClass} />;
     default:
-      return <Film className="h-3.5 w-3.5" />;
+      return <Film className={iconClass} />;
   }
 }
 
@@ -97,21 +99,26 @@ export function AutocompleteDropdown({
       const viewportHeight = window.innerHeight;
 
       // Dropdown dimensions (estimated)
-      const dropdownWidth = 280;
-      const dropdownHeight = Math.min(state.suggestions.length * 44 + 8, 300);
+      const dropdownWidth = 200;
+      const dropdownHeight = Math.min(state.suggestions.length * 38 + 8, 220);
 
-      // Calculate left position
-      let left = coords.left;
+      // Offset configuration
+      const OFFSET_X = 40;  // pixels to the right
+      const OFFSET_Y = -4;  // slight upward adjustment
+
+      // Try positioning to the right of cursor
+      let left = coords.left + OFFSET_X;
+
+      // If too close to right edge, position to the left instead
       if (left + dropdownWidth > viewportWidth - 20) {
-        left = viewportWidth - dropdownWidth - 20;
+        left = coords.left - dropdownWidth - 10;
       }
       left = Math.max(10, left);
 
-      // Calculate top position (prefer below cursor)
-      let top = coords.bottom + 8;
+      // Position at cursor height, but flip above if needed
+      let top = coords.top + OFFSET_Y;
       if (top + dropdownHeight > viewportHeight - 20) {
-        // Position above cursor instead
-        top = coords.top - dropdownHeight - 8;
+        top = coords.top - dropdownHeight + OFFSET_Y;
       }
       top = Math.max(10, top);
 
@@ -129,11 +136,11 @@ export function AutocompleteDropdown({
     <div
       ref={dropdownRef}
       className={cn(
-        'fixed z-50 w-[280px] max-h-[300px]',
+        'fixed z-50 w-[200px] max-h-[220px]',
         'overflow-y-auto overscroll-contain',
-        'bg-popover/95 backdrop-blur-md',
-        'border border-border rounded-lg shadow-xl',
-        'animate-in fade-in-0 slide-in-from-top-2 duration-150',
+        'bg-popover/85 backdrop-blur-sm',
+        'border border-border/50 rounded-lg shadow-md',
+        'animate-in fade-in-0 duration-150',
         'py-1'
       )}
       style={{
@@ -146,15 +153,16 @@ export function AutocompleteDropdown({
           key={`${suggestion.category}-${suggestion.value}`}
           ref={index === state.selectedIndex ? selectedRef : null}
           className={cn(
-            'w-full flex items-center gap-3 px-3 py-2.5',
+            'w-full flex items-center gap-2 px-2.5 py-1.5',
             'text-left text-sm',
             'transition-colors duration-75',
-            'focus:outline-none',
+            'focus:outline-none rounded-sm',
             index === state.selectedIndex
-              ? 'bg-accent text-accent-foreground'
-              : 'hover:bg-accent/50'
+              ? 'bg-accent/30 text-accent-foreground'
+              : 'hover:bg-accent/15'
           )}
           onClick={() => onSelect(suggestion)}
+          onMouseDown={(e) => e.preventDefault()} // Prevent losing editor focus
           onMouseEnter={() => {
             // Update selected index on hover
             if (view) {
@@ -165,7 +173,7 @@ export function AutocompleteDropdown({
             }
           }}
         >
-          <span className={cn('flex-shrink-0', getCategoryColor(suggestion.category))}>
+          <span className="flex-shrink-0">
             {getCategoryIcon(suggestion.category)}
           </span>
           <span className="flex-1 truncate font-medium">
@@ -178,25 +186,6 @@ export function AutocompleteDropdown({
           )}
         </button>
       ))}
-
-      {/* Keyboard hint */}
-      <div className="px-3 py-1.5 border-t border-border mt-1">
-        <p className="text-xs text-muted-foreground flex items-center gap-3">
-          <span className="flex items-center gap-1">
-            <kbd className="px-1 py-0.5 rounded bg-muted text-[10px]">↑</kbd>
-            <kbd className="px-1 py-0.5 rounded bg-muted text-[10px]">↓</kbd>
-            navigate
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd className="px-1 py-0.5 rounded bg-muted text-[10px]">Tab</kbd>
-            select
-          </span>
-          <span className="flex items-center gap-1">
-            <kbd className="px-1 py-0.5 rounded bg-muted text-[10px]">Esc</kbd>
-            dismiss
-          </span>
-        </p>
-      </div>
     </div>
   );
 }

@@ -70,6 +70,24 @@
 }
 
 /* ============================================
+   Focus Mode Variables
+   ============================================ */
+:root {
+  --pm-focus-transition: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  --pm-sidebar-offset: 8rem;
+  --pm-focus-vignette: inset 0 0 120px hsla(0, 0%, 0%, 0.08);
+}
+
+.dark {
+  --pm-focus-glow:
+    0 0 80px hsla(0, 0%, 100%, 0.04),
+    0 0 160px hsla(0, 0%, 100%, 0.02);
+  --pm-focus-page-glow:
+    0 0 60px hsla(0, 0%, 100%, 0.03),
+    0 0 120px hsla(0, 0%, 100%, 0.02);
+}
+
+/* ============================================
    Editor Wrapper & Scroll Container
    ============================================ */
 .pm-editor-wrapper {
@@ -641,4 +659,71 @@
     hsl(0 0% 100% / 0.02),
     transparent
   );
+}
+
+/* ============================================
+   Focus Mode Effects
+   ============================================ */
+
+/* Base transition for wrapper */
+.pm-editor-wrapper {
+  transition: transform var(--pm-focus-transition);
+}
+
+/* Center content when sidebar collapses */
+.pm-editor-wrapper.pm-focus-mode {
+  transform: translateX(var(--pm-sidebar-offset));
+}
+
+/* Focus mode overlay - vignette/glow effect */
+.pm-editor-wrapper.pm-focus-mode::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 35;
+  opacity: 1;
+  box-shadow: var(--pm-focus-vignette);
+  transition: opacity var(--pm-focus-transition);
+}
+
+/* Dark mode: white glow effect */
+.dark .pm-editor-wrapper.pm-focus-mode::after {
+  box-shadow: var(--pm-focus-glow);
+  background: radial-gradient(
+    ellipse at center,
+    transparent 40%,
+    hsla(0, 0%, 0%, 0.12) 100%
+  );
+}
+
+/* Page shadow transitions */
+.pm-editor-page {
+  transition: box-shadow var(--pm-focus-transition), opacity 200ms ease;
+}
+
+/* Page "float" effect in dark mode */
+.dark .pm-editor-wrapper.pm-focus-mode .pm-editor-page {
+  box-shadow: var(--pm-focus-page-glow), var(--pm-page-shadow);
+}
+
+/* Mobile: no centering needed */
+@media (max-width: 767px) {
+  .pm-editor-wrapper.pm-focus-mode {
+    transform: none;
+  }
+}
+
+/* Dual view adjustment */
+.pm-dual-mode.pm-focus-mode {
+  transform: translateX(calc(var(--pm-sidebar-offset) / 2));
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .pm-editor-wrapper,
+  .pm-editor-wrapper::after,
+  .pm-editor-page {
+    transition-duration: 0.01ms !important;
+  }
 }
