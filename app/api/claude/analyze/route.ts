@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { screenplay, analysisType } = await request.json();
 
     if (!screenplay) {
@@ -11,13 +21,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get API key from environment or request headers
-    const apiKey = process.env.ANTHROPIC_API_KEY || request.headers.get('x-anthropic-api-key');
-    
+    // Only use server-side API key for security
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'Anthropic API key not configured' },
-        { status: 401 }
+        { error: 'AI analysis is not configured. Please contact support.' },
+        { status: 503 }
       );
     }
 

@@ -1,9 +1,19 @@
 import { authEdge } from "@/lib/auth.edge"
 import { NextResponse } from "next/server"
 
+// Security headers to add to all responses
+function addSecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set("X-Content-Type-Options", "nosniff")
+  response.headers.set("X-Frame-Options", "DENY")
+  response.headers.set("X-XSS-Protection", "1; mode=block")
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
+  response.headers.set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+  return response
+}
+
 // App routes that require authentication
 const appRoutes = [
-  "/workspace",
+  "/home",
   "/editor",
   "/board",
   "/cards",
@@ -71,13 +81,13 @@ export default authEdge((req) => {
         loginUrl.searchParams.set("callbackUrl", `${protocol}://${host}${pathname}`)
       } else {
         // User went directly to app.*/login - redirect to workspace after login
-        loginUrl.searchParams.set("callbackUrl", `${protocol}://${host}/workspace`)
+        loginUrl.searchParams.set("callbackUrl", `${protocol}://${host}/home`)
       }
-      return NextResponse.redirect(loginUrl)
+      return addSecurityHeaders(NextResponse.redirect(loginUrl))
     }
 
     // User is authenticated, allow access to app subdomain
-    return NextResponse.next()
+    return addSecurityHeaders(NextResponse.next())
   }
 
   // On main domain (or development without subdomain routing)
@@ -91,28 +101,28 @@ export default authEdge((req) => {
   // If trying to access app routes on main domain, redirect to app subdomain (production only)
   if (useSubdomainRouting && isAppRoute(pathname)) {
     const appUrl = getAppUrl(host, pathname, protocol)
-    return NextResponse.redirect(appUrl)
+    return addSecurityHeaders(NextResponse.redirect(appUrl))
   }
 
   // Redirect to app subdomain if already logged in and trying to access login/signup (production only)
   if (useSubdomainRouting && isLoggedIn && (pathname === "/login" || pathname === "/signup")) {
-    const appUrl = getAppUrl(host, "/workspace", protocol)
-    return NextResponse.redirect(appUrl)
+    const appUrl = getAppUrl(host, "/home", protocol)
+    return addSecurityHeaders(NextResponse.redirect(appUrl))
   }
 
   // In development OR production fallback: protect app routes
   if (isAppRoute(pathname) && !isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin)
     loginUrl.searchParams.set("callbackUrl", pathname)
-    return NextResponse.redirect(loginUrl)
+    return addSecurityHeaders(NextResponse.redirect(loginUrl))
   }
 
   // Redirect logged-in users from login/signup to workspace (in development)
   if (!useSubdomainRouting && isLoggedIn && (pathname === "/login" || pathname === "/signup")) {
-    return NextResponse.redirect(new URL("/workspace", req.nextUrl.origin))
+    return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)))
   }
 
-  return NextResponse.next()
+  return addSecurityHeaders(NextResponse.next())
 })
 
 export const config = {

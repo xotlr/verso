@@ -35,7 +35,24 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setSettings({
           ...defaultSettings,
           ...parsed,
-          visual: { ...defaultSettings.visual, ...parsed.visual },
+          visual: {
+            ...defaultSettings.visual,
+            ...parsed.visual,
+            // Deep merge visualization palettes
+            lightVisualization: {
+              ...defaultSettings.visual.lightVisualization,
+              ...(parsed.visual?.lightVisualization || {}),
+            },
+            darkVisualization: {
+              ...defaultSettings.visual.darkVisualization,
+              ...(parsed.visual?.darkVisualization || {}),
+            },
+            // Deep merge cursor settings
+            cursor: {
+              ...defaultSettings.visual.cursor,
+              ...(parsed.visual?.cursor || {}),
+            },
+          },
           editor: { ...defaultSettings.editor, ...parsed.editor },
           layout: { ...defaultSettings.layout, ...parsed.layout },
           export: { ...defaultSettings.export, ...parsed.export },
@@ -170,7 +187,22 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       setSettings({
         ...defaultSettings,
         ...parsed,
-        visual: { ...defaultSettings.visual, ...parsed.visual },
+        visual: {
+          ...defaultSettings.visual,
+          ...parsed.visual,
+          lightVisualization: {
+            ...defaultSettings.visual.lightVisualization,
+            ...(parsed.visual?.lightVisualization || {}),
+          },
+          darkVisualization: {
+            ...defaultSettings.visual.darkVisualization,
+            ...(parsed.visual?.darkVisualization || {}),
+          },
+          cursor: {
+            ...defaultSettings.visual.cursor,
+            ...(parsed.visual?.cursor || {}),
+          },
+        },
         editor: { ...defaultSettings.editor, ...parsed.editor },
         layout: { ...defaultSettings.layout, ...parsed.layout },
         export: { ...defaultSettings.export, ...parsed.export },

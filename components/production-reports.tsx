@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Scene, Character, Location } from '@/types/screenplay';
-import { FileText, Users, MapPin, Download, Printer } from 'lucide-react';
+import { FileText, Users, MapPin, Download, Printer, Sun, Moon, Home, Trees, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -47,20 +47,39 @@ export function ProductionReports({
     }));
   }, [scenes]);
 
-  // Generate cast breakdown data
+  // Calculate total screenplay pages for percentage calculations
+  const totalPages = useMemo(() => {
+    return scenes.reduce((sum, scene) => sum + Math.ceil(scene.elements.length / 10), 0);
+  }, [scenes]);
+
+  // Generate cast breakdown data with page count and screen time
   const castBreakdownData = useMemo(() => {
     return characters.map((character) => {
       const characterScenes = scenes.filter(s => s.characters.includes(character.name));
+      // Calculate total pages for scenes this character appears in
+      const pageCount = characterScenes.reduce((sum, scene) =>
+        sum + Math.ceil(scene.elements.length / 10), 0
+      );
+      // Screen time estimate: 1 page ≈ 1 minute
+      const screenTime = pageCount;
+      // Percentage of total screenplay
+      const screenTimePercentage = totalPages > 0
+        ? Math.round((pageCount / totalPages) * 100)
+        : 0;
+
       return {
         characterName: character.name,
         totalScenes: characterScenes.length,
-        scenes: characterScenes.map((s, i) => scenes.indexOf(s) + 1),
+        scenes: characterScenes.map((s) => scenes.indexOf(s) + 1),
         firstAppearance: characterScenes.length > 0 ? scenes.indexOf(characterScenes[0]) + 1 : 0,
         lastAppearance: characterScenes.length > 0 ? scenes.indexOf(characterScenes[characterScenes.length - 1]) + 1 : 0,
         dialogueLines: character.appearances.reduce((sum, app) => sum + app.dialogueCount, 0),
+        pageCount,
+        screenTime,
+        screenTimePercentage,
       };
-    }).sort((a, b) => b.totalScenes - a.totalScenes);
-  }, [characters, scenes]);
+    }).sort((a, b) => b.pageCount - a.pageCount); // Sort by page count (screen time)
+  }, [characters, scenes, totalPages]);
 
   // Generate location breakdown data
   const locationBreakdownData = useMemo(() => {
@@ -74,6 +93,56 @@ export function ProductionReports({
       };
     }).sort((a, b) => b.totalScenes - a.totalScenes);
   }, [locations, scenes]);
+
+  // Generate Day/Night breakdown data
+  const dayNightBreakdownData = useMemo(() => {
+    const timeGroups: Record<string, { scenes: number[]; pageCount: number }> = {};
+
+    scenes.forEach((scene, index) => {
+      const time = scene.timeOfDay || 'UNKNOWN';
+      if (!timeGroups[time]) {
+        timeGroups[time] = { scenes: [], pageCount: 0 };
+      }
+      timeGroups[time].scenes.push(index + 1);
+      timeGroups[time].pageCount += Math.ceil(scene.elements.length / 10);
+    });
+
+    return Object.entries(timeGroups)
+      .map(([time, data]) => ({
+        timeOfDay: time,
+        totalScenes: data.scenes.length,
+        scenes: data.scenes,
+        pageCount: data.pageCount,
+        percentage: Math.round((data.scenes.length / scenes.length) * 100) || 0,
+      }))
+      .sort((a, b) => b.totalScenes - a.totalScenes);
+  }, [scenes]);
+
+  // Generate INT/EXT breakdown data
+  const intExtBreakdownData = useMemo(() => {
+    const typeGroups: Record<string, { scenes: number[]; pageCount: number; locations: Set<string> }> = {};
+
+    scenes.forEach((scene, index) => {
+      const type = scene.location.type || 'UNKNOWN';
+      if (!typeGroups[type]) {
+        typeGroups[type] = { scenes: [], pageCount: 0, locations: new Set() };
+      }
+      typeGroups[type].scenes.push(index + 1);
+      typeGroups[type].pageCount += Math.ceil(scene.elements.length / 10);
+      typeGroups[type].locations.add(scene.location.name);
+    });
+
+    return Object.entries(typeGroups)
+      .map(([type, data]) => ({
+        locationType: type,
+        totalScenes: data.scenes.length,
+        scenes: data.scenes,
+        pageCount: data.pageCount,
+        uniqueLocations: data.locations.size,
+        percentage: Math.round((data.scenes.length / scenes.length) * 100) || 0,
+      }))
+      .sort((a, b) => b.totalScenes - a.totalScenes);
+  }, [scenes]);
 
   const downloadCSV = (data: Record<string, unknown>[], filename: string) => {
     if (data.length === 0) return;
@@ -126,6 +195,18 @@ export function ProductionReports({
               <TabsTrigger value="location-list" className="gap-2">
                 <MapPin className="h-4 w-4" />
                 Location List
+              </TabsTrigger>
+              <TabsTrigger value="day-night" className="gap-2">
+                <Sun className="h-4 w-4" />
+                Day/Night
+              </TabsTrigger>
+              <TabsTrigger value="int-ext" className="gap-2">
+                <Home className="h-4 w-4" />
+                INT/EXT
+              </TabsTrigger>
+              <TabsTrigger value="screen-time" className="gap-2">
+                <Clock className="h-4 w-4" />
+                Screen Time
               </TabsTrigger>
             </TabsList>
 
@@ -252,7 +333,7 @@ export function ProductionReports({
                           </Badge>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-4 gap-4 text-sm">
                           <div>
                             <span className="text-muted-foreground">Dialogue Lines:</span>
                             <span className="ml-2 font-medium">{cast.dialogueLines}</span>
@@ -260,6 +341,14 @@ export function ProductionReports({
                           <div>
                             <span className="text-muted-foreground">Appearances:</span>
                             <span className="ml-2 font-medium">{cast.totalScenes}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Page Count:</span>
+                            <span className="ml-2 font-medium">{cast.pageCount}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Screen Time:</span>
+                            <span className="ml-2 font-medium">{cast.screenTime}m ({cast.screenTimePercentage}%)</span>
                           </div>
                         </div>
 
@@ -353,6 +442,318 @@ export function ProductionReports({
                     </p>
                   </div>
                 </div>
+              </div>
+            </TabsContent>
+
+            {/* Day/Night Breakdown */}
+            <TabsContent value="day-night" className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Day/Night Breakdown</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadCSV(dayNightBreakdownData.map(d => ({ ...d, scenes: d.scenes.join(', ') })), 'day-night-breakdown')}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
+
+                {dayNightBreakdownData.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    No scenes found. Start writing to generate reports.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {dayNightBreakdownData.map((item, index) => (
+                      <div
+                        key={index}
+                        className="p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            {item.timeOfDay === 'DAY' ? (
+                              <Sun className="h-5 w-5 text-yellow-500" />
+                            ) : item.timeOfDay === 'NIGHT' ? (
+                              <Moon className="h-5 w-5 text-blue-400" />
+                            ) : (
+                              <Sun className="h-5 w-5 text-orange-400" />
+                            )}
+                            <h4 className="font-semibold">{item.timeOfDay}</h4>
+                          </div>
+                          <Badge variant="secondary" className="font-mono">
+                            {item.percentage}%
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                          <div>
+                            <p className="text-muted-foreground">Scenes</p>
+                            <p className="text-2xl font-bold">{item.totalScenes}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Pages</p>
+                            <p className="text-2xl font-bold">{item.pageCount}</p>
+                          </div>
+                        </div>
+
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div
+                            className="bg-primary h-2 rounded-full transition-all"
+                            style={{ width: `${item.percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Summary */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg border border-border">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Day Scenes</p>
+                    <p className="text-2xl font-bold">
+                      {dayNightBreakdownData.find(d => d.timeOfDay === 'DAY')?.totalScenes || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Night Scenes</p>
+                    <p className="text-2xl font-bold">
+                      {dayNightBreakdownData.find(d => d.timeOfDay === 'NIGHT')?.totalScenes || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Dawn/Dusk</p>
+                    <p className="text-2xl font-bold">
+                      {dayNightBreakdownData.filter(d => d.timeOfDay === 'DAWN' || d.timeOfDay === 'DUSK').reduce((sum, d) => sum + d.totalScenes, 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Other</p>
+                    <p className="text-2xl font-bold">
+                      {dayNightBreakdownData.filter(d => !['DAY', 'NIGHT', 'DAWN', 'DUSK'].includes(d.timeOfDay)).reduce((sum, d) => sum + d.totalScenes, 0)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* INT/EXT Breakdown */}
+            <TabsContent value="int-ext" className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Interior/Exterior Breakdown</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadCSV(intExtBreakdownData.map(d => ({ ...d, scenes: d.scenes.join(', ') })), 'int-ext-breakdown')}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
+
+                {intExtBreakdownData.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    No scenes found. Start writing to generate reports.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {intExtBreakdownData.map((item, index) => (
+                      <div
+                        key={index}
+                        className="p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            {item.locationType === 'INT' ? (
+                              <Home className="h-5 w-5 text-amber-500" />
+                            ) : item.locationType === 'EXT' ? (
+                              <Trees className="h-5 w-5 text-green-500" />
+                            ) : (
+                              <MapPin className="h-5 w-5 text-purple-500" />
+                            )}
+                            <h4 className="font-semibold">{item.locationType}</h4>
+                          </div>
+                          <Badge variant="secondary" className="font-mono">
+                            {item.percentage}%
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 text-sm mb-3">
+                          <div>
+                            <p className="text-muted-foreground text-xs">Scenes</p>
+                            <p className="text-xl font-bold">{item.totalScenes}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Pages</p>
+                            <p className="text-xl font-bold">{item.pageCount}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Locations</p>
+                            <p className="text-xl font-bold">{item.uniqueLocations}</p>
+                          </div>
+                        </div>
+
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full transition-all ${
+                              item.locationType === 'INT' ? 'bg-amber-500' :
+                              item.locationType === 'EXT' ? 'bg-green-500' : 'bg-purple-500'
+                            }`}
+                            style={{ width: `${item.percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Summary */}
+                <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg border border-border">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Interior Scenes</p>
+                    <p className="text-2xl font-bold">
+                      {intExtBreakdownData.find(d => d.locationType === 'INT')?.totalScenes || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Exterior Scenes</p>
+                    <p className="text-2xl font-bold">
+                      {intExtBreakdownData.find(d => d.locationType === 'EXT')?.totalScenes || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">INT/EXT (Both)</p>
+                    <p className="text-2xl font-bold">
+                      {intExtBreakdownData.find(d => d.locationType === 'INT/EXT')?.totalScenes || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Screen Time */}
+            <TabsContent value="screen-time" className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Screen Time Estimates</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadCSV(
+                      castBreakdownData.map(c => ({
+                        character: c.characterName,
+                        pages: c.pageCount,
+                        screenTimeMinutes: c.screenTime,
+                        percentageOfFilm: `${c.screenTimePercentage}%`,
+                        scenes: c.totalScenes,
+                        dialogueLines: c.dialogueLines,
+                      })),
+                      'screen-time-estimates'
+                    )}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
+
+                <div className="p-4 bg-muted/50 rounded-lg border border-border mb-6">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Based on the industry standard of approximately 1 page = 1 minute of screen time
+                  </p>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Total Pages</p>
+                      <p className="text-2xl font-bold">{totalPages}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Est. Runtime</p>
+                      <p className="text-2xl font-bold">
+                        {totalPages >= 60
+                          ? `${Math.floor(totalPages / 60)}h ${totalPages % 60}m`
+                          : `${totalPages}m`
+                        }
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Characters</p>
+                      <p className="text-2xl font-bold">{castBreakdownData.length}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {castBreakdownData.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    No characters found. Characters will appear as you write.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {castBreakdownData.map((cast, index) => (
+                      <div
+                        key={index}
+                        className="p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-lg">{cast.characterName}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                {cast.totalScenes} scenes · {cast.dialogueLines} lines
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-primary">
+                              {cast.screenTime >= 60
+                                ? `${Math.floor(cast.screenTime / 60)}h ${cast.screenTime % 60}m`
+                                : `${cast.screenTime}m`
+                              }
+                            </p>
+                            <p className="text-xs text-muted-foreground">{cast.pageCount} pages</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Screen Time</span>
+                            <span className="font-medium">{cast.screenTimePercentage}% of film</span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2.5">
+                            <div
+                              className="bg-primary h-2.5 rounded-full transition-all"
+                              style={{ width: `${cast.screenTimePercentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Top 5 Characters Summary */}
+                {castBreakdownData.length > 0 && (
+                  <div className="p-4 bg-muted/50 rounded-lg border border-border mt-6">
+                    <p className="text-sm font-medium mb-3">Top Characters by Screen Time</p>
+                    <div className="space-y-2">
+                      {castBreakdownData.slice(0, 5).map((cast, index) => (
+                        <div key={index} className="flex items-center justify-between text-sm">
+                          <span className="flex items-center gap-2">
+                            <span className="text-muted-foreground">{index + 1}.</span>
+                            <span>{cast.characterName}</span>
+                          </span>
+                          <span className="font-mono">
+                            {cast.screenTime}m ({cast.screenTimePercentage}%)
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>

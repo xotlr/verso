@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Scene, Character } from '@/types/screenplay';
+import { Scene, Character, Screenplay } from '@/types/screenplay';
 import { getSceneConnections } from '@/lib/screenplay-utils';
 import { cn } from '@/lib/utils';
 
@@ -20,11 +20,11 @@ export function SceneFlow({
   onSceneClick,
   selectedSceneId
 }: SceneFlowProps) {
-  const connections = getSceneConnections({ 
-    scenes, 
-    characters, 
+  const connections = getSceneConnections({
+    scenes,
+    characters,
     locations: []
-  } as any);
+  } as Screenplay);
 
   return (
     <Card className="h-full">

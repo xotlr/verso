@@ -30,7 +30,6 @@ export function formatScreenplay(text: string): string {
   const lines = text.split('\n');
   const formattedLines: string[] = [];
   let inDialogue = false;
-  let lastWasCharacter = false;
   let isFirstLine = true;
   let inTitlePage = true;
   
@@ -146,7 +145,6 @@ export function formatScreenplay(text: string): string {
       }
       formattedLines.push(centerText(trimmed));
       inDialogue = true;
-      lastWasCharacter = true;
       continue;
     }
     

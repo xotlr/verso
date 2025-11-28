@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -43,6 +43,8 @@ import {
   Film,
   ChevronLeft,
 } from 'lucide-react';
+import { useVisualizationColors } from '@/lib/visualization-colors';
+import { ActColorScheme } from '@/types/settings';
 
 // Beat/Card types
 export interface Beat {
@@ -65,28 +67,16 @@ export interface BeatBoardProps {
   onBackToEditor?: () => void;
 }
 
-// Act configuration
-const ACTS: { id: ActId; label: string; color: string }[] = [
-  { id: 'act1', label: 'Act 1 - Setup', color: 'bg-blue-500/10 border-blue-500/30' },
-  { id: 'act2a', label: 'Act 2A - Confrontation', color: 'bg-amber-500/10 border-amber-500/30' },
-  { id: 'act2b', label: 'Act 2B - Complications', color: 'bg-orange-500/10 border-orange-500/30' },
-  { id: 'act3', label: 'Act 3 - Resolution', color: 'bg-green-500/10 border-green-500/30' },
+// Act configuration (labels only - colors come from theme)
+const ACTS_CONFIG: { id: ActId; label: string }[] = [
+  { id: 'act1', label: 'Act 1 - Setup' },
+  { id: 'act2a', label: 'Act 2A - Confrontation' },
+  { id: 'act2b', label: 'Act 2B - Complications' },
+  { id: 'act3', label: 'Act 3 - Resolution' },
 ];
 
-// Color palette for beats
-const BEAT_COLORS = [
-  '#3B82F6', // blue
-  '#10B981', // emerald
-  '#F59E0B', // amber
-  '#EF4444', // red
-  '#8B5CF6', // violet
-  '#EC4899', // pink
-  '#06B6D4', // cyan
-  '#84CC16', // lime
-];
-
-// Sortable Beat Card
-function SortableBeatCard({
+// Sortable Beat Card - memoized to prevent unnecessary re-renders
+const SortableBeatCard = React.memo(function SortableBeatCard({
   beat,
   scenes,
   onEdit,
@@ -113,7 +103,10 @@ function SortableBeatCard({
     transition,
   };
 
-  const linkedScenes = scenes.filter(s => beat.sceneIds.includes(s.id));
+  const linkedScenes = useMemo(
+    () => scenes.filter(s => beat.sceneIds.includes(s.id)),
+    [scenes, beat.sceneIds]
+  );
 
   return (
     <div
@@ -188,10 +181,10 @@ function SortableBeatCard({
       </div>
     </div>
   );
-}
+});
 
-// Beat Card (for drag overlay)
-function BeatCard({ beat }: { beat: Beat }) {
+// Beat Card (for drag overlay) - memoized
+const BeatCard = React.memo(function BeatCard({ beat }: { beat: Beat }) {
   return (
     <div className="bg-card border border-primary rounded-lg p-3 shadow-lg">
       <div className="flex items-center gap-2">
@@ -203,11 +196,12 @@ function BeatCard({ beat }: { beat: Beat }) {
       </div>
     </div>
   );
-}
+});
 
-// Act Column
-function ActColumn({
+// Act Column - memoized to prevent unnecessary re-renders
+const ActColumn = React.memo(function ActColumn({
   act,
+  actColors,
   beats,
   scenes,
   onAddBeat,
@@ -215,7 +209,8 @@ function ActColumn({
   onDeleteBeat,
   onSceneClick,
 }: {
-  act: { id: ActId; label: string; color: string };
+  act: { id: ActId; label: string };
+  actColors: ActColorScheme;
   beats: Beat[];
   scenes: Scene[];
   onAddBeat: (actId: ActId) => void;
@@ -223,12 +218,17 @@ function ActColumn({
   onDeleteBeat: (beatId: string) => void;
   onSceneClick?: (sceneId: string) => void;
 }) {
-  const actBeats = beats
-    .filter(b => b.act === act.id)
-    .sort((a, b) => a.order - b.order);
+  // Memoize filtered beats to prevent recalculation on every render
+  const actBeats = useMemo(
+    () => beats.filter(b => b.act === act.id).sort((a, b) => a.order - b.order),
+    [beats, act.id]
+  );
 
   return (
-    <div className={cn('flex-1 min-w-[280px] max-w-[350px] rounded-xl border p-4', act.color)}>
+    <div
+      className="flex-1 min-w-[280px] max-w-[350px] rounded-xl border p-4"
+      style={{ backgroundColor: actColors.bg, borderColor: actColors.border }}
+    >
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-foreground">{act.label}</h3>
         <span className="text-xs text-muted-foreground bg-background/50 px-2 py-0.5 rounded">
@@ -265,7 +265,7 @@ function ActColumn({
       </Button>
     </div>
   );
-}
+});
 
 // Beat Editor Modal
 function BeatEditor({
@@ -274,25 +274,27 @@ function BeatEditor({
   isOpen,
   onSave,
   onCancel,
+  beatColors,
 }: {
   beat: Beat | null;
   scenes: Scene[];
   isOpen: boolean;
   onSave: (beat: Beat) => void;
   onCancel: () => void;
+  beatColors: string[];
 }) {
   const [title, setTitle] = useState(beat?.title || '');
   const [description, setDescription] = useState(beat?.description || '');
-  const [color, setColor] = useState(beat?.color || BEAT_COLORS[0]);
+  const [color, setColor] = useState(beat?.color || beatColors[0]);
   const [selectedScenes, setSelectedScenes] = useState<string[]>(beat?.sceneIds || []);
 
   // Reset form when beat changes
   React.useEffect(() => {
     setTitle(beat?.title || '');
     setDescription(beat?.description || '');
-    setColor(beat?.color || BEAT_COLORS[0]);
+    setColor(beat?.color || beatColors[0]);
     setSelectedScenes(beat?.sceneIds || []);
-  }, [beat]);
+  }, [beat, beatColors]);
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -347,7 +349,7 @@ function BeatEditor({
           <div>
             <label className="text-sm font-medium text-muted-foreground">Color</label>
             <div className="flex gap-2 mt-1">
-              {BEAT_COLORS.map(c => (
+              {beatColors.map(c => (
                 <button
                   key={c}
                   onClick={() => setColor(c)}
@@ -409,10 +411,45 @@ export function BeatBoard({
   onSceneClick,
   onBackToEditor,
 }: BeatBoardProps) {
+  const vizColors = useVisualizationColors();
   const [beats, setBeats] = useState<Beat[]>(initialBeats);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingBeat, setEditingBeat] = useState<Beat | null>(null);
   const [isCreating, setIsCreating] = useState<ActId | null>(null);
+
+  // Track if beats changed from internal user action
+  const isInternalChange = useRef(false);
+  const prevBeatsRef = useRef<Beat[]>(initialBeats);
+
+  // Store onBeatsChange in a ref to avoid it triggering re-renders
+  const onBeatsChangeRef = useRef(onBeatsChange);
+  onBeatsChangeRef.current = onBeatsChange;
+
+  // Sync external prop changes to internal state (when parent updates beats)
+  useEffect(() => {
+    // Only sync if the prop changed externally (not from our own onBeatsChange call)
+    if (!isInternalChange.current) {
+      setBeats(initialBeats);
+    }
+    isInternalChange.current = false;
+  }, [initialBeats]);
+
+  // Wrapper to track internal beats changes
+  const updateBeats = useCallback((updater: (prev: Beat[]) => Beat[]) => {
+    setBeats(prev => {
+      const newBeats = updater(prev);
+      // Only notify parent if beats actually changed
+      if (JSON.stringify(newBeats) !== JSON.stringify(prevBeatsRef.current)) {
+        isInternalChange.current = true;
+        prevBeatsRef.current = newBeats;
+        // Use setTimeout to defer the callback, avoiding state update during render
+        setTimeout(() => {
+          onBeatsChangeRef.current(newBeats);
+        }, 0);
+      }
+      return newBeats;
+    });
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -448,7 +485,7 @@ export function BeatBoard({
 
     // If dragging over another beat in a different act
     if (overBeat && activeBeat.act !== overBeat.act) {
-      setBeats(prev => {
+      updateBeats(prev => {
         const updated = prev.map(b =>
           b.id === activeId ? { ...b, act: overBeat.act } : b
         );
@@ -468,7 +505,7 @@ export function BeatBoard({
 
     if (activeId === overId) return;
 
-    setBeats(prev => {
+    updateBeats(prev => {
       const oldIndex = prev.findIndex(b => b.id === activeId);
       const newIndex = prev.findIndex(b => b.id === overId);
 
@@ -485,15 +522,15 @@ export function BeatBoard({
       id: '',
       title: '',
       description: '',
-      color: BEAT_COLORS[beats.length % BEAT_COLORS.length],
+      color: vizColors.beatColors[beats.length % vizColors.beatColors.length],
       act: actId,
       sceneIds: [],
       order: beats.filter(b => b.act === actId).length,
     });
   };
 
-  const handleSaveBeat = (beat: Beat) => {
-    setBeats(prev => {
+  const handleSaveBeat = useCallback((beat: Beat) => {
+    updateBeats(prev => {
       const existingIndex = prev.findIndex(b => b.id === beat.id);
       if (existingIndex >= 0) {
         const updated = [...prev];
@@ -504,16 +541,11 @@ export function BeatBoard({
     });
     setEditingBeat(null);
     setIsCreating(null);
-  };
+  }, [updateBeats]);
 
-  const handleDeleteBeat = (beatId: string) => {
-    setBeats(prev => prev.filter(b => b.id !== beatId));
-  };
-
-  // Sync changes back to parent
-  React.useEffect(() => {
-    onBeatsChange(beats);
-  }, [beats, onBeatsChange]);
+  const handleDeleteBeat = useCallback((beatId: string) => {
+    updateBeats(prev => prev.filter(b => b.id !== beatId));
+  }, [updateBeats]);
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -550,10 +582,11 @@ export function BeatBoard({
           onDragEnd={handleDragEnd}
         >
           <div className="flex gap-4 min-w-max">
-            {ACTS.map(act => (
+            {ACTS_CONFIG.map(act => (
               <ActColumn
                 key={act.id}
                 act={act}
+                actColors={vizColors.actColors[act.id]}
                 beats={beats}
                 scenes={scenes}
                 onAddBeat={handleAddBeat}
@@ -580,6 +613,7 @@ export function BeatBoard({
           setEditingBeat(null);
           setIsCreating(null);
         }}
+        beatColors={vizColors.beatColors}
       />
     </div>
   );

@@ -9,6 +9,7 @@ import {
   Share2,
   PanelRight,
   MoreHorizontal,
+  History,
 } from "lucide-react";
 
 import { cn } from '@/lib/utils';
@@ -37,6 +38,7 @@ interface ProjectHeaderProps {
   onSave?: () => void;
   onExport?: () => void;
   onShare?: () => void;
+  onHistory?: () => void;
   onToggleRightSidebar?: () => void;
   showRightSidebarToggle?: boolean;
   isSaving?: boolean;
@@ -49,6 +51,7 @@ export function ProjectHeader({
   onSave,
   onExport,
   onShare,
+  onHistory,
   onToggleRightSidebar,
   showRightSidebarToggle = false,
   isSaving = false,
@@ -77,7 +80,7 @@ export function ProjectHeader({
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/workspace">Projects</Link>
+                <Link href="/home">Projects</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
@@ -135,6 +138,20 @@ export function ProjectHeader({
           </Button>
         )}
 
+        {/* History button */}
+        {onHistory && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onHistory}
+            className="hidden sm:flex"
+            title="Version history"
+          >
+            <History className="h-4 w-4 mr-2" />
+            History
+          </Button>
+        )}
+
         {/* More actions dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -153,6 +170,12 @@ export function ProjectHeader({
               <DropdownMenuItem onClick={onExport}>
                 <Download className="h-4 w-4 mr-2" />
                 Export
+              </DropdownMenuItem>
+            )}
+            {onHistory && (
+              <DropdownMenuItem onClick={onHistory}>
+                <History className="h-4 w-4 mr-2" />
+                Version History
               </DropdownMenuItem>
             )}
             {onShare && (

@@ -51,27 +51,15 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [screenplays, setScreenplays] = useState<Array<{id: string; title: string}>>([]);
 
-  // Load screenplays for navigation
+  // Load screenplays from API for navigation
   useEffect(() => {
     if (isOpen) {
-      const items: Array<{id: string; title: string}> = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith('screenplay_')) {
-          try {
-            const data = JSON.parse(localStorage.getItem(key) || '{}');
-            if (data.title) {
-              items.push({
-                id: key.replace('screenplay_', ''),
-                title: data.title,
-              });
-            }
-          } catch {
-            // Skip invalid entries
-          }
-        }
-      }
-      setScreenplays(items);
+      fetch('/api/projects')
+        .then(res => res.ok ? res.json() : [])
+        .then((projects: Array<{ id: string; title: string }>) => {
+          setScreenplays(projects.map(p => ({ id: p.id, title: p.title })));
+        })
+        .catch(() => setScreenplays([]));
     }
   }, [isOpen]);
 
@@ -85,15 +73,23 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
       shortcut: 'Cmd+N',
       category: 'navigation',
       keywords: ['create', 'new', 'start'],
-      action: () => {
-        const id = Date.now().toString();
-        const newScreenplay = {
-          title: 'Untitled Screenplay',
-          content: `FADE IN:\n\nINT. LOCATION - DAY\n\nAction description here...\n\n                              CHARACTER NAME\nDialogue goes here.\n\nFADE OUT.`,
-          lastModified: new Date().toISOString()
-        };
-        localStorage.setItem(`screenplay_${id}`, JSON.stringify(newScreenplay));
-        router.push(`/editor/${id}`);
+      action: async () => {
+        try {
+          const response = await fetch('/api/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: 'Untitled Screenplay',
+              content: `FADE IN:\n\nINT. LOCATION - DAY\n\nAction description here...\n\n                              CHARACTER NAME\nDialogue goes here.\n\nFADE OUT.`,
+            }),
+          });
+          if (response.ok) {
+            const project = await response.json();
+            router.push(`/editor/${project.id}`);
+          }
+        } catch (error) {
+          console.error('Error creating screenplay:', error);
+        }
         onClose();
       },
     },
@@ -105,7 +101,7 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
       category: 'navigation',
       keywords: ['home', 'library', 'list'],
       action: () => {
-        router.push('/workspace');
+        router.push('/home');
         onClose();
       },
     },

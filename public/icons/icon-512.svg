@@ -1,0 +1,9 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <mask id="vCut512">
+      <rect width="512" height="512" rx="85" fill="white"/>
+      <path d="M 107 0 L 256 405 L 405 0 Z" fill="black"/>
+    </mask>
+  </defs>
+  <rect width="512" height="512" rx="85" fill="#262626" mask="url(#vCut512)"/>
+</svg>

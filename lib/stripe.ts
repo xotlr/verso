@@ -26,9 +26,9 @@ export const stripe = {
 }
 
 export const PLAN_LIMITS = {
-  FREE: { projects: 3, collaboration: false },
-  PRO: { projects: Infinity, collaboration: false },
-  TEAM: { projects: Infinity, collaboration: true, maxMembers: 10 },
+  FREE: { projects: 3, collaboration: false, maxTeamSeats: 0 },   // Cannot create teams
+  PRO: { projects: Infinity, collaboration: true, maxTeamSeats: 3 },   // Small team
+  TEAM: { projects: Infinity, collaboration: true, maxTeamSeats: 10 }, // Standard team
 } as const
 
 export type PlanType = keyof typeof PLAN_LIMITS
@@ -39,6 +39,14 @@ export function canCreateProject(plan: PlanType, currentCount: number): boolean 
 
 export function canCollaborate(plan: PlanType): boolean {
   return PLAN_LIMITS[plan].collaboration
+}
+
+export function getMaxTeamSeats(plan: PlanType): number {
+  return PLAN_LIMITS[plan].maxTeamSeats
+}
+
+export function canCreateTeam(plan: PlanType): boolean {
+  return PLAN_LIMITS[plan].maxTeamSeats > 0
 }
 
 // Price IDs from environment

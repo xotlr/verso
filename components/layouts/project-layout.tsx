@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ProjectHeader } from "@/components/project-header";
 
 interface ProjectLayoutProps {
@@ -32,24 +32,38 @@ export function ProjectLayout({
   hasUnsavedChanges = false,
   rightSidebar,
 }: ProjectLayoutProps) {
+  const [focusMode, setFocusMode] = useState(false);
+
+  // Listen for focus mode toggle events
+  useEffect(() => {
+    const handleFocusModeToggle = () => {
+      setFocusMode(prev => !prev);
+    };
+
+    window.addEventListener('focus-mode-toggle', handleFocusModeToggle);
+    return () => window.removeEventListener('focus-mode-toggle', handleFocusModeToggle);
+  }, []);
+
   return (
     <>
-      <ProjectHeader
-        projectId={projectId}
-        projectTitle={projectTitle}
-        onSave={onSave}
-        onExport={onExport}
-        onShare={onShare}
-        onToggleRightSidebar={onToggleRightSidebar}
-        showRightSidebarToggle={showRightSidebarToggle}
-        isSaving={isSaving}
-        hasUnsavedChanges={hasUnsavedChanges}
-      />
+      {!focusMode && (
+        <ProjectHeader
+          projectId={projectId}
+          projectTitle={projectTitle}
+          onSave={onSave}
+          onExport={onExport}
+          onShare={onShare}
+          onToggleRightSidebar={onToggleRightSidebar}
+          showRightSidebarToggle={showRightSidebarToggle}
+          isSaving={isSaving}
+          hasUnsavedChanges={hasUnsavedChanges}
+        />
+      )}
       <main className="flex-1 flex overflow-hidden">
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 flex flex-col">
           {children}
         </div>
-        {rightSidebar}
+        {!focusMode && rightSidebar}
       </main>
     </>
   );

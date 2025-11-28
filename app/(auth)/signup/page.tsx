@@ -59,11 +59,11 @@ export default function SignupPage() {
         email,
         password,
         redirect: false,
-        callbackUrl: "/workspace",
+        callbackUrl: "/home",
       })
 
       if (result?.ok) {
-        router.push("/workspace")
+        router.push("/home")
         router.refresh()
       } else {
         setErrorMessage("Account created! Please sign in.")
@@ -77,7 +77,7 @@ export default function SignupPage() {
   }
 
   const handleGoogleSignup = () => {
-    signIn("google", { callbackUrl: "/workspace" })
+    signIn("google", { callbackUrl: "/home" })
   }
 
   return (

@@ -111,12 +111,10 @@ export default function CardsPage() {
 
   const handleCardsChange = useCallback((newCards: IndexCard[]) => {
     setCards(newCards);
-    console.log('Cards updated:', newCards);
   }, []);
 
   const handleScenesReorder = useCallback((newScenes: Scene[]) => {
     setScenes(newScenes);
-    console.log('Scenes reordered:', newScenes);
   }, []);
 
   const handleSceneClick = useCallback((sceneId: string) => {
@@ -124,7 +122,6 @@ export default function CardsPage() {
   }, [router, id]);
 
   const handleSceneEdit = useCallback((scene: Scene) => {
-    console.log('Edit scene:', scene);
     router.push(`/editor/${id}?scene=${scene.id}&edit=true`);
   }, [router, id]);
 

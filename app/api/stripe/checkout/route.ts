@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { stripe, PRICES } from "@/lib/stripe"
+import { stripe } from "@/lib/stripe"
 
 export async function POST(request: Request) {
   try {
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXTAUTH_URL}/workspace?success=true&plan=${plan}`,
+      success_url: `${process.env.NEXTAUTH_URL}/home?success=true&plan=${plan}`,
       cancel_url: `${process.env.NEXTAUTH_URL}/pricing?canceled=true`,
       metadata: {
         userId: user.id,

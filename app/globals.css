@@ -141,12 +141,33 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    font-size: var(--font-size, 14px);
   }
 
   /* ===== FONT FAMILIES ===== */
   /* Default font is Outfit */
   body {
     font-family: var(--font-outfit), system-ui, sans-serif;
+  }
+
+  /* ===== THEME TRANSITIONS ===== */
+  /* Smooth color transitions when switching themes */
+  /* Uses --animation-speed from settings (default 0.2s) */
+  :root {
+    --animation-speed: 0.2s;
+    --theme-transition: background-color var(--animation-speed) ease,
+                        color var(--animation-speed) ease,
+                        border-color var(--animation-speed) ease;
+  }
+
+  * {
+    transition: var(--theme-transition);
+  }
+
+  /* Disable transitions for elements that shouldn't animate */
+  .no-transition,
+  .no-transition * {
+    transition: none !important;
   }
 
   /* UI Font variants - applied via data attribute on html/body */
@@ -215,6 +236,84 @@
     outline-offset: 2px;
   }
 
+  /* ===== HOVER ANIMATIONS ===== */
+  .hover-lift {
+    transition: transform var(--animation-speed) ease, box-shadow var(--animation-speed) ease;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .hover-scale {
+    transition: transform var(--animation-speed) ease;
+  }
+
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
+
+  .hover-glow {
+    transition: box-shadow var(--animation-speed) ease;
+  }
+
+  .hover-glow:hover {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.15);
+  }
+
+  /* ===== AURORA/GLOW EFFECTS ===== */
+  .aurora-glow {
+    position: relative;
+    overflow: visible;
+  }
+
+  .aurora-glow::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.15) 0%,
+      transparent 40%,
+      transparent 60%,
+      hsl(var(--accent) / 0.1) 100%
+    );
+    border-radius: inherit;
+    z-index: -1;
+    filter: blur(12px);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .aurora-glow:hover::before {
+    opacity: 1;
+  }
+
+  .aurora-always::before {
+    opacity: 0.6;
+  }
+
+  /* Subtle card glow on hover */
+  .card-glow {
+    position: relative;
+  }
+
+  .card-glow::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.1);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+
+  .card-glow:hover::after {
+    opacity: 1;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -262,9 +361,19 @@
 
   /* ===== SATISFYING TYPING ===== */
   .typing-textarea {
-    caret-color: hsl(var(--primary));
+    caret-color: hsl(var(--foreground));
     color: hsl(var(--foreground)) !important;
-    transition: box-shadow 0.1s ease-out;
+    transition: box-shadow 0.15s ease-out;
+
+    /* Better typography */
+    font-size: 12pt;
+    line-height: 1.6;
+    letter-spacing: 0.01em;
+    word-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* Override browser default link colors in textarea */
@@ -273,49 +382,39 @@
   }
 
   .typing-textarea:focus {
-    box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.1);
+    box-shadow: none;
+    outline: none;
   }
 
   .typing-textarea::selection {
-    background: hsl(var(--primary) / 0.2);
+    background: hsl(var(--primary) / 0.15);
   }
 
-  /* Typing pulse effect */
+  /* Typing pulse effect - subtle feedback on keystrokes */
   @keyframes typing-pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.7; }
-    100% { opacity: 1; }
+    0% { transform: scale(1); }
+    50% { transform: scale(1.001); }
+    100% { transform: scale(1); }
   }
 
   .typing-active {
-    animation: typing-pulse 0.15s ease-out;
+    animation: typing-pulse 0.1s ease-out;
   }
 
-  /* Smooth caret blink */
-  @keyframes caret-blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
-  }
-
-  .typing-textarea {
-    caret-color: hsl(var(--primary));
-  }
-
-  /* Character appear animation */
-  @keyframes char-appear {
-    from {
-      opacity: 0.5;
-      transform: translateY(1px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  /* Caret pulse on typing */
+  @keyframes caret-pulse {
+    0% { box-shadow: 0 0 0 0 hsl(var(--foreground) / 0.1); }
+    100% { box-shadow: 0 0 0 3px hsl(var(--foreground) / 0); }
   }
 
   /* Subtle ink effect on the paper */
   .typing-container {
     position: relative;
+    transition: transform 0.05s ease-out;
+  }
+
+  .typing-container.is-typing {
+    animation: typing-pulse 0.08s ease-out;
   }
 
   .typing-container::after {
@@ -324,12 +423,174 @@
     inset: 0;
     pointer-events: none;
     opacity: 0;
-    background: radial-gradient(circle at var(--cursor-x, 50%) var(--cursor-y, 50%), hsl(var(--primary) / 0.03) 0%, transparent 50%);
-    transition: opacity 0.2s ease-out;
+    background: radial-gradient(circle at var(--cursor-x, 50%) var(--cursor-y, 50%), hsl(var(--foreground) / 0.02) 0%, transparent 40%);
+    transition: opacity 0.15s ease-out;
   }
 
   .typing-container.is-typing::after {
     opacity: 1;
+  }
+
+  /* Smooth caret styling */
+  .typing-textarea {
+    caret-color: hsl(var(--foreground));
+  }
+
+  .typing-container.is-typing .typing-textarea {
+    animation: caret-pulse 0.2s ease-out;
+  }
+
+  /* ===== CUSTOM CURSOR EFFECTS ===== */
+
+  /* CSS Custom Properties for cursor */
+  :root {
+    --cursor-color: hsl(var(--foreground));
+    --cursor-glow-color: hsl(var(--foreground) / 0.5);
+    --cursor-blink-speed: 530ms;
+    --cursor-width: 2px;
+    --cursor-height: 1.2em;
+    --cursor-glow-intensity: 0.3;
+  }
+
+  /* Blink animations - GPU accelerated using opacity only */
+  @keyframes cursor-blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  @keyframes cursor-blink-smooth {
+    0%, 40% { opacity: 1; }
+    50% { opacity: 0.2; }
+    60%, 100% { opacity: 1; }
+  }
+
+  @keyframes cursor-blink-expand {
+    0%, 40% {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scaleY(0.85);
+    }
+    60%, 100% {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+  }
+
+  @keyframes cursor-glow-pulse {
+    0%, 100% {
+      filter: drop-shadow(0 0 0px var(--cursor-glow-color));
+    }
+    50% {
+      filter: drop-shadow(0 0 calc(6px * var(--cursor-glow-intensity)) var(--cursor-glow-color));
+    }
+  }
+
+  /* Custom cursor overlay base */
+  .cursor-overlay {
+    position: absolute;
+    pointer-events: none;
+    z-index: 10;
+    will-change: transform, opacity;
+    transform: translateZ(0); /* Force GPU layer */
+    contain: strict; /* Contain layout/paint/style */
+  }
+
+  /* Cursor shapes */
+  .cursor-line {
+    width: var(--cursor-width);
+    height: var(--cursor-height);
+    background: var(--cursor-color);
+    border-radius: 1px;
+  }
+
+  .cursor-block {
+    width: 0.55em;
+    height: var(--cursor-height);
+    background: var(--cursor-color);
+    opacity: 0.35;
+    border-radius: 2px;
+  }
+
+  .cursor-underscore {
+    width: 0.55em;
+    height: 2px;
+    background: var(--cursor-color);
+    margin-top: calc(var(--cursor-height) - 2px);
+  }
+
+  /* Blink style modifiers */
+  .cursor-blink-blink {
+    animation: cursor-blink var(--cursor-blink-speed) step-end infinite;
+  }
+
+  .cursor-blink-smooth {
+    animation: cursor-blink-smooth var(--cursor-blink-speed) ease-in-out infinite;
+  }
+
+  .cursor-blink-expand {
+    animation: cursor-blink-expand var(--cursor-blink-speed) ease-in-out infinite;
+    transform-origin: center bottom;
+  }
+
+  /* Glow effect */
+  .cursor-glow {
+    animation: cursor-glow-pulse calc(var(--cursor-blink-speed) * 1.5) ease-in-out infinite;
+  }
+
+  /* CRITICAL: Disable animations when typing (immediate visual feedback) */
+  .cursor-typing {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  /* Smooth position movement (optional) */
+  .cursor-smooth-move {
+    transition: transform 50ms ease-out;
+  }
+
+  /* Hide native cursor when using custom overlay */
+  .cursor-overlay-active .typing-textarea {
+    caret-color: transparent !important;
+  }
+
+  /* Native cursor color customization */
+  .cursor-native-custom .typing-textarea {
+    caret-color: var(--cursor-color) !important;
+  }
+
+  /* Mobile: Disable custom cursor entirely - use native */
+  @media (max-width: 767px) {
+    .cursor-overlay {
+      display: none !important;
+    }
+
+    .cursor-overlay-active .typing-textarea {
+      caret-color: var(--cursor-color) !important; /* Restore native cursor */
+    }
+  }
+
+  /* Reduced motion: Disable all cursor animations */
+  @media (prefers-reduced-motion: reduce) {
+    .cursor-overlay,
+    .cursor-native-custom .typing-textarea {
+      animation: none !important;
+      transition: none !important;
+    }
+
+    .cursor-blink-blink,
+    .cursor-blink-smooth,
+    .cursor-blink-expand,
+    .cursor-glow {
+      animation: none !important;
+    }
+  }
+
+  /* Animate blink cursor utility class */
+  .animate-blink-cursor {
+    animation: cursor-blink 1s step-end infinite;
   }
 
   /* ===== TOOLBAR ===== */
@@ -467,6 +728,37 @@
     animation: slide-up var(--duration-slow) var(--ease-out);
   }
 
+  /* Tab content transitions */
+  @keyframes tab-content-in {
+    0% {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-tab-content-in {
+    animation: tab-content-in 200ms ease-out;
+  }
+
+  /* Tab content wrapper for smooth transitions */
+  .tab-content-wrapper {
+    transition: opacity 150ms ease-out, transform 150ms ease-out;
+  }
+
+  .tab-content-wrapper.entering {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  .tab-content-wrapper.entered {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
   /* ===== TIMELINE/VISUALIZATION ===== */
   .timeline-bar {
     @apply relative rounded-full overflow-hidden;
@@ -505,17 +797,59 @@ button {
 }
 
 /* ===== LAYOUT MODES ===== */
-/* Modern: Floating rounded document */
-.layout-modern .editor-page-container {
+
+/* Base editor document - paper styling */
+.editor-document {
+  width: 8.5in;
+  min-height: 11in;
+  margin: 0 auto;
+  background: hsl(var(--card));
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* Editor container background */
+.editor-page-container {
   background: hsl(var(--muted) / 0.3);
+
+  /* Custom scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+.editor-page-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.editor-page-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.editor-page-container::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+.editor-page-container::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Modern: Floating rounded document - softer, less stark */
+.layout-modern .editor-page-container {
+  background: hsl(var(--muted) / 0.15);
 }
 
 .layout-modern .editor-document {
   max-width: 8.5in;
   margin: 0 auto;
   border-radius: 1.5rem;
-  box-shadow: var(--shadow-lg);
-  background: hsl(var(--card));
+  box-shadow: var(--shadow-md);
+  background: hsl(var(--card) / 0.97);
+}
+
+/* Muted page numbers */
+.page-number {
+  color: hsl(var(--muted-foreground) / 0.4) !important;
+  font-size: 0.65rem;
 }
 
 /* Classic: Full-width edge-to-edge like Google Docs */
@@ -542,8 +876,191 @@ button {
   }
 }
 
+/* ===== ZEN MODE - Monkeytype-inspired minimal UI ===== */
+.zen-mode {
+  --zen-transition: 0.3s ease;
+}
+
+.zen-mode .editor-toolbar {
+  opacity: 0;
+  pointer-events: none;
+  max-height: 0;
+  overflow: hidden;
+  transition: all var(--zen-transition);
+}
+
+.zen-mode .editor-panels {
+  display: none;
+}
+
+.zen-mode .editor-page-container {
+  background: hsl(var(--background));
+}
+
+.zen-mode .editor-document {
+  max-width: 65ch;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.zen-mode .typing-textarea {
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: hsl(var(--foreground) / 0.9);
+  padding: 2rem !important;
+}
+
+/* Zen mode floating controls - appear on hover */
+.zen-controls {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 50;
+  display: flex;
+  gap: 0.5rem;
+  opacity: 0;
+  transform: translateY(-0.5rem);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.zen-mode:hover .zen-controls,
+.zen-mode .zen-controls:focus-within {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Save indicator in zen mode */
+.zen-save-indicator {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground) / 0.5);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.zen-mode:hover .zen-save-indicator {
+  opacity: 1;
+}
+
+/* Word count in zen mode - very subtle */
+.zen-word-count {
+  position: fixed;
+  bottom: 1rem;
+  left: 1rem;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground) / 0.3);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.zen-mode:hover .zen-word-count {
+  opacity: 1;
+}
+
+/* ===== SPREAD VIEW (Two-Page View) ===== */
+.spread-view-container {
+  overflow-x: auto;
+  background: hsl(var(--muted) / 0.2);
+}
+
+.spread-view-wrapper {
+  min-width: fit-content;
+  display: flex;
+  justify-content: center;
+  padding: 2rem 4rem;
+}
+
+.spread-view-document {
+  max-width: 17in !important;
+  min-width: 17in;
+  display: flex;
+  gap: 0.5rem;
+  background: transparent !important;
+  box-shadow: none !important;
+  position: relative;
+}
+
+/* Create two-page visual appearance */
+.spread-view-document::before,
+.spread-view-document::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  background: hsl(var(--card));
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.spread-view-document::before {
+  left: 0;
+  border-radius: 0.75rem 0 0 0.75rem;
+}
+
+.spread-view-document::after {
+  right: 0;
+  border-radius: 0 0.75rem 0.75rem 0;
+}
+
+/* Book spine effect in the middle */
+.spread-view-document textarea {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(
+    to right,
+    hsl(var(--card)) 0%,
+    hsl(var(--card)) 49%,
+    hsl(var(--muted) / 0.4) 49.5%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted) / 0.4) 50.5%,
+    hsl(var(--card)) 51%,
+    hsl(var(--card)) 100%
+  ) !important;
+}
+
+/* Responsive: hide spread view on small screens */
+@media (max-width: 1200px) {
+  .spread-view-document {
+    max-width: 8.5in !important;
+    min-width: auto;
+  }
+
+  .spread-view-document::before,
+  .spread-view-document::after,
+  .spread-view-document textarea {
+    display: none;
+  }
+
+  /* Fallback to single page view */
+  .spread-view-document {
+    display: block;
+    background: hsl(var(--card)) !important;
+    box-shadow: var(--shadow-md) !important;
+    border-radius: 1rem;
+  }
+
+  .spread-view-document textarea {
+    display: block;
+    background: transparent !important;
+  }
+}
+
 /* ===== MOBILE SAFE AREA ===== */
 .safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-pb {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -551,5 +1068,132 @@ button {
 @media (max-width: 767px) {
   .has-bottom-nav {
     padding-bottom: 3.5rem; /* h-14 */
+  }
+}
+
+/* ===== MOBILE TEXT SIZING ===== */
+@media (max-width: 767px) {
+  /* Prevent iOS zoom on input focus */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  /* Larger screenplay text on mobile for readability */
+  .typing-textarea {
+    font-size: 16px !important;
+    line-height: 1.6;
+    padding: 1rem !important;
+  }
+
+  /* Screenplay editor content */
+  .screenplay-page {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .font-screenplay {
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  /* Editor document adjustments */
+  .editor-document {
+    padding: 1rem;
+    min-height: auto;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* Reduce page simulation on mobile */
+  .layout-modern .editor-document {
+    border-radius: 0.75rem;
+    margin: 0.5rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Remove page wrapper padding on mobile */
+  .editor-page-container > div {
+    padding: 1rem 0.5rem;
+  }
+
+  /* Screenplay lines need adequate padding */
+  .screenplay-line {
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+/* ===== TOUCH TARGETS ===== */
+@media (max-width: 767px) {
+  /* Ensure minimum touch target size */
+  .btn-touch,
+  button[data-touch="true"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Mobile toolbar buttons */
+  .mobile-toolbar button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Larger tap areas for interactive elements */
+  .tap-target {
+    position: relative;
+  }
+
+  .tap-target::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    right: -8px;
+    bottom: -8px;
+  }
+}
+
+/* ===== MOBILE EDITOR TOOLBAR SAFE AREA ===== */
+@media (max-width: 767px) {
+  /* Account for fixed bottom toolbar */
+  .editor-with-toolbar {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Connection status moves above mobile toolbar */
+  .connection-status-mobile {
+    bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 0.5rem);
+  }
+}
+
+/* ===== MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 767px) {
+  /* Reduce animations on mobile */
+  .typing-container::after {
+    display: none;
+  }
+
+  /* Simpler scrollbar on mobile */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  /* Hide desktop-only elements */
+  .desktop-only {
+    display: none !important;
+  }
+
+  /* Mobile-friendly dialogs */
+  .modal-content {
+    max-width: calc(100% - 2rem);
+    max-height: calc(100vh - 4rem);
+    margin: 1rem;
+  }
+
+  /* Mobile-friendly popovers */
+  [data-radix-popper-content-wrapper] {
+    max-width: calc(100vw - 2rem) !important;
   }
 }

@@ -62,9 +62,21 @@ export function ClaudeAnalysis({ isOpen, screenplay, onClose }: ClaudeAnalysisPr
     }
   };
 
-  const formatAnalysis = (text: string) => {
-    // Convert markdown-style formatting to HTML
+  const escapeHtml = (text: string): string => {
+    // Escape HTML to prevent XSS attacks
     return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  };
+
+  const formatAnalysis = (text: string) => {
+    // First escape HTML to prevent XSS, then apply safe markdown formatting
+    const escaped = escapeHtml(text);
+
+    return escaped
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
       .replace(/^#+\s+(.+)$/gm, '<h3 class="font-semibold text-lg mt-4 mb-2">$1</h3>')

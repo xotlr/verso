@@ -118,7 +118,6 @@ export default function BoardPage() {
 
   const handleBeatsChange = useCallback((newBeats: Beat[]) => {
     setBeats(newBeats);
-    console.log('Beats updated:', newBeats);
   }, []);
 
   const handleSceneClick = useCallback((sceneId: string) => {

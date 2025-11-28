@@ -33,7 +33,7 @@ export function NavMenuItem({
   icon: Icon,
   notification,
   pathname,
-  isCollapsed,
+  isCollapsed: _isCollapsed,
   index = 0,
   onClick,
 }: NavMenuItemProps) {
@@ -52,25 +52,22 @@ export function NavMenuItem({
                 <Link
                   href={url}
                   className={cn(
-                    "w-full px-3 py-1.5 transition-all duration-150 text-sm group/item",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                    "hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
-                    !isCollapsed && "hover:border-l-[3px] hover:border-primary",
+                    "w-full px-3 py-1.5 transition-all duration-150 text-sm group/item rounded-md",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "hover:bg-accent hover:text-accent-foreground",
                     isActive
-                      ? "bg-primary/15 text-primary font-semibold"
-                      : "text-foreground/80",
-                    isActive && !isCollapsed && "border border-primary/30 border-l-[3px] border-l-primary",
+                      ? "bg-accent text-accent-foreground font-medium"
+                      : "text-muted-foreground",
                     "group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:rounded-lg",
-                    isActive &&
-                      "group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-primary/50 group-data-[collapsible=icon]:bg-primary/10"
+                    isActive && "group-data-[collapsible=icon]:bg-accent"
                   )}
                   aria-current={isActive ? "page" : undefined}
                 >
-                  <div className="relative inline-block mr-2 group-data-[collapsible=icon]:mr-0">
-                    {isActive && (
-                      <div className="absolute inset-0 rounded-full bg-primary/50 blur-sm" />
-                    )}
-                    <Icon className="relative h-4 w-4 transition-all duration-200 group-hover/item:text-primary" />
+                  <div className="inline-block mr-2 group-data-[collapsible=icon]:mr-0">
+                    <Icon className={cn(
+                      "h-4 w-4 transition-colors duration-150",
+                      isActive ? "text-foreground" : "text-muted-foreground group-hover/item:text-foreground"
+                    )} />
                   </div>
 
                   <span className="font-medium group-data-[collapsible=icon]:sr-only">
@@ -95,16 +92,15 @@ export function NavMenuItem({
                 <button
                   onClick={onClick}
                   className={cn(
-                    "w-full px-3 py-1.5 transition-all duration-150 text-sm group/item flex items-center",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                    "hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
-                    !isCollapsed && "hover:border-l-[3px] hover:border-primary",
-                    "text-foreground/80",
+                    "w-full px-3 py-1.5 transition-all duration-150 text-sm group/item flex items-center rounded-md",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "hover:bg-accent hover:text-accent-foreground",
+                    "text-muted-foreground",
                     "group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:rounded-lg"
                   )}
                 >
-                  <div className="relative inline-block mr-2 group-data-[collapsible=icon]:mr-0">
-                    <Icon className="relative h-4 w-4 transition-all duration-200 group-hover/item:text-primary" />
+                  <div className="inline-block mr-2 group-data-[collapsible=icon]:mr-0">
+                    <Icon className="h-4 w-4 transition-colors duration-150 group-hover/item:text-foreground" />
                   </div>
 
                   <span className="font-medium group-data-[collapsible=icon]:sr-only">

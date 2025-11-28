@@ -70,7 +70,7 @@ export function parseScreenplayText(text: string): Partial<Screenplay> {
         number: sceneNumber,
         heading: trimmed.toUpperCase(),
         location: locations.get(locationId)!,
-        timeOfDay: timeOfDay as any,
+        timeOfDay: timeOfDay as Scene['timeOfDay'],
         elements: [{
           id: `${sceneNumber}-heading`,
           type: 'scene-heading',
@@ -90,10 +90,9 @@ export function parseScreenplayText(text: string): Partial<Screenplay> {
              !trimmed.includes('.') &&
              (nextLine && !nextLine.match(/^[A-Z\s]+$/))) {
       
-      // Extract character name and extension
+      // Extract character name (extension is parsed but not stored separately)
       const extensionMatch = trimmed.match(/^(.+?)\s*(\((?:V\.O\.|O\.S\.|CONT'D)\))$/);
       const characterName = extensionMatch ? extensionMatch[1].trim() : trimmed;
-      const extension = extensionMatch ? extensionMatch[2] : '';
       
       const characterId = characterName.toLowerCase().replace(/\s+/g, '-');
       

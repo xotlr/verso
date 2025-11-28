@@ -1,0 +1,11 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Maskable icon with safe zone (10% padding = 51.2px each side) -->
+  <rect width="512" height="512" fill="#262626"/>
+  <defs>
+    <mask id="vCutMask512">
+      <rect width="512" height="512" fill="white"/>
+      <path d="M 154 51 L 256 358 L 358 51 Z" fill="black"/>
+    </mask>
+  </defs>
+  <rect x="51" y="51" width="410" height="410" rx="68" fill="#fafafa" mask="url(#vCutMask512)"/>
+</svg>

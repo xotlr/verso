@@ -46,10 +46,10 @@ export default function VisualizationPage() {
         calculateCharacterMovements(fullScreenplay);
       } catch (e) {
         console.error('Error loading screenplay:', e);
-        window.location.href = '/workspace';
+        window.location.href = '/home';
       }
     } else {
-      window.location.href = '/workspace';
+      window.location.href = '/home';
     }
   }, [id]);
 

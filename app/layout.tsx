@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SettingsProvider } from "@/contexts/settings-context";
+import { TeamProvider } from "@/contexts/team-context";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -42,9 +43,34 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "VERSO - Professional Screenplay Editor",
   description: "Write and format screenplays with AI assistance",
-  icons: {
-    icon: "/logo.svg",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "VERSO",
   },
+  icons: {
+    icon: [
+      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
+      { url: "/icons/icon-512.svg", sizes: "512x512", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/icons/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
+    ],
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fafafa" },
+    { media: "(prefers-color-scheme: dark)", color: "#141414" },
+  ],
 };
 
 export default function RootLayout({
@@ -64,8 +90,10 @@ export default function RootLayout({
             defaultTheme="system"
           >
             <SettingsProvider>
-              {children}
-              <Toaster richColors position="bottom-right" />
+              <TeamProvider>
+                {children}
+                <Toaster richColors position="bottom-right" />
+              </TeamProvider>
             </SettingsProvider>
           </ThemeProvider>
         </AuthProvider>

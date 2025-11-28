@@ -15,7 +15,7 @@ import { Mail, Lock, Loader2 } from "lucide-react"
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/workspace"
+  const callbackUrl = searchParams.get("callbackUrl") || "/home"
   const error = searchParams.get("error")
 
   const [email, setEmail] = useState("")

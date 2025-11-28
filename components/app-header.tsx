@@ -19,7 +19,8 @@ import { Search, Bell, Settings, Maximize2 } from "lucide-react";
 
 // Generate breadcrumbs from pathname
 function getBreadcrumbs(pathname: string): { label: string; href?: string }[] {
-  const segments = pathname.split("/").filter(Boolean);
+  // Filter out "home" since it's already hardcoded as the first breadcrumb
+  const segments = pathname.split("/").filter(s => s && s !== "home");
   const breadcrumbs: { label: string; href?: string }[] = [];
 
   // Map route segments to readable labels
@@ -30,6 +31,9 @@ function getBreadcrumbs(pathname: string): { label: string; href?: string }[] {
     cards: "Index Cards",
     visualization: "Reports",
     settings: "Settings",
+    profile: "Profile",
+    team: "Team",
+    project: "Project",
   };
 
   let currentPath = "";
@@ -38,7 +42,7 @@ function getBreadcrumbs(pathname: string): { label: string; href?: string }[] {
     const isLast = index === segments.length - 1;
 
     // Skip dynamic route segments (IDs) for href but show them
-    const label = labelMap[segment] || (segment.length > 10 ? "Project" : segment);
+    const label = labelMap[segment] || (segment.length > 10 ? "Details" : segment);
 
     breadcrumbs.push({
       label,
@@ -54,7 +58,7 @@ export function AppHeader() {
   const breadcrumbs = getBreadcrumbs(pathname);
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
+    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-2 h-4" />
 
@@ -63,7 +67,7 @@ export function AppHeader() {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/workspace">Home</Link>
+              <Link href="/home">Home</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           {breadcrumbs.map((crumb, i) => (
@@ -85,7 +89,13 @@ export function AppHeader() {
 
       {/* Right side actions */}
       <div className="ml-auto flex items-center gap-1">
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => window.dispatchEvent(new CustomEvent('command-palette-open'))}
+          title="Search (⌘K)"
+        >
           <Search className="h-4 w-4" />
         </Button>
         <Button variant="ghost" size="icon" className="h-8 w-8">

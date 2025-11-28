@@ -11,6 +11,9 @@ import {
   getAutocompleteContext,
   AutocompleteContext,
 } from './autocomplete-dropdown';
+import { MobileEditorToolbar } from './mobile-editor-toolbar';
+import { CursorOverlay } from './cursor-overlay';
+import { useCursor } from '@/hooks/editor/useCursor';
 import {
   Select,
   SelectContent,
@@ -28,7 +31,6 @@ import {
   Download,
   Upload,
   Search,
-  Replace,
   Type,
   User,
   MessageSquare,
@@ -41,32 +43,57 @@ import {
   Check,
   X,
   ChevronDown,
+  ChevronUp,
   Bold,
   Italic,
   Underline,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
   List,
   Hash,
   Eye,
   Users2,
   FileDown,
   Zap,
-  Settings,
-  Info,
-  ZoomIn
+  ZoomIn,
+  Minimize2,
+  Maximize2,
+  PanelRight,
+  Columns,
+  Square,
+  History,
+  Regex,
+  Filter,
 } from 'lucide-react';
 
+type ScreenplayType = 'FEATURE' | 'TV' | 'SHORT';
+
+interface EpisodeInfoUpdate {
+  type?: ScreenplayType;
+  season?: number | null;
+  episode?: number | null;
+  episodeTitle?: string | null;
+}
+
 interface ScreenplayEditorProps {
+  projectId?: string;
   screenplayText: string;
   onChange: (text: string) => void;
+  onSave?: () => void;
+  isSaving?: boolean;
   scenes: Scene[];
   characters: Character[];
   onSceneClick?: (scene: Scene) => void;
   selectedSceneId?: string;
   onVisualize?: () => void;
   onAIAnalysis?: () => void;
+  onTogglePanel?: () => void;
+  isPanelOpen?: boolean;
+  onToggleVersionHistory?: () => void;
+  // TV/Episode props
+  screenplayType?: ScreenplayType;
+  season?: number | null;
+  episode?: number | null;
+  episodeTitle?: string | null;
+  onEpisodeInfoChange?: (updates: EpisodeInfoUpdate) => void;
 }
 
 interface HistoryEntry {
@@ -77,21 +104,31 @@ interface HistoryEntry {
 }
 
 export function ScreenplayEditor({
+  projectId: _projectId,
   screenplayText,
   onChange,
+  onSave,
+  isSaving = false,
   scenes,
   characters,
-  onSceneClick,
+  onSceneClick: _onSceneClick,
   selectedSceneId,
   onVisualize,
-  onAIAnalysis
+  onAIAnalysis,
+  onTogglePanel,
+  isPanelOpen = false,
+  onToggleVersionHistory,
+  screenplayType = 'FEATURE',
+  season,
+  episode,
+  episodeTitle,
+  onEpisodeInfoChange,
 }: ScreenplayEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([{ text: '', timestamp: Date.now(), cursorPosition: 0, selectionEnd: 0 }]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [isSaved, setIsSaved] = useState(true);
-  const [lastSaveTime, setLastSaveTime] = useState(Date.now());
   const [wordCount, setWordCount] = useState(0);
   const [pageCount, setPageCount] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
@@ -99,13 +136,20 @@ export function ScreenplayEditor({
   const [showFindReplace, setShowFindReplace] = useState(false);
   const [findText, setFindText] = useState('');
   const [replaceText, setReplaceText] = useState('');
+  const [searchByCharacter, setSearchByCharacter] = useState<string>('');
+  const [searchByScene, setSearchByScene] = useState<string>('');
+  const [searchByElementType, setSearchByElementType] = useState<string>('');
+  const [useRegex, setUseRegex] = useState(false);
+  const [searchResults, setSearchResults] = useState<Array<{ index: number; length: number; context: string }>>([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [showPageBreaks, setShowPageBreaks] = useState(true);
   const [showLineNumbers, setShowLineNumbers] = useState(false);
   const [showCharacterList, setShowCharacterList] = useState(false);
   const [selectedText, setSelectedText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [zenMode, setZenMode] = useState(false);
+  const [viewMode, setViewMode] = useState<'single' | 'spread'>('single');
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Autocomplete state
   const [autocompleteOpen, setAutocompleteOpen] = useState(false);
@@ -124,6 +168,67 @@ export function ScreenplayEditor({
   const handleZoomChange = (value: string) => {
     updateEditorSettings({ zoom: parseInt(value) });
   };
+
+  // Custom cursor hook
+  const {
+    cursorProps,
+    updateCursorPosition,
+    isCustomCursor,
+    cursorSettings,
+  } = useCursor({
+    textareaRef,
+    containerRef,
+    isTyping,
+  });
+
+  // Process text for smart quotes and auto-capitalize
+  const processText = useCallback((text: string, prevText: string, cursorPos: number): { text: string; cursorOffset: number } => {
+    let result = text;
+    const cursorOffset = 0;
+
+    // Only process if settings are enabled and there's a change
+    if (text === prevText) return { text: result, cursorOffset: 0 };
+
+    // Find what was just typed (single character addition)
+    if (text.length === prevText.length + 1) {
+      const typedChar = text[cursorPos - 1];
+
+      // Smart quotes
+      if (settings.editor.smartQuotes) {
+        if (typedChar === '"') {
+          // Determine if opening or closing quote based on context
+          const beforeChar = cursorPos > 1 ? text[cursorPos - 2] : ' ';
+          const isOpening = /[\s\n\(\[\{]/.test(beforeChar) || cursorPos === 1;
+          const smartQuote = isOpening ? '\u201C' : '\u201D'; // " and "
+          result = text.substring(0, cursorPos - 1) + smartQuote + text.substring(cursorPos);
+        } else if (typedChar === "'") {
+          // Determine if opening or closing single quote
+          const beforeChar = cursorPos > 1 ? text[cursorPos - 2] : ' ';
+          const isOpening = /[\s\n\(\[\{]/.test(beforeChar) || cursorPos === 1;
+          const smartQuote = isOpening ? '\u2018' : '\u2019'; // ' and '
+          result = text.substring(0, cursorPos - 1) + smartQuote + text.substring(cursorPos);
+        }
+      }
+
+      // Auto-capitalize
+      if (settings.editor.autoCapitalize) {
+        const char = result[cursorPos - 1];
+        // Capitalize if it's a letter after sentence-ending punctuation or at line start
+        if (/[a-z]/.test(char)) {
+          const textBefore = result.substring(0, cursorPos - 1);
+          // Check if after period/exclamation/question followed by space(s), or at start of line
+          const shouldCapitalize = /[.!?]\s*$/.test(textBefore) ||
+                                   /^\s*$/.test(textBefore) ||
+                                   /\n\s*$/.test(textBefore);
+          if (shouldCapitalize) {
+            result = result.substring(0, cursorPos - 1) + char.toUpperCase() + result.substring(cursorPos);
+          }
+        }
+      }
+    }
+
+    return { text: result, cursorOffset };
+  }, [settings.editor.smartQuotes, settings.editor.autoCapitalize]);
 
   // Extract known character names, locations, and other data for autocomplete
   const knownCharacterNames = useMemo(() => {
@@ -316,23 +421,9 @@ export function ScreenplayEditor({
     }
   }, [screenplayText]);
 
-  // Auto-save
+  // Track unsaved changes (auto-save is handled by the wrapper)
   useEffect(() => {
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current);
-    }
-
-    autoSaveTimerRef.current = setTimeout(() => {
-      handleSave();
-    }, 30000); // Auto-save every 30 seconds
-
     setIsSaved(false);
-
-    return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-      }
-    };
   }, [screenplayText]);
 
   // Track history with debouncing
@@ -436,11 +527,23 @@ export function ScreenplayEditor({
             break;
         }
       }
+
+      // Zen mode toggle (Cmd/Ctrl + .)
+      if ((e.ctrlKey || e.metaKey) && e.key === '.') {
+        e.preventDefault();
+        setZenMode(prev => !prev);
+      }
+
+      // Exit zen mode with Escape
+      if (e.key === 'Escape' && zenMode) {
+        e.preventDefault();
+        setZenMode(false);
+      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [historyIndex, history]);
+  }, [historyIndex, history, zenMode]);
 
   // Selection tracking
   useEffect(() => {
@@ -494,11 +597,12 @@ export function ScreenplayEditor({
     }
   };
 
-  const handleSave = () => {
-    localStorage.setItem('currentScreenplay', screenplayText);
+  const handleSave = useCallback(() => {
+    if (onSave) {
+      onSave();
+    }
     setIsSaved(true);
-    setLastSaveTime(Date.now());
-  };
+  }, [onSave]);
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
@@ -680,53 +784,195 @@ export function ScreenplayEditor({
     }
   };
 
-  const handleFind = () => {
-    if (!findText || !textareaRef.current) return;
-    
-    const start = textareaRef.current.selectionEnd;
-    const index = screenplayText.indexOf(findText, start);
-    
-    if (index !== -1) {
-      textareaRef.current.selectionStart = index;
-      textareaRef.current.selectionEnd = index + findText.length;
-      textareaRef.current.focus();
-      textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      // Wrap around to beginning
-      const wrapIndex = screenplayText.indexOf(findText);
-      if (wrapIndex !== -1) {
-        textareaRef.current.selectionStart = wrapIndex;
-        textareaRef.current.selectionEnd = wrapIndex + findText.length;
-        textareaRef.current.focus();
+  // Enhanced search - finds all matches with filters
+  const performSearch = useCallback(() => {
+    if (!findText) {
+      setSearchResults([]);
+      return;
+    }
+
+    const results: Array<{ index: number; length: number; context: string }> = [];
+    const searchText = screenplayText;
+
+    // Build search pattern
+    let pattern: RegExp;
+    try {
+      if (useRegex) {
+        pattern = new RegExp(findText, 'gi');
+      } else {
+        // Escape special regex characters for literal search
+        const escaped = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        pattern = new RegExp(escaped, 'gi');
+      }
+    } catch {
+      // Invalid regex
+      setSearchResults([]);
+      return;
+    }
+
+    // Find all matches
+    let match;
+    while ((match = pattern.exec(searchText)) !== null) {
+      const index = match.index;
+      const length = match[0].length;
+
+      // Get context (line containing the match)
+      const lineStart = searchText.lastIndexOf('\n', index) + 1;
+      const lineEnd = searchText.indexOf('\n', index + length);
+      const context = searchText.substring(lineStart, lineEnd === -1 ? undefined : lineEnd).trim();
+
+      // Apply filters
+      let includeResult = true;
+
+      // Filter by character (look for character cue before dialogue)
+      if (searchByCharacter && includeResult) {
+        const textBefore = searchText.substring(Math.max(0, index - 500), index);
+        const lines = textBefore.split('\n').reverse();
+        let foundCharacter = false;
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed && /^[A-Z][A-Z\s.'()-]*$/.test(trimmed) && !trimmed.startsWith('INT.') && !trimmed.startsWith('EXT.')) {
+            // This looks like a character cue
+            foundCharacter = trimmed.toLowerCase().includes(searchByCharacter.toLowerCase());
+            break;
+          }
+          if (trimmed.startsWith('INT.') || trimmed.startsWith('EXT.') || trimmed.startsWith('I/E.')) {
+            break; // Hit a scene heading, stop looking
+          }
+        }
+        includeResult = foundCharacter;
+      }
+
+      // Filter by scene heading
+      if (searchByScene && includeResult) {
+        const textBefore = searchText.substring(0, index);
+        const sceneMatches = textBefore.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.).*$/gim);
+        if (sceneMatches && sceneMatches.length > 0) {
+          const lastScene = sceneMatches[sceneMatches.length - 1];
+          includeResult = lastScene.toLowerCase().includes(searchByScene.toLowerCase());
+        } else {
+          includeResult = false;
+        }
+      }
+
+      // Filter by element type
+      if (searchByElementType && includeResult) {
+        const lineContent = context;
+        let elementType = '';
+
+        if (/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/.test(lineContent)) {
+          elementType = 'scene-heading';
+        } else if (/^[A-Z][A-Z\s.'()-]*$/.test(lineContent) && lineContent.length < 50) {
+          elementType = 'character';
+        } else if (/^\(.*\)$/.test(lineContent)) {
+          elementType = 'parenthetical';
+        } else if (/^(FADE OUT|CUT TO|DISSOLVE TO|SMASH CUT|MATCH CUT|JUMP CUT|FADE TO BLACK|THE END)/i.test(lineContent)) {
+          elementType = 'transition';
+        } else {
+          // Check if we're in dialogue (preceded by character cue)
+          const textBefore = searchText.substring(Math.max(0, index - 300), index);
+          const lines = textBefore.split('\n').reverse();
+          let isDialogue = false;
+          for (let i = 0; i < lines.length && i < 5; i++) {
+            const trimmed = lines[i].trim();
+            if (trimmed && /^[A-Z][A-Z\s.'()-]*$/.test(trimmed) && trimmed.length < 50) {
+              isDialogue = true;
+              break;
+            }
+            if (trimmed && !/^\(.*\)$/.test(trimmed)) {
+              break;
+            }
+          }
+          elementType = isDialogue ? 'dialogue' : 'action';
+        }
+
+        includeResult = elementType === searchByElementType;
+      }
+
+      if (includeResult) {
+        results.push({ index, length, context });
       }
     }
+
+    setSearchResults(results);
+    setCurrentSearchIndex(0);
+
+    // Navigate to first result if any
+    if (results.length > 0 && textareaRef.current) {
+      const first = results[0];
+      textareaRef.current.selectionStart = first.index;
+      textareaRef.current.selectionEnd = first.index + first.length;
+      textareaRef.current.focus();
+    }
+  }, [findText, screenplayText, searchByCharacter, searchByScene, searchByElementType, useRegex]);
+
+  const handleFind = () => {
+    if (searchResults.length === 0) {
+      performSearch();
+      return;
+    }
+
+    if (!textareaRef.current) return;
+
+    // Go to next result
+    const nextIndex = (currentSearchIndex + 1) % searchResults.length;
+    setCurrentSearchIndex(nextIndex);
+
+    const result = searchResults[nextIndex];
+    textareaRef.current.selectionStart = result.index;
+    textareaRef.current.selectionEnd = result.index + result.length;
+    textareaRef.current.focus();
+  };
+
+  const handleFindPrevious = () => {
+    if (searchResults.length === 0) return;
+    if (!textareaRef.current) return;
+
+    const prevIndex = (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+    setCurrentSearchIndex(prevIndex);
+
+    const result = searchResults[prevIndex];
+    textareaRef.current.selectionStart = result.index;
+    textareaRef.current.selectionEnd = result.index + result.length;
+    textareaRef.current.focus();
   };
 
   const handleReplace = () => {
-    if (!findText || !textareaRef.current) return;
-    
-    const start = textareaRef.current.selectionStart;
-    const end = textareaRef.current.selectionEnd;
-    const selectedText = screenplayText.substring(start, end);
-    
-    if (selectedText === findText) {
-      const newText = screenplayText.substring(0, start) + replaceText + screenplayText.substring(end);
-      onChange(newText);
-      
-      // Move to next occurrence
-      setTimeout(() => handleFind(), 0);
-    } else {
-      handleFind();
-    }
+    if (!findText || !textareaRef.current || searchResults.length === 0) return;
+
+    const result = searchResults[currentSearchIndex];
+    const start = result.index;
+    const end = start + result.length;
+
+    const newText = screenplayText.substring(0, start) + replaceText + screenplayText.substring(end);
+    onChange(newText);
+
+    // Re-search after replace
+    setTimeout(() => performSearch(), 0);
   };
 
   const handleReplaceAll = () => {
-    if (!findText) return;
-    
-    const newText = screenplayText.split(findText).join(replaceText);
+    if (!findText || searchResults.length === 0) return;
+
+    // Replace from end to start to maintain indices
+    let newText = screenplayText;
+    const sortedResults = [...searchResults].sort((a, b) => b.index - a.index);
+
+    for (const result of sortedResults) {
+      newText = newText.substring(0, result.index) + replaceText + newText.substring(result.index + result.length);
+    }
+
     onChange(newText);
+    setSearchResults([]);
     setShowFindReplace(false);
   };
+
+  // Re-search when filters change
+  useEffect(() => {
+    if (showFindReplace && findText) {
+      performSearch();
+    }
+  }, [searchByCharacter, searchByScene, searchByElementType, useRegex, showFindReplace, findText, performSearch]);
 
   const exportAsPDF = () => {
     // In a real implementation, this would use a library like jsPDF
@@ -748,36 +994,29 @@ export function ScreenplayEditor({
     toast.info('Final Draft export would be implemented with proper FDX conversion');
   };
 
-  // Import handlers
+  // Import handlers - uses modular parser system
   const handleImport = useCallback(() => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.fountain,.fdx,.txt';
+    input.accept = '.fountain,.fdx,.highland,.fadein,.txt';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
 
       try {
-        const text = await file.text();
-        const fileName = file.name.toLowerCase();
+        const { parseScreenplay } = await import('@/lib/parsers');
+        const buffer = await file.arrayBuffer();
+        const result = await parseScreenplay(buffer, { filename: file.name });
 
-        if (fileName.endsWith('.fdx')) {
-          // Import FDX
-          const { parseFDX } = await import('@/lib/fdx-parser');
-          const result = parseFDX(text);
+        if (result.success) {
           onChange(result.content);
-        } else if (fileName.endsWith('.fountain') || fileName.endsWith('.txt')) {
-          // Import Fountain
-          const { parseFountain, isFountainFormat } = await import('@/lib/fountain-parser');
-          if (isFountainFormat(text)) {
-            const result = parseFountain(text);
-            onChange(result.content);
+          if (result.titlePage.title) {
+            toast.success(`Imported: ${result.titlePage.title}`);
           } else {
-            // Plain text - just import as is
-            onChange(text);
+            toast.success('File imported successfully');
           }
         } else {
-          onChange(text);
+          toast.error(result.error || 'Failed to import file');
         }
       } catch (error) {
         console.error('Error importing file:', error);
@@ -1032,30 +1271,54 @@ export function ScreenplayEditor({
 
   const getPageBreaks = () => {
     if (!showPageBreaks) return null;
-    
+
     const pageBreaks = [];
     for (let i = 1; i < pageCount; i++) {
       const topPosition = i * 55 * 1.5 * 16; // 55 lines * line height * font size
       pageBreaks.push(
         <div
           key={i}
-          className="absolute left-0 right-0 border-t-2 border-dashed border-border pointer-events-none"
+          className="absolute left-0 right-0 h-6 bg-muted/30 pointer-events-none flex items-center justify-center border-y border-border/20"
           style={{ top: `${topPosition}px` }}
         >
-          <span className="absolute -top-3 right-4 bg-card px-2 text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground/60 bg-background/80 px-3 py-0.5 rounded-full">
             Page {i + 1}
           </span>
         </div>
       );
     }
-    
+
     return pageBreaks;
   };
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* Enhanced Toolbar */}
-      <div className="bg-card border-b border-border shadow-sm">
+    <div className={cn("h-full flex flex-col bg-background", zenMode && "zen-mode")}>
+      {/* Zen Mode Floating Controls */}
+      {zenMode && (
+        <>
+          <div className="zen-controls">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 px-3 bg-background/80 backdrop-blur-sm border border-border/50 hover:bg-accent"
+              onClick={() => setZenMode(false)}
+              title="Exit Zen Mode (Esc)"
+            >
+              <Minimize2 className="h-4 w-4 mr-2" />
+              <span className="text-xs">Exit</span>
+            </Button>
+          </div>
+          <div className="zen-word-count">
+            {wordCount.toLocaleString()} words | ~{Math.max(1, Math.ceil(wordCount / 200))} min read
+          </div>
+          <div className="zen-save-indicator">
+            {isSaved ? 'Saved' : 'Saving...'}
+          </div>
+        </>
+      )}
+
+      {/* Enhanced Toolbar - Hidden on mobile */}
+      <div className={cn("bg-card border-b border-border shadow-sm editor-toolbar hidden md:block", zenMode && "md:hidden")}>
         <div className="px-4 py-2">
           <div className="flex items-center justify-between">
             {/* Left side - File operations */}
@@ -1090,6 +1353,16 @@ export function ScreenplayEditor({
                 >
                   <Save className="h-4 w-4" />
                 </Button>
+                {onToggleVersionHistory && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={onToggleVersionHistory}
+                    title="Version History"
+                  >
+                    <History className="h-4 w-4" />
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"
@@ -1110,7 +1383,7 @@ export function ScreenplayEditor({
                   size="sm"
                   variant="ghost"
                   onClick={handleImport}
-                  title="Import (Fountain, FDX)"
+                  title="Import screenplay (FDX, Fountain, Highland, Fade In)"
                 >
                   <Upload className="h-4 w-4" />
                 </Button>
@@ -1269,6 +1542,27 @@ export function ScreenplayEditor({
               
               {/* View options */}
               <div className="flex items-center gap-2">
+                {/* Page view toggle */}
+                <div className="flex items-center rounded-xl border border-border overflow-hidden">
+                  <Button
+                    size="sm"
+                    variant={viewMode === 'single' ? "secondary" : "ghost"}
+                    onClick={() => setViewMode('single')}
+                    title="Single Page View"
+                    className="rounded-none h-8 px-2"
+                  >
+                    <Square className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={viewMode === 'spread' ? "secondary" : "ghost"}
+                    onClick={() => setViewMode('spread')}
+                    title="Two-Page Spread View"
+                    className="rounded-none h-8 px-2"
+                  >
+                    <Columns className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
                 {/* Zoom dropdown */}
                 <Select value={zoom.toString()} onValueChange={handleZoomChange}>
                   <SelectTrigger className="w-[90px] h-8 rounded-xl text-xs">
@@ -1301,6 +1595,26 @@ export function ScreenplayEditor({
                 >
                   <FileText className="h-4 w-4" />
                 </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setZenMode(true)}
+                  title="Zen Mode (Cmd/Ctrl + .)"
+                  className="rounded-xl"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+                {onTogglePanel && (
+                  <Button
+                    size="sm"
+                    variant={isPanelOpen ? "secondary" : "ghost"}
+                    onClick={onTogglePanel}
+                    title="Script Info Panel"
+                    className="rounded-xl"
+                  >
+                    <PanelRight className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
               
               {/* Status */}
@@ -1315,6 +1629,7 @@ export function ScreenplayEditor({
                 </div>
                 <div>Page {currentPage}/{pageCount}</div>
                 <div>{wordCount.toLocaleString()} words</div>
+                <div>~{Math.max(1, Math.ceil(wordCount / 200))} min read</div>
               </div>
             </div>
           </div>
@@ -1364,35 +1679,259 @@ export function ScreenplayEditor({
           </div>
         )}
         
-        {/* Find & Replace Bar */}
+        {/* Enhanced Find & Replace Bar */}
         {showFindReplace && (
-          <div className="px-4 py-2 border-t border-border bg-muted">
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Find..."
-                value={findText}
-                onChange={(e) => setFindText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleFind()}
-                className="w-48"
-              />
+          <div className="px-4 py-2 border-t border-border bg-muted space-y-2">
+            {/* Main search row */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Find..."
+                  value={findText}
+                  onChange={(e) => {
+                    setFindText(e.target.value);
+                    setSearchResults([]);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (e.shiftKey) {
+                        handleFindPrevious();
+                      } else {
+                        handleFind();
+                      }
+                    }
+                  }}
+                  className="w-48 pl-8 h-8"
+                />
+              </div>
               <Input
                 placeholder="Replace with..."
                 value={replaceText}
                 onChange={(e) => setReplaceText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleReplace()}
-                className="w-48"
+                className="w-40 h-8"
               />
-              <Button size="sm" onClick={handleFind}>Find</Button>
-              <Button size="sm" onClick={handleReplace}>Replace</Button>
-              <Button size="sm" onClick={handleReplaceAll}>Replace All</Button>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="outline" onClick={handleFindPrevious} className="h-8 px-2" title="Previous (Shift+Enter)">
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleFind} className="h-8 px-2" title="Next (Enter)">
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button size="sm" onClick={handleReplace} className="h-8">Replace</Button>
+              <Button size="sm" variant="outline" onClick={handleReplaceAll} className="h-8">All</Button>
+
+              {/* Results count */}
+              {searchResults.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {currentSearchIndex + 1} of {searchResults.length}
+                </span>
+              )}
+              {findText && searchResults.length === 0 && (
+                <span className="text-xs text-muted-foreground">No results</span>
+              )}
+
+              <div className="ml-auto flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant={useRegex ? "default" : "ghost"}
+                  onClick={() => {
+                    setUseRegex(!useRegex);
+                    setSearchResults([]);
+                  }}
+                  className="h-8 px-2"
+                  title="Use Regular Expression"
+                >
+                  <Regex className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowFindReplace(false);
+                    setSearchResults([]);
+                    setSearchByCharacter('');
+                    setSearchByScene('');
+                    setSearchByElementType('');
+                  }}
+                  className="h-8 px-2"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Filter row */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Filter by:</span>
+
+              {/* Character filter */}
+              <Select
+                value={searchByCharacter}
+                onValueChange={(v) => {
+                  setSearchByCharacter(v === 'all' ? '' : v);
+                  setSearchResults([]);
+                }}
+              >
+                <SelectTrigger className="w-[130px] h-7 text-xs">
+                  <User className="h-3 w-3 mr-1" />
+                  <SelectValue placeholder="Character" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Characters</SelectItem>
+                  {characters.map((char) => (
+                    <SelectItem key={char.id} value={char.name}>
+                      {char.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Scene filter */}
+              <Select
+                value={searchByScene}
+                onValueChange={(v) => {
+                  setSearchByScene(v === 'all' ? '' : v);
+                  setSearchResults([]);
+                }}
+              >
+                <SelectTrigger className="w-[150px] h-7 text-xs">
+                  <Film className="h-3 w-3 mr-1" />
+                  <SelectValue placeholder="Scene" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Scenes</SelectItem>
+                  {scenes.map((scene) => (
+                    <SelectItem key={scene.id} value={scene.heading}>
+                      {scene.number}. {scene.heading.substring(0, 25)}{scene.heading.length > 25 ? '...' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Element type filter */}
+              <Select
+                value={searchByElementType}
+                onValueChange={(v) => {
+                  setSearchByElementType(v === 'all' ? '' : v);
+                  setSearchResults([]);
+                }}
+              >
+                <SelectTrigger className="w-[130px] h-7 text-xs">
+                  <Type className="h-3 w-3 mr-1" />
+                  <SelectValue placeholder="Element" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Elements</SelectItem>
+                  <SelectItem value="scene-heading">Scene Headings</SelectItem>
+                  <SelectItem value="action">Action</SelectItem>
+                  <SelectItem value="character">Character Cues</SelectItem>
+                  <SelectItem value="dialogue">Dialogue</SelectItem>
+                  <SelectItem value="parenthetical">Parentheticals</SelectItem>
+                  <SelectItem value="transition">Transitions</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Clear filters */}
+              {(searchByCharacter || searchByScene || searchByElementType) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setSearchByCharacter('');
+                    setSearchByScene('');
+                    setSearchByElementType('');
+                    setSearchResults([]);
+                  }}
+                  className="h-7 text-xs"
+                >
+                  Clear filters
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Episode/Season Bar - TV Only */}
+        {screenplayType === 'TV' && onEpisodeInfoChange && (
+          <div className="px-4 py-2 border-t border-border bg-gradient-to-r from-muted/50 to-muted/30">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Season</span>
+                <Select
+                  value={season?.toString() || '1'}
+                  onValueChange={(value) => onEpisodeInfoChange({ season: parseInt(value) })}
+                >
+                  <SelectTrigger className="w-[70px] h-7 text-xs rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-lg">
+                    {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                      <SelectItem key={num} value={num.toString()} className="text-xs">
+                        S{num}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Episode</span>
+                <Select
+                  value={episode?.toString() || '1'}
+                  onValueChange={(value) => onEpisodeInfoChange({ episode: parseInt(value) })}
+                >
+                  <SelectTrigger className="w-[70px] h-7 text-xs rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-lg">
+                    {Array.from({ length: 30 }, (_, i) => i + 1).map((num) => (
+                      <SelectItem key={num} value={num.toString()} className="text-xs">
+                        E{num}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="h-4 border-l border-border/50" />
+
+              <div className="flex items-center gap-2 flex-1">
+                <Input
+                  value={episodeTitle || ''}
+                  onChange={(e) => onEpisodeInfoChange({ episodeTitle: e.target.value || null })}
+                  placeholder="Episode Title..."
+                  className="h-7 text-xs max-w-xs rounded-lg"
+                />
+              </div>
+
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => setShowFindReplace(false)}
+                className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => onEpisodeInfoChange({ type: 'FEATURE' })}
+                title="Switch to Feature Film"
               >
-                <X className="h-4 w-4" />
+                Switch to Feature
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Type Selector - Show when not TV but can switch */}
+        {screenplayType !== 'TV' && onEpisodeInfoChange && (
+          <div className="px-4 py-1.5 border-t border-border/50">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => onEpisodeInfoChange({ type: 'TV', season: 1, episode: 1 })}
+            >
+              Switch to TV Series Mode
+            </Button>
           </div>
         )}
       </div>
@@ -1400,8 +1939,8 @@ export function ScreenplayEditor({
       {/* Main content area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Scene Navigator */}
-        {showSceneNavigator && (
-          <div className="w-64 border-r border-border bg-card overflow-y-auto">
+        {showSceneNavigator && !zenMode && (
+          <div className="w-64 border-r border-border bg-card overflow-y-auto editor-panels">
             <div className="p-4">
               <h3 className="font-semibold mb-3 text-foreground">Scene Navigator</h3>
               <div className="space-y-2">
@@ -1433,8 +1972,8 @@ export function ScreenplayEditor({
         )}
         
         {/* Character List */}
-        {showCharacterList && (
-          <div className="w-64 border-r border-border bg-card overflow-y-auto">
+        {showCharacterList && !zenMode && (
+          <div className="w-64 border-r border-border bg-card overflow-y-auto editor-panels">
             <div className="p-4">
               <h3 className="font-semibold mb-3 text-foreground">Characters</h3>
               <div className="space-y-2">
@@ -1455,8 +1994,15 @@ export function ScreenplayEditor({
         )}
         
         {/* Editor */}
-        <div className="flex-1 overflow-auto relative editor-page-container">
-          <div className="min-h-full py-8 px-4">
+        <div className={cn(
+          "flex-1 overflow-auto relative editor-page-container",
+          "pb-16 md:pb-0", // Mobile bottom padding for toolbar
+          viewMode === 'spread' && "spread-view-container"
+        )}>
+          <div className={cn(
+            "py-8 px-4",
+            viewMode === 'spread' && "spread-view-wrapper"
+          )}>
             <div
               className="origin-top transition-transform duration-200"
               style={{ transform: `scale(${zoom / 100})` }}
@@ -1466,7 +2012,8 @@ export function ScreenplayEditor({
                 className={cn(
                   "editor-document min-h-[11in] relative typing-container",
                   "transition-all duration-200 ease-out",
-                  isTyping && "is-typing"
+                  isTyping && "is-typing",
+                  viewMode === 'spread' && "spread-view-document"
                 )}
               >
                 {getLineNumbers()}
@@ -1475,42 +2022,68 @@ export function ScreenplayEditor({
                   ref={textareaRef}
                   value={screenplayText}
                   onChange={(e) => {
-                    onChange(e.target.value);
-                    updateAutocomplete(e.target.value, e.target.selectionStart);
+                    const cursorPos = e.target.selectionStart;
+                    const { text: processedText } = processText(e.target.value, screenplayText, cursorPos);
+                    onChange(processedText);
+                    updateAutocomplete(processedText, cursorPos);
+                    if (isCustomCursor) {
+                      requestAnimationFrame(updateCursorPosition);
+                    }
                   }}
                   onKeyDown={handleKeyDown}
                   onKeyUp={(e) => {
                     // Update autocomplete on cursor movement
                     const target = e.target as HTMLTextAreaElement;
                     updateAutocomplete(target.value, target.selectionStart);
+                    if (isCustomCursor) {
+                      updateCursorPosition();
+                    }
                   }}
                   onClick={(e) => {
                     // Update autocomplete on click (cursor position change)
                     const target = e.target as HTMLTextAreaElement;
                     updateAutocomplete(target.value, target.selectionStart);
+                    if (isCustomCursor) {
+                      updateCursorPosition();
+                    }
                   }}
                   onPaste={handlePaste}
                   className={cn(
                     "w-full min-h-[11in] p-16",
                     "bg-transparent text-foreground",
-                    "font-screenplay text-xs leading-relaxed",
+                    "font-screenplay",
                     "border-0 outline-none resize-none",
                     "typing-textarea",
                     showLineNumbers && "pl-20"
                   )}
-                  style={{
-                    lineHeight: '1.5',
-                  }}
                   placeholder="FADE IN:"
-                  spellCheck={false}
+                  spellCheck={settings.editor.spellCheck}
                 />
+                {/* Custom cursor overlay */}
+                {isCustomCursor && cursorProps && (
+                  <CursorOverlay
+                    x={cursorProps.x}
+                    y={cursorProps.y}
+                    height={cursorProps.height}
+                    visible={cursorProps.visible}
+                    mode={cursorSettings.mode}
+                    blinkStyle={cursorSettings.blinkStyle}
+                    blinkSpeed={cursorSettings.blinkSpeed}
+                    color={cursorSettings.color}
+                    glowEnabled={cursorSettings.glowEnabled}
+                    glowIntensity={cursorSettings.glowIntensity}
+                    width={cursorSettings.width}
+                    isTyping={isTyping}
+                  />
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
-      
-      {/* Export menu */}
+
+      {/* Export menu - hidden in zen mode */}
+      {!zenMode && (
       <div className="absolute bottom-4 right-4">
         <div className="relative group">
           <Button
@@ -1545,6 +2118,7 @@ export function ScreenplayEditor({
           </div>
         </div>
       </div>
+      )}
 
       {/* Autocomplete Dropdown */}
       <AutocompleteDropdown
@@ -1556,6 +2130,53 @@ export function ScreenplayEditor({
         selectedIndex={autocompleteSelectedIndex}
         onSelectedIndexChange={setAutocompleteSelectedIndex}
       />
+
+      {/* Mobile Editor Toolbar */}
+      {!zenMode && (
+        <MobileEditorToolbar
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={historyIndex > 0}
+          canRedo={historyIndex < history.length - 1}
+          onInsertSceneHeading={insertSceneHeading}
+          onInsertCharacter={insertCharacter}
+          onInsertDialogue={insertDialogue}
+          onInsertAction={insertAction}
+          onInsertTransition={insertTransition}
+          onInsertParenthetical={insertParenthetical}
+          onInsertDualDialogue={insertDualDialogue}
+          onBold={() => wrapSelection('**', '**')}
+          onItalic={() => wrapSelection('*', '*')}
+          onUnderline={() => wrapSelection('_', '_')}
+          onAutoFormat={handleFormat}
+          onSave={handleSave}
+          onToggleFindReplace={() => setShowFindReplace(!showFindReplace)}
+          onToggleSceneNavigator={() => setShowSceneNavigator(!showSceneNavigator)}
+          onToggleVersionHistory={onToggleVersionHistory}
+          onTogglePanel={onTogglePanel}
+          onToggleZenMode={() => setZenMode(true)}
+          onExportPDF={exportAsPDF}
+          onToggleLineNumbers={() => setShowLineNumbers(!showLineNumbers)}
+          onTogglePageBreaks={() => setShowPageBreaks(!showPageBreaks)}
+          onZoomIn={() => {
+            const currentIdx = zoomLevels.indexOf(zoom);
+            if (currentIdx < zoomLevels.length - 1) {
+              handleZoomChange(zoomLevels[currentIdx + 1].toString());
+            }
+          }}
+          onZoomOut={() => {
+            const currentIdx = zoomLevels.indexOf(zoom);
+            if (currentIdx > 0) {
+              handleZoomChange(zoomLevels[currentIdx - 1].toString());
+            }
+          }}
+          showLineNumbers={showLineNumbers}
+          showPageBreaks={showPageBreaks}
+          zoom={zoom}
+          isSaving={isSaving}
+          isPanelOpen={isPanelOpen}
+        />
+      )}
     </div>
   );
 }

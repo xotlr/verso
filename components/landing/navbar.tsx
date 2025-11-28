@@ -33,7 +33,7 @@ export function Navbar() {
         <div className="flex items-center gap-3">
           {session ? (
             <Button size="sm" asChild>
-              <Link href="/workspace">Go to App</Link>
+              <Link href="/home">Go to App</Link>
             </Button>
           ) : (
             <>

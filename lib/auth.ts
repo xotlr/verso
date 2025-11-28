@@ -85,11 +85,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       // Safety: Don't redirect to login/signup pages on app subdomain (would cause loop)
       if (url.includes("app.") && (url.includes("/login") || url.includes("/signup"))) {
-        return appUrl || `${baseUrl}/workspace`
+        return appUrl || `${baseUrl}/home`
       }
 
       // If there's a callback URL that points to the app subdomain, use it
-      if (url.includes("app.") || url.includes("/workspace") || url.includes("/editor")) {
+      if (url.includes("app.") || url.includes("/home") || url.includes("/editor")) {
         return url
       }
 
@@ -101,7 +101,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Default: redirect to workspace on same origin
       // (middleware will handle redirect to app subdomain)
       if (url.startsWith(baseUrl)) {
-        return `${baseUrl}/workspace`
+        return `${baseUrl}/home`
       }
 
       return url
