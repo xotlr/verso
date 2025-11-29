@@ -163,6 +163,9 @@
 
   position: relative;
 
+  /* Prevent content clipping at different zoom levels */
+  overflow: visible;
+
   /* Typography */
   font-family: var(--pm-font-family);
   font-size: var(--pm-font-size);
@@ -499,13 +502,14 @@
   margin: 0;
   pointer-events: none;
   user-select: none;
+  overflow: visible; /* Prevent clipping at different zoom levels */
 }
 
 /* Zone 1: Previous page bottom edge - creates visual end */
 .pm-page-bottom {
   position: relative;
   width: 100%;
-  padding: 0.75rem 0 1.25rem;
+  padding: 0.75em 0 1.25em; /* em units scale with browser zoom */
 
   /* No shadow on divider - clean separation */
   box-shadow: none;
@@ -518,7 +522,7 @@
 .pm-page-gap {
   position: relative;
   width: 100%;
-  height: 48px;
+  height: 3em; /* em units scale with browser zoom (was 48px) */
 
   /* Use theme background color for clean page separation */
   background: hsl(var(--background));
@@ -533,13 +537,13 @@
 .pm-page-gap .pm-page-number {
   position: relative;
   z-index: 11;
-  padding: 6px 16px;
+  padding: 0.4em 1em; /* em units scale with browser zoom */
   background: hsl(var(--muted) / 0.95);
   backdrop-filter: blur(8px);
   border: 1px solid hsl(var(--border) / 0.4);
   border-radius: 9999px;
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 0.7em; /* em-based for zoom scaling */
   font-weight: 500;
   color: hsl(var(--muted-foreground));
   box-shadow: 0 2px 4px hsl(0 0% 0% / 0.08);
@@ -558,7 +562,7 @@
 .pm-page-top {
   position: relative;
   width: 100%;
-  padding: 1.25rem 0 0.75rem;
+  padding: 1.25em 0 0.75em; /* em units scale with browser zoom */
 
   /* No shadow on divider - clean separation */
   box-shadow: none;
@@ -615,13 +619,13 @@
 .pm-page-number {
   position: relative;
   z-index: 11;
-  padding: 6px 14px;
+  padding: 0.4em 0.9em; /* em units scale with browser zoom */
   background: hsl(var(--muted) / 0.8);
   backdrop-filter: blur(8px);
   border: 1px solid hsl(var(--border) / 0.5);
   border-radius: 6px;
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 0.7em; /* em-based for zoom scaling */
   font-weight: 500;
   color: hsl(var(--muted-foreground));
   box-shadow: 0 2px 4px hsl(0 0% 0% / 0.08);

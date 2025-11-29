@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { CircleUser, Search, Bell, Sun, Moon, Settings } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
+import { Search, Bell, Sun, Moon, Settings, LogOut, User } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
 import {
   Sheet,
   SheetContent,
@@ -42,7 +45,9 @@ function MenuItem({ icon: Icon, label, onClick }: MenuItemProps) {
 export function MobileHeaderMenu() {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const { data: session } = useSession();
   const [open, setOpen] = useState(false);
+  const user = session?.user;
 
   const handleNavigation = (path: string) => {
     setOpen(false);
@@ -60,19 +65,53 @@ export function MobileHeaderMenu() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-8 w-8"
+          className="relative h-8 w-8 p-0"
           aria-label="Open menu"
         >
-          <CircleUser className="h-5 w-5" />
+          <Avatar className="h-7 w-7" key={user?.image || 'no-avatar'}>
+            <AvatarImage src={user?.image || undefined} alt={user?.name || 'User'} />
+            <AvatarFallback
+              className="text-xs text-white font-medium"
+              style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
+            >
+              {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+            </AvatarFallback>
+          </Avatar>
         </Button>
       </SheetTrigger>
 
       <SheetContent side="right" className="w-[280px] flex flex-col">
         <SheetHeader className="border-b pb-4">
-          <SheetTitle className="text-left text-lg">Quick Actions</SheetTitle>
+          {user && (
+            <div className="flex items-center gap-3 mb-2">
+              <Avatar className="h-10 w-10" key={user?.image || 'no-avatar-header'}>
+                <AvatarImage src={user?.image || undefined} alt={user?.name || 'User'} />
+                <AvatarFallback
+                  className="text-sm text-white font-medium"
+                  style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
+                >
+                  {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col text-left">
+                <span className="text-sm font-semibold truncate">{user?.name || 'User'}</span>
+                <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
+              </div>
+            </div>
+          )}
+          <SheetTitle className="text-left text-lg sr-only">Menu</SheetTitle>
         </SheetHeader>
 
         <nav className="flex-1 py-4 space-y-1">
+          {/* Profile */}
+          {session?.user?.id && (
+            <MenuItem
+              icon={User}
+              label="View Profile"
+              onClick={() => handleNavigation(`/profile/${session.user.id}`)}
+            />
+          )}
+
           {/* Search */}
           <MenuItem icon={Search} label="Search" onClick={handleSearch} />
 
@@ -107,6 +146,26 @@ export function MobileHeaderMenu() {
             label="Settings"
             onClick={() => handleNavigation('/settings')}
           />
+
+          <div className="h-px bg-border my-3" />
+
+          {/* Log Out */}
+          <button
+            onClick={() => {
+              setOpen(false);
+              signOut({ callbackUrl: '/' });
+            }}
+            className={cn(
+              'flex items-center gap-4 w-full px-4 py-3.5',
+              'rounded-lg transition-all duration-200',
+              'hover:bg-destructive/10 active:scale-[0.98]',
+              'text-destructive',
+              'min-h-[48px]'
+            )}
+          >
+            <LogOut className="h-5 w-5 shrink-0" />
+            <span className="text-[15px] font-medium">Log Out</span>
+          </button>
         </nav>
 
         <div className="border-t pt-4 pb-2">

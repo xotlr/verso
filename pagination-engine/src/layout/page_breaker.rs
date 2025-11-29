@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::time::Instant;
 
 use crate::types::{
     Element, ElementId, ElementPosition, ElementType, Page,
@@ -196,8 +195,6 @@ impl PaginationState {
 
 /// Core pagination function - pure, deterministic, no side effects
 pub fn paginate(elements: &[Element], config: &PageConfig) -> PaginationResult {
-    let start = Instant::now();
-
     let line_calc = LineCalculator::new(config);
     let continuation_mgr = ContinuationManager::new(config);
 
@@ -317,8 +314,8 @@ pub fn paginate(elements: &[Element], config: &PageConfig) -> PaginationResult {
         }
     }
 
-    let timing = start.elapsed().as_micros() as u64;
-    state.finalize(timing, element_count)
+    // Timing is measured by the JavaScript worker using performance.now()
+    state.finalize(0, element_count)
 }
 
 /// Decide how to handle an element at a page boundary

@@ -4,17 +4,17 @@
  * Loads the WASM pagination engine and handles pagination requests.
  * This runs in a separate thread to avoid blocking the main UI.
  *
- * NOTE: This file is in /public/ as vanilla JavaScript and inlines the
- * wasm-bindgen glue code to avoid dynamic import issues with Next.js/Turbopack.
+ * NOTE: This file inlines the wasm-bindgen glue code to avoid dynamic import
+ * issues with absolute URLs in web workers.
  */
-
-let wasm = null;
-let initPromise = null;
-let baseOrigin = null;
 
 // ============================================================================
 // Inlined wasm-bindgen glue code from verso_pagination_engine.js
 // ============================================================================
+
+let wasm;
+let initPromise = null;
+let baseOrigin = null;
 
 let cachedDataViewMemory0 = null;
 function getDataViewMemory0() {
@@ -24,6 +24,11 @@ function getDataViewMemory0() {
   return cachedDataViewMemory0;
 }
 
+function getStringFromWasm0(ptr, len) {
+  ptr = ptr >>> 0;
+  return decodeText(ptr, len);
+}
+
 let cachedUint8ArrayMemory0 = null;
 function getUint8ArrayMemory0() {
   if (cachedUint8ArrayMemory0 === null || cachedUint8ArrayMemory0.byteLength === 0) {
@@ -31,41 +36,6 @@ function getUint8ArrayMemory0() {
   }
   return cachedUint8ArrayMemory0;
 }
-
-let cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
-cachedTextDecoder.decode();
-const MAX_SAFARI_DECODE_BYTES = 2146435072;
-let numBytesDecoded = 0;
-
-function decodeText(ptr, len) {
-  numBytesDecoded += len;
-  if (numBytesDecoded >= MAX_SAFARI_DECODE_BYTES) {
-    cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
-    cachedTextDecoder.decode();
-    numBytesDecoded = len;
-  }
-  return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
-}
-
-function getStringFromWasm0(ptr, len) {
-  ptr = ptr >>> 0;
-  return decodeText(ptr, len);
-}
-
-const cachedTextEncoder = new TextEncoder();
-
-if (!('encodeInto' in cachedTextEncoder)) {
-  cachedTextEncoder.encodeInto = function (arg, view) {
-    const buf = cachedTextEncoder.encode(arg);
-    view.set(buf);
-    return {
-      read: arg.length,
-      written: buf.length
-    };
-  };
-}
-
-let WASM_VECTOR_LEN = 0;
 
 function passStringToWasm0(arg, malloc, realloc) {
   if (realloc === undefined) {
@@ -110,47 +80,35 @@ function takeFromExternrefTable0(idx) {
   return value;
 }
 
-function __wbg_get_imports() {
-  const imports = {};
-  imports.wbg = {};
-  imports.wbg.__wbg_Error_52673b7de5a0ca89 = function(arg0, arg1) {
-    const ret = Error(getStringFromWasm0(arg0, arg1));
-    return ret;
-  };
-  imports.wbg.__wbg_error_7534b8e9a36f1ab4 = function(arg0, arg1) {
-    let deferred0_0;
-    let deferred0_1;
-    try {
-      deferred0_0 = arg0;
-      deferred0_1 = arg1;
-      console.error(getStringFromWasm0(arg0, arg1));
-    } finally {
-      wasm.__wbindgen_free(deferred0_0, deferred0_1, 1);
-    }
-  };
-  imports.wbg.__wbg_new_8a6f238a6ece86ea = function() {
-    const ret = new Error();
-    return ret;
-  };
-  imports.wbg.__wbg_stack_0ed75d68575b0f3c = function(arg0, arg1) {
-    const ret = arg1.stack;
-    const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
-    getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
-  };
-  imports.wbg.__wbindgen_init_externref_table = function() {
-    const table = wasm.__wbindgen_externrefs;
-    const offset = table.grow(4);
-    table.set(0, undefined);
-    table.set(offset + 0, undefined);
-    table.set(offset + 1, null);
-    table.set(offset + 2, true);
-    table.set(offset + 3, false);
-  };
+let cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
+cachedTextDecoder.decode();
+const MAX_SAFARI_DECODE_BYTES = 2146435072;
+let numBytesDecoded = 0;
 
-  return imports;
+function decodeText(ptr, len) {
+  numBytesDecoded += len;
+  if (numBytesDecoded >= MAX_SAFARI_DECODE_BYTES) {
+    cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
+    cachedTextDecoder.decode();
+    numBytesDecoded = len;
+  }
+  return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
 }
+
+const cachedTextEncoder = new TextEncoder();
+
+if (!('encodeInto' in cachedTextEncoder)) {
+  cachedTextEncoder.encodeInto = function (arg, view) {
+    const buf = cachedTextEncoder.encode(arg);
+    view.set(buf);
+    return {
+      read: arg.length,
+      written: buf.length
+    };
+  };
+}
+
+let WASM_VECTOR_LEN = 0;
 
 // Wrapped WASM functions
 function paginate_document(elements_json, config_json) {
@@ -208,6 +166,90 @@ function version() {
   }
 }
 
+// WASM imports
+function __wbg_get_imports() {
+  const imports = {};
+  imports.wbg = {};
+  imports.wbg.__wbg_Error_52673b7de5a0ca89 = function(arg0, arg1) {
+    const ret = Error(getStringFromWasm0(arg0, arg1));
+    return ret;
+  };
+  imports.wbg.__wbg_error_7534b8e9a36f1ab4 = function(arg0, arg1) {
+    let deferred0_0;
+    let deferred0_1;
+    try {
+      deferred0_0 = arg0;
+      deferred0_1 = arg1;
+      console.error(getStringFromWasm0(arg0, arg1));
+    } finally {
+      wasm.__wbindgen_free(deferred0_0, deferred0_1, 1);
+    }
+  };
+  imports.wbg.__wbg_new_8a6f238a6ece86ea = function() {
+    const ret = new Error();
+    return ret;
+  };
+  imports.wbg.__wbg_stack_0ed75d68575b0f3c = function(arg0, arg1) {
+    const ret = arg1.stack;
+    const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
+    getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
+  };
+  imports.wbg.__wbindgen_init_externref_table = function() {
+    const table = wasm.__wbindgen_externrefs;
+    const offset = table.grow(4);
+    table.set(0, undefined);
+    table.set(offset + 0, undefined);
+    table.set(offset + 1, null);
+    table.set(offset + 2, true);
+    table.set(offset + 3, false);
+  };
+
+  return imports;
+}
+
+// WASM loading helpers
+const EXPECTED_RESPONSE_TYPES = new Set(['basic', 'cors', 'default']);
+
+async function __wbg_load(module, imports) {
+  if (typeof Response === 'function' && module instanceof Response) {
+    if (typeof WebAssembly.instantiateStreaming === 'function') {
+      try {
+        return await WebAssembly.instantiateStreaming(module, imports);
+      } catch (e) {
+        const validResponse = module.ok && EXPECTED_RESPONSE_TYPES.has(module.type);
+
+        if (validResponse && module.headers.get('Content-Type') !== 'application/wasm') {
+          console.warn("[PaginationWorker] WebAssembly.instantiateStreaming failed, falling back:", e.message);
+        } else {
+          throw e;
+        }
+      }
+    }
+
+    const bytes = await module.arrayBuffer();
+    return await WebAssembly.instantiate(bytes, imports);
+  } else {
+    const instance = await WebAssembly.instantiate(module, imports);
+
+    if (instance instanceof WebAssembly.Instance) {
+      return { instance, module };
+    } else {
+      return instance;
+    }
+  }
+}
+
+function __wbg_finalize_init(instance, module) {
+  wasm = instance.exports;
+  cachedDataViewMemory0 = null;
+  cachedUint8ArrayMemory0 = null;
+
+  wasm.__wbindgen_start();
+  return wasm;
+}
+
 // ============================================================================
 // Worker logic
 // ============================================================================
@@ -229,6 +271,8 @@ async function initWasm() {
     try {
       // Fetch the WASM binary directly
       const wasmBinaryUrl = new URL('/wasm/verso_pagination_engine_bg.wasm', origin);
+      console.log('[PaginationWorker] Fetching WASM from:', wasmBinaryUrl.href);
+
       const response = await fetch(wasmBinaryUrl);
 
       if (!response.ok) {
@@ -236,36 +280,9 @@ async function initWasm() {
       }
 
       const imports = __wbg_get_imports();
+      const { instance, module } = await __wbg_load(response, imports);
 
-      // Use streaming instantiation if possible
-      let instance, module;
-      if (typeof WebAssembly.instantiateStreaming === 'function') {
-        try {
-          const result = await WebAssembly.instantiateStreaming(response, imports);
-          instance = result.instance;
-          module = result.module;
-        } catch (e) {
-          // Fallback if Content-Type is wrong
-          console.warn('[PaginationWorker] Streaming instantiation failed, falling back:', e.message);
-          const bytes = await response.clone().arrayBuffer();
-          const result = await WebAssembly.instantiate(bytes, imports);
-          instance = result.instance;
-          module = result.module;
-        }
-      } else {
-        const bytes = await response.arrayBuffer();
-        const result = await WebAssembly.instantiate(bytes, imports);
-        instance = result.instance;
-        module = result.module;
-      }
-
-      // Set up the wasm exports
-      wasm = instance.exports;
-      cachedDataViewMemory0 = null;
-      cachedUint8ArrayMemory0 = null;
-
-      // Call wasm_bindgen start function
-      wasm.__wbindgen_start();
+      __wbg_finalize_init(instance, module);
 
       console.log(`[PaginationWorker] WASM loaded, version: ${version()}`);
     } catch (error) {
@@ -296,7 +313,7 @@ self.onmessage = async (event) => {
         self.postMessage({
           type: 'init',
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : String(error),
         });
       }
       break;
@@ -331,7 +348,7 @@ self.onmessage = async (event) => {
         self.postMessage({
           type: 'error',
           requestId: request.requestId,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : String(error),
         });
       }
       break;
