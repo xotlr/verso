@@ -65,7 +65,7 @@ export function EditProfileDialog({
   user,
   onSave,
 }: EditProfileDialogProps) {
-  const { data: session } = useSession()
+  const { data: session, update } = useSession()
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: user.name || '',
@@ -135,6 +135,10 @@ export function EditProfileDialog({
 
       const updatedUser = await response.json()
       onSave(updatedUser)
+
+      // Refresh session to update sidebar/navbar with new image/name
+      await update()
+
       onOpenChange(false)
       toast.success('Profile updated successfully')
     } catch {

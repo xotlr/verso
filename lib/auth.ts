@@ -109,28 +109,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id
-        // Fetch plan on initial sign-in and store in token
+        // Fetch user data on initial sign-in and store in token
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-          select: { plan: true },
+          select: { plan: true, image: true, name: true },
         })
         token.plan = dbUser?.plan || "FREE"
+        token.image = dbUser?.image
+        token.name = dbUser?.name
       }
-      // Refresh plan when session is updated
+      // Refresh user data when session is updated (after profile changes)
       if (trigger === "update" && token.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { plan: true },
+          select: { plan: true, image: true, name: true },
         })
         token.plan = dbUser?.plan || "FREE"
+        token.image = dbUser?.image
+        token.name = dbUser?.name
       }
       return token
     },
     async session({ session, token }) {
       if (session.user && token) {
         session.user.id = token.id as string
-        // Read plan from token - no DB access needed (edge-compatible)
+        // Read user data from token - no DB access needed (edge-compatible)
         session.user.plan = token.plan
+        session.user.image = token.image as string | null | undefined
+        session.user.name = token.name as string | null | undefined
       }
       return session
     },
