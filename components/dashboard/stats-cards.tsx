@@ -44,17 +44,17 @@ export function StatsCards({
   ];
 
   return (
-    <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
       {stats.map((stat) => (
         <Card key={stat.label} className="border-border/50 bg-card/50 backdrop-blur-sm hover:border-border transition-all duration-200">
-          <CardContent className="p-4 sm:p-5">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 sm:p-2.5 rounded-lg bg-muted ${stat.color}`}>
+          <CardContent className="p-3 sm:p-4 md:p-5">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className={`p-1.5 sm:p-2 md:p-2.5 rounded-lg bg-muted ${stat.color}`}>
                 <stat.icon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xl sm:text-2xl font-bold text-foreground mb-0.5 sm:mb-1">{stat.value}</p>
-                <p className="text-xs sm:text-sm text-muted-foreground truncate">{stat.label}</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">{stat.value}</p>
+                <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground truncate">{stat.label}</p>
               </div>
             </div>
           </CardContent>

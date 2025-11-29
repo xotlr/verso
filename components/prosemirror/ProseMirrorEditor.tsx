@@ -11,6 +11,7 @@ import {
 import { ELEMENT_DISPLAY_NAMES, ElementType } from '@/lib/prosemirror';
 import { FloatingToolbar } from './FloatingToolbar';
 import { AutocompleteDropdown } from './AutocompleteDropdown';
+import { EditorScrollArea, EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { Button } from '@/components/ui/button';
 import '@/styles/editor/prosemirror.css';
 
@@ -141,6 +142,7 @@ export function ProseMirrorEditor({
   const [isInFocusMode, setIsInFocusMode] = useState(false);
   const [indicatorVisible, setIndicatorVisible] = useState(true);
   const indicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
 
   // Toggle app-level focus mode (hides sidebar + header)
   const toggleFocusMode = useCallback(() => {
@@ -214,18 +216,18 @@ export function ProseMirrorEditor({
       // Shift+Ctrl+E - Center current line
       if (e.shiftKey && e.ctrlKey && e.key === 'e') {
         e.preventDefault();
-        if (view && containerRef.current) {
+        if (view && scrollViewportRef.current) {
           const { from } = view.state.selection;
           const coords = view.coordsAtPos(from);
-          const container = containerRef.current;
-          const containerTop = container.getBoundingClientRect().top;
-          const scrollTop = container.scrollTop;
-          const viewportHeight = container.clientHeight;
+          const viewport = scrollViewportRef.current;
+          const viewportRect = viewport.getBoundingClientRect();
+          const scrollTop = viewport.scrollTop;
+          const viewportHeight = viewport.clientHeight;
 
           // Calculate scroll position to center the cursor
-          const targetScroll = scrollTop + (coords.top - containerTop) - (viewportHeight / 2);
+          const targetScroll = scrollTop + (coords.top - viewportRect.top) - (viewportHeight / 2);
 
-          container.scrollTo({
+          viewport.scrollTo({
             top: targetScroll,
             behavior: 'smooth'
           });
@@ -297,9 +299,10 @@ export function ProseMirrorEditor({
       )}
 
       {/* Editor container with page styling */}
-      <div
+      <EditorScrollArea
+        ref={scrollViewportRef}
         className={cn(
-          'pm-editor-scroll-container',
+          'pm-editor-scroll-area h-full',
           viewMode === 'continuous' && 'pm-continuous-mode'
         )}
       >
@@ -324,7 +327,7 @@ export function ProseMirrorEditor({
             )}
           />
         </div>
-      </div>
+      </EditorScrollArea>
 
       {/* Dual view page navigation */}
       {viewMode === 'dual' && isReady && totalSpreads > 1 && (
@@ -368,7 +371,7 @@ export function ProseMirrorEditor({
       )}
 
       {/* Floating toolbar on selection */}
-      {isReady && <FloatingToolbar view={view} />}
+      {isReady && <FloatingToolbar view={view} scrollbarWidth={EDITOR_SCROLLBAR_WIDTH} />}
 
       {/* Autocomplete dropdown */}
       {isReady && autocompleteState && (

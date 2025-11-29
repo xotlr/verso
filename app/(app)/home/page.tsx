@@ -549,33 +549,31 @@ function WorkspacePageContent() {
       </AlertDialog>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-background">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="flex-1 overflow-auto bg-background pb-20 md:pb-0">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
           {/* Pending Team Invites */}
           <PendingInviteBanner />
 
           {/* Page Title and Actions */}
-          <div className="mb-6 sm:mb-8 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="mb-4 sm:mb-6 md:mb-8 space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
               <div className="flex-1 min-w-0">
-                <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 truncate">
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-1 sm:mb-2 truncate">
                   {greeting.text}
                   {greeting.showName && greeting.name && <span className="italic font-normal">, {greeting.name}</span>}
                 </h2>
-                <p className="text-sm sm:text-base text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   {projects.length} project{projects.length !== 1 ? 's' : ''} &middot; {screenplays.length} screenplay{screenplays.length !== 1 ? 's' : ''}
                 </p>
               </div>
-              <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                <Button onClick={createNewProject} variant="outline" size="sm" className="flex-1 sm:flex-none">
-                  <Folder className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">New Project</span>
-                  <span className="sm:hidden">Project</span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button onClick={createNewProject} variant="outline" size="sm" className="touch-manipulation">
+                  <Folder className="h-4 w-4 mr-1.5 sm:mr-2" />
+                  <span className="text-xs sm:text-sm">New Project</span>
                 </Button>
-                <Button onClick={createNewScreenplay} size="sm" className="flex-1 sm:flex-none">
-                  <Plus className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">New Screenplay</span>
-                  <span className="sm:hidden">Screenplay</span>
+                <Button onClick={createNewScreenplay} size="sm" className="touch-manipulation">
+                  <Plus className="h-4 w-4 mr-1.5 sm:mr-2" />
+                  <span className="text-xs sm:text-sm">New Screenplay</span>
                 </Button>
               </div>
             </div>
@@ -616,7 +614,7 @@ function WorkspacePageContent() {
                   placeholder={`Search ${activeTab}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 h-9 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring text-foreground placeholder-muted-foreground transition-all"
+                  className="w-full pl-9 pr-4 py-2.5 h-11 sm:h-10 md:h-9 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring text-foreground placeholder-muted-foreground transition-all touch-manipulation"
                 />
               </div>
             </div>
@@ -843,10 +841,10 @@ function WorkspacePageContent() {
           )}
           </div>
 
-          {/* Quick Tips */}
-          <div className="mt-12 rounded-xl border border-border bg-card p-6">
+          {/* Quick Tips - Hidden on mobile to save space */}
+          <div className="mt-8 sm:mt-12 rounded-xl border border-border bg-card p-4 sm:p-6 hidden md:block">
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-3">Pro Tips</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3">Pro Tips</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li className="flex items-start gap-2">
                     <span className="text-primary mt-0.5">&bull;</span>

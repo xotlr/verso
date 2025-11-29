@@ -21,17 +21,18 @@ const NODE_TYPE_MAP: Record<string, ElementType> = {
 };
 
 /**
- * Convert a ProseMirror document to Verso Element array
+ * Convert a ProseMirror document to Verso Element array.
+ * Uses document positions as element IDs for reliable mapping back.
  */
 export function serializeDocument(doc: ProseMirrorNode): Element[] {
   const elements: Element[] = [];
-  let elementIndex = 0;
 
   doc.forEach((node, offset) => {
-    const converted = convertNode(node, elementIndex.toString());
+    // Use document position as ID - this guarantees stable, unique IDs
+    // that can be mapped back to document positions trivially
+    const converted = convertNode(node, offset.toString(), offset);
     if (converted) {
       elements.push(...converted);
-      elementIndex += converted.length;
     }
   });
 
@@ -40,8 +41,11 @@ export function serializeDocument(doc: ProseMirrorNode): Element[] {
 
 /**
  * Convert a single ProseMirror node to Verso Element(s)
+ * @param node - The ProseMirror node
+ * @param id - The element ID (based on document position)
+ * @param baseOffset - The document offset for this node (used for dual dialogue children)
  */
-function convertNode(node: ProseMirrorNode, id: string): Element[] | null {
+function convertNode(node: ProseMirrorNode, id: string, baseOffset: number): Element[] | null {
   const nodeType = node.type.name;
 
   // Skip non-element nodes
@@ -51,7 +55,7 @@ function convertNode(node: ProseMirrorNode, id: string): Element[] | null {
 
   // Handle dual dialogue specially
   if (nodeType === 'dual_dialogue') {
-    return convertDualDialogue(node, id);
+    return convertDualDialogue(node, id, baseOffset);
   }
 
   // Map node type to element type
@@ -87,32 +91,36 @@ function convertNode(node: ProseMirrorNode, id: string): Element[] | null {
 }
 
 /**
- * Convert dual dialogue container to two separate element streams
+ * Convert dual dialogue container to two separate element streams.
+ * Uses position-based IDs for child elements.
  */
-function convertDualDialogue(node: ProseMirrorNode, baseId: string): Element[] {
+function convertDualDialogue(node: ProseMirrorNode, baseId: string, baseOffset: number): Element[] {
   const elements: Element[] = [];
   let columnIndex = 0;
+  let childOffset = 1; // Start after the dual_dialogue node opening
 
-  node.forEach((column) => {
+  node.forEach((column, columnNodeOffset) => {
     if (column.type.name === 'dual_dialogue_column') {
       const position = columnIndex === 0 ? 'left' : 'right';
-      let elementIndex = 0;
+      let innerOffset = 1; // Start after column node opening
 
-      column.forEach((child) => {
-        const childId = `${baseId}_${position}_${elementIndex}`;
-        const converted = convertNode(child, childId);
+      column.forEach((child, childNodeOffset) => {
+        // Create ID using the absolute position within the dual dialogue
+        const childId = `${baseId}_${childOffset + innerOffset}`;
+        const converted = convertNode(child, childId, baseOffset + childOffset + innerOffset);
 
         if (converted) {
           converted.forEach((el) => {
             el.dual_dialogue_position = position;
           });
           elements.push(...converted);
-          elementIndex++;
         }
+        innerOffset += child.nodeSize;
       });
 
       columnIndex++;
     }
+    childOffset += column.nodeSize;
   });
 
   return elements;
@@ -154,7 +162,8 @@ function findCharacterName(node: ProseMirrorNode): string | null {
 }
 
 /**
- * Create a position map from element IDs to ProseMirror positions
+ * Create a position map from element IDs to ProseMirror positions.
+ * Uses document positions as IDs to match serializeDocument().
  */
 export interface PositionMap {
   elementToPos: Map<string, { from: number; to: number }>;
@@ -165,17 +174,33 @@ export function createPositionMap(doc: ProseMirrorNode): PositionMap {
   const elementToPos = new Map<string, { from: number; to: number }>();
   const posRanges: Array<{ from: number; to: number; id: string }> = [];
 
-  let elementIndex = 0;
-
   doc.forEach((node, offset) => {
-    const id = elementIndex.toString();
+    // Use position as ID - matches serializeDocument()
+    const id = offset.toString();
     const from = offset;
     const to = offset + node.nodeSize;
 
     elementToPos.set(id, { from, to });
     posRanges.push({ from, to, id });
 
-    elementIndex++;
+    // For dual dialogue, also map child positions
+    if (node.type.name === 'dual_dialogue') {
+      let childOffset = 1; // Start after the dual_dialogue node opening
+      node.forEach((column) => {
+        if (column.type.name === 'dual_dialogue_column') {
+          let innerOffset = 1; // Start after column node opening
+          column.forEach((child) => {
+            const childId = `${id}_${childOffset + innerOffset}`;
+            const childFrom = offset + childOffset + innerOffset;
+            const childTo = childFrom + child.nodeSize;
+            elementToPos.set(childId, { from: childFrom, to: childTo });
+            posRanges.push({ from: childFrom, to: childTo, id: childId });
+            innerOffset += child.nodeSize;
+          });
+        }
+        childOffset += column.nodeSize;
+      });
+    }
   });
 
   // Sort by position for binary search

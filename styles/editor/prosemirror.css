@@ -264,10 +264,10 @@
   letter-spacing: 0.01em;
 }
 
-/* Scene number on the left */
+/* Scene number on the left - INSIDE the content area */
 .pm-scene-number-left {
   position: absolute;
-  left: -3rem;
+  left: 0;
   color: hsl(var(--foreground) / 0.85);
   font-size: 0.875rem;
   font-weight: 700;
@@ -487,32 +487,131 @@
 }
 
 /* ============================================
-   Page Break Decorations
+   Page Break Decorations - 3-Zone Structure
    ============================================ */
-/* Page Break - Minimal gap with page number */
-.pm-page-break {
+
+/* Container for the entire page break region */
+.pm-page-break-container {
   position: relative;
-  height: 2rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
   margin: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Zone 1: Previous page bottom edge - creates visual end */
+.pm-page-bottom {
+  position: relative;
+  width: 100%;
+  padding: 0.75rem 0 1.25rem;
+
+  /* No shadow on divider - clean separation */
+  box-shadow: none;
+
+  /* Transparent - shows editor background through gap */
+  background: transparent;
+}
+
+/* Zone 2: Gap between pages - shows theme background */
+.pm-page-gap {
+  position: relative;
+  width: 100%;
+  height: 48px;
+
+  /* Use theme background color for clean page separation */
+  background: hsl(var(--background));
+
+  /* Center the page number badge */
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  z-index: 10;
 }
 
-/* Remove gradients */
-.pm-page-break::before,
-.pm-page-break::after {
+/* Page number badge in gap */
+.pm-page-gap .pm-page-number {
+  position: relative;
+  z-index: 11;
+  padding: 6px 16px;
+  background: hsl(var(--muted) / 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid hsl(var(--border) / 0.4);
+  border-radius: 9999px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  box-shadow: 0 2px 4px hsl(0 0% 0% / 0.08);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.pm-page-gap .pm-page-number:hover {
+  background: hsl(var(--muted));
+  box-shadow: 0 4px 8px hsl(0 0% 0% / 0.12);
+  transform: scale(1.02);
+}
+
+/* Zone 3: Next page top edge - creates visual start */
+.pm-page-top {
+  position: relative;
+  width: 100%;
+  padding: 1.25rem 0 0.75rem;
+
+  /* No shadow on divider - clean separation */
+  box-shadow: none;
+
+  /* Transparent - shows editor background through gap */
+  background: transparent;
+}
+
+/* Industry-standard page number - top-right of each page */
+.pm-page-top .pm-page-number {
+  position: absolute;
+  top: 0.5rem;
+  right: 0;
+  font-family: var(--pm-font-family);
+  font-size: 12pt;
+  color: var(--pm-text-color);
+  pointer-events: none;
+  background: none;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+}
+
+/* MORE indicator styling (bottom of previous page) */
+.pm-page-bottom .pm-more-indicator {
+  font-family: var(--pm-font-family);
+  font-size: 12pt;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+/* CONT'D indicator styling (top of next page) */
+.pm-page-top .pm-contd-indicator {
+  font-family: var(--pm-font-family);
+  font-size: 12pt;
+  text-transform: uppercase;
+  color: hsl(var(--foreground));
+  margin-left: var(--pm-margin-character);
+  margin-bottom: 0.5rem;
+}
+
+/* Legacy class support - hide old elements */
+.pm-page-break {
   display: none;
 }
 
-/* Remove separator line */
 .pm-page-separator {
   display: none;
 }
 
-/* Minimal page number badge */
+/* Standalone page number (for backwards compat) */
 .pm-page-number {
   position: relative;
   z-index: 11;
@@ -528,48 +627,24 @@
   box-shadow: 0 2px 4px hsl(0 0% 0% / 0.08);
 }
 
-.pm-more-indicator {
-  font-family: var(--pm-font-family);
-  font-size: 12pt;
-  text-transform: uppercase;
-  color: hsl(var(--muted-foreground));
-  margin-top: -4px;
+/* ---- Dark Mode ---- */
+.dark .pm-page-bottom {
+  background: transparent;
+  box-shadow: none;
 }
 
-.pm-contd-indicator {
-  font-family: var(--pm-font-family);
-  font-size: 12pt;
-  text-transform: uppercase;
-  color: hsl(var(--foreground));
-  margin-left: var(--pm-margin-character);
-  margin-top: 8px;
-  margin-bottom: 4px;
+.dark .pm-page-gap {
+  /* Uses same CSS variable - automatically picks up dark --background */
+  background: hsl(var(--background));
 }
 
-/* Page gap between visual pages */
-.pm-page-gap {
-  height: 32px;
-  background: hsl(var(--muted) / 0.5);
-  position: relative;
-  margin: 0 -1rem;
+.dark .pm-page-top {
+  background: transparent;
+  box-shadow: none;
+}
 
-  /* Fold line effect */
-  &::after {
-    content: '';
-    position: absolute;
-    left: 10%;
-    right: 10%;
-    top: 50%;
-    height: 1px;
-    background: linear-gradient(
-      to right,
-      transparent 0%,
-      hsl(var(--border) / 0.5) 20%,
-      hsl(var(--border) / 0.7) 50%,
-      hsl(var(--border) / 0.5) 80%,
-      transparent 100%
-    );
-  }
+.dark .pm-page-top .pm-page-number {
+  color: var(--pm-text-color-dark);
 }
 
 /* ============================================
@@ -593,10 +668,12 @@
     display: none;
   }
 
-  .pm-page-break {
+  /* Hide page break decorations in print (actual page breaks handled by browser) */
+  .pm-page-break-container {
     display: none;
   }
 
+  /* But show MORE/CONT'D markers for dialogue continuations */
   .pm-more-indicator,
   .pm-contd-indicator {
     display: block !important;
@@ -762,7 +839,7 @@
 }
 
 /* Hide page breaks in continuous mode */
-.pm-continuous-mode .pm-page-break {
+.pm-continuous-mode .pm-page-break-container {
   display: none;
 }
 

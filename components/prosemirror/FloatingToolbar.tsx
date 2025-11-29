@@ -38,6 +38,7 @@ import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
 interface FloatingToolbarProps {
   view: EditorView | null;
   className?: string;
+  scrollbarWidth?: number;
 }
 
 interface ToolbarPosition {
@@ -86,7 +87,7 @@ const ELEMENT_ICONS: Record<ElementType, React.ReactNode> = {
  * Floating toolbar that appears on text selection.
  * Provides quick access to formatting and element type changes.
  */
-export function FloatingToolbar({ view, className }: FloatingToolbarProps) {
+export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: FloatingToolbarProps) {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<ToolbarPosition>({
     top: 0,
@@ -123,10 +124,11 @@ export function FloatingToolbar({ view, className }: FloatingToolbarProps) {
     const toolbarWidth = toolbarRef.current?.offsetWidth || 280;
     const toolbarHeight = toolbarRef.current?.offsetHeight || 40;
 
+    // Account for scrollbar width to avoid overlapping
     const left = Math.max(
       10,
       Math.min(
-        window.innerWidth - toolbarWidth - 10,
+        window.innerWidth - toolbarWidth - 10 - scrollbarWidth,
         (start.left + end.left) / 2 - toolbarWidth / 2
       )
     );
@@ -144,7 +146,7 @@ export function FloatingToolbar({ view, className }: FloatingToolbarProps) {
       left,
       visible: true,
     });
-  }, [view]);
+  }, [view, scrollbarWidth]);
 
   // Subscribe to editor updates
   useEffect(() => {

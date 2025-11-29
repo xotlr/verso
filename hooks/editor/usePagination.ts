@@ -88,8 +88,25 @@ export function usePagination(
       // Create position map
       positionMapRef.current = createPositionMap(doc);
 
+      // Debug: Log serialized elements (comment out in production)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[usePagination] Serialized elements:', elements.length, 'IDs:', elements.slice(0, 5).map(e => e.id));
+      }
+
       // Run pagination
       const paginationResult = await runPagination(elements, config);
+
+      // Debug: Log WASM result (comment out in production)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[usePagination] WASM result:', {
+          pageCount: paginationResult.stats.page_count,
+          pages: paginationResult.pages.map(p => ({
+            id: p.identifier,
+            elementCount: p.elements.length,
+            firstElementId: p.elements[0]?.element_id,
+          })),
+        });
+      }
 
       setResult(paginationResult);
       setTiming({ lastDurationMs: performance.now() - startTime });

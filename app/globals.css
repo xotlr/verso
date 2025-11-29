@@ -1171,6 +1171,34 @@ button {
   }
 }
 
+/* ===== TOUCH OPTIMIZATION UTILITIES ===== */
+.touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 44px;
+}
+
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Safe area padding utilities */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pb-safe-nav {
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Smooth scrolling on mobile */
+@media (max-width: 768px) {
+  .overflow-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 /* ===== MOBILE OPTIMIZATIONS ===== */
 @media (max-width: 767px) {
   /* Reduce animations on mobile */

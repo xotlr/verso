@@ -93,13 +93,16 @@ export function BottomNav() {
         <Link
           href="/home"
           className={cn(
-            "flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors min-w-[56px]",
+            "flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg transition-all min-w-[56px] touch-manipulation relative",
             isActive('/home')
-              ? "text-primary"
+              ? "text-primary font-medium"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          <Home className="h-5 w-5" />
+          {isActive('/home') && (
+            <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
+          )}
+          <Home className={cn("h-5 w-5 transition-transform", isActive('/home') && "scale-110")} />
           <span className="text-[10px] font-medium">Home</span>
         </Link>
 
@@ -107,13 +110,16 @@ export function BottomNav() {
         <Link
           href="/screenplays"
           className={cn(
-            "flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors min-w-[56px]",
+            "flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg transition-all min-w-[56px] touch-manipulation relative",
             isActive('/screenplays')
-              ? "text-primary"
+              ? "text-primary font-medium"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          <FileText className="h-5 w-5" />
+          {isActive('/screenplays') && (
+            <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
+          )}
+          <FileText className={cn("h-5 w-5 transition-transform", isActive('/screenplays') && "scale-110")} />
           <span className="text-[10px] font-medium">Files</span>
         </Link>
 
@@ -122,22 +128,25 @@ export function BottomNav() {
           <SheetTrigger asChild>
             <button
               className={cn(
-                "flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors min-w-[56px]",
+                "flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg transition-all min-w-[56px] touch-manipulation relative",
                 createOpen
-                  ? "text-primary"
+                  ? "text-primary font-medium"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Plus className="h-5 w-5" />
+              {createOpen && (
+                <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
+              )}
+              <Plus className={cn("h-5 w-5 transition-transform", createOpen && "scale-110")} />
               <span className="text-[10px] font-medium">Create</span>
             </button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-auto rounded-t-2xl border-t-0">
+          <SheetContent side="bottom" className="h-auto rounded-t-2xl border-t-0 pb-safe">
             {/* Drag handle */}
-            <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-4 mt-2" />
+            <div className="w-12 h-1.5 bg-muted-foreground/40 rounded-full mx-auto mb-4 mt-2" />
 
-            <SheetHeader className="pb-3">
-              <SheetTitle className="text-base font-semibold">Create New</SheetTitle>
+            <SheetHeader className="pb-3 px-1">
+              <SheetTitle className="text-base font-semibold text-left">Create New</SheetTitle>
             </SheetHeader>
 
             {/* 2-column grid */}
@@ -145,7 +154,7 @@ export function BottomNav() {
               {/* New Screenplay */}
               <button
                 onClick={() => handleCreateAction('screenplay')}
-                className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-border/50 bg-gradient-to-b from-card to-card/50 hover:border-primary/30 hover:bg-accent active:scale-[0.97] transition-all duration-200 touch-manipulation min-h-[108px] shadow-sm hover:shadow"
+                className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-border/50 bg-gradient-to-b from-card to-card/50 hover:border-primary/30 hover:bg-accent active:scale-95 transition-all duration-200 touch-manipulation min-h-[108px] shadow-sm hover:shadow"
               >
                 <div className="relative">
                   <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -159,7 +168,7 @@ export function BottomNav() {
               {/* New Project */}
               <button
                 onClick={() => handleCreateAction('project')}
-                className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-border/50 bg-gradient-to-b from-card to-card/50 hover:border-orange-500/30 hover:bg-accent active:scale-[0.97] transition-all duration-200 touch-manipulation min-h-[108px] shadow-sm hover:shadow"
+                className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-border/50 bg-gradient-to-b from-card to-card/50 hover:border-orange-500/30 hover:bg-accent active:scale-95 transition-all duration-200 touch-manipulation min-h-[108px] shadow-sm hover:shadow"
               >
                 <div className="relative">
                   <div className="absolute inset-0 bg-orange-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -174,7 +183,7 @@ export function BottomNav() {
               {screenplayId && (
                 <button
                   onClick={() => handleCreateAction('continue')}
-                  className="group col-span-2 flex items-center gap-3 p-4 rounded-xl border border-border/50 bg-gradient-to-r from-card to-card/50 hover:border-blue-500/30 hover:bg-accent active:scale-[0.99] transition-all duration-200 touch-manipulation shadow-sm hover:shadow"
+                  className="group col-span-2 flex items-center gap-3 p-4 rounded-xl border border-border/50 bg-gradient-to-r from-card to-card/50 hover:border-blue-500/30 hover:bg-accent active:scale-[0.98] transition-all duration-200 touch-manipulation shadow-sm hover:shadow"
                 >
                   <div className="relative flex-shrink-0">
                     <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -194,19 +203,24 @@ export function BottomNav() {
           <SheetTrigger asChild>
             <button
               className={cn(
-                "flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors min-w-[56px]",
-                isToolsActive
-                  ? "text-primary"
+                "flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg transition-all min-w-[56px] touch-manipulation relative",
+                isToolsActive || toolsOpen
+                  ? "text-primary font-medium"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <BarChart3 className="h-5 w-5" />
+              {(isToolsActive || toolsOpen) && (
+                <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
+              )}
+              <BarChart3 className={cn("h-5 w-5 transition-transform", (isToolsActive || toolsOpen) && "scale-110")} />
               <span className="text-[10px] font-medium">Tools</span>
             </button>
           </SheetTrigger>
-          <SheetContent side="bottom" className="h-auto rounded-t-xl">
-            <SheetHeader className="pb-4">
-              <SheetTitle>Screenplay Tools</SheetTitle>
+          <SheetContent side="bottom" className="h-auto rounded-t-2xl border-t-0 pb-safe">
+            {/* Drag handle */}
+            <div className="w-12 h-1.5 bg-muted-foreground/40 rounded-full mx-auto mb-4 mt-2" />
+            <SheetHeader className="pb-4 px-1">
+              <SheetTitle className="text-left">Screenplay Tools</SheetTitle>
             </SheetHeader>
             <div className="grid grid-cols-2 gap-3 pb-6">
               <button
@@ -297,13 +311,16 @@ export function BottomNav() {
         <Link
           href="/settings"
           className={cn(
-            "flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-colors min-w-[56px]",
+            "flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg transition-all min-w-[56px] touch-manipulation relative",
             isActive('/settings')
-              ? "text-primary"
+              ? "text-primary font-medium"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          <User className="h-5 w-5" />
+          {isActive('/settings') && (
+            <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
+          )}
+          <User className={cn("h-5 w-5 transition-transform", isActive('/settings') && "scale-110")} />
           <span className="text-[10px] font-medium">Profile</span>
         </Link>
       </div>

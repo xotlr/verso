@@ -42,9 +42,9 @@ class PaginationWorkerManager {
 
     this.initPromise = new Promise((resolve, reject) => {
       try {
-        // Create the worker
+        // Create the worker using webpack-compatible new URL() pattern
         this.worker = new Worker(
-          new URL('../../workers/pagination.worker.ts', import.meta.url),
+          new URL('../../public/workers/pagination.worker.js', import.meta.url),
           { type: 'module' }
         );
 
@@ -74,7 +74,10 @@ class PaginationWorkerManager {
         };
 
         this.worker.addEventListener('message', initHandler);
-        this.worker.postMessage({ type: 'init' } as WorkerRequest);
+        this.worker.postMessage({
+          type: 'init',
+          origin: window.location.origin,
+        } as WorkerRequest);
       } catch (error) {
         this.initializing = false;
         reject(error);

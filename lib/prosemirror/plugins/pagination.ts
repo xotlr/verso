@@ -60,6 +60,7 @@ export interface PaginationState {
 /**
  * Convert WASM pagination result to page breaks for decoration rendering.
  * This maps element IDs back to document positions.
+ * Uses position-based IDs to match the serializer.
  */
 function convertWasmResultToPageBreaks(
   doc: ProseMirrorNode,
@@ -67,12 +68,28 @@ function convertWasmResultToPageBreaks(
 ): PageBreak[] {
   const breaks: PageBreak[] = [];
 
-  // Build a map of element index to document position
+  // Build a map of element ID (position-based) to document position
+  // This must match the ID scheme in lib/verso/serializer.ts
   const elementPositions: Map<string, number> = new Map();
-  let elementIndex = 0;
   doc.forEach((node, offset) => {
-    elementPositions.set(elementIndex.toString(), offset);
-    elementIndex++;
+    // Use position as ID - matches serializeDocument()
+    elementPositions.set(offset.toString(), offset);
+
+    // For dual dialogue, also map child positions
+    if (node.type.name === 'dual_dialogue') {
+      let childOffset = 1; // Start after the dual_dialogue node opening
+      node.forEach((column) => {
+        if (column.type.name === 'dual_dialogue_column') {
+          let innerOffset = 1; // Start after column node opening
+          column.forEach((child) => {
+            const childId = `${offset}_${childOffset + innerOffset}`;
+            elementPositions.set(childId, offset + childOffset + innerOffset);
+            innerOffset += child.nodeSize;
+          });
+        }
+        childOffset += column.nodeSize;
+      });
+    }
   });
 
   // Process each page to find where breaks should be rendered
@@ -274,7 +291,10 @@ function calculateFallbackPageBreaks(doc: ProseMirrorNode): PageBreak[] {
 }
 
 /**
- * Create decorations for page breaks.
+ * Create decorations for page breaks with 3-zone structure:
+ * 1. pm-page-bottom - Bottom edge of previous page (shadow, rounded corners)
+ * 2. pm-page-gap - Transparent gap between pages (shows editor background)
+ * 3. pm-page-top - Top edge of next page with industry-standard page number (top-right)
  */
 function createPageBreakDecorations(
   doc: ProseMirrorNode,
@@ -288,67 +308,65 @@ function createPageBreakDecorations(
       return;
     }
 
-    // Page break line decoration
+    // Create the 3-zone page break widget
     const pageBreakWidget = Decoration.widget(
       pageBreak.position,
       () => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'pm-page-break';
-        wrapper.setAttribute('data-page-number', displayPageIdentifier(pageBreak.pageIdentifier));
+        // Outer container - full width block
+        const container = document.createElement('div');
+        container.className = 'pm-page-break-container';
+        container.setAttribute('data-page-number', displayPageIdentifier(pageBreak.pageIdentifier));
+        container.setAttribute('data-break-type', pageBreak.type);
 
-        // Visual separator line
-        const separator = document.createElement('div');
-        separator.className = 'pm-page-separator';
-        wrapper.appendChild(separator);
+        // ---- ZONE 1: PREVIOUS PAGE BOTTOM ----
+        const pageBottom = document.createElement('div');
+        pageBottom.className = 'pm-page-bottom';
 
-        // Page number badge
-        const pageNum = document.createElement('div');
-        pageNum.className = 'pm-page-number';
-        pageNum.textContent = `Page ${displayPageIdentifier(pageBreak.pageIdentifier)}`;
-        wrapper.appendChild(pageNum);
-
-        // MORE indicator for split dialogue
+        // MORE indicator for split dialogue (at bottom of previous page)
         if (pageBreak.type === 'dialogue-split' && pageBreak.moreMarker) {
           const more = document.createElement('div');
           more.className = 'pm-more-indicator';
           more.textContent = pageBreak.moreMarker;
-          wrapper.appendChild(more);
+          pageBottom.appendChild(more);
         }
+        container.appendChild(pageBottom);
 
-        return wrapper;
+        // ---- ZONE 2: GAP BETWEEN PAGES ----
+        // Transparent gap - no content, just shows editor background
+        const gap = document.createElement('div');
+        gap.className = 'pm-page-gap';
+        container.appendChild(gap);
+
+        // ---- ZONE 3: NEXT PAGE TOP ----
+        const pageTop = document.createElement('div');
+        pageTop.className = 'pm-page-top';
+
+        // Industry-standard page number (top-right, "2." format)
+        const pageNum = document.createElement('div');
+        pageNum.className = 'pm-page-number';
+        pageNum.textContent = `${displayPageIdentifier(pageBreak.pageIdentifier)}.`;
+        pageTop.appendChild(pageNum);
+
+        // CONT'D indicator (at top of next page)
+        if (pageBreak.type === 'dialogue-split' && pageBreak.contdMarker) {
+          const contd = document.createElement('div');
+          contd.className = 'pm-contd-indicator';
+          contd.textContent = pageBreak.contdMarker;
+          pageTop.appendChild(contd);
+        } else if (pageBreak.type === 'dialogue-split' && pageBreak.characterName) {
+          const contd = document.createElement('div');
+          contd.className = 'pm-contd-indicator';
+          contd.textContent = `${pageBreak.characterName} (CONT'D)`;
+          pageTop.appendChild(contd);
+        }
+        container.appendChild(pageTop);
+
+        return container;
       },
       { side: -1 }
     );
 
     decorations.push(pageBreakWidget);
-
-    // CONT'D indicator after page break
-    if (pageBreak.type === 'dialogue-split' && pageBreak.contdMarker) {
-      const contdWidget = Decoration.widget(
-        pageBreak.position,
-        () => {
-          const contd = document.createElement('div');
-          contd.className = 'pm-contd-indicator';
-          contd.textContent = pageBreak.contdMarker!;
-          return contd;
-        },
-        { side: 1 }
-      );
-      decorations.push(contdWidget);
-    } else if (pageBreak.type === 'dialogue-split' && pageBreak.characterName) {
-      // Fallback for legacy format
-      const contdWidget = Decoration.widget(
-        pageBreak.position,
-        () => {
-          const contd = document.createElement('div');
-          contd.className = 'pm-contd-indicator';
-          contd.textContent = `${pageBreak.characterName} (CONT'D)`;
-          return contd;
-        },
-        { side: 1 }
-      );
-      decorations.push(contdWidget);
-    }
   });
 
   return DecorationSet.create(doc, decorations);
