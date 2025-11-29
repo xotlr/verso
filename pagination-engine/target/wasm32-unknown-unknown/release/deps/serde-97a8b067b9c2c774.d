@@ -1,0 +1,14 @@
+/home/user/pluto/screenwriter/pagination-engine/target/wasm32-unknown-unknown/release/deps/serde-97a8b067b9c2c774.d: /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/user/pluto/screenwriter/pagination-engine/target/wasm32-unknown-unknown/release/build/serde-8cf24eaeeea4923a/out/private.rs
+
+/home/user/pluto/screenwriter/pagination-engine/target/wasm32-unknown-unknown/release/deps/libserde-97a8b067b9c2c774.rlib: /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/user/pluto/screenwriter/pagination-engine/target/wasm32-unknown-unknown/release/build/serde-8cf24eaeeea4923a/out/private.rs
+
+/home/user/pluto/screenwriter/pagination-engine/target/wasm32-unknown-unknown/release/deps/libserde-97a8b067b9c2c774.rmeta: /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/user/pluto/screenwriter/pagination-engine/target/wasm32-unknown-unknown/release/build/serde-8cf24eaeeea4923a/out/private.rs
+
+/home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/home/user/pluto/screenwriter/pagination-engine/target/wasm32-unknown-unknown/release/build/serde-8cf24eaeeea4923a/out/private.rs:
+
+# env-dep:OUT_DIR=/home/user/pluto/screenwriter/pagination-engine/target/wasm32-unknown-unknown/release/build/serde-8cf24eaeeea4923a/out

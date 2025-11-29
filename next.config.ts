@@ -25,6 +25,32 @@ const nextConfig: NextConfig = {
       fallback: [],
     };
   },
+
+  // Enable WebAssembly support for the pagination engine
+  webpack: (config, { isServer }) => {
+    // Enable WASM
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+    };
+
+    // Handle .wasm files
+    config.module.rules.push({
+      test: /\.wasm$/,
+      type: 'webassembly/async',
+    });
+
+    // Fix for WASM in workers
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+      };
+    }
+
+    return config;
+  },
 };
 
 export default withSerwist(nextConfig);

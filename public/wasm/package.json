@@ -1,0 +1,20 @@
+{
+  "name": "verso-pagination-engine",
+  "type": "module",
+  "collaborators": [
+    "Verso Team"
+  ],
+  "description": "Deterministic screenplay pagination engine",
+  "version": "0.1.0",
+  "license": "MIT",
+  "files": [
+    "verso_pagination_engine_bg.wasm",
+    "verso_pagination_engine.js",
+    "verso_pagination_engine.d.ts"
+  ],
+  "main": "verso_pagination_engine.js",
+  "types": "verso_pagination_engine.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
