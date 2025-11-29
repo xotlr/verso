@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { logTeamAction } from "@/lib/audit-log";
 
 const createInviteSchema = z.object({
   email: z.string().email(),
@@ -206,6 +207,16 @@ export async function POST(
           select: { id: true, name: true, logo: true },
         },
       },
+    });
+
+    // Log audit event
+    await logTeamAction({
+      teamId: id,
+      actorId: session.user.id,
+      action: "invite_sent",
+      targetType: "invite",
+      targetId: invite.id,
+      metadata: { email, role },
     });
 
     return NextResponse.json(invite, { status: 201 });

@@ -185,3 +185,200 @@ export function mapSubscriptionStatus(
   }
   return statusMap[stripeStatus] || "canceled"
 }
+
+// ============================================
+// TEAM BILLING HELPERS
+// ============================================
+
+/**
+ * Get or create a Stripe customer for a team
+ */
+export async function getOrCreateTeamStripeCustomer(
+  teamId: string,
+  teamName: string,
+  ownerEmail: string
+): Promise<string> {
+  // Check if team already has a Stripe customer ID
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: { stripeCustomerId: true },
+  })
+
+  if (team?.stripeCustomerId) {
+    return team.stripeCustomerId
+  }
+
+  // Create new Stripe customer for the team
+  const customer = await stripe.customers.create({
+    email: ownerEmail,
+    name: teamName,
+    metadata: {
+      teamId,
+      type: "team",
+    },
+  })
+
+  // Update team with Stripe customer ID
+  await prisma.team.update({
+    where: { id: teamId },
+    data: { stripeCustomerId: customer.id },
+  })
+
+  return customer.id
+}
+
+/**
+ * Create a checkout session for team subscription
+ */
+export async function createTeamCheckoutSession(params: {
+  teamId: string
+  teamName: string
+  ownerEmail: string
+  ownerId: string
+  priceId: string
+  successUrl: string
+  cancelUrl: string
+}): Promise<Stripe.Checkout.Session> {
+  const { teamId, teamName, ownerEmail, ownerId, priceId, successUrl, cancelUrl } = params
+
+  const customerId = await getOrCreateTeamStripeCustomer(teamId, teamName, ownerEmail)
+
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId,
+    mode: "subscription",
+    payment_method_types: ["card"],
+    line_items: [
+      {
+        price: priceId,
+        quantity: 1,
+      },
+    ],
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    metadata: {
+      teamId,
+      ownerId,
+      type: "team",
+    },
+    subscription_data: {
+      metadata: {
+        teamId,
+        ownerId,
+        type: "team",
+      },
+    },
+  })
+
+  return session
+}
+
+/**
+ * Create a billing portal session for team
+ */
+export async function createTeamPortalSession(
+  teamId: string,
+  returnUrl: string
+): Promise<Stripe.BillingPortal.Session> {
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: { stripeCustomerId: true },
+  })
+
+  if (!team?.stripeCustomerId) {
+    throw new Error("Team does not have a Stripe customer ID")
+  }
+
+  const session = await stripe.billingPortal.sessions.create({
+    customer: team.stripeCustomerId,
+    return_url: returnUrl,
+  })
+
+  return session
+}
+
+/**
+ * Get team billing status from Stripe
+ */
+export async function getTeamBillingStatus(teamId: string): Promise<{
+  hasSubscription: boolean
+  status: "active" | "past_due" | "canceled" | "incomplete" | "none"
+  currentPeriodEnd: Date | null
+  cancelAtPeriodEnd: boolean
+  maxSeats: number
+}> {
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: {
+      stripeSubscriptionId: true,
+      stripeCurrentPeriodEnd: true,
+      maxSeats: true,
+    },
+  })
+
+  if (!team?.stripeSubscriptionId) {
+    return {
+      hasSubscription: false,
+      status: "none",
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+      maxSeats: team?.maxSeats || 3,
+    }
+  }
+
+  try {
+    const subscription = await stripe.subscriptions.retrieve(team.stripeSubscriptionId)
+
+    return {
+      hasSubscription: true,
+      status: mapSubscriptionStatus(subscription.status),
+      currentPeriodEnd: team.stripeCurrentPeriodEnd,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      maxSeats: team.maxSeats,
+    }
+  } catch {
+    // Subscription may have been deleted
+    return {
+      hasSubscription: false,
+      status: "none",
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+      maxSeats: team?.maxSeats || 3,
+    }
+  }
+}
+
+/**
+ * Update team subscription (maxSeats) after successful payment
+ */
+export async function updateTeamSubscription(
+  teamId: string,
+  subscriptionId: string,
+  priceId: string,
+  currentPeriodEnd: number,
+  maxSeats: number
+): Promise<void> {
+  await prisma.team.update({
+    where: { id: teamId },
+    data: {
+      stripeSubscriptionId: subscriptionId,
+      stripePriceId: priceId,
+      stripeCurrentPeriodEnd: new Date(currentPeriodEnd * 1000),
+      maxSeats,
+    },
+  })
+}
+
+/**
+ * Cancel team subscription
+ */
+export async function cancelTeamSubscription(teamId: string): Promise<void> {
+  await prisma.team.update({
+    where: { id: teamId },
+    data: {
+      stripeSubscriptionId: null,
+      stripePriceId: null,
+      stripeCurrentPeriodEnd: null,
+      maxSeats: 3, // Reset to free tier
+    },
+  })
+}

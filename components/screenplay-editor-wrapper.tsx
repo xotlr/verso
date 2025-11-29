@@ -6,7 +6,7 @@ import { EditorFloatingPanel } from "./editor-floating-panel";
 import { VersionHistorySidebar } from "./version-history-sidebar";
 import { VersionCompareDialog } from "./version-compare-dialog";
 import { SceneWorkspacePanel } from "./scene-workspace-panel";
-import { ConflictDialog } from "./pwa/conflict-dialog";
+import { ScreenplayDetailsDrawer } from "./screenplay-details-drawer";
 import { Scene, Character, Location } from "@/types/screenplay";
 import { ScreenplayVersion } from "@/types/version";
 import { parseScreenplayText } from "@/lib/screenplay-utils";
@@ -16,15 +16,17 @@ import { useOfflineSave } from "@/hooks/use-offline-save";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { FileText } from "lucide-react";
 import type { SceneInfo, CharacterInfo } from "@/hooks/editor/useProseMirrorEditor";
 
 interface ScreenplayEditorWrapperProps {
   projectId: string; // Actually screenplayId - keeping prop name for compatibility
+  onTitleChange?: (title: string) => void;
 }
 
 type ScreenplayType = 'FEATURE' | 'TV' | 'SHORT';
 
-export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayEditorWrapperProps) {
+export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange }: ScreenplayEditorWrapperProps) {
   const [screenplayText, setScreenplayText] = useState("");
   const [screenplayTitle, setScreenplayTitle] = useState("Untitled Screenplay");
   const [scenes, setScenes] = useState<Scene[]>([]);
@@ -36,11 +38,11 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayE
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
   const [compareVersion, setCompareVersion] = useState<ScreenplayVersion | null>(null);
   const [sceneWorkspaceScene, setSceneWorkspaceScene] = useState<Scene | null>(null);
-  const [initialServerUpdatedAt, setInitialServerUpdatedAt] = useState<number | undefined>();
-  const [showConflictDialog, setShowConflictDialog] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const versionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastVersionContentRef = useRef<string>("");
+  const screenplayTextRef = useRef(screenplayText);
 
   // Offline save hook for local-first saving
   const {
@@ -50,12 +52,8 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayE
     isSyncing,
     pendingCount,
     forceSync,
-    resolveConflict,
-    conflictData,
   } = useOfflineSave({
     screenplayId,
-    initialServerUpdatedAt,
-    onConflict: () => setShowConflictDialog(true),
   });
 
   const isSaving = isSyncing || syncStatus === 'syncing';
@@ -65,6 +63,11 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayE
   const [season, setSeason] = useState<number | null>(null);
   const [episode, setEpisode] = useState<number | null>(null);
   const [episodeTitle, setEpisodeTitle] = useState<string | null>(null);
+
+  // Metadata fields
+  const [logline, setLogline] = useState<string | null>(null);
+  const [genre, setGenre] = useState<string | null>(null);
+  const [author, setAuthor] = useState<string | null>(null);
 
   const { settings } = useSettings();
   const layoutMode = settings.layout.layoutMode;
@@ -77,22 +80,26 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayE
         if (response.ok) {
           const screenplay = await response.json();
           setScreenplayText(screenplay.content || "");
-          setScreenplayTitle(screenplay.title || "Untitled Screenplay");
+          const title = screenplay.title || "Untitled Screenplay";
+          setScreenplayTitle(title);
+          if (onTitleChange) {
+            onTitleChange(title);
+          }
           const parsed = parseScreenplayText(screenplay.content || "");
           setScenes(parsed.scenes || []);
           setCharacters(parsed.characters || []);
           setLocations(parsed.locations || []);
-
-          // Track server timestamp for conflict detection
-          if (screenplay.updatedAt) {
-            setInitialServerUpdatedAt(new Date(screenplay.updatedAt).getTime());
-          }
 
           // Load TV/Episode fields
           setScreenplayType(screenplay.type || 'FEATURE');
           setSeason(screenplay.season || null);
           setEpisode(screenplay.episode || null);
           setEpisodeTitle(screenplay.episodeTitle || null);
+
+          // Load metadata fields
+          setLogline(screenplay.logline || null);
+          setGenre(screenplay.genre || null);
+          setAuthor(screenplay.author || null);
         }
       } catch (error) {
         console.error("Error loading screenplay:", error);
@@ -155,28 +162,41 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayE
     }
   }, [offlineSave, screenplayTitle, createVersion]);
 
-  // Debounced auto-save
+  // Debounced auto-save with ref pattern to prevent re-renders
   const handleTextChange = useCallback((text: string) => {
-    setScreenplayText(text);
-    const parsed = parseScreenplayText(text);
-    setScenes(parsed.scenes || []);
-    setCharacters(parsed.characters || []);
-    setLocations(parsed.locations || []);
+    // Store in ref - no re-render!
+    screenplayTextRef.current = text;
 
-    // Debounce save
+    // Debounce save AND state updates
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
     saveTimeoutRef.current = setTimeout(() => {
+      // Update state only when saving (every 2 seconds)
+      setScreenplayText(text);
+
+      // Parse scenes/characters only on save
+      const parsed = parseScreenplayText(text);
+      setScenes(parsed.scenes || []);
+      setCharacters(parsed.characters || []);
+      setLocations(parsed.locations || []);
+
+      // Save to server
       saveScreenplay(text);
     }, 2000); // Auto-save after 2 seconds of inactivity
   }, [saveScreenplay]);
 
+  // Sync ref with state on initial load and version restore
+  useEffect(() => {
+    screenplayTextRef.current = screenplayText;
+  }, [screenplayText]);
+
   // Interval-based versioning (every 30 minutes)
   useEffect(() => {
     versionIntervalRef.current = setInterval(() => {
-      if (screenplayText && screenplayText !== lastVersionContentRef.current) {
-        createVersion(screenplayText, "interval");
+      const currentText = screenplayTextRef.current;
+      if (currentText && currentText !== lastVersionContentRef.current) {
+        createVersion(currentText, "interval");
       }
     }, 30 * 60 * 1000); // 30 minutes
 
@@ -185,7 +205,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayE
         clearInterval(versionIntervalRef.current);
       }
     };
-  }, [screenplayText, createVersion]);
+  }, [createVersion]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -196,6 +216,38 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayE
     };
   }, []);
 
+  // Listen for title save events from header
+  useEffect(() => {
+    const handleTitleSave = async (e: Event) => {
+      const customEvent = e as CustomEvent<{ title: string }>;
+      const newTitle = customEvent.detail.title;
+
+      try {
+        const response = await fetch(`/api/screenplays/${screenplayId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: newTitle })
+        });
+
+        if (response.ok) {
+          setScreenplayTitle(newTitle);
+          if (onTitleChange) {
+            onTitleChange(newTitle);
+          }
+          toast.success("Title updated");
+        } else {
+          toast.error("Failed to update title");
+        }
+      } catch (error) {
+        console.error('Failed to update title:', error);
+        toast.error("Failed to update title");
+      }
+    };
+
+    window.addEventListener('screenplay-title-save', handleTitleSave);
+    return () => window.removeEventListener('screenplay-title-save', handleTitleSave);
+  }, [screenplayId, onTitleChange]);
+
   // Handle restore from version history
   const handleRestore = useCallback((content: string) => {
     setScreenplayText(content);
@@ -205,25 +257,6 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayE
     setLocations(parsed.locations || []);
     saveScreenplay(content);
   }, [saveScreenplay]);
-
-  // Handle conflict resolution
-  const handleConflictResolve = useCallback((resolution: 'local' | 'server', content: string) => {
-    if (resolution === 'server') {
-      // Use server version - update the editor content
-      setScreenplayText(content);
-      const parsed = parseScreenplayText(content);
-      setScenes(parsed.scenes || []);
-      setCharacters(parsed.characters || []);
-      setLocations(parsed.locations || []);
-    }
-    resolveConflict(resolution);
-    setShowConflictDialog(false);
-    toast.success(
-      resolution === 'local'
-        ? 'Your local changes have been saved'
-        : 'Updated to server version'
-    );
-  }, [resolveConflict]);
 
   // Handle TV/Episode field updates
   const handleEpisodeInfoChange = useCallback(async (updates: {
@@ -294,17 +327,40 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayE
   }
 
   return (
-    <div className={cn("h-full relative", `layout-${layoutMode}`)}>
-      <ProseMirrorEditor
-        content={screenplayText}
-        onContentChange={handleTextChange}
-        onScenesChange={handleScenesChange}
-        onSave={() => saveScreenplay(screenplayText, true)}
-        isSaving={isSaving}
-        editable={true}
-        showElementIndicator={true}
-        showStats={true}
-      />
+    <div className={cn("h-full relative flex flex-col", `layout-${layoutMode}`)}>
+      {/* Vertical tab trigger on right edge */}
+      <button
+        onClick={() => setIsDetailsOpen(true)}
+        className={cn(
+          "fixed right-0 top-1/2 -translate-y-1/2 z-40",
+          "px-3 py-6 rounded-l-lg",
+          "bg-card/95 backdrop-blur-sm",
+          "border border-r-0 border-border",
+          "shadow-lg hover:shadow-xl",
+          "transition-all duration-200",
+          "flex flex-col items-center gap-2",
+          "hover:px-4"
+        )}
+        aria-label="Open screenplay details"
+      >
+        <FileText className="h-4 w-4" />
+        <span className="text-xs font-medium [writing-mode:vertical-lr] rotate-180">
+          Details
+        </span>
+      </button>
+
+      <div className="flex-1 overflow-hidden">
+        <ProseMirrorEditor
+          content={screenplayText}
+          onContentChange={handleTextChange}
+          onScenesChange={handleScenesChange}
+          onSave={() => saveScreenplay(screenplayText, true)}
+          isSaving={isSaving}
+          editable={true}
+          showElementIndicator={true}
+          showStats={true}
+        />
+      </div>
       <EditorFloatingPanel
         isOpen={isPanelOpen}
         onClose={() => setIsPanelOpen(false)}
@@ -338,13 +394,17 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId }: ScreenplayE
         version={compareVersion}
         onRestore={handleRestore}
       />
-
-      {/* Conflict Resolution Dialog */}
-      <ConflictDialog
-        isOpen={showConflictDialog}
-        onClose={() => setShowConflictDialog(false)}
-        conflictData={conflictData}
-        onResolve={handleConflictResolve}
+      <ScreenplayDetailsDrawer
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        screenplayId={screenplayId}
+        logline={logline}
+        genre={genre}
+        author={author}
+        type={screenplayType}
+        season={season}
+        episode={episode}
+        episodeTitle={episodeTitle}
       />
     </div>
   );

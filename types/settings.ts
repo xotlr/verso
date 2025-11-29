@@ -99,6 +99,12 @@ export interface VisualSettings {
   animationSpeed: number; // 0.1-0.5s
   useGlassEffect: boolean;
   cursor: CursorSettings;
+  themeTemperature: 'neutral' | 'warm' | 'cool'; // Color temperature filter
+}
+
+export interface AutocompleteSettings {
+  enabled: boolean;
+  delayMs: number; // 0 = immediate, 5000 = 5 seconds
 }
 
 export interface EditorSettings {
@@ -112,8 +118,11 @@ export interface EditorSettings {
   pageCountMode: 'auto' | 'manual';
   linesPerPage: number; // 54-58
   enableSnippets: boolean;
-  enableAutocomplete: boolean;
+  enableAutocomplete: boolean; // Deprecated: use autocomplete.enabled instead
+  autocomplete: AutocompleteSettings;
   zoom: number; // 50-200, default 100
+  textContrast: number; // 15-35, default 25 (lightness percentage)
+  lineHeightDensity: 'compact' | 'normal' | 'relaxed'; // 1.1, 1.15, 1.2
 }
 
 export interface LayoutSettings {
@@ -155,7 +164,7 @@ export interface AppSettings {
 
 export const defaultSettings: AppSettings = {
   visual: {
-    themePreset: 'warm',
+    themePreset: 'minimal',
     lightColors: {
       // Warm paper tones (matches globals.css)
       background: '40 33% 98%',           // Warm off-white
@@ -259,6 +268,7 @@ export const defaultSettings: AppSettings = {
       glowIntensity: 0.3,
       width: 2,
     },
+    themeTemperature: 'neutral',
   },
   editor: {
     autoSaveInterval: 30,
@@ -272,7 +282,13 @@ export const defaultSettings: AppSettings = {
     linesPerPage: 55,
     enableSnippets: true,
     enableAutocomplete: true,
+    autocomplete: {
+      enabled: true,
+      delayMs: 5000, // 5 second delay by default
+    },
     zoom: 100,
+    textContrast: 25, // Default lightness percentage
+    lineHeightDensity: 'normal', // Default to 1.15 line height
   },
   layout: {
     sidebarPosition: 'right',

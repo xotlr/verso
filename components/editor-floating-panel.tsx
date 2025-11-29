@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -41,42 +41,51 @@ export function EditorFloatingPanel({
 }: EditorFloatingPanelProps) {
   const [activeSection, setActiveSection] = useState<PanelSection>('scenes');
 
-  const totalDialogueLines = scenes.reduce((acc, scene) =>
-    acc + scene.elements.filter(e => e.type === 'dialogue').length, 0
+  // Memoize expensive calculations to prevent O(n*m) on every render
+  const totalDialogueLines = useMemo(() =>
+    scenes.reduce((acc, scene) =>
+      acc + scene.elements.filter(e => e.type === 'dialogue').length, 0
+    ), [scenes]
   );
 
-  const characterStats = characters.map(char => {
-    const appearances = scenes.filter(scene =>
-      scene.characters.includes(char.id)
-    ).length;
+  const characterStats = useMemo(() =>
+    characters.map(char => {
+      const appearances = scenes.filter(scene =>
+        scene.characters.includes(char.id)
+      ).length;
 
-    const dialogueLines = scenes.reduce((acc, scene) =>
-      acc + scene.elements.filter(e =>
-        e.type === 'dialogue' && e.characterId === char.id
-      ).length, 0
-    );
+      const dialogueLines = scenes.reduce((acc, scene) =>
+        acc + scene.elements.filter(e =>
+          e.type === 'dialogue' && e.characterId === char.id
+        ).length, 0
+      );
 
-    return {
-      ...char,
-      appearances,
-      dialogueLines,
-      dialoguePercentage: totalDialogueLines > 0
-        ? Math.round((dialogueLines / totalDialogueLines) * 100)
-        : 0
-    };
-  }).sort((a, b) => b.dialogueLines - a.dialogueLines);
+      return {
+        ...char,
+        appearances,
+        dialogueLines,
+        dialoguePercentage: totalDialogueLines > 0
+          ? Math.round((dialogueLines / totalDialogueLines) * 100)
+          : 0
+      };
+    }).sort((a, b) => b.dialogueLines - a.dialogueLines),
+    [characters, scenes, totalDialogueLines]
+  );
 
-  const locationStats = locations.map(loc => {
-    const sceneCount = scenes.filter(scene =>
-      scene.location.id === loc.id
-    ).length;
+  const locationStats = useMemo(() =>
+    locations.map(loc => {
+      const sceneCount = scenes.filter(scene =>
+        scene.location.id === loc.id
+      ).length;
 
-    return {
-      ...loc,
-      sceneCount,
-      percentage: scenes.length > 0 ? Math.round((sceneCount / scenes.length) * 100) : 0
-    };
-  }).sort((a, b) => b.sceneCount - a.sceneCount);
+      return {
+        ...loc,
+        sceneCount,
+        percentage: scenes.length > 0 ? Math.round((sceneCount / scenes.length) * 100) : 0
+      };
+    }).sort((a, b) => b.sceneCount - a.sceneCount),
+    [locations, scenes]
+  );
 
   const sections = [
     { id: 'scenes' as const, icon: List, label: 'Scenes' },

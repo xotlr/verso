@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { ProjectHeader } from "@/components/project-header";
 
 interface ProjectLayoutProps {
   children: React.ReactNode;
@@ -14,19 +13,23 @@ interface ProjectLayoutProps {
   rightSidebar?: React.ReactNode;
 }
 
-// Simplified ProjectLayout - sidebar is now handled by the app layout
-// This component provides the project header and content structure
+// Simplified ProjectLayout - header is now handled by the app layout
+// This component just provides content structure with optional right sidebar
 export function ProjectLayout({
   children,
-  projectId,
-  projectTitle,
-  onSave,
-  onExport,
-  isSaving = false,
-  hasUnsavedChanges = false,
   rightSidebar,
+  projectTitle,
 }: ProjectLayoutProps) {
   const [focusMode, setFocusMode] = useState(false);
+
+  // Dispatch screenplay title update event for header breadcrumb
+  useEffect(() => {
+    if (projectTitle) {
+      window.dispatchEvent(new CustomEvent('screenplay-title-update', {
+        detail: { title: projectTitle }
+      }));
+    }
+  }, [projectTitle]);
 
   // Listen for focus mode toggle events
   useEffect(() => {
@@ -39,24 +42,12 @@ export function ProjectLayout({
   }, []);
 
   return (
-    <>
-      {!focusMode && (
-        <ProjectHeader
-          projectId={projectId}
-          projectTitle={projectTitle}
-          onSave={onSave}
-          onExport={onExport}
-          isSaving={isSaving}
-          hasUnsavedChanges={hasUnsavedChanges}
-        />
-      )}
-      <main className="flex-1 flex overflow-hidden">
-        <div className="flex-1 flex flex-col">
-          {children}
-        </div>
-        {!focusMode && rightSidebar}
-      </main>
-    </>
+    <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col">
+        {children}
+      </div>
+      {!focusMode && rightSidebar}
+    </div>
   );
 }
 

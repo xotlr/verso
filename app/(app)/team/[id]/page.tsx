@@ -124,6 +124,15 @@ export default function TeamPage() {
     fetchTeam()
   }, [teamId])
 
+  // Dispatch team name to header breadcrumb
+  useEffect(() => {
+    if (team?.name) {
+      window.dispatchEvent(new CustomEvent('screenplay-title-update', {
+        detail: { title: team.name }
+      }))
+    }
+  }, [team?.name])
+
   if (isLoading) {
     return <TeamSkeleton />
   }
@@ -229,7 +238,7 @@ export default function TeamPage() {
           {/* Stats */}
           <div className="flex gap-6 pt-2">
             <div className="text-center">
-              <p className="text-2xl font-bold text-foreground">{team._count.members}</p>
+              <p className="text-2xl font-bold text-foreground">{team._count?.members ?? 0}</p>
               <p className="text-sm text-muted-foreground">
                 Members
                 {isAdmin && team.maxSeats && (
@@ -238,7 +247,7 @@ export default function TeamPage() {
               </p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-foreground">{team._count.projects}</p>
+              <p className="text-2xl font-bold text-foreground">{team._count?.projects ?? 0}</p>
               <p className="text-sm text-muted-foreground">Projects</p>
             </div>
           </div>
@@ -271,7 +280,7 @@ export default function TeamPage() {
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between">
                         <CardTitle className="text-lg line-clamp-1">{project.name}</CardTitle>
-                        <Link href={`/editor/${project.id}`}>
+                        <Link href={`/screenplay/${project.id}`}>
                           <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
                             <ExternalLink className="h-4 w-4" />
                           </Button>
@@ -361,7 +370,7 @@ export default function TeamPage() {
                   image: m.user.image,
                 },
               })),
-              _count: { members: team._count.members, invites: team._count.invites || 0 },
+              _count: { members: team._count?.members ?? 0, invites: team._count?.invites ?? 0 },
             }}
             open={settingsOpen}
             onOpenChange={setSettingsOpen}
@@ -376,7 +385,7 @@ export default function TeamPage() {
           <InviteMemberDialog
             teamId={team.id}
             teamName={team.name}
-            seatsAvailable={team.maxSeats - team._count.members - (team._count.invites || 0)}
+            seatsAvailable={team.maxSeats - (team._count?.members ?? 0) - (team._count?.invites ?? 0)}
             maxSeats={team.maxSeats}
             open={inviteOpen}
             onOpenChange={setInviteOpen}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { BeatBoard, Beat } from "@/components/beat-board";
 import { ProjectLayout } from "@/components/layouts/project-layout";
@@ -115,23 +115,32 @@ export default function BoardPage() {
   const id = params.id as string;
   const [beats, setBeats] = useState<Beat[]>(DEMO_BEATS);
   const [scenes] = useState<Scene[]>(DEMO_SCENES);
+  const [title, setTitle] = useState("Loading...");
+
+  // Fetch screenplay title
+  useEffect(() => {
+    fetch(`/api/screenplays/${id}`)
+      .then(res => res.json())
+      .then(data => setTitle(data.title || "Untitled Screenplay"))
+      .catch(() => setTitle("Untitled Screenplay"));
+  }, [id]);
 
   const handleBeatsChange = useCallback((newBeats: Beat[]) => {
     setBeats(newBeats);
   }, []);
 
   const handleSceneClick = useCallback((sceneId: string) => {
-    router.push(`/editor/${id}?scene=${sceneId}`);
+    router.push(`/screenplay/${id}?scene=${sceneId}`);
   }, [router, id]);
 
   const handleBackToEditor = useCallback(() => {
-    router.push(`/editor/${id}`);
+    router.push(`/screenplay/${id}`);
   }, [router, id]);
 
   return (
     <ProjectLayout
       projectId={id}
-      projectTitle="Untitled Screenplay"
+      projectTitle={title}
     >
       <BeatBoard
         scenes={scenes}

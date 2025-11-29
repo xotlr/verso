@@ -14,6 +14,7 @@ import {
   FolderOpen,
   FileText,
   ExternalLink,
+  Camera,
 } from 'lucide-react'
 import { EditProfileDialog } from '@/components/edit-profile-dialog'
 import {
@@ -22,6 +23,7 @@ import {
   ProfileStats,
   ProfileMeta,
   ProfileSocialLinks,
+  ProfileBento,
 } from '@/components/profile'
 
 interface UserProfile {
@@ -40,6 +42,9 @@ interface UserProfile {
   isPublic: boolean
   createdAt: string
   plan: string
+  interests: string[]
+  skills: string[]
+  lookingFor: string | null
   projects: Array<{
     id: string
     name: string
@@ -98,6 +103,15 @@ export default function ProfilePage() {
     fetchProfile()
   }, [userId])
 
+  // Dispatch user name to header breadcrumb
+  useEffect(() => {
+    if (user) {
+      window.dispatchEvent(new CustomEvent('screenplay-title-update', {
+        detail: { title: user.name || 'Anonymous' }
+      }))
+    }
+  }, [user])
+
   const handleProfileUpdate = (updatedUser: Partial<UserProfile>) => {
     if (user) {
       setUser({ ...user, ...updatedUser })
@@ -121,18 +135,28 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen">
-      {/* Banner */}
-      <ProfileBanner
-        userId={user.id}
-        bannerUrl={user.banner}
-        height="lg"
-      />
+      {/* Banner with edit overlay for owner */}
+      <div className="relative group">
+        <ProfileBanner
+          userId={user.id}
+          bannerUrl={user.banner}
+          height="lg"
+        />
+        {isOwnProfile && (
+          <button
+            onClick={() => setEditDialogOpen(true)}
+            className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+          >
+            <Camera className="h-8 w-8 text-white" />
+          </button>
+        )}
+      </div>
 
       {/* Profile Header */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative mb-4">
           {/* Avatar - positioned to overlap banner by ~50% */}
-          <div className="-mt-16 sm:-mt-[68px] mb-3">
+          <div className="-mt-16 sm:-mt-[68px] mb-3 relative w-fit group/avatar">
             <ProfileAvatar
               userId={user.id}
               imageUrl={user.image}
@@ -140,6 +164,14 @@ export default function ProfilePage() {
               email={user.email}
               size="lg"
             />
+            {isOwnProfile && (
+              <button
+                onClick={() => setEditDialogOpen(true)}
+                className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity rounded-md cursor-pointer"
+              >
+                <Camera className="h-6 w-6 text-white" />
+              </button>
+            )}
           </div>
 
           {/* Name, Title, and Edit Button row */}
@@ -203,6 +235,15 @@ export default function ProfilePage() {
           />
         </div>
 
+        {/* Bento Blocks */}
+        <ProfileBento
+          interests={user.interests || []}
+          skills={user.skills || []}
+          lookingFor={user.lookingFor}
+          isOwnProfile={isOwnProfile}
+          onEdit={() => setEditDialogOpen(true)}
+        />
+
         {/* Tabs */}
         <Tabs defaultValue="projects" className="pb-8">
           <TabsList className="mb-6">
@@ -230,7 +271,7 @@ export default function ProfilePage() {
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between">
                         <CardTitle className="text-lg line-clamp-1">{project.name}</CardTitle>
-                        <Link href={`/editor/${project.id}`}>
+                        <Link href={`/screenplay/${project.id}`}>
                           <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
                             <ExternalLink className="h-4 w-4" />
                           </Button>
@@ -277,7 +318,7 @@ export default function ProfilePage() {
                           Updated {new Date(script.updatedAt).toLocaleDateString()}
                         </p>
                       </div>
-                      <Link href={`/editor/${script.id}`}>
+                      <Link href={`/screenplay/${script.id}`}>
                         <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
                           Open
                         </Button>
@@ -331,7 +372,7 @@ function ProfileSkeleton() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative mb-4">
           <div className="-mt-16 sm:-mt-[68px] mb-3">
-            <Skeleton className="h-32 w-32 sm:h-[134px] sm:w-[134px] rounded-full" />
+            <Skeleton className="h-32 w-32 sm:h-[134px] sm:w-[134px] rounded-md" />
           </div>
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div className="space-y-2">

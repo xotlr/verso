@@ -27,6 +27,16 @@ function hashToAuroraHSL(hash: number, offset: number = 0): string {
 }
 
 /**
+ * Generate HSLA color from hash with specified alpha
+ */
+function hashToAuroraHSLA(hash: number, offset: number, alpha: number): string {
+  const hue = (hash + offset * 97) % 360;
+  const saturation = 70 + (hash % 25);
+  const lightness = 50 + (hash % 20);
+  return `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
+}
+
+/**
  * Generate a darker base color for backgrounds
  */
 function hashToBaseColor(hash: number): string {
@@ -46,16 +56,16 @@ export function generateMeshGradient(userId: string): string {
   // Base dark color
   const baseColor = hashToBaseColor(hash);
 
-  // Aurora highlight colors (semi-transparent)
-  const aurora1 = hashToAuroraHSL(hash, 0);
-  const aurora2 = hashToAuroraHSL(hash, 1);
-  const aurora3 = hashToAuroraHSL(hash, 2);
+  // Aurora highlight colors with proper HSLA alpha values
+  const aurora1 = hashToAuroraHSLA(hash, 0, 0.4);  // 40% opacity
+  const aurora2 = hashToAuroraHSLA(hash, 1, 0.35); // 35% opacity
+  const aurora3 = hashToAuroraHSLA(hash, 2, 0.3);  // 30% opacity
 
   // Create mesh gradient with dark base and aurora overlays
   return `
-    radial-gradient(ellipse 80% 50% at 20% 30%, ${aurora1}40 0%, transparent 50%),
-    radial-gradient(ellipse 60% 80% at 80% 20%, ${aurora2}35 0%, transparent 50%),
-    radial-gradient(ellipse 70% 60% at 50% 80%, ${aurora3}30 0%, transparent 50%),
+    radial-gradient(ellipse 80% 50% at 20% 30%, ${aurora1} 0%, transparent 50%),
+    radial-gradient(ellipse 60% 80% at 80% 20%, ${aurora2} 0%, transparent 50%),
+    radial-gradient(ellipse 70% 60% at 50% 80%, ${aurora3} 0%, transparent 50%),
     linear-gradient(180deg, ${baseColor} 0%, ${baseColor} 100%)
   `.trim().replace(/\s+/g, ' ');
 }

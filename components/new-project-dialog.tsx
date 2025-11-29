@@ -13,7 +13,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Loader2, User, Users } from 'lucide-react';
+import { useTeam } from '@/contexts/team-context';
 
 interface ProjectItem {
   id: string;
@@ -37,10 +45,21 @@ interface NewProjectDialogProps {
 }
 
 export function NewProjectDialog({ isOpen, onClose, onCreated }: NewProjectDialogProps) {
+  const { teams, currentTeam } = useTeam();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('personal');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Set default to current team when dialog opens
+  React.useEffect(() => {
+    if (isOpen && currentTeam) {
+      setSelectedTeamId(currentTeam.id);
+    } else if (isOpen) {
+      setSelectedTeamId('personal');
+    }
+  }, [isOpen, currentTeam]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +78,7 @@ export function NewProjectDialog({ isOpen, onClose, onCreated }: NewProjectDialo
         body: JSON.stringify({
           name: name.trim(),
           description: description.trim() || undefined,
+          teamId: selectedTeamId !== 'personal' ? selectedTeamId : undefined,
         }),
       });
 
@@ -92,6 +112,7 @@ export function NewProjectDialog({ isOpen, onClose, onCreated }: NewProjectDialo
   const handleClose = () => {
     setName('');
     setDescription('');
+    setSelectedTeamId('personal');
     setError(null);
     onClose();
   };
@@ -108,6 +129,34 @@ export function NewProjectDialog({ isOpen, onClose, onCreated }: NewProjectDialo
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
+            {/* Team Selection - only show if user has teams */}
+            {teams.length > 0 && (
+              <div className="grid gap-2">
+                <Label>Create in</Label>
+                <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="personal">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span>Personal</span>
+                      </div>
+                    </SelectItem>
+                    {teams.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span>{team.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="grid gap-2">
               <Label htmlFor="name">Project Name</Label>
               <Input

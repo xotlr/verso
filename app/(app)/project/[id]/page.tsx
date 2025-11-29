@@ -10,7 +10,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TemplateSelector } from '@/components/template-selector';
 import { EmptyState } from '@/components/ui/empty-state';
-import { useCreateScreenplay } from '@/hooks/useCreateScreenplay';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -108,8 +107,6 @@ export default function ProjectPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: TabValue | 'link' } | null>(null);
   const [externalLinks, setExternalLinks] = useState<ExternalLinkData[]>([]);
 
-  // Use shared hook for screenplay creation
-  const { createScreenplay } = useCreateScreenplay();
 
   useEffect(() => {
     if (projectId) {
@@ -117,6 +114,15 @@ export default function ProjectPage() {
       loadLinks();
     }
   }, [projectId]);
+
+  // Dispatch project name to header breadcrumb
+  useEffect(() => {
+    if (project?.name) {
+      window.dispatchEvent(new CustomEvent('screenplay-title-update', {
+        detail: { title: project.name }
+      }));
+    }
+  }, [project?.name]);
 
   const loadLinks = async () => {
     try {
@@ -254,7 +260,7 @@ export default function ProjectPage() {
       <TemplateSelector
         isOpen={templateSelectorOpen}
         onClose={() => setTemplateSelectorOpen(false)}
-        onSelect={(template) => createScreenplay(template, projectId)}
+        projectId={projectId}
       />
 
       <AddLinkDialog
@@ -375,7 +381,7 @@ export default function ProjectPage() {
                       key={screenplay.id}
                       className="group relative bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200"
                     >
-                      <Link href={`/editor/${screenplay.id}`}>
+                      <Link href={`/screenplay/${screenplay.id}`}>
                         <div className="p-5 cursor-pointer">
                           <div className="flex items-start justify-between mb-3">
                             <h3 className="text-base font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
@@ -394,7 +400,7 @@ export default function ProjectPage() {
                                 </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => router.push(`/editor/${screenplay.id}`)}>
+                                <DropdownMenuItem onClick={() => router.push(`/screenplay/${screenplay.id}`)}>
                                   <Edit3 className="mr-2 h-4 w-4" />
                                   Edit
                                 </DropdownMenuItem>

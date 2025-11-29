@@ -22,58 +22,23 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Scene } from '@/types/screenplay';
+import { Beat, ActId, BeatBoardProps, ACTS_CONFIG } from '@/types/beat-board';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
 import {
   GripVertical,
   Plus,
   Trash2,
   Edit2,
-  Check,
-  X,
   Film,
   ChevronLeft,
 } from 'lucide-react';
 import { useVisualizationColors } from '@/lib/visualization-colors';
 import { ActColorScheme } from '@/types/settings';
+import { BeatEditor } from '@/components/beat-board/beat-editor';
 
-// Beat/Card types
-export interface Beat {
-  id: string;
-  title: string;
-  description: string;
-  color: string;
-  act: ActId;
-  sceneIds: string[];
-  order: number;
-}
-
-export type ActId = 'act1' | 'act2a' | 'act2b' | 'act3';
-
-export interface BeatBoardProps {
-  scenes: Scene[];
-  beats: Beat[];
-  onBeatsChange: (beats: Beat[]) => void;
-  onSceneClick?: (sceneId: string) => void;
-  onBackToEditor?: () => void;
-}
-
-// Act configuration (labels only - colors come from theme)
-const ACTS_CONFIG: { id: ActId; label: string }[] = [
-  { id: 'act1', label: 'Act 1 - Setup' },
-  { id: 'act2a', label: 'Act 2A - Confrontation' },
-  { id: 'act2b', label: 'Act 2B - Complications' },
-  { id: 'act3', label: 'Act 3 - Resolution' },
-];
+// Re-export types for backwards compatibility
+export type { Beat, ActId, BeatBoardProps } from '@/types/beat-board';
 
 // Sortable Beat Card - memoized to prevent unnecessary re-renders
 const SortableBeatCard = React.memo(function SortableBeatCard({
@@ -266,142 +231,6 @@ const ActColumn = React.memo(function ActColumn({
     </div>
   );
 });
-
-// Beat Editor Modal
-function BeatEditor({
-  beat,
-  scenes,
-  isOpen,
-  onSave,
-  onCancel,
-  beatColors,
-}: {
-  beat: Beat | null;
-  scenes: Scene[];
-  isOpen: boolean;
-  onSave: (beat: Beat) => void;
-  onCancel: () => void;
-  beatColors: string[];
-}) {
-  const [title, setTitle] = useState(beat?.title || '');
-  const [description, setDescription] = useState(beat?.description || '');
-  const [color, setColor] = useState(beat?.color || beatColors[0]);
-  const [selectedScenes, setSelectedScenes] = useState<string[]>(beat?.sceneIds || []);
-
-  // Reset form when beat changes
-  React.useEffect(() => {
-    setTitle(beat?.title || '');
-    setDescription(beat?.description || '');
-    setColor(beat?.color || beatColors[0]);
-    setSelectedScenes(beat?.sceneIds || []);
-  }, [beat, beatColors]);
-
-  const handleSave = () => {
-    if (!title.trim()) return;
-
-    onSave({
-      id: beat?.id || `beat-${Date.now()}`,
-      title: title.trim(),
-      description: description.trim(),
-      color,
-      act: beat?.act || 'act1',
-      sceneIds: selectedScenes,
-      order: beat?.order || 0,
-    });
-  };
-
-  const toggleScene = (sceneId: string) => {
-    setSelectedScenes(prev =>
-      prev.includes(sceneId)
-        ? prev.filter(id => id !== sceneId)
-        : [...prev, sceneId]
-    );
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{beat?.id ? 'Edit Beat' : 'New Beat'}</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">Title</label>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Beat title..."
-              className="mt-1"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">Description</label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What happens in this beat..."
-              className="mt-1 h-20 resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">Color</label>
-            <div className="flex gap-2 mt-1">
-              {beatColors.map(c => (
-                <button
-                  key={c}
-                  onClick={() => setColor(c)}
-                  className={cn(
-                    'w-6 h-6 rounded-full transition-transform',
-                    color === c && 'ring-2 ring-offset-2 ring-primary scale-110'
-                  )}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-muted-foreground">Link Scenes</label>
-            <div className="mt-1 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
-              {scenes.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No scenes available</p>
-              ) : (
-                scenes.map(scene => (
-                  <button
-                    key={scene.id}
-                    onClick={() => toggleScene(scene.id)}
-                    className={cn(
-                      'w-full text-left px-2 py-1 rounded text-sm',
-                      selectedScenes.includes(scene.id)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'hover:bg-muted'
-                    )}
-                  >
-                    Scene {scene.number}: {scene.heading.substring(0, 30)}...
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
-            <X className="h-4 w-4 mr-2" />
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={!title.trim()}>
-            <Check className="h-4 w-4 mr-2" />
-            Save
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 // Main Beat Board Component
 export function BeatBoard({

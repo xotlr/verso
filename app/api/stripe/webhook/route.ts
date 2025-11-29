@@ -4,6 +4,7 @@ import { getStripe } from "@/lib/stripe"
 import { prisma } from "@/lib/prisma"
 import { Plan } from "@prisma/client"
 import Stripe from "stripe"
+import { updateTeamSubscription, cancelTeamSubscription } from "@/lib/stripe-helpers"
 
 export const dynamic = "force-dynamic"
 
@@ -70,18 +71,33 @@ export async function POST(request: Request) {
       switch (event.type) {
         case "checkout.session.completed": {
           const session = event.data.object as Stripe.Checkout.Session
-          await handleCheckoutCompleted(session, stripe)
+          // Check if this is a team checkout
+          if (session.metadata?.type === "team" && session.metadata?.teamId) {
+            await handleTeamCheckoutCompleted(session, stripe)
+          } else {
+            await handleCheckoutCompleted(session, stripe)
+          }
           break
         }
         case "customer.subscription.created":
         case "customer.subscription.updated": {
           const subscription = event.data.object as Stripe.Subscription
-          await handleSubscriptionUpdate(subscription)
+          // Check if this is a team subscription
+          if (subscription.metadata?.type === "team" && subscription.metadata?.teamId) {
+            await handleTeamSubscriptionUpdate(subscription)
+          } else {
+            await handleSubscriptionUpdate(subscription)
+          }
           break
         }
         case "customer.subscription.deleted": {
           const subscription = event.data.object as Stripe.Subscription
-          await handleSubscriptionCancellation(subscription)
+          // Check if this is a team subscription
+          if (subscription.metadata?.type === "team" && subscription.metadata?.teamId) {
+            await handleTeamSubscriptionCancellation(subscription)
+          } else {
+            await handleSubscriptionCancellation(subscription)
+          }
           break
         }
         case "invoice.payment_succeeded": {
@@ -355,4 +371,160 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
 
   // After multiple failures, Stripe will cancel the subscription
   // which will trigger customer.subscription.deleted
+}
+
+// ============================================
+// TEAM SUBSCRIPTION HANDLERS
+// ============================================
+
+/**
+ * Handle team checkout session completion
+ */
+async function handleTeamCheckoutCompleted(
+  session: Stripe.Checkout.Session,
+  stripe: Stripe
+) {
+  const teamId = session.metadata?.teamId
+  const customerId =
+    typeof session.customer === "string"
+      ? session.customer
+      : session.customer?.toString()
+
+  if (!teamId) {
+    console.warn("Team checkout session completed without teamId in metadata", {
+      sessionId: session.id,
+    })
+    return
+  }
+
+  // Get the subscription from the session
+  const subscriptionId =
+    typeof session.subscription === "string"
+      ? session.subscription
+      : session.subscription?.toString()
+
+  if (!subscriptionId) {
+    console.warn("No subscription ID in team checkout session", {
+      sessionId: session.id,
+    })
+    return
+  }
+
+  // Fetch subscription details
+  const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId)
+  const subscription = subscriptionResponse as unknown as Stripe.Subscription & { current_period_end: number }
+
+  // Determine maxSeats based on price/product (can be configured in Stripe product metadata)
+  // Default: Team plan = 10 seats
+  const maxSeats = parseInt(subscription.metadata?.maxSeats || "10", 10)
+
+  // Update team with subscription info
+  await prisma.team.update({
+    where: { id: teamId },
+    data: {
+      stripeCustomerId: customerId || undefined,
+      stripeSubscriptionId: subscription.id,
+      stripePriceId: subscription.items.data[0]?.price?.id || null,
+      stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      maxSeats,
+    },
+  })
+
+  console.log("Team subscription activated from checkout", {
+    teamId,
+    subscriptionId,
+    maxSeats,
+  })
+}
+
+/**
+ * Handle team subscription updates
+ */
+async function handleTeamSubscriptionUpdate(subscriptionData: Stripe.Subscription) {
+  const subscription = subscriptionData as Stripe.Subscription & { current_period_end: number }
+  const teamId = subscription.metadata?.teamId
+
+  if (!teamId) {
+    // Try to find team by customer ID
+    const customerId = subscription.customer as string
+    const team = await prisma.team.findFirst({
+      where: { stripeCustomerId: customerId },
+      select: { id: true },
+    })
+
+    if (!team) {
+      console.warn("Team subscription update: cannot find team", {
+        customerId,
+        subscriptionId: subscription.id,
+      })
+      return
+    }
+
+    // Update by customer ID
+    const maxSeats =
+      subscription.status === "active" || subscription.status === "trialing"
+        ? parseInt(subscription.metadata?.maxSeats || "10", 10)
+        : 3
+
+    await updateTeamSubscription(
+      team.id,
+      subscription.id,
+      subscription.items.data[0]?.price?.id || "",
+      subscription.current_period_end,
+      maxSeats
+    )
+
+    console.log("Team subscription updated (by customer ID)", {
+      teamId: team.id,
+      status: subscription.status,
+      maxSeats,
+    })
+    return
+  }
+
+  // Update by team ID from metadata
+  const maxSeats =
+    subscription.status === "active" || subscription.status === "trialing"
+      ? parseInt(subscription.metadata?.maxSeats || "10", 10)
+      : 3
+
+  await updateTeamSubscription(
+    teamId,
+    subscription.id,
+    subscription.items.data[0]?.price?.id || "",
+    subscription.current_period_end,
+    maxSeats
+  )
+
+  console.log("Team subscription updated", {
+    teamId,
+    status: subscription.status,
+    maxSeats,
+  })
+}
+
+/**
+ * Handle team subscription cancellation
+ */
+async function handleTeamSubscriptionCancellation(
+  subscription: Stripe.Subscription
+) {
+  const teamId = subscription.metadata?.teamId
+  const customerId = subscription.customer as string
+
+  if (teamId) {
+    await cancelTeamSubscription(teamId)
+    console.log("Team subscription canceled", { teamId })
+  } else {
+    // Cancel by customer ID
+    const team = await prisma.team.findFirst({
+      where: { stripeCustomerId: customerId },
+      select: { id: true },
+    })
+
+    if (team) {
+      await cancelTeamSubscription(team.id)
+      console.log("Team subscription canceled (by customer ID)", { teamId: team.id })
+    }
+  }
 }

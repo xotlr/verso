@@ -17,7 +17,7 @@
     /* Text */
     --foreground: 0 0% 25%;             /* Dark gray text */
     --muted: 0 0% 95%;
-    --muted-foreground: 0 0% 45%;       /* Medium gray secondary text */
+    --muted-foreground: 0 0% 40%;       /* Medium gray secondary text - WCAG AA compliant */
 
     /* Primary accent (neutral dark) */
     --primary: 0 0% 15%;
@@ -91,7 +91,7 @@
     /* Text */
     --foreground: 0 0% 85%;             /* Light gray text */
     --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 55%;       /* Medium gray secondary text */
+    --muted-foreground: 0 0% 60%;       /* Medium gray secondary text - WCAG AA compliant */
 
     /* Primary accent */
     --primary: 0 0% 90%;
@@ -160,9 +160,6 @@
                         border-color var(--animation-speed) ease;
   }
 
-  * {
-    transition: var(--theme-transition);
-  }
 
   /* Disable transitions for elements that shouldn't animate */
   .no-transition,

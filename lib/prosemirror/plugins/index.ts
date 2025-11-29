@@ -7,6 +7,7 @@ import { createInputRulesPlugin } from './input-rules';
 import { createElementSwitchingPlugin } from './element-switching';
 import { createKeymapPlugin, createBaseKeymapPlugin } from './keymap';
 import { createPaginationPlugin } from './pagination';
+import { createSceneNumberingPlugin } from './scene-numbering';
 import { createSmartClickPlugin } from './smart-click';
 import { createAutocompletePlugin, AutocompletePluginOptions } from './autocomplete';
 
@@ -25,6 +26,8 @@ export interface CreatePluginsOptions {
   gapCursor?: boolean;
   // Enable pagination with page breaks
   pagination?: boolean;
+  // Enable scene numbering on left margin
+  sceneNumbering?: boolean;
   // Enable autocomplete suggestions
   autocomplete?: boolean;
   // Autocomplete options
@@ -39,6 +42,7 @@ const defaultOptions: CreatePluginsOptions = {
   dropCursor: true,
   gapCursor: true,
   pagination: true,
+  sceneNumbering: true,
   autocomplete: true,
 };
 
@@ -77,6 +81,11 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
     plugins.push(createPaginationPlugin());
   }
 
+  // Scene numbering
+  if (opts.sceneNumbering) {
+    plugins.push(createSceneNumberingPlugin());
+  }
+
   // Smart click-to-focus (nearest editable line)
   plugins.push(createSmartClickPlugin());
 
@@ -102,6 +111,7 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
 export { createInputRulesPlugin } from './input-rules';
 export { createElementSwitchingPlugin, elementCommands, setElementType } from './element-switching';
 export { createKeymapPlugin, createBaseKeymapPlugin, toggleBold, toggleItalic, toggleUnderline } from './keymap';
+export { createSceneNumberingPlugin, sceneNumberingPluginKey } from './scene-numbering';
 export { createSmartClickPlugin, smartClickPluginKey } from './smart-click';
 export { createAutocompletePlugin, autocompletePluginKey, applySuggestion } from './autocomplete';
 export type { AutocompleteState, AutocompleteSuggestion, AutocompletePluginOptions } from './autocomplete';

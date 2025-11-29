@@ -25,7 +25,7 @@ export function ImportDropZoneCard({
     <Card
       className={cn(
         'overflow-hidden',
-        asScreenplayCard && 'min-h-[200px]',
+        asScreenplayCard && 'min-h-[180px]',
         className
       )}
     >
@@ -34,7 +34,7 @@ export function ImportDropZoneCard({
           {...props}
           context="dashboard"
           className={cn(
-            'h-full min-h-[200px] rounded-none border-0',
+            'h-full min-h-[180px] rounded-none border-0',
             'hover:bg-muted/30'
           )}
         />

@@ -210,7 +210,7 @@ export function FloatingToolbar({ view, className }: FloatingToolbarProps) {
       className={cn(
         'fixed z-50',
         'flex items-center gap-0.5 p-1',
-        'bg-popover/95 backdrop-blur-md',
+        'bg-popover/98 backdrop-blur-lg',  /* Improved legibility (was 95/md) */
         'border border-border rounded-lg shadow-lg',
         'animate-in fade-in-0 zoom-in-95 duration-150',
         className

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
+import { BottomNav } from "@/components/bottom-nav";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { Button } from "@/components/ui/button";
 import { Minimize2 } from "lucide-react";
@@ -15,18 +16,10 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-// Routes that have their own header (ProjectHeader)
-const projectRoutes = ['/editor/', '/board/', '/cards/', '/visualization/'];
-
-function isProjectRoute(pathname: string): boolean {
-  return projectRoutes.some(route => pathname.startsWith(route));
-}
-
 export default function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
   const [focusMode, setFocusMode] = useState(false);
-  const showAppHeader = !isProjectRoute(pathname);
-  const isEditorRoute = pathname.includes('/editor/');
+  const isEditorRoute = pathname.includes('/screenplay/');
 
   // Listen for focus mode toggle events
   useEffect(() => {
@@ -65,8 +58,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
           "flex flex-col h-screen transition-all duration-500 ease-out",
           focusMode && "!ml-0"
         )}>
-          {/* Header - hidden in focus mode */}
-          {showAppHeader && !focusMode && <AppHeader />}
+          {/* Header - always shown on desktop, hidden in focus mode */}
+          {!focusMode && <AppHeader />}
 
           {/* Focus mode exit button - appears with fade */}
           <div className={cn(
@@ -86,11 +79,16 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
 
           <main className={cn(
-            "flex-1 overflow-hidden transition-all duration-300",
-            focusMode && "p-4"
+            "flex-1 overflow-auto transition-all duration-300",
+            focusMode && "p-4",
+            // Add bottom padding on mobile for bottom nav (except in focus mode)
+            !focusMode && "pb-16 md:pb-0"
           )}>
             {children}
           </main>
+
+          {/* Bottom Navigation - mobile only, hidden in focus mode */}
+          {!focusMode && <BottomNav />}
         </SidebarInset>
 
         {/* PWA Install Prompt */}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { EditorView } from 'prosemirror-view';
 import {
@@ -16,6 +16,7 @@ import {
   ArrowRight,
   Mic,
 } from 'lucide-react';
+import { useSettings } from '@/contexts/settings-context';
 
 interface AutocompleteDropdownProps {
   view: EditorView | null;
@@ -73,8 +74,46 @@ export function AutocompleteDropdown({
   state,
   onSelect,
 }: AutocompleteDropdownProps) {
+  const { settings } = useSettings();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const selectedRef = useRef<HTMLButtonElement>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const delayMs = settings.editor.autocomplete?.delayMs ?? 0;
+  const enabled = settings.editor.autocomplete?.enabled ?? true;
+
+  // Handle delay logic
+  useEffect(() => {
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // If not enabled or not active, hide immediately
+    if (!enabled || !state.active) {
+      setShowDropdown(false);
+      return;
+    }
+
+    // If no delay, show immediately
+    if (delayMs === 0) {
+      setShowDropdown(true);
+      return;
+    }
+
+    // Start delay timer
+    timerRef.current = setTimeout(() => {
+      setShowDropdown(true);
+    }, delayMs);
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, [state.active, delayMs, enabled]);
 
   // Scroll selected item into view
   useEffect(() => {
@@ -128,7 +167,8 @@ export function AutocompleteDropdown({
     }
   }, [view, state.active, state.suggestions.length]);
 
-  if (!state.active || !position || state.suggestions.length === 0) {
+  // Don't render if disabled, delayed, or no suggestions
+  if (!enabled || !showDropdown || !position || state.suggestions.length === 0) {
     return null;
   }
 
@@ -140,7 +180,9 @@ export function AutocompleteDropdown({
         'overflow-y-auto overscroll-contain',
         'bg-popover/85 backdrop-blur-sm',
         'border border-border/50 rounded-lg shadow-md',
-        'animate-in fade-in-0 duration-150',
+        showDropdown
+          ? 'animate-in fade-in-0 duration-200'
+          : 'animate-out fade-out-0 duration-150',
         'py-1'
       )}
       style={{

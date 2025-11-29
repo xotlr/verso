@@ -23,7 +23,8 @@
   /* Typography */
   --pm-font-family: 'Courier Prime', 'Courier New', Courier, monospace;
   --pm-font-size: 12pt;
-  --pm-line-height: 1;
+  /* Line height now set by settings (compact: 1.1, normal: 1.15, relaxed: 1.2) */
+  --pm-line-height: var(--pm-line-height, 1.15);
 
   /* Element margins (from left edge of content area) */
   --pm-margin-scene-heading: 0;
@@ -36,10 +37,12 @@
   --pm-margin-transition: 4in;
 
   /* Colors */
-  --pm-page-bg: hsl(0 0% 100%);
+  --pm-page-bg: hsl(var(--background));  /* Use theme background, was 100% */
   --pm-page-bg-dark: hsl(0 0% 12%);
-  --pm-text-color: hsl(0 0% 15%);
-  --pm-text-color-dark: hsl(0 0% 90%);
+  /* Text lightness now set by settings (range: 15-35%, default: 25%) */
+  --pm-text-color: hsl(0 0% var(--pm-text-lightness, 25%));
+  /* Dark mode uses inverted lightness (100 - lightness) for proper contrast */
+  --pm-text-color-dark: hsl(0 0% calc(100% - var(--pm-text-lightness, 25%) + 10%));
 
   /* Element type colors */
   --pm-color-scene-heading: hsl(217 91% 55%);
@@ -54,17 +57,18 @@
 
   /* Shadows - subtle but visible */
   --pm-page-shadow:
-    0 1px 3px hsl(0 0% 0% / 0.04),
-    0 4px 6px hsl(0 0% 0% / 0.04),
-    0 10px 20px hsl(0 0% 0% / 0.06),
-    0 20px 40px hsl(0 0% 0% / 0.06);
+    0 1px 3px hsl(0 0% 0% / 0.03),  /* Softer (was 0.04) */
+    0 4px 6px hsl(0 0% 0% / 0.03),  /* Softer (was 0.04) */
+    0 10px 20px hsl(0 0% 0% / 0.05),  /* Softer (was 0.06) */
+    0 20px 40px hsl(0 0% 0% / 0.05);  /* Softer (was 0.06) */
 }
 
 .dark {
   --pm-page-bg: hsl(0 0% 12%);
-  --pm-text-color: hsl(0 0% 90%);
+  /* Text color in dark mode uses inverted lightness calculation */
+  --pm-text-color: var(--pm-text-color-dark);
   --pm-page-shadow:
-    0 0 0 1px hsl(0 0% 100% / 0.05),
+    0 0 0 1px hsl(0 0% 100% / 0.04),  /* Softer (was 0.05) */
     0 4px 8px hsl(0 0% 0% / 0.2),
     0 16px 32px hsl(0 0% 0% / 0.25);
 }
@@ -95,7 +99,9 @@
   width: 100%;
   height: 100%;
   min-height: 100vh;
-  background: hsl(var(--muted) / 0.3);
+  background: hsl(var(--background));
+  /* Apply theme temperature filter (warm/cool/neutral) */
+  filter: var(--theme-temperature-filter, none);
 }
 
 .pm-editor-scroll-container {
@@ -135,18 +141,27 @@
   flex-direction: column;
   align-items: center;
   padding: 40px 20px 120px;
-  gap: 24px;
+  gap: 2rem; /* Google Docs-style spacing */
   min-height: 100%;
+  /* Background shows through margins */
+  background: hsl(var(--background));
 }
 
+/* Each page gets card wrapper treatment */
 .pm-editor-page {
+  /* Remove background - will be on inner element */
+  background: transparent;
+  box-shadow: none;
+
+  /* Keep page dimensions for layout */
   width: var(--pm-page-width);
   min-height: var(--pm-page-min-height);
-  padding: var(--pm-page-padding-top) var(--pm-page-padding-right) var(--pm-page-padding-bottom) var(--pm-page-padding-left);
 
-  background: var(--pm-page-bg);
-  box-shadow: var(--pm-page-shadow);
-  border-radius: 6px;
+  /* Margins as transparent padding (gray shows through) */
+  padding: var(--pm-page-padding-top) var(--pm-page-padding-right)
+           var(--pm-page-padding-bottom) var(--pm-page-padding-left);
+
+  position: relative;
 
   /* Typography */
   font-family: var(--pm-font-family);
@@ -154,42 +169,65 @@
   line-height: var(--pm-line-height);
   color: var(--pm-text-color);
 
+  /* Font rendering optimization */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+
   /* Virtualization hint */
   content-visibility: auto;
   contain-intrinsic-size: var(--pm-page-width) var(--pm-page-min-height);
-
-  /* Paper texture (subtle) */
-  position: relative;
-}
-
-.pm-editor-page::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  opacity: 0.015;
-  pointer-events: none;
-  mix-blend-mode: multiply;
-  border-radius: inherit;
 }
 
 .dark .pm-editor-page {
-  background: var(--pm-page-bg-dark);
   color: var(--pm-text-color-dark);
 }
 
+/* Inner content card - ONLY this has white background */
+.pm-editor-page::before {
+  content: '';
+  position: absolute;
+  top: var(--pm-page-padding-top);
+  left: var(--pm-page-padding-left);
+  right: var(--pm-page-padding-right);
+  bottom: var(--pm-page-padding-bottom);
+
+  /* White card background */
+  background: var(--pm-page-bg);
+  box-shadow: var(--pm-page-shadow);
+  border-radius: 8px;
+
+  /* Paper texture */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"), var(--pm-page-bg);
+
+  z-index: 0;
+  pointer-events: none;
+}
+
 .dark .pm-editor-page::before {
-  mix-blend-mode: soft-light;
-  opacity: 0.02;
+  background: var(--pm-page-bg-dark);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"), var(--pm-page-bg-dark);
 }
 
 /* ============================================
    ProseMirror Base Styles
    ============================================ */
+/* ProseMirror content stays above the card background */
+.pm-editor-page .ProseMirror {
+  position: relative;
+  z-index: 1;
+
+  /* Small internal padding for breathing room */
+  padding: 1rem;
+}
+
 .ProseMirror {
   outline: none;
   white-space: pre-wrap;
   word-wrap: break-word;
+
+  /* Custom caret color matching theme primary */
+  caret-color: hsl(var(--primary));
 }
 
 .ProseMirror p,
@@ -215,6 +253,7 @@
 
 /* Scene Heading */
 .pm-scene-heading {
+  position: relative;
   margin-top: 1em;
   margin-bottom: 0;
   margin-left: var(--pm-margin-scene-heading);
@@ -223,6 +262,23 @@
   text-transform: uppercase;
   font-weight: 700;
   letter-spacing: 0.01em;
+}
+
+/* Scene number on the left */
+.pm-scene-number-left {
+  position: absolute;
+  left: -3rem;
+  color: hsl(var(--foreground) / 0.85);
+  font-size: 0.875rem;
+  font-weight: 700;
+  user-select: none;
+  pointer-events: none;
+  font-family: ui-monospace, monospace;
+}
+
+/* Optional: Add hover effect on scene heading */
+.pm-scene-heading:hover .pm-scene-number-left {
+  color: hsl(var(--primary));
 }
 
 /* Action */
@@ -433,38 +489,43 @@
 /* ============================================
    Page Break Decorations
    ============================================ */
+/* Page Break - Minimal gap with page number */
 .pm-page-break {
   position: relative;
-  width: 100%;
-  height: 48px;
-  margin: 24px 0;
+  height: 2rem;
+  margin: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-
-  /* Visual separator */
-  border-top: 1px dashed hsl(var(--border));
-  border-bottom: 1px dashed hsl(var(--border));
-  background: linear-gradient(
-    to bottom,
-    hsl(var(--muted) / 0.2),
-    hsl(var(--muted) / 0.4),
-    hsl(var(--muted) / 0.2)
-  );
+  background: transparent;
+  z-index: 10;
 }
 
-.pm-page-number {
-  position: absolute;
-  top: -10px;
-  right: 0;
+/* Remove gradients */
+.pm-page-break::before,
+.pm-page-break::after {
+  display: none;
+}
 
-  font-family: var(--pm-font-family);
-  font-size: 10pt;
-  color: hsl(var(--muted-foreground) / 0.6);
-  background: hsl(var(--background));
-  padding: 2px 8px;
-  border-radius: 4px;
+/* Remove separator line */
+.pm-page-separator {
+  display: none;
+}
+
+/* Minimal page number badge */
+.pm-page-number {
+  position: relative;
+  z-index: 11;
+  padding: 6px 14px;
+  background: hsl(var(--muted) / 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  box-shadow: 0 2px 4px hsl(0 0% 0% / 0.08);
 }
 
 .pm-more-indicator {
@@ -550,14 +611,29 @@
   top: 5rem;
   right: 1rem;
   z-index: 50;
+
   display: flex;
   gap: 0.25rem;
   padding: 0.25rem;
-  background: hsl(var(--card) / 0.95);
+
+  /* Full visibility */
+  background: hsl(var(--card));
   backdrop-filter: blur(8px);
   border: 1px solid hsl(var(--border));
   border-radius: 0.5rem;
-  box-shadow: 0 2px 8px hsl(0 0% 0% / 0.1);
+
+  box-shadow:
+    0 2px 8px hsl(0 0% 0% / 0.08),
+    0 1px 2px hsl(0 0% 0% / 0.12);
+
+  transition: box-shadow 200ms ease, opacity 200ms ease;
+}
+
+.pm-view-switcher:hover {
+  opacity: 0.9;
+  box-shadow:
+    0 4px 12px hsl(0 0% 0% / 0.12),
+    0 2px 4px hsl(0 0% 0% / 0.16);
 }
 
 /* ============================================
@@ -659,6 +735,52 @@
     hsl(0 0% 100% / 0.02),
     transparent
   );
+}
+
+/* ============================================
+   Continuous Scroll Mode
+   ============================================ */
+
+/* Continuous scroll mode - seamless pages */
+.pm-continuous-mode .pm-editor-pages {
+  gap: 0;
+}
+
+.pm-continuous-mode .pm-editor-page {
+  box-shadow: none;
+  border: none;
+  margin-bottom: 0;
+}
+
+.pm-continuous-mode .pm-editor-page:not(:last-child) {
+  border-bottom: 1px solid hsl(var(--border) / 0.2);
+  padding-bottom: 1.5rem;
+}
+
+.pm-continuous-mode .pm-editor-page:not(:first-child) {
+  padding-top: 1.5rem;
+}
+
+/* Hide page breaks in continuous mode */
+.pm-continuous-mode .pm-page-break {
+  display: none;
+}
+
+/* ============================================
+   Single Page Mode - Word/Google Docs Style
+   ============================================ */
+
+/* Single mode - pages with visual gaps and shadows */
+.pm-editor-scroll-container:not(.pm-continuous-mode):not(.pm-dual-mode) .pm-editor-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem; /* Visual gap between pages */
+}
+
+.pm-editor-scroll-container:not(.pm-continuous-mode):not(.pm-dual-mode) .pm-editor-page {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
 }
 
 /* ============================================

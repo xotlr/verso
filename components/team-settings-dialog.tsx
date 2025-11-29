@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
   Dialog,
@@ -46,9 +47,12 @@ import {
   User as UserIcon,
   Clock,
   X,
+  History,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ImageUpload } from '@/components/image-upload'
+import { TeamAuditLog } from '@/components/team-audit-log'
+import { Separator } from '@/components/ui/separator'
 
 interface TeamMember {
   id: string
@@ -83,8 +87,8 @@ interface TeamData {
   ownerId: string
   maxSeats: number
   members: TeamMember[]
-  _count: {
-    members: number
+  _count?: {
+    members?: number
     invites?: number
   }
 }
@@ -114,8 +118,10 @@ export function TeamSettingsDialog({
   onOpenChange,
   onUpdate,
 }: TeamSettingsDialogProps) {
+  const router = useRouter()
   const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState('general')
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // General settings state
   const [name, setName] = useState(team.name)
@@ -133,6 +139,9 @@ export function TeamSettingsDialog({
   const [invites, setInvites] = useState<TeamInvite[]>([])
   const [isLoadingInvites, setIsLoadingInvites] = useState(false)
   const [isRevokingInvite, setIsRevokingInvite] = useState<string | null>(null)
+
+  // Billing state
+  const [isLoadingBilling, setIsLoadingBilling] = useState(false)
 
   const isOwner = session?.user?.id === team.ownerId
   const currentMember = members.find((m) => m.user.id === session?.user?.id)
@@ -244,6 +253,75 @@ export function TeamSettingsDialog({
     }
   }
 
+  const handleManageBilling = async () => {
+    setIsLoadingBilling(true)
+    try {
+      const response = await fetch(`/api/teams/${team.id}/billing/portal`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to open billing portal')
+      }
+
+      const { url } = await response.json()
+      window.location.href = url
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to open billing portal')
+      setIsLoadingBilling(false)
+    }
+  }
+
+  const handleUpgrade = async () => {
+    setIsLoadingBilling(true)
+    try {
+      // Use the team price ID from environment (monthly by default)
+      const priceId = process.env.NEXT_PUBLIC_STRIPE_TEAM_MONTHLY_PRICE_ID || ''
+
+      if (!priceId) {
+        toast.error('Team plan not configured. Contact support.')
+        setIsLoadingBilling(false)
+        return
+      }
+
+      const response = await fetch(`/api/teams/${team.id}/billing/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to start checkout')
+      }
+
+      const { url } = await response.json()
+      window.location.href = url
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to start checkout')
+      setIsLoadingBilling(false)
+    }
+  }
+
+  const handleDeleteTeam = async () => {
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/teams/${team.id}`, { method: 'DELETE' })
+      if (response.ok) {
+        toast.success('Team deleted')
+        onOpenChange(false)
+        router.push('/home')
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete team')
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete team')
+      setIsDeleting(false)
+    }
+  }
+
   const seatsUsed = members.length + invites.length
   const seatsAvailable = team.maxSeats - seatsUsed
 
@@ -255,7 +333,7 @@ export function TeamSettingsDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="general" className="gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">General</span>
@@ -267,6 +345,10 @@ export function TeamSettingsDialog({
             <TabsTrigger value="invites" className="gap-2">
               <Mail className="h-4 w-4" />
               <span className="hidden sm:inline">Invites</span>
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="gap-2">
+              <History className="h-4 w-4" />
+              <span className="hidden sm:inline">Activity</span>
             </TabsTrigger>
             <TabsTrigger value="billing" className="gap-2">
               <CreditCard className="h-4 w-4" />
@@ -343,6 +425,60 @@ export function TeamSettingsDialog({
                   Save Changes
                 </Button>
               </div>
+            )}
+
+            {/* Danger Zone - Owner only */}
+            {isOwner && (
+              <>
+                <Separator className="my-6" />
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-destructive">
+                    Danger Zone
+                  </h3>
+                  <div className="p-4 rounded-lg border border-destructive/50 bg-destructive/5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium">Delete this team</p>
+                        <p className="text-xs text-muted-foreground">
+                          Permanently delete this team and all its data
+                        </p>
+                      </div>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm" disabled={isDeleting}>
+                            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Delete Team
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete &quot;{team.name}&quot;?</AlertDialogTitle>
+                            <AlertDialogDescription asChild>
+                              <div>
+                                <p>This action cannot be undone. This will permanently delete:</p>
+                                <ul className="list-disc list-inside mt-2 space-y-1">
+                                  <li>All team projects and screenplays</li>
+                                  <li>All team members&apos; access</li>
+                                  <li>All pending invitations</li>
+                                </ul>
+                              </div>
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={handleDeleteTeam}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete Team
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
           </TabsContent>
 
@@ -512,6 +648,20 @@ export function TeamSettingsDialog({
             )}
           </TabsContent>
 
+          {/* Activity Tab */}
+          <TabsContent value="activity" className="mt-4">
+            {isAdmin ? (
+              <TeamAuditLog teamId={team.id} />
+            ) : (
+              <div className="text-center py-12">
+                <History className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  Only admins can view activity logs
+                </p>
+              </div>
+            )}
+          </TabsContent>
+
           {/* Billing Tab */}
           <TabsContent value="billing" className="mt-4">
             <div className="space-y-6">
@@ -544,14 +694,16 @@ export function TeamSettingsDialog({
                   <div>
                     <h4 className="font-medium">Current Plan</h4>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {team.maxSeats <= 3 ? 'Pro' : 'Team'} plan with {team.maxSeats} seats
+                      {team.maxSeats <= 3 ? 'Free' : 'Team'} plan with {team.maxSeats} seats
                     </p>
                   </div>
-                  {isOwner && (
-                    <Button variant="outline" onClick={() => {
-                      // TODO: Open billing portal
-                      toast.info('Billing management coming soon')
-                    }}>
+                  {isOwner && team.maxSeats > 3 && (
+                    <Button
+                      variant="outline"
+                      onClick={handleManageBilling}
+                      disabled={isLoadingBilling}
+                    >
+                      {isLoadingBilling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Manage Billing
                     </Button>
                   )}
@@ -559,16 +711,14 @@ export function TeamSettingsDialog({
               </div>
 
               {/* Upgrade CTA */}
-              {team.maxSeats < 10 && isOwner && (
+              {team.maxSeats <= 3 && isOwner && (
                 <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
                   <h4 className="font-medium">Need more seats?</h4>
                   <p className="text-sm text-muted-foreground mt-1 mb-3">
                     Upgrade to the Team plan for up to 10 seats and additional features.
                   </p>
-                  <Button onClick={() => {
-                    // TODO: Open upgrade flow
-                    toast.info('Plan upgrades coming soon')
-                  }}>
+                  <Button onClick={handleUpgrade} disabled={isLoadingBilling}>
+                    {isLoadingBilling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Upgrade to Team
                   </Button>
                 </div>

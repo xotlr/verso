@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { useTeam } from "@/contexts/team-context";
-import { ChevronsUpDown, Plus, Check, Users } from "lucide-react";
+import { ChevronsUpDown, Plus, Check, Users, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,35 +24,57 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ImageUpload } from "@/components/image-upload";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface TeamSwitcherProps {
   isCollapsed?: boolean;
 }
 
 export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
+  const { data: session } = useSession();
   const { teams, currentTeam, setCurrentTeam, createTeam, isLoading } = useTeam();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamDescription, setNewTeamDescription] = useState("");
+  const [newTeamLogo, setNewTeamLogo] = useState<string | undefined>(undefined);
   const [isCreating, setIsCreating] = useState(false);
+  const [showOptionalFields, setShowOptionalFields] = useState(false);
 
   const handleCreateTeam = async () => {
     if (!newTeamName.trim()) return;
 
     setIsCreating(true);
-    const team = await createTeam(newTeamName.trim());
+    const team = await createTeam({
+      name: newTeamName.trim(),
+      description: newTeamDescription.trim() || undefined,
+      logo: newTeamLogo || undefined,
+    });
     if (team) {
       setCurrentTeam(team);
       setShowCreateDialog(false);
-      setNewTeamName("");
+      resetForm();
     }
     setIsCreating(false);
+  };
+
+  const resetForm = () => {
+    setNewTeamName("");
+    setNewTeamDescription("");
+    setNewTeamLogo(undefined);
+    setShowOptionalFields(false);
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center gap-3 px-3 py-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <span className="text-sm font-semibold">V</span>
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+          <span className="text-sm font-bold text-primary-foreground">V</span>
         </div>
         {!isCollapsed && (
           <div className="flex flex-col gap-0.5">
@@ -73,21 +96,21 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
               isCollapsed && "justify-center px-0"
             )}
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground shrink-0">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary shrink-0">
               {currentTeam ? (
-                <Users className="h-4 w-4" />
+                <Users className="h-4 w-4 text-primary-foreground" />
               ) : (
-                <span className="text-sm font-semibold">V</span>
+                <span className="text-sm font-bold text-primary-foreground">V</span>
               )}
             </div>
             {!isCollapsed && (
               <>
-                <div className="flex flex-col gap-0.5 leading-none min-w-0 flex-1">
+                <div className="flex flex-col leading-none min-w-0 flex-1">
                   <span className="font-semibold text-sm truncate">
                     {currentTeam ? currentTeam.name : "Verso"}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {currentTeam ? `${currentTeam._count.projects} projects` : "Personal"}
+                    {currentTeam ? `${currentTeam._count?.projects ?? 0} projects` : "Personal"}
                   </span>
                 </div>
                 <ChevronsUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -109,14 +132,14 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
             onClick={() => setCurrentTeam(null)}
             className="flex items-center gap-3 py-2"
           >
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <span className="text-xs font-semibold">V</span>
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
+              <span className="text-xs font-bold text-primary">V</span>
             </div>
             <div className="flex flex-col gap-0.5 flex-1">
               <span className="text-sm font-medium">Personal</span>
               <span className="text-xs text-muted-foreground">Your private projects</span>
             </div>
-            {!currentTeam && <Check className="h-4 w-4" />}
+            {!currentTeam && <Check className="h-4 w-4 text-primary" />}
           </DropdownMenuItem>
 
           {/* Team workspaces */}
@@ -132,8 +155,8 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
                   onClick={() => setCurrentTeam(team)}
                   className="flex items-center gap-3 py-2"
                 >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                    <Users className="h-4 w-4" />
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-muted">
+                    <Users className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="flex flex-col gap-0.5 flex-1 min-w-0">
                     <span className="text-sm font-medium truncate">{team.name}</span>
@@ -141,7 +164,7 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
                       {team.members.length} members
                     </span>
                   </div>
-                  {currentTeam?.id === team.id && <Check className="h-4 w-4" />}
+                  {currentTeam?.id === team.id && <Check className="h-4 w-4 text-primary" />}
                 </DropdownMenuItem>
               ))}
             </>
@@ -159,7 +182,10 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
       </DropdownMenu>
 
       {/* Create Team Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      <Dialog open={showCreateDialog} onOpenChange={(open) => {
+        setShowCreateDialog(open);
+        if (!open) resetForm();
+      }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Create Team</DialogTitle>
@@ -176,17 +202,62 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
                 value={newTeamName}
                 onChange={(e) => setNewTeamName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") {
+                  if (e.key === "Enter" && !showOptionalFields) {
                     handleCreateTeam();
                   }
                 }}
               />
             </div>
+
+            {/* Optional fields collapsible */}
+            <Collapsible open={showOptionalFields} onOpenChange={setShowOptionalFields}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-full justify-between text-muted-foreground">
+                  <span>Optional settings</span>
+                  {showOptionalFields ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 pt-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="team-description">Description</Label>
+                  <Textarea
+                    id="team-description"
+                    placeholder="What's your team working on?"
+                    value={newTeamDescription}
+                    onChange={(e) => setNewTeamDescription(e.target.value)}
+                    rows={2}
+                    className="resize-none"
+                  />
+                </div>
+
+                {session?.user?.id && (
+                  <div className="grid gap-2">
+                    <Label>Team Logo</Label>
+                    <p className="text-xs text-muted-foreground">Square image works best</p>
+                    <ImageUpload
+                      value={newTeamLogo}
+                      onChange={setNewTeamLogo}
+                      bucket="team-assets"
+                      userId={session.user.id}
+                      aspectRatio="square"
+                      className="w-24"
+                    />
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowCreateDialog(false)}
+              onClick={() => {
+                setShowCreateDialog(false);
+                resetForm();
+              }}
             >
               Cancel
             </Button>

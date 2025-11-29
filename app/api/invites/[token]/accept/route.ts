@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { logTeamAction } from "@/lib/audit-log";
 
 // POST /api/invites/[token]/accept - Accept an invite
 export async function POST(
@@ -114,6 +115,20 @@ export async function POST(
       return member;
     });
 
+    // Log audit event
+    await logTeamAction({
+      teamId: invite.teamId,
+      actorId: session.user.id,
+      action: "invite_accepted",
+      targetType: "member",
+      targetId: session.user.id,
+      metadata: {
+        inviteId: invite.id,
+        role: invite.role,
+        teamName: result.team.name,
+      },
+    });
+
     return NextResponse.json({
       success: true,
       membership: result,
@@ -162,8 +177,21 @@ export async function DELETE(
       );
     }
 
+    // Store teamId before deleting
+    const teamId = invite.teamId;
+
     await prisma.teamInvite.delete({
       where: { token },
+    });
+
+    // Log audit event (optional - decline is less critical but good for completeness)
+    await logTeamAction({
+      teamId,
+      actorId: session.user.id,
+      action: "invite_declined",
+      targetType: "invite",
+      targetId: invite.id,
+      metadata: { email: invite.email },
     });
 
     return NextResponse.json({ success: true });

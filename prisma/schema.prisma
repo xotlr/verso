@@ -66,6 +66,11 @@ model User {
   linkedin String?
   imdb     String?
 
+  // Bento Blocks - Profile showcase
+  interests  String[]  @default([])  // Genres, movies, directors they like
+  skills     String[]  @default([])  // Director, Writer, DOP, Editor, etc.
+  lookingFor String?   @db.Text      // "Looking for a DOP in LA"
+
   // Profile visibility
   isPublic Boolean @default(true)
 
@@ -92,6 +97,7 @@ model User {
   externalLinks      ExternalLink[]
   invitesSent        TeamInvite[]        @relation("InvitesSent")
   activities         Activity[]
+  teamAuditLogs      TeamAuditLog[]      @relation("AuditLogActor")
 
   @@index([plan]) // Used in limit checks
 }
@@ -122,6 +128,7 @@ model Team {
   invites     TeamInvite[]
   projects    Project[]
   screenplays Screenplay[]
+  auditLogs   TeamAuditLog[]
 }
 
 model TeamInvite {
@@ -213,6 +220,8 @@ model Screenplay {
   publishedAt DateTime?
   views       Int       @default(0)
   genre       String?
+  logline     String?   @db.Text
+  author      String?
 
   // Relations
   user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -221,6 +230,7 @@ model Screenplay {
   versions    ScreenplayVersion[]
   sceneMetas  SceneMeta[]
   sceneAttachments SceneAttachment[]
+  shots       Shot[]
 
   @@index([userId])
   @@index([projectId])
@@ -301,6 +311,46 @@ model SceneAttachment {
 
   @@index([screenplayId, sceneId])
   @@index([screenplayId])
+}
+
+// Shot = Production shotlist for filming
+model Shot {
+  id           String   @id @default(cuid())
+  screenplayId String
+  sceneId      String   // Links to scene (e.g., "scene-1")
+
+  // Core info
+  shotNumber   Int      // Order within scene (1, 2, 3...)
+  description  String   @db.Text
+
+  // Shot type & framing
+  shotType     String?  // WIDE, MEDIUM, CLOSE_UP, etc.
+  cameraAngle  String?  // EYE_LEVEL, HIGH_ANGLE, LOW_ANGLE, etc.
+
+  // Camera movement
+  movement     String?  // STATIC, PAN, TILT, DOLLY, CRANE, HANDHELD, etc.
+
+  // Technical details
+  duration     Int?     // Estimated duration in seconds
+  lens         String?  // 24mm, 50mm, 85mm, etc.
+
+  // Production notes
+  equipment    String?  @db.Text  // Camera, rig, special equipment
+  lighting     String?  @db.Text  // Lighting setup notes
+  audio        String?  @db.Text  // Audio/sound notes
+  notes        String?  @db.Text  // General notes
+
+  // Status
+  status       String   @default("planned") // planned, setup, shot, approved
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  screenplay   Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+
+  @@index([screenplayId])
+  @@index([screenplayId, sceneId])
 }
 
 // Note = Project notes (research, character, location, etc.)
@@ -437,4 +487,23 @@ model Activity {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+// Team audit log for compliance
+model TeamAuditLog {
+  id         String   @id @default(cuid())
+  teamId     String
+  actorId    String   // User who performed action
+  action     String   // "team_created", "member_added", "settings_updated", etc.
+  targetType String?  // "member", "invite", "settings", "billing"
+  targetId   String?  // ID of affected resource
+  metadata   Json?    // Before/after values, extra context
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  team  Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  actor User @relation("AuditLogActor", fields: [actorId], references: [id])
+
+  @@index([teamId, createdAt])
+  @@index([actorId])
 }

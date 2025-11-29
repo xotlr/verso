@@ -180,11 +180,17 @@ function createPageBreakDecorations(
       () => {
         const wrapper = document.createElement('div');
         wrapper.className = 'pm-page-break';
+        wrapper.setAttribute('data-page-number', String(pageBreak.pageNumber));
 
-        // Page number
-        const pageNum = document.createElement('span');
+        // Visual separator line
+        const separator = document.createElement('div');
+        separator.className = 'pm-page-separator';
+        wrapper.appendChild(separator);
+
+        // Page number badge
+        const pageNum = document.createElement('div');
         pageNum.className = 'pm-page-number';
-        pageNum.textContent = `${pageBreak.pageNumber}`;
+        pageNum.textContent = `Page ${pageBreak.pageNumber}`;
         wrapper.appendChild(pageNum);
 
         // MORE indicator for split dialogue

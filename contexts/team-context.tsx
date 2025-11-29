@@ -32,6 +32,12 @@ interface Team {
   };
 }
 
+interface CreateTeamInput {
+  name: string;
+  description?: string;
+  logo?: string;
+}
+
 interface TeamContextType {
   teams: Team[];
   currentTeam: Team | null;
@@ -39,7 +45,7 @@ interface TeamContextType {
   error: string | null;
   setCurrentTeam: (team: Team | null) => void;
   refreshTeams: () => Promise<void>;
-  createTeam: (name: string) => Promise<Team | null>;
+  createTeam: (input: CreateTeamInput) => Promise<Team | null>;
 }
 
 const TeamContext = createContext<TeamContextType | undefined>(undefined);
@@ -76,12 +82,12 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const createTeam = useCallback(async (name: string): Promise<Team | null> => {
+  const createTeam = useCallback(async (input: CreateTeamInput): Promise<Team | null> => {
     try {
       const response = await fetch("/api/teams", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(input),
       });
 
       if (!response.ok) {

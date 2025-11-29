@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { logTeamAction } from "@/lib/audit-log";
 
 const createTeamSchema = z.object({
   name: z.string().min(1).max(50),
+  description: z.string().max(500).optional(),
+  logo: z.string().url().optional(),
 });
 
 // GET /api/teams - List user's teams
@@ -38,7 +41,7 @@ export async function GET() {
           },
         },
         _count: {
-          select: { projects: true },
+          select: { projects: true, members: true, invites: true },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -76,12 +79,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name } = validatedData.data;
+    const { name, description, logo } = validatedData.data;
 
     // Create team with owner as first member
     const team = await prisma.team.create({
       data: {
         name,
+        description,
+        logo,
         ownerId: session.user.id,
         members: {
           create: {
@@ -101,7 +106,18 @@ export async function POST(request: Request) {
             },
           },
         },
+        _count: {
+          select: { projects: true, members: true, invites: true },
+        },
       },
+    });
+
+    // Log audit event
+    await logTeamAction({
+      teamId: team.id,
+      actorId: session.user.id,
+      action: "team_created",
+      metadata: { name, description, logo },
     });
 
     return NextResponse.json(team, { status: 201 });

@@ -14,12 +14,33 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
 // App routes that require authentication
 const appRoutes = [
   "/home",
-  "/editor",
+  "/screenplays",
+  "/projects",
+  "/screenplay",
   "/board",
   "/cards",
+  "/graph",
   "/visualization",
   "/settings",
+  "/help",
 ]
+
+// Legacy route redirects (simple path-to-path mappings)
+const legacyRedirects: Record<string, string> = {
+  "/recent": "/screenplays?recent=true",
+  "/favorites": "/screenplays?favorites=true",
+}
+
+// Check if path matches /editor/[id] pattern and extract the ID
+function getEditorRedirect(pathname: string): string | null {
+  if (pathname.startsWith("/editor/")) {
+    const id = pathname.slice("/editor/".length)
+    if (id) {
+      return `/screenplay/${id}`
+    }
+  }
+  return null
+}
 
 // Check if a path is an app route
 function isAppRoute(pathname: string): boolean {
@@ -67,6 +88,21 @@ export default authEdge((req) => {
   // Use x-forwarded-proto header (set by Vercel) or default to https in production
   const forwardedProto = req.headers.get("x-forwarded-proto")
   const protocol = forwardedProto || (host.includes("localhost") ? "http" : "https")
+
+  // Handle legacy route redirects (before auth checks)
+  if (pathname in legacyRedirects) {
+    return addSecurityHeaders(
+      NextResponse.redirect(new URL(legacyRedirects[pathname], req.nextUrl.origin))
+    )
+  }
+
+  // Handle /editor/[id] -> /screenplay/[id] redirect
+  const editorRedirect = getEditorRedirect(pathname)
+  if (editorRedirect) {
+    return addSecurityHeaders(
+      NextResponse.redirect(new URL(editorRedirect, req.nextUrl.origin))
+    )
+  }
 
   // Determine if we're on app subdomain (only in production)
   const onAppSubdomain = isAppSubdomain(host)

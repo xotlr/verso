@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { logTeamAction } from "@/lib/audit-log";
 
 const addMemberSchema = z.object({
   email: z.string().email(),
@@ -175,6 +176,16 @@ export async function POST(
           select: { id: true, name: true, email: true, image: true },
         },
       },
+    });
+
+    // Log audit event
+    await logTeamAction({
+      teamId: id,
+      actorId: session.user.id,
+      action: "member_added",
+      targetType: "member",
+      targetId: userToAdd.id,
+      metadata: { email, role, userName: userToAdd.name },
     });
 
     return NextResponse.json(newMember, { status: 201 });

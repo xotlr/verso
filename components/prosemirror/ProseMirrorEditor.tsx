@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, Loader2, ChevronLeft, ChevronRight, Maximize2, BookOpen, FileText } from 'lucide-react';
+import { Check, Loader2, ChevronLeft, ChevronRight, Maximize2, BookOpen, FileText, Scroll } from 'lucide-react';
 import {
   useProseMirrorEditor,
   SceneInfo,
@@ -14,7 +14,7 @@ import { AutocompleteDropdown } from './AutocompleteDropdown';
 import { Button } from '@/components/ui/button';
 import '@/styles/editor/prosemirror.css';
 
-export type ViewMode = 'single' | 'dual';
+export type ViewMode = 'single' | 'dual' | 'continuous';
 
 export interface ProseMirrorEditorProps {
   content: string | null;
@@ -91,8 +91,8 @@ function StatsBar({
         'fixed bottom-6 right-6 z-40',
         'flex items-center gap-4',
         'px-4 py-1.5 rounded-full',
-        'bg-card/95 backdrop-blur-sm border border-border',
-        'text-xs text-muted-foreground',
+        'bg-card/70 backdrop-blur-sm border border-border/50',
+        'text-xs text-muted-foreground/80',
         'shadow-md',
         className
       )}
@@ -139,6 +139,8 @@ export function ProseMirrorEditor({
   const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
   const [currentSpread, setCurrentSpread] = useState(0);
   const [isInFocusMode, setIsInFocusMode] = useState(false);
+  const [indicatorVisible, setIndicatorVisible] = useState(true);
+  const indicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Toggle app-level focus mode (hides sidebar + header)
   const toggleFocusMode = useCallback(() => {
@@ -173,6 +175,23 @@ export function ProseMirrorEditor({
   // Calculate total spreads for dual view
   const totalSpreads = Math.ceil(pageCount / 2);
 
+  // Auto-hide element indicator after 2s of inactivity
+  useEffect(() => {
+    setIndicatorVisible(true);
+    if (indicatorTimeoutRef.current) {
+      clearTimeout(indicatorTimeoutRef.current);
+    }
+    indicatorTimeoutRef.current = setTimeout(() => {
+      setIndicatorVisible(false);
+    }, 2000);
+
+    return () => {
+      if (indicatorTimeoutRef.current) {
+        clearTimeout(indicatorTimeoutRef.current);
+      }
+    };
+  }, [currentElementType]);
+
   // Navigate spreads in dual view
   const goToPrevSpread = useCallback(() => {
     setCurrentSpread((prev) => Math.max(0, prev - 1));
@@ -192,6 +211,28 @@ export function ProseMirrorEditor({
         return;
       }
 
+      // Shift+Ctrl+E - Center current line
+      if (e.shiftKey && e.ctrlKey && e.key === 'e') {
+        e.preventDefault();
+        if (view && containerRef.current) {
+          const { from } = view.state.selection;
+          const coords = view.coordsAtPos(from);
+          const container = containerRef.current;
+          const containerTop = container.getBoundingClientRect().top;
+          const scrollTop = container.scrollTop;
+          const viewportHeight = container.clientHeight;
+
+          // Calculate scroll position to center the cursor
+          const targetScroll = scrollTop + (coords.top - containerTop) - (viewportHeight / 2);
+
+          container.scrollTo({
+            top: targetScroll,
+            behavior: 'smooth'
+          });
+        }
+        return;
+      }
+
       // Arrow keys for spread navigation in dual view
       if (viewMode === 'dual' && !e.metaKey && !e.ctrlKey) {
         if (e.key === 'ArrowLeft' && e.altKey) {
@@ -206,7 +247,7 @@ export function ProseMirrorEditor({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onSave, viewMode, goToPrevSpread, goToNextSpread]);
+  }, [onSave, viewMode, view, goToPrevSpread, goToNextSpread]);
 
   return (
     <div
@@ -219,7 +260,7 @@ export function ProseMirrorEditor({
     >
       {/* View mode switcher - hidden in focus mode */}
       {isReady && !isInFocusMode && (
-        <div className="pm-view-switcher">
+        <div className="pm-view-switcher hover:opacity-90 transition-opacity duration-200">
           <Button
             variant={viewMode === 'single' ? 'secondary' : 'ghost'}
             size="sm"
@@ -237,6 +278,14 @@ export function ProseMirrorEditor({
             <BookOpen className="h-4 w-4" />
           </Button>
           <Button
+            variant={viewMode === 'continuous' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('continuous')}
+            title="Continuous scroll view"
+          >
+            <Scroll className="h-4 w-4" />
+          </Button>
+          <Button
             variant="ghost"
             size="sm"
             onClick={toggleFocusMode}
@@ -248,7 +297,12 @@ export function ProseMirrorEditor({
       )}
 
       {/* Editor container with page styling */}
-      <div className="pm-editor-scroll-container">
+      <div
+        className={cn(
+          'pm-editor-scroll-container',
+          viewMode === 'continuous' && 'pm-continuous-mode'
+        )}
+      >
         <div
           className={cn(
             'pm-editor-pages',
@@ -299,7 +353,13 @@ export function ProseMirrorEditor({
 
       {/* Element type indicator */}
       {showElementIndicator && isReady && (
-        <ElementIndicator elementType={currentElementType} />
+        <ElementIndicator
+          elementType={currentElementType}
+          className={cn(
+            'transition-opacity duration-300',
+            indicatorVisible ? 'opacity-100' : 'opacity-0'
+          )}
+        />
       )}
 
       {/* Stats bar */}

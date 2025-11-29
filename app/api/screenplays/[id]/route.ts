@@ -91,14 +91,17 @@ const updateScreenplaySchema = z.object({
   title: z.string().min(1).max(255).optional(),
   content: z.string().optional(),
   synopsis: z.string().optional().nullable(),
+  logline: z.string().optional().nullable(),
+  genre: z.string().optional().nullable(),
+  author: z.string().optional().nullable(),
   // For optimistic locking - client sends expected timestamp
   expectedUpdatedAt: z.number().optional(),
 })
 
-// PUT /api/screenplays/[id] - Update a screenplay
-export async function PUT(
+// Shared update logic for PUT and PATCH
+async function updateScreenplay(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  params: Promise<{ id: string }>
 ) {
   try {
     const session = await auth()
@@ -129,7 +132,7 @@ export async function PUT(
       )
     }
 
-    const { title, content, synopsis, expectedUpdatedAt } = result.data
+    const { title, content, synopsis, logline, genre, author, expectedUpdatedAt } = result.data
 
     // Validate content size if provided
     if (content !== undefined) {
@@ -150,6 +153,9 @@ export async function PUT(
         ...(title !== undefined && { title }),
         ...(content !== undefined && { content }),
         ...(synopsis !== undefined && { synopsis }),
+        ...(logline !== undefined && { logline }),
+        ...(genre !== undefined && { genre }),
+        ...(author !== undefined && { author }),
       },
     })
 
@@ -161,6 +167,22 @@ export async function PUT(
       { status: 500 }
     )
   }
+}
+
+// PUT /api/screenplays/[id] - Update a screenplay
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return updateScreenplay(request, params)
+}
+
+// PATCH /api/screenplays/[id] - Partially update a screenplay
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return updateScreenplay(request, params)
 }
 
 // DELETE /api/screenplays/[id] - Delete a screenplay

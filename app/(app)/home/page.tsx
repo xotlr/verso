@@ -281,7 +281,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/ui/empty-state';
-import { useCreateScreenplay } from '@/hooks/useCreateScreenplay';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ImportDropZoneCard, ImportResult } from '@/components/import-drop-zone';
 import {
@@ -300,6 +299,8 @@ import {
 } from 'lucide-react';
 import { PendingInviteBanner } from '@/components/pending-invite-banner';
 import { getMeshGradientStyle } from '@/lib/avatar-gradient';
+import { StatsCards } from '@/components/dashboard';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 interface ScreenplayItem {
   id: string;
@@ -326,6 +327,13 @@ interface ProjectItem {
   };
 }
 
+interface DashboardStats {
+  screenplayCount: number;
+  projectCount: number;
+  wordsThisWeek: number;
+  currentStreak: number;
+}
+
 type TabValue = 'screenplays' | 'projects';
 
 function WorkspacePageContent() {
@@ -333,6 +341,7 @@ function WorkspacePageContent() {
   const { data: session } = useSession();
   const [screenplays, setScreenplays] = useState<ScreenplayItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
 
   // Dynamic greeting based on time, day, season, and activity
   const greeting = useMemo(
@@ -349,8 +358,6 @@ function WorkspacePageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabValue>('screenplays');
 
-  // Use shared hook for screenplay creation
-  const { createScreenplay } = useCreateScreenplay();
 
   useEffect(() => {
     loadData();
@@ -382,9 +389,10 @@ function WorkspacePageContent() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [screenplaysRes, projectsRes] = await Promise.all([
+      const [screenplaysRes, projectsRes, statsRes] = await Promise.all([
         fetch('/api/screenplays'),
         fetch('/api/projects'),
+        fetch('/api/dashboard/stats'),
       ]);
 
       if (screenplaysRes.ok) {
@@ -399,6 +407,10 @@ function WorkspacePageContent() {
       if (projectsRes.ok) {
         const data = await projectsRes.json();
         setProjects(data);
+      }
+
+      if (statsRes.ok) {
+        setDashboardStats(await statsRes.json());
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -507,7 +519,6 @@ function WorkspacePageContent() {
       <TemplateSelector
         isOpen={templateSelectorOpen}
         onClose={() => setTemplateSelectorOpen(false)}
-        onSelect={createScreenplay}
       />
       <NewProjectDialog
         isOpen={newProjectOpen}
@@ -539,59 +550,73 @@ function WorkspacePageContent() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8">
           {/* Pending Team Invites */}
           <PendingInviteBanner />
 
           {/* Page Title and Actions */}
-          <div className="mb-8 space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-3xl font-bold text-foreground mb-1">
+          <div className="mb-6 sm:mb-8 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 truncate">
                   {greeting.text}
                   {greeting.showName && greeting.name && <span className="italic font-normal">, {greeting.name}</span>}
                 </h2>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm sm:text-base text-muted-foreground">
                   {projects.length} project{projects.length !== 1 ? 's' : ''} &middot; {screenplays.length} screenplay{screenplays.length !== 1 ? 's' : ''}
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button onClick={createNewProject} variant="outline" className="gap-2">
-                  <Folder className="h-4 w-4" />
-                  New Project
+              <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                <Button onClick={createNewProject} variant="outline" size="sm" className="flex-1 sm:flex-none">
+                  <Folder className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">New Project</span>
+                  <span className="sm:hidden">Project</span>
                 </Button>
-                <Button onClick={createNewScreenplay} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  New Screenplay
+                <Button onClick={createNewScreenplay} size="sm" className="flex-1 sm:flex-none">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">New Screenplay</span>
+                  <span className="sm:hidden">Screenplay</span>
                 </Button>
               </div>
             </div>
 
+            {/* Stats Cards */}
+            {dashboardStats && (
+              <StatsCards
+                screenplayCount={dashboardStats.screenplayCount}
+                projectCount={dashboardStats.projectCount}
+                wordsThisWeek={dashboardStats.wordsThisWeek}
+                currentStreak={dashboardStats.currentStreak}
+              />
+            )}
+
             {/* Tabs and Search */}
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
               <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
-                <TabsList>
-                  <TabsTrigger value="screenplays" className="gap-2">
+                <TabsList className="w-full sm:w-auto">
+                  <TabsTrigger value="screenplays" className="flex-1 sm:flex-none gap-2">
                     <Film className="h-4 w-4" />
-                    Screenplays
-                    <Badge variant="secondary" className="ml-1">{filteredScreenplays.length}</Badge>
+                    <span className="hidden xs:inline">Screenplays</span>
+                    <span className="xs:hidden">Scripts</span>
+                    <Badge variant="secondary" className="ml-1 text-[10px] sm:text-xs px-1.5">{filteredScreenplays.length}</Badge>
                   </TabsTrigger>
-                  <TabsTrigger value="projects" className="gap-2">
+                  <TabsTrigger value="projects" className="flex-1 sm:flex-none gap-2">
                     <FolderOpen className="h-4 w-4" />
-                    Projects
-                    <Badge variant="secondary" className="ml-1">{filteredProjects.length}</Badge>
+                    <span className="hidden xs:inline">Projects</span>
+                    <span className="xs:hidden">Proj</span>
+                    <Badge variant="secondary" className="ml-1 text-[10px] sm:text-xs px-1.5">{filteredProjects.length}</Badge>
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
 
               <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder={`Search ${activeTab}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-11 pr-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring text-foreground placeholder-muted-foreground transition-all"
+                  className="w-full pl-9 pr-4 py-2 h-9 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring text-foreground placeholder-muted-foreground transition-all"
                 />
               </div>
             </div>
@@ -600,9 +625,9 @@ function WorkspacePageContent() {
           {/* Content Grid - key prop triggers animation on tab change */}
           <div key={activeTab} className="animate-tab-content-in">
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-card rounded-xl border border-border/60 p-5">
+                <div key={i} className="min-h-[180px] bg-gradient-to-br from-card to-card/50 backdrop-blur-sm rounded-xl border border-border/60 p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <Skeleton className="h-5 w-3/4 mb-2" />
@@ -619,17 +644,17 @@ function WorkspacePageContent() {
             // Screenplays Grid
             filteredScreenplays.length === 0 ? (
               <EmptyState
-                icon={<FileText className="h-8 w-8 text-muted-foreground" />}
+                icon={<FileText className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />}
                 title={searchQuery ? 'No screenplays found' : 'No screenplays yet'}
                 description={searchQuery ? 'Try a different search term' : 'Create your first screenplay and bring your stories to life'}
                 action={!searchQuery ? {
                   label: 'Create Screenplay',
                   onClick: createNewScreenplay,
-                  icon: <Plus className="h-5 w-5" />,
+                  icon: <Plus className="h-4 w-4 sm:h-5 sm:w-5" />,
                 } : undefined}
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                 {/* Import Drop Zone Card */}
                 <ImportDropZoneCard
                   context="dashboard"
@@ -639,17 +664,17 @@ function WorkspacePageContent() {
                 {filteredScreenplays.map((screenplay) => (
                   <div
                     key={screenplay.id}
-                    className="group relative bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200"
+                    className="group relative min-h-[180px] flex flex-col bg-gradient-to-br from-card to-card/50 backdrop-blur-sm rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200"
                   >
                     <Link href={`/editor/${screenplay.id}`}>
-                      <div className="p-5 cursor-pointer">
+                      <div className="p-6 cursor-pointer flex-1 flex flex-col">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-base font-semibold text-foreground mb-1.5 line-clamp-1 group-hover:text-primary transition-colors">
+                            <h3 className="text-lg font-semibold text-foreground mb-1.5 line-clamp-1 group-hover:text-primary transition-colors">
                               {screenplay.title}
                             </h3>
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <Clock className="h-3.5 w-3.5" />
+                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                              <Clock className="h-4 w-4" />
                               <span>{formatDistanceToNow(new Date(screenplay.updatedAt), { addSuffix: true })}</span>
                             </div>
                           </div>
@@ -686,7 +711,7 @@ function WorkspacePageContent() {
                           </DropdownMenu>
                         </div>
 
-                        <div className="flex items-center justify-between mt-4">
+                        <div className="flex items-center justify-between mt-auto pt-4">
                           <div className="flex items-center gap-2">
                             <Badge variant="secondary">
                               {screenplay.wordCount.toLocaleString()} words
@@ -713,21 +738,21 @@ function WorkspacePageContent() {
             // Projects Grid
             filteredProjects.length === 0 ? (
               <EmptyState
-                icon={<FolderOpen className="h-8 w-8 text-muted-foreground" />}
+                icon={<FolderOpen className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />}
                 title={searchQuery ? 'No projects found' : 'No projects yet'}
                 description={searchQuery ? 'Try a different search term' : 'Create a project to organize your screenplays, notes, schedules, and budgets'}
                 action={!searchQuery ? {
                   label: 'Create Project',
                   onClick: createNewProject,
-                  icon: <Plus className="h-5 w-5" />,
+                  icon: <Plus className="h-4 w-4 sm:h-5 sm:w-5" />,
                 } : undefined}
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                 {filteredProjects.map((project) => (
                   <div
                     key={project.id}
-                    className="group relative bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200 overflow-hidden"
+                    className="group relative min-h-[220px] flex flex-col bg-gradient-to-br from-card to-card/50 backdrop-blur-sm rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200 overflow-hidden"
                   >
                     <Link href={`/project/${project.id}`}>
                       {/* Banner */}
@@ -757,14 +782,14 @@ function WorkspacePageContent() {
                           </div>
                         )}
                       </div>
-                      <div className={`p-5 cursor-pointer ${project.logo ? 'pt-6' : ''}`}>
+                      <div className={`p-6 cursor-pointer flex-1 flex flex-col ${project.logo ? 'pt-7' : ''}`}>
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-base font-semibold text-foreground mb-1.5 line-clamp-1 group-hover:text-primary transition-colors">
+                            <h3 className="text-lg font-semibold text-foreground mb-1.5 line-clamp-1 group-hover:text-primary transition-colors">
                               {project.name}
                             </h3>
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <Clock className="h-3.5 w-3.5" />
+                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                              <Clock className="h-4 w-4" />
                               <span>{formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}</span>
                             </div>
                           </div>
@@ -797,7 +822,7 @@ function WorkspacePageContent() {
                           </DropdownMenu>
                         </div>
 
-                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
+                        <p className="text-sm text-muted-foreground mb-auto pb-4 line-clamp-2 leading-relaxed">
                           {project.description || 'No description'}
                         </p>
 

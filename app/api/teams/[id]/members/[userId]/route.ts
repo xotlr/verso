@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { logTeamAction } from "@/lib/audit-log";
 
 const updateRoleSchema = z.object({
   role: z.enum(["ADMIN", "MEMBER"]),
@@ -74,6 +75,12 @@ export async function PUT(
 
     const { role } = validatedData.data;
 
+    // Get old role for audit log
+    const existingMember = await prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId: id, userId } },
+      include: { user: { select: { name: true, email: true } } },
+    });
+
     const updatedMember = await prisma.teamMember.update({
       where: {
         teamId_userId: {
@@ -86,6 +93,20 @@ export async function PUT(
         user: {
           select: { id: true, name: true, email: true, image: true },
         },
+      },
+    });
+
+    // Log audit event
+    await logTeamAction({
+      teamId: id,
+      actorId: session.user.id,
+      action: "member_role_changed",
+      targetType: "member",
+      targetId: userId,
+      metadata: {
+        oldRole: existingMember?.role,
+        newRole: role,
+        userName: existingMember?.user?.name,
       },
     });
 
@@ -156,12 +177,32 @@ export async function DELETE(
       );
     }
 
+    // Get member info for audit log before deletion
+    const memberToRemove = await prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId: id, userId } },
+      include: { user: { select: { name: true, email: true } } },
+    });
+
     await prisma.teamMember.delete({
       where: {
         teamId_userId: {
           teamId: id,
           userId,
         },
+      },
+    });
+
+    // Log audit event
+    await logTeamAction({
+      teamId: id,
+      actorId: session.user.id,
+      action: "member_removed",
+      targetType: "member",
+      targetId: userId,
+      metadata: {
+        userName: memberToRemove?.user?.name,
+        email: memberToRemove?.user?.email,
+        wasSelfRemoval: isSelf,
       },
     });
 

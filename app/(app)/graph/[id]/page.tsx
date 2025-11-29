@@ -101,12 +101,12 @@ export default function GraphPage() {
   }, [loadData]);
 
   const handleBackToEditor = () => {
-    router.push(`/editor/${screenplayId}`);
+    router.push(`/screenplay/${screenplayId}`);
   };
 
   const handleSceneClick = (sceneId: string) => {
     // Navigate to editor with scene selected
-    router.push(`/editor/${screenplayId}?scene=${sceneId}`);
+    router.push(`/screenplay/${screenplayId}?scene=${sceneId}`);
   };
 
   const dismissStorageWarning = () => {

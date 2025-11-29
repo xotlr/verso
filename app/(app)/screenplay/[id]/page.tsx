@@ -5,9 +5,7 @@ import { useParams } from "next/navigation";
 import { ScreenplayEditorWrapper } from "@/components/screenplay-editor-wrapper";
 import { SettingsPanel } from "@/components/settings-panel";
 import { CommandPalette } from "@/components/command-palette";
-import { BottomNav } from "@/components/bottom-nav";
 import { ProjectLayout } from "@/components/layouts/project-layout";
-import { useSettings } from "@/contexts/settings-context";
 import { ImportDropZoneOverlay, ImportResult } from "@/components/import-drop-zone";
 
 export default function EditorPage() {
@@ -15,13 +13,11 @@ export default function EditorPage() {
   const id = params.id as string;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [documentTitle] = useState("Untitled Screenplay");
-  const { settings, updateLayoutSettings } = useSettings();
-  const isSidebarCollapsed = settings.layout.sidebarCollapsed;
+  const [documentTitle, setDocumentTitle] = useState("Untitled Screenplay");
 
-  const toggleSidebar = () => {
-    updateLayoutSettings({ sidebarCollapsed: !isSidebarCollapsed });
-  };
+  const handleTitleChange = useCallback((title: string) => {
+    setDocumentTitle(title);
+  }, []);
 
   const handleImportComplete = useCallback(async (result: ImportResult) => {
     if (!result.success || !result.content) return;
@@ -87,12 +83,12 @@ export default function EditorPage() {
       <SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {/* Editor */}
-      <div className="flex-1 overflow-hidden has-bottom-nav md:pb-0 h-full">
-        <ScreenplayEditorWrapper projectId={id} />
+      <div className="flex-1 overflow-hidden h-full">
+        <ScreenplayEditorWrapper
+          projectId={id}
+          onTitleChange={handleTitleChange}
+        />
       </div>
-
-      {/* Mobile Bottom Navigation */}
-      <BottomNav onSettingsClick={() => setSettingsOpen(true)} />
 
       {/* Import Drop Zone Overlay */}
       <ImportDropZoneOverlay

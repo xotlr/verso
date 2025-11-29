@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { logTeamAction } from "@/lib/audit-log";
 
 const updateTeamSchema = z.object({
   name: z.string().min(1).max(50).optional(),
@@ -170,7 +171,19 @@ export async function PUT(
             },
           },
         },
+        _count: {
+          select: { projects: true, members: true, invites: true },
+        },
       },
+    });
+
+    // Log audit event
+    await logTeamAction({
+      teamId: id,
+      actorId: session.user.id,
+      action: "team_updated",
+      targetType: "settings",
+      metadata: { changes: validatedData.data },
     });
 
     return NextResponse.json(updatedTeam);
@@ -217,6 +230,14 @@ export async function DELETE(
         { status: 403 }
       );
     }
+
+    // Log audit event before deletion (can't log after team is gone)
+    await logTeamAction({
+      teamId: id,
+      actorId: session.user.id,
+      action: "team_deleted",
+      metadata: { teamName: team.name },
+    });
 
     await prisma.team.delete({
       where: { id },

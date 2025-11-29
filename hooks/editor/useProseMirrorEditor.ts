@@ -185,6 +185,9 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
   const charactersRef = useRef<string[]>([]);
   const locationsRef = useRef<string[]>([]);
 
+  // Debounce extraction to avoid running on every keystroke
+  const extractionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Store callbacks in refs to avoid dependency issues
   const onUpdateRef = useRef(onUpdate);
   const onScenesChangeRef = useRef(onScenesChange);
@@ -240,17 +243,23 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
             onUpdateRef.current(serializeForStorage(doc));
           }
 
-          // Extract scenes and characters
-          const scenes = extractScenes(doc);
-          const characters = extractCharacters(doc);
-
-          // Update autocomplete data
-          charactersRef.current = characters.map(c => c.name);
-          locationsRef.current = scenes.map(s => s.location).filter((v, i, a) => v && a.indexOf(v) === i);
-
-          if (onScenesChangeRef.current) {
-            onScenesChangeRef.current(scenes, characters);
+          // Debounce scene/character extraction (300ms) to avoid running on every keystroke
+          if (extractionTimeoutRef.current) {
+            clearTimeout(extractionTimeoutRef.current);
           }
+
+          extractionTimeoutRef.current = setTimeout(() => {
+            const scenes = extractScenes(doc);
+            const characters = extractCharacters(doc);
+
+            // Update autocomplete data
+            charactersRef.current = characters.map(c => c.name);
+            locationsRef.current = scenes.map(s => s.location).filter((v, i, a) => v && a.indexOf(v) === i);
+
+            if (onScenesChangeRef.current) {
+              onScenesChangeRef.current(scenes, characters);
+            }
+          }, 300);
         }
 
         // Update autocomplete state
@@ -288,6 +297,10 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     }
 
     return () => {
+      // Clean up extraction timeout
+      if (extractionTimeoutRef.current) {
+        clearTimeout(extractionTimeoutRef.current);
+      }
       view.destroy();
       viewRef.current = null;
       isInitializedRef.current = false;

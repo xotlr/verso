@@ -85,7 +85,7 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
           });
           if (response.ok) {
             const project = await response.json();
-            router.push(`/editor/${project.id}`);
+            router.push(`/screenplay/${project.id}`);
           }
         } catch (error) {
           console.error('Error creating screenplay:', error);
@@ -236,7 +236,7 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
     category: 'navigation' as const,
     keywords: [sp.title.toLowerCase(), 'open', 'screenplay'],
     action: () => {
-      router.push(`/editor/${sp.id}`);
+      router.push(`/screenplay/${sp.id}`);
       onClose();
     },
   }));

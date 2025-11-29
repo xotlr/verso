@@ -153,7 +153,7 @@ export function PendingInviteBanner() {
                 <div className="flex items-center gap-2 mt-3">
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Users className="h-3.5 w-3.5" />
-                    {invite.team._count.members} member{invite.team._count.members !== 1 ? 's' : ''}
+                    {invite.team._count?.members ?? 0} member{(invite.team._count?.members ?? 0) !== 1 ? 's' : ''}
                   </div>
                   {invite.team.description && (
                     <span className="text-xs text-muted-foreground truncate max-w-[200px]">

@@ -28,6 +28,12 @@ export async function GET(request: Request) {
     const standalone = searchParams.get("standalone")
     const teamId = searchParams.get("teamId")
 
+    // New filter params
+    const favorites = searchParams.get("favorites")
+    const recent = searchParams.get("recent")
+    const genre = searchParams.get("genre")
+    const hasProject = searchParams.get("hasProject")
+
     let where: Prisma.ScreenplayWhereInput
 
     if (projectId) {
@@ -68,14 +74,35 @@ export async function GET(request: Request) {
       }
     }
 
+    // Apply additional filters
+    if (favorites === "true") {
+      where = { ...where, isFavorite: true }
+    }
+    if (recent === "true") {
+      where = { ...where, lastOpenedAt: { not: null } }
+    }
+    if (genre) {
+      where = { ...where, genre }
+    }
+    if (hasProject === "true") {
+      where = { ...where, projectId: { not: null } }
+    } else if (hasProject === "false") {
+      where = { ...where, projectId: null }
+    }
+
     // Pagination params
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100)
     const offset = parseInt(searchParams.get("offset") || "0")
 
+    // Determine sort order
+    const orderBy: Prisma.ScreenplayOrderByWithRelationInput = recent === "true"
+      ? { lastOpenedAt: "desc" }
+      : { updatedAt: "desc" }
+
     const [screenplays, total] = await Promise.all([
       prisma.screenplay.findMany({
         where,
-        orderBy: { updatedAt: "desc" },
+        orderBy,
         take: limit,
         skip: offset,
         select: {
@@ -87,6 +114,9 @@ export async function GET(request: Request) {
           updatedAt: true,
           projectId: true,
           teamId: true,
+          isFavorite: true,
+          lastOpenedAt: true,
+          genre: true,
           project: {
             select: { id: true, name: true },
           },
@@ -123,6 +153,13 @@ const createScreenplaySchema = z.object({
   synopsis: z.string().optional(),
   projectId: z.string().optional(),
   teamId: z.string().optional(),
+  // New fields for screenplay type and TV episodes
+  type: z.enum(["FEATURE", "TV", "SHORT"]).optional(),
+  season: z.number().int().positive().nullable().optional(),
+  episode: z.number().int().positive().nullable().optional(),
+  episodeTitle: z.string().max(255).nullable().optional(),
+  logline: z.string().max(500).nullable().optional(),
+  genre: z.string().max(50).nullable().optional(),
 })
 
 // POST /api/screenplays - Create a new screenplay
@@ -167,7 +204,19 @@ export async function POST(request: Request) {
       )
     }
 
-    const { title, content, synopsis, projectId, teamId } = result.data
+    const {
+      title,
+      content,
+      synopsis,
+      projectId,
+      teamId,
+      type,
+      season,
+      episode,
+      episodeTitle,
+      logline,
+      genre,
+    } = result.data
 
     // Enforce plan limits for standalone screenplays
     if (!projectId && !teamId) {
@@ -269,10 +318,26 @@ export async function POST(request: Request) {
       data: {
         title,
         content,
-        synopsis,
+        synopsis: logline || synopsis || null, // logline maps to synopsis
         userId: session.user.id,
         projectId: projectId || null,
         teamId: teamId || null,
+        // New fields for screenplay type and TV episodes
+        type: type || "FEATURE",
+        season: season ?? null,
+        episode: episode ?? null,
+        episodeTitle: episodeTitle ?? null,
+        genre: genre ?? null,
+      },
+    })
+
+    // Create activity record
+    await prisma.activity.create({
+      data: {
+        userId: session.user.id,
+        type: "screenplay_created",
+        entityId: screenplay.id,
+        entityTitle: screenplay.title,
       },
     })
 

@@ -24,6 +24,7 @@ import {
   Trash2,
   Check,
 } from 'lucide-react';
+import { SceneShotsList } from '@/components/shotlist/scene-shots-list';
 import { toast } from 'sonner';
 import { uploadImage, deleteImage, getOptimizedImageUrl } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
@@ -356,6 +357,14 @@ export function SceneWorkspacePanel({
                 <p className="text-xs text-muted-foreground">
                   Notes auto-save and won&apos;t appear in exports
                 </p>
+              </div>
+
+              {/* Shots */}
+              <div className="pt-2 border-t">
+                <SceneShotsList
+                  screenplayId={screenplayId}
+                  sceneId={scene.id}
+                />
               </div>
 
               {/* Reference Images */}

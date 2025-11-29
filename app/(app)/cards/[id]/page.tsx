@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { IndexCards, IndexCard } from "@/components/index-cards";
 import { ProjectLayout } from "@/components/layouts/project-layout";
@@ -108,6 +108,15 @@ export default function CardsPage() {
   const id = params.id as string;
   const [scenes, setScenes] = useState<Scene[]>(DEMO_SCENES);
   const [cards, setCards] = useState<IndexCard[]>(DEMO_CARDS);
+  const [title, setTitle] = useState("Loading...");
+
+  // Fetch screenplay title
+  useEffect(() => {
+    fetch(`/api/screenplays/${id}`)
+      .then(res => res.json())
+      .then(data => setTitle(data.title || "Untitled Screenplay"))
+      .catch(() => setTitle("Untitled Screenplay"));
+  }, [id]);
 
   const handleCardsChange = useCallback((newCards: IndexCard[]) => {
     setCards(newCards);
@@ -118,17 +127,17 @@ export default function CardsPage() {
   }, []);
 
   const handleSceneClick = useCallback((sceneId: string) => {
-    router.push(`/editor/${id}?scene=${sceneId}`);
+    router.push(`/screenplay/${id}?scene=${sceneId}`);
   }, [router, id]);
 
   const handleSceneEdit = useCallback((scene: Scene) => {
-    router.push(`/editor/${id}?scene=${scene.id}&edit=true`);
+    router.push(`/screenplay/${id}?scene=${scene.id}&edit=true`);
   }, [router, id]);
 
   return (
     <ProjectLayout
       projectId={id}
-      projectTitle="Untitled Screenplay"
+      projectTitle={title}
     >
       <IndexCards
         scenes={scenes}

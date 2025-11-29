@@ -53,7 +53,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
               ...(parsed.visual?.cursor || {}),
             },
           },
-          editor: { ...defaultSettings.editor, ...parsed.editor },
+          editor: {
+            ...defaultSettings.editor,
+            ...parsed.editor,
+            autocomplete: {
+              ...defaultSettings.editor.autocomplete,
+              ...(parsed.editor?.autocomplete || {}),
+            },
+          },
           layout: { ...defaultSettings.layout, ...parsed.layout },
           export: { ...defaultSettings.export, ...parsed.export },
           shortcuts: { ...defaultSettings.shortcuts, ...parsed.shortcuts },
@@ -94,6 +101,25 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty('--radius', `${settings.visual.borderRadius / 16}rem`);
     root.style.setProperty('--animation-speed', `${settings.visual.animationSpeed}s`);
     root.style.setProperty('--font-size', `${settings.visual.fontSize}px`);
+
+    // Apply editor-specific settings
+    root.style.setProperty('--pm-text-lightness', `${settings.editor.textContrast}%`);
+
+    // Apply line height based on density
+    const lineHeightMap = {
+      compact: '1.1',
+      normal: '1.15',
+      relaxed: '1.2',
+    };
+    root.style.setProperty('--pm-line-height', lineHeightMap[settings.editor.lineHeightDensity]);
+
+    // Apply theme temperature filter
+    const temperatureFilters = {
+      neutral: 'none',
+      warm: 'sepia(0.08)',  // Subtle warm amber tint
+      cool: 'hue-rotate(10deg) saturate(1.1)',  // Subtle cool blue tint
+    };
+    root.style.setProperty('--theme-temperature-filter', temperatureFilters[settings.visual.themeTemperature]);
 
     // Apply font classes
     root.setAttribute('data-ui-font', settings.visual.uiFont);
@@ -203,7 +229,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             ...(parsed.visual?.cursor || {}),
           },
         },
-        editor: { ...defaultSettings.editor, ...parsed.editor },
+        editor: {
+          ...defaultSettings.editor,
+          ...parsed.editor,
+          autocomplete: {
+            ...defaultSettings.editor.autocomplete,
+            ...(parsed.editor?.autocomplete || {}),
+          },
+        },
         layout: { ...defaultSettings.layout, ...parsed.layout },
         export: { ...defaultSettings.export, ...parsed.export },
         shortcuts: { ...defaultSettings.shortcuts, ...parsed.shortcuts },

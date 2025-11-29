@@ -200,6 +200,16 @@ export async function POST(request: Request) {
       },
     })
 
+    // Create activity record
+    await prisma.activity.create({
+      data: {
+        userId: session.user.id,
+        type: "project_created",
+        entityId: project.id,
+        entityTitle: project.name,
+      },
+    })
+
     return NextResponse.json(project, { status: 201 })
   } catch (error) {
     console.error("Error creating project:", error)

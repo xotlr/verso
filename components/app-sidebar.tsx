@@ -24,9 +24,9 @@ import {
   BookOpen,
   LayoutTemplate,
   HelpCircle,
-  Clock,
-  Star,
   Compass,
+  Clapperboard,
+  Mail,
 } from "lucide-react";
 import { TeamSwitcher } from "@/components/team-switcher";
 
@@ -61,16 +61,18 @@ import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog"
 import { FormattingGuideDialog } from "@/components/formatting-guide-dialog";
 import { TemplateSelector } from "@/components/template-selector";
 import { NewProjectDialog } from "@/components/new-project-dialog";
-import { useCreateScreenplay } from "@/hooks/useCreateScreenplay";
+import { PendingInvitesDialog } from "@/components/pending-invites-dialog";
+import { usePendingInvites } from "@/hooks/use-pending-invites";
+import { Badge } from "@/components/ui/badge";
 
 interface AppSidebarProps {
   screenplayId?: string;
   screenplayTitle?: string;
 }
 
-// Extract screenplay ID from pathname (e.g., /editor/123 -> 123)
+// Extract screenplay ID from pathname (e.g., /screenplay/123 -> 123)
 function extractScreenplayId(pathname: string): string | null {
-  const screenplayRoutes = ['/editor/', '/board/', '/graph/', '/cards/', '/visualization/'];
+  const screenplayRoutes = ['/screenplay/', '/board/', '/graph/', '/cards/', '/visualization/', '/shotlist/'];
   for (const route of screenplayRoutes) {
     if (pathname.startsWith(route)) {
       const id = pathname.slice(route.length).split('/')[0];
@@ -108,27 +110,16 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   // Detect screenplay ID from URL if not provided as prop
   const urlScreenplayId = extractScreenplayId(pathname);
 
-  // Initialize lastScreenplayId as null, then hydrate from localStorage after mount
-  const [lastScreenplayId, setLastScreenplayId] = useState<string | null>(null);
+  // Only show screenplay tools when actually ON a screenplay page
+  // (not based on localStorage - that's only for "Continue Writing" on Home)
+  const screenplayId = propScreenplayId || urlScreenplayId;
 
-  // Hydrate from localStorage after mount to avoid SSR mismatch
-  useEffect(() => {
-    const stored = localStorage.getItem('lastScreenplayId');
-    if (stored) {
-      setLastScreenplayId(stored);
-    }
-  }, []);
-
-  // Save screenplay ID to localStorage when detected from URL
+  // Save screenplay ID to localStorage when detected from URL (for "Continue Writing" feature)
   useEffect(() => {
     if (urlScreenplayId) {
       localStorage.setItem('lastScreenplayId', urlScreenplayId);
-      setLastScreenplayId(urlScreenplayId);
     }
   }, [urlScreenplayId]);
-
-  // Use URL screenplay, prop screenplay, or last opened screenplay
-  const screenplayId = propScreenplayId || urlScreenplayId || lastScreenplayId;
 
   // Get screenplay title from props or localStorage
   const [screenplayTitle, setScreenplayTitle] = useState(propScreenplayTitle || 'Current Screenplay');
@@ -147,9 +138,11 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   const [formattingGuideOpen, setFormattingGuideOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [invitesOpen, setInvitesOpen] = useState(false);
 
-  // Use shared hook for screenplay creation
-  const { createScreenplay } = useCreateScreenplay();
+  // Pending invites
+  const { count: inviteCount } = usePendingInvites();
+
 
   // Main navigation items
   const mainNavItems = [
@@ -159,24 +152,19 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
       icon: Home,
     },
     {
-      title: "Explore",
-      url: "/explore",
-      icon: Compass,
-    },
-    {
-      title: "Recent",
-      url: "/recent",
-      icon: Clock,
-    },
-    {
-      title: "Favorites",
-      url: "/favorites",
-      icon: Star,
+      title: "Screenplays",
+      url: "/screenplays",
+      icon: Film,
     },
     {
       title: "Projects",
       url: "/projects",
       icon: Folder,
+    },
+    {
+      title: "Explore",
+      url: "/explore",
+      icon: Compass,
     },
   ];
 
@@ -184,8 +172,13 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   const screenplayNavItems = screenplayId ? [
     {
       title: "Editor",
-      url: `/editor/${screenplayId}`,
+      url: `/screenplay/${screenplayId}`,
       icon: PenTool,
+    },
+    {
+      title: "Shotlist",
+      url: `/shotlist/${screenplayId}`,
+      icon: Clapperboard,
     },
     {
       title: "Beat Board",
@@ -219,33 +212,33 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
           </SidebarMenuItem>
         </SidebarMenu>
 
-        {/* New Buttons */}
-        <SidebarMenu>
+        {/* Create Button with Dropdown */}
+        <SidebarMenu className="gap-1.5">
           <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => setNewProjectOpen(true)}
-              className={cn(
-                "w-full justify-center border border-dashed border-border rounded-md",
-                "hover:bg-accent hover:text-accent-foreground",
-                isCollapsed && "px-0"
-              )}
-            >
-              <FolderOpen className="h-4 w-4" />
-              {!isCollapsed && <span className="ml-2">New Project</span>}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => setTemplateSelectorOpen(true)}
-              className={cn(
-                "w-full justify-center border border-dashed border-border rounded-md",
-                "hover:bg-accent hover:text-accent-foreground",
-                isCollapsed && "px-0"
-              )}
-            >
-              <Plus className="h-4 w-4" />
-              {!isCollapsed && <span className="ml-2">New Screenplay</span>}
-            </SidebarMenuButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  className={cn(
+                    "w-full justify-center rounded-md bg-primary text-primary-foreground shadow-sm",
+                    "hover:bg-primary/90 active:scale-[0.98] transition-all",
+                    isCollapsed && "px-0"
+                  )}
+                >
+                  <Plus className="h-4 w-4" />
+                  {!isCollapsed && <span className="ml-2">Create</span>}
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="right" align="start" className="w-48">
+                <DropdownMenuItem onClick={() => setTemplateSelectorOpen(true)}>
+                  <Film className="mr-2 h-4 w-4" />
+                  New Screenplay
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setNewProjectOpen(true)}>
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  New Project
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -272,12 +265,12 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Current Screenplay Navigation */}
+        {/* Current Screenplay Navigation - only shows on screenplay pages */}
         {screenplayId && (
           <SidebarGroup>
-            <SidebarGroupLabel>
+            <SidebarGroupLabel className="font-semibold">
               {isCollapsed ? (
-                <Film className="h-4 w-4" />
+                <PenTool className="h-4 w-4 text-primary" />
               ) : (
                 <span className="truncate">{screenplayTitle || "Current Screenplay"}</span>
               )}
@@ -301,7 +294,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
         )}
 
         {/* Resources Section */}
-        {!isCollapsed && (
+        {!isCollapsed ? (
           <SidebarGroup>
             <SidebarGroupLabel>Resources</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -327,24 +320,61 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                   isCollapsed={isCollapsed}
                   onClick={() => setShortcutsOpen(true)}
                 />
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <a href="https://docs.verso.film" target="_blank" rel="noopener noreferrer" className="w-full px-3 py-1.5 transition-all duration-150 text-sm group/item flex items-center rounded-md hover:bg-accent hover:text-accent-foreground text-muted-foreground">
-                      <div className="inline-block mr-2">
-                        <HelpCircle className="h-4 w-4 transition-colors duration-150 group-hover/item:text-foreground" />
-                      </div>
-                      <span className="font-medium">Help</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <NavMenuItem
+                  title="Help & Feedback"
+                  url="/help"
+                  icon={HelpCircle}
+                  pathname={pathname}
+                  isCollapsed={isCollapsed}
+                />
               </SidebarMenu>
             </SidebarGroupContent>
+          </SidebarGroup>
+        ) : (
+          /* Collapsed Resources - Dropdown menu */
+          <SidebarGroup>
+            <SidebarMenu>
+              <SidebarMenuItem className="flex justify-center">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <SidebarMenuButton
+                      className="w-10 h-10 p-0 justify-center rounded-lg hover:bg-accent"
+                    >
+                      <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                    </SidebarMenuButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="right" align="start" className="w-48">
+                    <DropdownMenuLabel>Resources</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setTemplateSelectorOpen(true)}>
+                      <LayoutTemplate className="mr-2 h-4 w-4" />
+                      Templates
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setFormattingGuideOpen(true)}>
+                      <BookOpen className="mr-2 h-4 w-4" />
+                      Formatting Guide
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
+                      <Keyboard className="mr-2 h-4 w-4" />
+                      Keyboard Shortcuts
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/help" className="flex items-center cursor-pointer">
+                        <HelpCircle className="mr-2 h-4 w-4" />
+                        Help & Feedback
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </SidebarGroup>
         )}
       </SidebarContent>
 
       {/* Footer */}
-      <SidebarFooter className="border-t border-border/50">
+      <SidebarFooter className="border-t border-border/50 p-2">
         <SidebarMenu>
           {/* User Account */}
           {user && (
@@ -358,15 +388,22 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                       isCollapsed && "justify-center"
                     )}
                   >
-                    <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={user.image || undefined} alt={user.name || "User"} />
-                      <AvatarFallback
-                        className="rounded-lg text-white font-medium"
-                        style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
-                      >
-                        {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U"}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="relative">
+                      <Avatar className="h-8 w-8 rounded-lg">
+                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} />
+                        <AvatarFallback
+                          className="rounded-lg text-white font-medium"
+                          style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
+                        >
+                          {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      {inviteCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
+                          {inviteCount > 9 ? '9+' : inviteCount}
+                        </span>
+                      )}
+                    </div>
                     {!isCollapsed && (
                       <>
                         <div className="grid flex-1 text-left text-sm leading-tight">
@@ -408,6 +445,15 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                         <User className="mr-2 h-4 w-4" />
                         View Profile
                       </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setInvitesOpen(true)} className="cursor-pointer">
+                      <Mail className="mr-2 h-4 w-4" />
+                      Invitations
+                      {inviteCount > 0 && (
+                        <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-xs">
+                          {inviteCount}
+                        </Badge>
+                      )}
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/settings" className="cursor-pointer">
@@ -460,7 +506,6 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
       <TemplateSelector
         isOpen={templateSelectorOpen}
         onClose={() => setTemplateSelectorOpen(false)}
-        onSelect={createScreenplay}
       />
       <NewProjectDialog
         isOpen={newProjectOpen}
@@ -469,6 +514,10 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
           setNewProjectOpen(false);
           router.push(`/project/${project.id}`);
         }}
+      />
+      <PendingInvitesDialog
+        open={invitesOpen}
+        onOpenChange={setInvitesOpen}
       />
     </Sidebar>
   );

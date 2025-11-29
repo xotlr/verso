@@ -17,7 +17,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ImageUpload } from '@/components/image-upload'
-import { Loader2, Image as ImageIcon, User, Link as LinkIcon, Eye } from 'lucide-react'
+import { Loader2, Image as ImageIcon, User, Link as LinkIcon, Eye, Sparkles, X } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 
 interface UserProfile {
@@ -34,7 +35,22 @@ interface UserProfile {
   linkedin: string | null
   imdb: string | null
   isPublic: boolean
+  interests?: string[]
+  skills?: string[]
+  lookingFor?: string | null
 }
+
+const INTEREST_SUGGESTIONS = [
+  'Horror', 'Sci-Fi', 'Drama', 'Comedy', 'Documentary',
+  'Thriller', 'Action', 'Romance', 'Animation', 'Indie',
+  'Crime', 'Mystery', 'Fantasy', 'Western', 'Musical',
+]
+
+const SKILL_SUGGESTIONS = [
+  'Director', 'Writer', 'DOP', 'Editor', 'Producer',
+  'Sound Designer', 'Colorist', 'VFX Artist', 'Actor', 'Composer',
+  'Production Designer', 'Costume Designer', 'Gaffer', 'Assistant Director',
+]
 
 interface EditProfileDialogProps {
   open: boolean
@@ -63,10 +79,45 @@ export function EditProfileDialog({
     linkedin: user.linkedin || '',
     imdb: user.imdb || '',
     isPublic: user.isPublic,
+    interests: user.interests || [],
+    skills: user.skills || [],
+    lookingFor: user.lookingFor || '',
   })
+  const [newInterest, setNewInterest] = useState('')
+  const [newSkill, setNewSkill] = useState('')
 
-  const handleChange = (field: keyof typeof formData, value: string | boolean) => {
+  const handleChange = (field: keyof typeof formData, value: string | boolean | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const addInterest = (interest: string) => {
+    const trimmed = interest.trim()
+    if (trimmed && !formData.interests.includes(trimmed)) {
+      setFormData((prev) => ({ ...prev, interests: [...prev.interests, trimmed] }))
+    }
+    setNewInterest('')
+  }
+
+  const removeInterest = (interest: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      interests: prev.interests.filter((i) => i !== interest),
+    }))
+  }
+
+  const addSkill = (skill: string) => {
+    const trimmed = skill.trim()
+    if (trimmed && !formData.skills.includes(trimmed)) {
+      setFormData((prev) => ({ ...prev, skills: [...prev.skills, trimmed] }))
+    }
+    setNewSkill('')
+  }
+
+  const removeSkill = (skill: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      skills: prev.skills.filter((s) => s !== skill),
+    }))
   }
 
   const handleSubmit = async () => {
@@ -104,7 +155,7 @@ export function EditProfileDialog({
         </DialogHeader>
 
         <Tabs defaultValue="images" className="mt-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="images" className="gap-2">
               <ImageIcon className="h-4 w-4" />
               <span className="hidden sm:inline">Images</span>
@@ -112,6 +163,10 @@ export function EditProfileDialog({
             <TabsTrigger value="info" className="gap-2">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Info</span>
+            </TabsTrigger>
+            <TabsTrigger value="showcase" className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden sm:inline">Showcase</span>
             </TabsTrigger>
             <TabsTrigger value="links" className="gap-2">
               <LinkIcon className="h-4 w-4" />
@@ -200,6 +255,147 @@ export function EditProfileDialog({
                 value={formData.location}
                 onChange={(e) => handleChange('location', e.target.value)}
                 placeholder="City, Country"
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="showcase" className="space-y-6 mt-6">
+            {/* Interests */}
+            <div className="space-y-3">
+              <Label>Interests</Label>
+              <p className="text-xs text-muted-foreground">
+                Genres, movies, directors you love
+              </p>
+              <div className="flex flex-wrap gap-2 min-h-[32px]">
+                {formData.interests.map((interest) => (
+                  <Badge key={interest} variant="secondary" className="gap-1">
+                    {interest}
+                    <button
+                      type="button"
+                      onClick={() => removeInterest(interest)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={newInterest}
+                  onChange={(e) => setNewInterest(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addInterest(newInterest)
+                    }
+                  }}
+                  placeholder="Type and press Enter..."
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addInterest(newInterest)}
+                  disabled={!newInterest.trim()}
+                >
+                  Add
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {INTEREST_SUGGESTIONS.filter(
+                  (s) => !formData.interests.includes(s)
+                )
+                  .slice(0, 8)
+                  .map((suggestion) => (
+                    <Button
+                      key={suggestion}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => addInterest(suggestion)}
+                    >
+                      + {suggestion}
+                    </Button>
+                  ))}
+              </div>
+            </div>
+
+            {/* Skills */}
+            <div className="space-y-3">
+              <Label>Skills & Roles</Label>
+              <p className="text-xs text-muted-foreground">
+                Your profession and expertise
+              </p>
+              <div className="flex flex-wrap gap-2 min-h-[32px]">
+                {formData.skills.map((skill) => (
+                  <Badge key={skill} variant="outline" className="gap-1">
+                    {skill}
+                    <button
+                      type="button"
+                      onClick={() => removeSkill(skill)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={newSkill}
+                  onChange={(e) => setNewSkill(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addSkill(newSkill)
+                    }
+                  }}
+                  placeholder="Type and press Enter..."
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addSkill(newSkill)}
+                  disabled={!newSkill.trim()}
+                >
+                  Add
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {SKILL_SUGGESTIONS.filter((s) => !formData.skills.includes(s))
+                  .slice(0, 8)
+                  .map((suggestion) => (
+                    <Button
+                      key={suggestion}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => addSkill(suggestion)}
+                    >
+                      + {suggestion}
+                    </Button>
+                  ))}
+              </div>
+            </div>
+
+            {/* Looking For */}
+            <div className="space-y-2">
+              <Label htmlFor="lookingFor">Looking For</Label>
+              <p className="text-xs text-muted-foreground">
+                Tell people what collaborators you need
+              </p>
+              <Textarea
+                id="lookingFor"
+                value={formData.lookingFor}
+                onChange={(e) => handleChange('lookingFor', e.target.value)}
+                placeholder="e.g., Looking for a DOP in LA for an indie horror feature..."
+                rows={3}
               />
             </div>
           </TabsContent>

@@ -15,6 +15,10 @@ const updateProfileSchema = z.object({
   linkedin: z.string().max(100).nullable().optional(),
   imdb: z.string().max(50).nullable().optional(),
   isPublic: z.boolean().optional(),
+  // Bento blocks
+  interests: z.array(z.string().max(50)).max(20).optional(),
+  skills: z.array(z.string().max(50)).max(20).optional(),
+  lookingFor: z.string().max(500).nullable().optional(),
 })
 
 // GET /api/users/[id] - Get user profile
@@ -45,6 +49,10 @@ export async function GET(
         isPublic: true,
         createdAt: true,
         plan: true,
+        // Bento blocks
+        interests: true,
+        skills: true,
+        lookingFor: true,
         projects: {
           where: isOwnProfile ? {} : { team: null }, // Only personal projects for public view
           select: {
@@ -148,6 +156,10 @@ export async function PATCH(
         isPublic: true,
         createdAt: true,
         plan: true,
+        // Bento blocks
+        interests: true,
+        skills: true,
+        lookingFor: true,
       },
     })
 

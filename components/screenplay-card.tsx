@@ -50,7 +50,7 @@ export function ScreenplayCard({
 
   return (
     <div className="group relative bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200">
-      <Link href={`/editor/${screenplay.id}`}>
+      <Link href={`/screenplay/${screenplay.id}`}>
         <div className="p-5 cursor-pointer">
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1 min-w-0">
