@@ -18,8 +18,10 @@ import {
   createAllPlugins,
   autocompletePluginKey,
   applySuggestion,
+  updatePaginationState,
 } from '@/lib/prosemirror/plugins';
 import type { AutocompleteState, AutocompleteSuggestion } from '@/lib/prosemirror/plugins';
+import { usePagination } from './usePagination';
 
 export interface UseProseMirrorEditorOptions {
   initialContent: string | null;
@@ -180,6 +182,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [autocompleteState, setAutocompleteState] = useState<AutocompleteState | null>(null);
+  const [currentDoc, setCurrentDoc] = useState<ProseMirrorNode | null>(null);
 
   // Track characters and locations for autocomplete
   const charactersRef = useRef<string[]>([]);
@@ -200,6 +203,26 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
   useEffect(() => {
     onScenesChangeRef.current = onScenesChange;
   }, [onScenesChange]);
+
+  // Use WASM pagination engine
+  const pagination = usePagination(currentDoc, {
+    debounceMs: 150,
+    enabled: true,
+  });
+
+  // Update pagination plugin state when WASM results arrive
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !pagination.result) {
+      return;
+    }
+
+    // Update the pagination plugin with WASM results
+    updatePaginationState(view, pagination.result);
+
+    // Also update the page count from WASM
+    setPageCount(pagination.pageCount);
+  }, [pagination.result, pagination.pageCount]);
 
   // Create the editor state and view
   useEffect(() => {
@@ -236,7 +259,8 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
         if (tr.docChanged) {
           const doc = newState.doc;
           setWordCount(calculateWordCount(doc));
-          setPageCount(calculatePageCount(doc));
+          setPageCount(calculatePageCount(doc)); // Fallback, will be updated by WASM
+          setCurrentDoc(doc); // Trigger WASM pagination
 
           // Notify parent of content change
           if (onUpdateRef.current) {
@@ -287,6 +311,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     // Initial stats
     setWordCount(calculateWordCount(doc));
     setPageCount(calculatePageCount(doc));
+    setCurrentDoc(doc); // Initial document for WASM pagination
     setIsReady(true);
 
     // Initial scene/character extraction

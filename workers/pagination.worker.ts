@@ -29,15 +29,20 @@ async function initWasm(): Promise<void> {
 
   initPromise = (async () => {
     try {
-      // Import the WASM module
-      // The path will be adjusted based on wasm-pack output location
-      const module = await import('../public/wasm/verso_pagination_engine.js');
-      await module.default();
+      // Import the WASM module from public directory
+      // Next.js serves /public at root, so /wasm/... is accessible
+      // Dynamic import with URL for worker context
+      const wasmUrl = new URL('/wasm/verso_pagination_engine.js', self.location.origin);
+      const wasmModule = await import(/* webpackIgnore: true */ wasmUrl.href);
+
+      // Initialize the WASM module with explicit path to .wasm file
+      const wasmBinaryUrl = new URL('/wasm/verso_pagination_engine_bg.wasm', self.location.origin);
+      await wasmModule.default(wasmBinaryUrl);
 
       wasm = {
-        paginate_document: module.paginate_document,
-        get_feature_film_config: module.get_feature_film_config,
-        version: module.version,
+        paginate_document: wasmModule.paginate_document,
+        get_feature_film_config: wasmModule.get_feature_film_config,
+        version: wasmModule.version,
       };
 
       console.log(`[PaginationWorker] WASM loaded, version: ${wasm.version()}`);

@@ -115,3 +115,13 @@ export { createSceneNumberingPlugin, sceneNumberingPluginKey } from './scene-num
 export { createSmartClickPlugin, smartClickPluginKey } from './smart-click';
 export { createAutocompletePlugin, autocompletePluginKey, applySuggestion } from './autocomplete';
 export type { AutocompleteState, AutocompleteSuggestion, AutocompletePluginOptions } from './autocomplete';
+
+// Pagination plugin exports
+export {
+  createPaginationPlugin,
+  paginationPluginKey,
+  getPaginationState,
+  updatePaginationState,
+  PAGINATION_UPDATE_META,
+} from './pagination';
+export type { PaginationState, PageBreak } from './pagination';
