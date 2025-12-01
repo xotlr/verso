@@ -93,7 +93,7 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
         <DropdownMenuTrigger asChild>
           <button
             className={cn(
-              "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors hover:bg-accent",
+              "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors bg-muted/50 hover:bg-accent",
               isCollapsed && "justify-center px-0"
             )}
           >

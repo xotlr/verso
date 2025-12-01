@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { Aurora } from "@/components/aurora"
 import { Noise } from "@/components/noise"
+import { RotatingText } from "@/components/landing/rotating-text"
 
 export default function LandingPage() {
   return (
@@ -39,7 +40,9 @@ export default function LandingPage() {
 
             <h1 className="text-4xl sm:text-5xl md:text-6xl tracking-tight font-medium">
               Write your screenplay,{" "}
-              <span className="text-primary">your way</span>
+              <span className="text-primary italic">
+                <RotatingText words={["your way", "effortlessly", "beautifully"]} />
+              </span>
             </h1>
 
             <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">

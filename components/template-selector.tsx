@@ -177,7 +177,7 @@ export function TemplateSelector({ isOpen, onClose, onSelect, projectId }: Templ
           </div>
           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
             <motion.div
-              className="h-full bg-gradient-to-r from-violet-500 to-purple-600"
+              className="h-full bg-primary"
               initial={{ width: '50%' }}
               animate={{ width: `${(step / 2) * 100}%` }}
               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
@@ -243,7 +243,6 @@ export function TemplateSelector({ isOpen, onClose, onSelect, projectId }: Templ
           <Button
             onClick={step === 2 ? handleCreate : handleNext}
             disabled={(step === 1 && !canProceedToStep2) || (step === 2 && !canCreate()) || isCreating}
-            className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white"
           >
             {isCreating ? (
               <>
@@ -310,8 +309,7 @@ function TypeSelectionStep({ selectedType, onSelect }: TypeSelectionStepProps) {
               <div
                 className={cn(
                   'w-10 h-10 rounded-lg flex items-center justify-center mb-3 transition-colors',
-                  `bg-gradient-to-br ${typeConfig.gradient}`,
-                  isSelected && 'bg-gradient-to-br from-primary/20 to-primary/10'
+                  isSelected ? 'bg-primary/15' : 'bg-muted'
                 )}
               >
                 <IconComponent

@@ -145,9 +145,10 @@
   }
 
   /* ===== FONT FAMILIES ===== */
-  /* Default font is Outfit */
-  body {
-    font-family: var(--font-outfit), system-ui, sans-serif;
+  /* Default font - Inter matches defaultSettings.uiFont */
+  /* Actual font is controlled via [data-ui-font] attribute on html */
+  html {
+    font-family: var(--font-inter), system-ui, sans-serif;
   }
 
   /* ===== THEME TRANSITIONS ===== */
@@ -215,6 +216,21 @@
   }
   [data-ui-font="ibm-plex"] {
     font-family: var(--font-ibm-plex), system-ui, sans-serif;
+  }
+  [data-ui-font="plus-jakarta"] {
+    font-family: var(--font-plus-jakarta), system-ui, sans-serif;
+  }
+
+  /* ===== HEADING & BODY FONTS ===== */
+  /* Custom fonts for Matcha/Neovictorian themes */
+  :root {
+    --font-heading: var(--font-fraunces), Georgia, serif;
+    --font-body: var(--font-plus-jakarta), system-ui, sans-serif;
+  }
+
+  /* Apply heading font to all headings */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
   }
 
   /* Screenplay fonts - applied via data attribute */

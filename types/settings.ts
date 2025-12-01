@@ -1,6 +1,7 @@
 export type ThemePreset =
   | 'minimal' | 'warm' | 'midnight' | 'paper'  // Classic themes
-  | 'noir' | 'romance' | 'fantasy' | 'sci-fi' | 'horror';  // Genre themes
+  | 'noir' | 'romance' | 'fantasy' | 'sci-fi' | 'horror'  // Genre themes
+  | 'matcha' | 'neovictorian';  // Custom themes
 
 export interface ThemeMetadata {
   name: string;
@@ -19,9 +20,12 @@ export const themeMetadata: Record<ThemePreset, ThemeMetadata> = {
   fantasy: { name: 'Fantasy', subtitle: 'Enchanted realms' },
   'sci-fi': { name: 'Sci-Fi', subtitle: 'Future forward' },
   horror: { name: 'Horror', subtitle: 'Blood and darkness' },
+  // Custom themes
+  matcha: { name: 'Matcha', subtitle: 'Chinese retro charm' },
+  neovictorian: { name: 'Neovictorian', subtitle: 'European vintage' },
 };
 
-export type UIFont = 'inter' | 'sf-pro' | 'geist' | 'ibm-plex';
+export type UIFont = 'inter' | 'sf-pro' | 'geist' | 'ibm-plex' | 'plus-jakarta';
 export type ScreenplayFont = 'courier-prime' | 'courier-new' | 'courier-final-draft';
 
 export type SidebarPosition = 'left' | 'right' | 'hidden';
@@ -369,7 +373,7 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       ring: '0 0% 70%',
     },
     uiFont: 'sf-pro',
-    borderRadius: 12,
+    borderRadius: 9,
   },
   // Warm: Terracotta accent - cozy and inviting
   warm: {
@@ -1005,6 +1009,210 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       color: '0 70% 48%',  // Blood red to match horror theme
       glowEnabled: true,
       glowIntensity: 0.5,
+      width: 2,
+    },
+  },
+
+  // Matcha: Soft sage and stone - muted Chinese retro
+  matcha: {
+    themePreset: 'matcha',
+    lightColors: {
+      background: '80 8% 96%',              // Very soft gray with sage hint
+      foreground: '80 5% 32%',              // Soft gray-green text
+      card: '80 6% 98%',                    // Nearly white cards
+      cardForeground: '80 5% 32%',
+      primary: '80 18% 45%',                // Muted sage green
+      primaryForeground: '0 0% 100%',
+      secondary: '80 6% 93%',               // Light stone gray
+      secondaryForeground: '80 5% 38%',
+      muted: '80 6% 93%',
+      mutedForeground: '80 4% 52%',
+      accent: '80 10% 90%',                 // Subtle sage tint
+      accentForeground: '80 5% 32%',
+      destructive: '0 55% 50%',
+      destructiveForeground: '0 0% 100%',
+      border: '80 6% 88%',
+      input: '80 6% 88%',
+      ring: '80 18% 45%',
+    },
+    darkColors: {
+      background: '80 6% 9%',               // Deep gray with sage undertone
+      foreground: '80 8% 75%',              // Soft sage-gray text
+      card: '80 5% 12%',
+      cardForeground: '80 8% 75%',
+      primary: '80 22% 52%',                // Brighter muted sage
+      primaryForeground: '80 6% 9%',
+      secondary: '80 5% 15%',
+      secondaryForeground: '80 6% 68%',
+      muted: '80 5% 15%',
+      mutedForeground: '80 4% 48%',
+      accent: '80 8% 18%',                  // Dark sage accent
+      accentForeground: '80 8% 75%',
+      destructive: '0 50% 45%',
+      destructiveForeground: '0 0% 100%',
+      border: '80 5% 18%',
+      input: '80 5% 18%',
+      ring: '80 22% 52%',
+    },
+    lightVisualization: {
+      beatColors: [
+        '#8a9a7a', '#9cac8c', '#aebda0', '#c1cfb4',
+        '#788868', '#687858', '#586848', '#d4e0c8',
+      ],
+      actColors: {
+        act1: { bg: 'rgba(138, 154, 122, 0.1)', border: 'rgba(138, 154, 122, 0.25)' },
+        act2a: { bg: 'rgba(120, 136, 104, 0.1)', border: 'rgba(120, 136, 104, 0.25)' },
+        act2b: { bg: 'rgba(104, 120, 88, 0.1)', border: 'rgba(104, 120, 88, 0.25)' },
+        act3: { bg: 'rgba(156, 172, 140, 0.1)', border: 'rgba(156, 172, 140, 0.25)' },
+      },
+      sceneColors: [
+        '#8a9a7a', '#9cac8c', '#788868', '#687858',
+        '#aebda0', '#c1cfb4', '#586848', '#d4e0c8',
+      ],
+      characterColors: [
+        '#8a9a7a', '#788868', '#9cac8c', '#687858', '#aebda0',
+        '#586848', '#c1cfb4', '#4a5a3a', '#d4e0c8', '#b8c8a8',
+      ],
+      locationColors: [
+        '#788868', '#687858', '#586848', '#4a5a3a', '#8a9a7a',
+        '#9cac8c', '#aebda0', '#c1cfb4', '#d4e0c8', '#b8c8a8',
+      ],
+    },
+    darkVisualization: {
+      beatColors: [
+        '#9cac8c', '#8a9a7a', '#788868', '#687858',
+        '#aebda0', '#c1cfb4', '#d4e0c8', '#b8c8a8',
+      ],
+      actColors: {
+        act1: { bg: 'rgba(156, 172, 140, 0.12)', border: 'rgba(156, 172, 140, 0.3)' },
+        act2a: { bg: 'rgba(138, 154, 122, 0.12)', border: 'rgba(138, 154, 122, 0.3)' },
+        act2b: { bg: 'rgba(120, 136, 104, 0.12)', border: 'rgba(120, 136, 104, 0.3)' },
+        act3: { bg: 'rgba(174, 189, 160, 0.12)', border: 'rgba(174, 189, 160, 0.3)' },
+      },
+      sceneColors: [
+        '#9cac8c', '#8a9a7a', '#aebda0', '#788868',
+        '#c1cfb4', '#687858', '#d4e0c8', '#b8c8a8',
+      ],
+      characterColors: [
+        '#9cac8c', '#aebda0', '#8a9a7a', '#c1cfb4', '#788868',
+        '#d4e0c8', '#687858', '#b8c8a8', '#586848', '#e0ecd4',
+      ],
+      locationColors: [
+        '#687858', '#788868', '#8a9a7a', '#9cac8c', '#586848',
+        '#aebda0', '#c1cfb4', '#d4e0c8', '#b8c8a8', '#e0ecd4',
+      ],
+    },
+    uiFont: 'inter',
+    borderRadius: 10,
+    cursor: {
+      mode: 'line',
+      blinkStyle: 'smooth',
+      blinkSpeed: 530,
+      color: '80 18% 45%',  // Muted sage cursor
+      glowEnabled: false,
+      glowIntensity: 0.3,
+      width: 2,
+    },
+  },
+
+  // Neovictorian: Soft charcoal and muted gold - European vintage
+  neovictorian: {
+    themePreset: 'neovictorian',
+    lightColors: {
+      background: '30 6% 96%',              // Soft warm gray
+      foreground: '30 4% 30%',              // Muted charcoal text
+      card: '30 5% 98%',                    // Nearly white cards
+      cardForeground: '30 4% 30%',
+      primary: '38 18% 50%',                // Soft antique gold
+      primaryForeground: '0 0% 100%',
+      secondary: '30 5% 92%',               // Light warm gray
+      secondaryForeground: '30 4% 36%',
+      muted: '30 5% 92%',
+      mutedForeground: '30 3% 52%',
+      accent: '38 12% 88%',                 // Subtle gold tint
+      accentForeground: '30 4% 30%',
+      destructive: '0 55% 50%',
+      destructiveForeground: '0 0% 100%',
+      border: '30 5% 86%',
+      input: '30 5% 86%',
+      ring: '38 18% 50%',
+    },
+    darkColors: {
+      background: '30 5% 9%',               // Deep warm charcoal
+      foreground: '30 6% 75%',              // Soft warm gray text
+      card: '30 4% 12%',
+      cardForeground: '30 6% 75%',
+      primary: '38 22% 55%',                // Brighter soft gold
+      primaryForeground: '30 5% 9%',
+      secondary: '30 4% 15%',
+      secondaryForeground: '30 5% 68%',
+      muted: '30 4% 15%',
+      mutedForeground: '30 3% 48%',
+      accent: '38 10% 18%',                 // Dark gold accent
+      accentForeground: '30 6% 75%',
+      destructive: '0 50% 45%',
+      destructiveForeground: '0 0% 100%',
+      border: '30 4% 18%',
+      input: '30 4% 18%',
+      ring: '38 22% 55%',
+    },
+    lightVisualization: {
+      beatColors: [
+        '#a89880', '#b8a890', '#c8b8a0', '#d8c8b0',
+        '#686058', '#787068', '#888078', '#989088',
+      ],
+      actColors: {
+        act1: { bg: 'rgba(168, 152, 128, 0.1)', border: 'rgba(168, 152, 128, 0.25)' },
+        act2a: { bg: 'rgba(104, 96, 88, 0.1)', border: 'rgba(104, 96, 88, 0.25)' },
+        act2b: { bg: 'rgba(120, 112, 104, 0.1)', border: 'rgba(120, 112, 104, 0.25)' },
+        act3: { bg: 'rgba(184, 168, 144, 0.1)', border: 'rgba(184, 168, 144, 0.25)' },
+      },
+      sceneColors: [
+        '#a89880', '#b8a890', '#686058', '#787068',
+        '#c8b8a0', '#888078', '#d8c8b0', '#989088',
+      ],
+      characterColors: [
+        '#a89880', '#686058', '#b8a890', '#787068', '#c8b8a0',
+        '#888078', '#d8c8b0', '#989088', '#e8d8c0', '#a8a098',
+      ],
+      locationColors: [
+        '#686058', '#787068', '#888078', '#989088', '#a89880',
+        '#b8a890', '#c8b8a0', '#d8c8b0', '#e8d8c0', '#a8a098',
+      ],
+    },
+    darkVisualization: {
+      beatColors: [
+        '#b8a890', '#a89880', '#988870', '#887860',
+        '#c8b8a0', '#d8c8b0', '#e8d8c0', '#d0c8b8',
+      ],
+      actColors: {
+        act1: { bg: 'rgba(184, 168, 144, 0.12)', border: 'rgba(184, 168, 144, 0.3)' },
+        act2a: { bg: 'rgba(200, 184, 160, 0.1)', border: 'rgba(200, 184, 160, 0.25)' },
+        act2b: { bg: 'rgba(216, 200, 176, 0.1)', border: 'rgba(216, 200, 176, 0.25)' },
+        act3: { bg: 'rgba(168, 152, 128, 0.12)', border: 'rgba(168, 152, 128, 0.3)' },
+      },
+      sceneColors: [
+        '#b8a890', '#a89880', '#c8b8a0', '#d8c8b0',
+        '#988870', '#e8d8c0', '#887860', '#d0c8b8',
+      ],
+      characterColors: [
+        '#b8a890', '#c8b8a0', '#a89880', '#d8c8b0', '#988870',
+        '#e8d8c0', '#887860', '#d0c8b8', '#786850', '#f0e8d8',
+      ],
+      locationColors: [
+        '#989088', '#a8a098', '#b8b0a8', '#c8c0b8', '#888078',
+        '#b8a890', '#a89880', '#c8b8a0', '#d8c8b0', '#f0e8d8',
+      ],
+    },
+    uiFont: 'inter',
+    borderRadius: 8,
+    cursor: {
+      mode: 'line',
+      blinkStyle: 'smooth',
+      blinkSpeed: 530,
+      color: '38 18% 50%',  // Soft gold cursor
+      glowEnabled: false,
+      glowIntensity: 0.3,
       width: 2,
     },
   },

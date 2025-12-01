@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { Download, Upload, RotateCcw, Palette, Type, Layout, FileDown, Keyboard, CreditCard, Loader2, ChevronRight, Globe, Lock } from 'lucide-react';
+import { Download, Upload, RotateCcw, Palette, Type, Layout, FileDown, Keyboard, CreditCard, Loader2, ChevronRight, Globe, Lock, Eye } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -315,15 +316,28 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                           Private
                         </button>
                       </div>
-                      <Button
-                        onClick={handleSaveProfile}
-                        disabled={isSavingProfile}
-                        size="sm"
-                        className="sm:w-auto w-full"
-                      >
-                        {isSavingProfile && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                        Save Profile
-                      </Button>
+                      <div className="flex items-center gap-2 sm:w-auto w-full">
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 sm:flex-none"
+                        >
+                          <Link href={`/profile/${session?.user?.id}`}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Profile
+                          </Link>
+                        </Button>
+                        <Button
+                          onClick={handleSaveProfile}
+                          disabled={isSavingProfile}
+                          size="sm"
+                          className="flex-1 sm:flex-none"
+                        >
+                          {isSavingProfile && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                          Save Profile
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -417,6 +431,27 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                     ))}
                   </div>
                 </div>
+
+                {/* Custom Themes */}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2">Custom</p>
+                  <div className="grid grid-cols-2 md:grid-cols-2 gap-2">
+                    {(['matcha', 'neovictorian'] as ThemePreset[]).map((preset) => (
+                      <button
+                        key={preset}
+                        onClick={() => setThemePreset(preset)}
+                        className={`p-3 rounded-lg border-2 transition-all text-left ${
+                          settings.visual.themePreset === preset
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                      >
+                        <div className="text-sm font-medium">{themeMetadata[preset].name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{themeMetadata[preset].subtitle}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -441,6 +476,7 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                         <SelectItem value="sf-pro">SF Pro Display</SelectItem>
                         <SelectItem value="geist">Geist</SelectItem>
                         <SelectItem value="ibm-plex">IBM Plex Sans</SelectItem>
+                        <SelectItem value="plus-jakarta">Plus Jakarta Sans</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

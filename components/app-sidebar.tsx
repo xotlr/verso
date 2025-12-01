@@ -384,7 +384,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                   <SidebarMenuButton
                     size="lg"
                     className={cn(
-                      "data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
+                      "bg-muted/50 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
                       isCollapsed && "justify-center"
                     )}
                   >

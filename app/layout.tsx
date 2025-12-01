@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit } from "next/font/google";
+import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunces, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SettingsProvider } from "@/contexts/settings-context";
@@ -40,6 +40,17 @@ const outfit = Outfit({
   subsets: ["latin"],
 });
 
+const fraunces = Fraunces({
+  weight: ['400', '500', '600', '700'],
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+});
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  weight: ['400', '500', '600', '700'],
+  variable: "--font-plus-jakarta",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
   title: "VERSO - Professional Screenplay Editor",
@@ -83,9 +94,9 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable}`}
     >
-      <body className={`${outfit.className} antialiased`}>
+      <body className="antialiased">
         <AuthProvider>
           <ThemeProvider
             defaultTheme="system"
