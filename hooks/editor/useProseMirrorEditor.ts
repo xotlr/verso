@@ -118,15 +118,17 @@ function calculatePageCount(doc: ProseMirrorNode): number {
  */
 function extractScenes(doc: ProseMirrorNode): SceneInfo[] {
   const scenes: SceneInfo[] = [];
+  let sceneIndex = 0;
 
   doc.forEach((node, offset) => {
     if (node.type.name === 'scene_heading') {
-      // Generate deterministic ID from position + content hash to avoid duplicate keys
+      sceneIndex++;
+      // Generate deterministic ID from scene index + position + content hash to ensure uniqueness
       const contentHash = node.textContent
         .slice(0, 20)
         .replace(/[^a-z0-9]/gi, '')
         .toLowerCase();
-      const id = node.attrs.id || `scene-${offset}-${contentHash || 'empty'}`;
+      const id = node.attrs.id || `scene-${sceneIndex}-${offset}-${contentHash || 'empty'}`;
 
       scenes.push({
         id,

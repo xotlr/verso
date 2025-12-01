@@ -1,7 +1,6 @@
 export type ThemePreset =
   | 'minimal' | 'warm' | 'midnight' | 'paper'  // Classic themes
-  | 'noir' | 'romance' | 'western' | 'sci-fi'  // Genre themes
-  | 'custom';
+  | 'noir' | 'romance' | 'fantasy' | 'sci-fi' | 'horror';  // Genre themes
 
 export interface ThemeMetadata {
   name: string;
@@ -12,15 +11,14 @@ export const themeMetadata: Record<ThemePreset, ThemeMetadata> = {
   // Classic themes
   minimal: { name: 'Minimal', subtitle: 'Clean and focused' },
   warm: { name: 'Warm', subtitle: 'Cozy and inviting' },
-  midnight: { name: 'Midnight', subtitle: 'Deep and calm' },
+  midnight: { name: 'Midnight', subtitle: 'Starlit serenity' },
   paper: { name: 'Paper', subtitle: 'Classic neutral' },
   // Genre themes
-  noir: { name: 'Noir', subtitle: 'Shadows and suspense' },
+  noir: { name: 'Noir', subtitle: 'Shadows and smoke' },
   romance: { name: 'Romance', subtitle: 'Soft and heartfelt' },
-  western: { name: 'Western', subtitle: 'Dusty trails' },
+  fantasy: { name: 'Fantasy', subtitle: 'Enchanted realms' },
   'sci-fi': { name: 'Sci-Fi', subtitle: 'Future forward' },
-  // Custom
-  custom: { name: 'Custom', subtitle: 'Your colors' },
+  horror: { name: 'Horror', subtitle: 'Blood and darkness' },
 };
 
 export type UIFont = 'inter' | 'sf-pro' | 'geist' | 'ibm-plex';
@@ -97,9 +95,7 @@ export interface VisualSettings {
   fontSize: number; // 12-18pt for UI
   borderRadius: number; // 0-16px
   animationSpeed: number; // 0.1-0.5s
-  useGlassEffect: boolean;
   cursor: CursorSettings;
-  themeTemperature: 'neutral' | 'warm' | 'cool'; // Color temperature filter
 }
 
 export interface AutocompleteSettings {
@@ -258,7 +254,6 @@ export const defaultSettings: AppSettings = {
     fontSize: 14,
     borderRadius: 12,
     animationSpeed: 0.2,
-    useGlassEffect: true,
     cursor: {
       mode: 'native',
       blinkStyle: 'blink',
@@ -268,7 +263,6 @@ export const defaultSettings: AppSettings = {
       glowIntensity: 0.3,
       width: 2,
     },
-    themeTemperature: 'neutral',
   },
   editor: {
     autoSaveInterval: 30,
@@ -376,7 +370,6 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
     },
     uiFont: 'sf-pro',
     borderRadius: 12,
-    useGlassEffect: true,
   },
   // Warm: Terracotta accent - cozy and inviting
   warm: {
@@ -421,52 +414,50 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
     },
     uiFont: 'inter',
     borderRadius: 12,
-    useGlassEffect: false,
   },
-  // Midnight: Deep charcoal with amber accents
+  // Midnight: Deep navy/indigo with silver starlight - truly nocturnal
   midnight: {
     themePreset: 'midnight',
     lightColors: {
-      background: '35 18% 98%',           // Warm off-white
-      foreground: '30 10% 32%',           // Soft warm charcoal
-      card: '0 0% 100%',
-      cardForeground: '30 10% 32%',
-      primary: '32 70% 48%',              // Amber/golden
+      background: '222 25% 97%',          // Cool slate white
+      foreground: '222 20% 28%',          // Deep navy text
+      card: '222 20% 99%',
+      cardForeground: '222 20% 28%',
+      primary: '222 50% 45%',             // Deep indigo
       primaryForeground: '0 0% 100%',
-      secondary: '35 15% 95%',
-      secondaryForeground: '30 10% 35%',
-      muted: '35 15% 95%',
-      mutedForeground: '30 6% 50%',
-      accent: '32 50% 94%',               // Soft amber
-      accentForeground: '32 70% 35%',
+      secondary: '222 15% 94%',
+      secondaryForeground: '222 18% 32%',
+      muted: '222 15% 94%',
+      mutedForeground: '222 10% 48%',
+      accent: '220 30% 92%',              // Soft blue
+      accentForeground: '222 20% 28%',
       destructive: '0 65% 55%',
       destructiveForeground: '0 0% 100%',
-      border: '35 12% 88%',
-      input: '35 12% 88%',
-      ring: '32 70% 48%',
+      border: '222 15% 88%',
+      input: '222 15% 88%',
+      ring: '222 50% 45%',
     },
     darkColors: {
-      background: '28 18% 8%',            // Deep warm charcoal
-      foreground: '35 12% 74%',           // Soft warm cream
-      card: '28 16% 10%',
-      cardForeground: '35 12% 74%',
-      primary: '36 75% 55%',              // Bright amber
-      primaryForeground: '28 20% 8%',
-      secondary: '28 14% 14%',
-      secondaryForeground: '35 12% 70%',
-      muted: '28 14% 14%',
-      mutedForeground: '30 8% 50%',
-      accent: '32 60% 20%',
-      accentForeground: '36 70% 85%',
+      background: '222 47% 6%',           // True midnight navy
+      foreground: '220 20% 75%',          // Silver starlight
+      card: '222 40% 9%',
+      cardForeground: '220 20% 75%',
+      primary: '220 40% 65%',             // Soft moonlight blue
+      primaryForeground: '222 47% 6%',
+      secondary: '222 35% 12%',
+      secondaryForeground: '220 18% 70%',
+      muted: '222 35% 12%',
+      mutedForeground: '222 15% 45%',
+      accent: '220 50% 18%',
+      accentForeground: '220 30% 85%',
       destructive: '0 55% 50%',
       destructiveForeground: '0 0% 100%',
-      border: '28 12% 18%',
-      input: '28 12% 18%',
-      ring: '36 75% 55%',
+      border: '222 30% 15%',
+      input: '222 30% 15%',
+      ring: '220 40% 65%',
     },
     uiFont: 'inter',
     borderRadius: 8,
-    useGlassEffect: false,
   },
   // Paper: Classic neutral paper - subtle and refined
   paper: {
@@ -511,112 +502,110 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
     },
     uiFont: 'geist',
     borderRadius: 6,
-    useGlassEffect: false,
   },
 
   // ============================================
   // GENRE THEMES - Mood-based writing environments
   // ============================================
 
-  // Noir: Shadows and suspense - moody, dramatic, high contrast
+  // Noir: Shadows and smoke - true black, high contrast, dramatic golden accents
   noir: {
     themePreset: 'noir',
     lightColors: {
-      background: '220 15% 97%',          // Cool gray
-      foreground: '220 20% 20%',          // Deep blue-gray
-      card: '220 10% 99%',
-      cardForeground: '220 20% 20%',
-      primary: '220 50% 40%',             // Steel blue
+      background: '0 0% 97%',             // Near white
+      foreground: '0 0% 12%',             // Near black text
+      card: '0 0% 100%',
+      cardForeground: '0 0% 12%',
+      primary: '0 0% 8%',                 // Deep black
       primaryForeground: '0 0% 100%',
-      secondary: '220 10% 94%',
-      secondaryForeground: '220 15% 25%',
-      muted: '220 10% 94%',
-      mutedForeground: '220 10% 45%',
-      accent: '45 60% 92%',               // Subtle amber accent
-      accentForeground: '220 20% 20%',
+      secondary: '0 0% 94%',
+      secondaryForeground: '0 0% 15%',
+      muted: '0 0% 94%',
+      mutedForeground: '0 0% 40%',
+      accent: '45 80% 92%',               // Soft gold
+      accentForeground: '0 0% 12%',
       destructive: '0 65% 55%',
       destructiveForeground: '0 0% 100%',
-      border: '220 10% 88%',
-      input: '220 10% 88%',
-      ring: '220 50% 40%',
+      border: '0 0% 88%',
+      input: '0 0% 88%',
+      ring: '45 70% 45%',
     },
     darkColors: {
-      background: '220 25% 6%',           // True dark blue-black
-      foreground: '220 10% 80%',          // Cool white
-      card: '220 20% 8%',
-      cardForeground: '220 10% 80%',
-      primary: '45 70% 55%',              // Amber accent
-      primaryForeground: '220 25% 6%',
-      secondary: '220 18% 12%',
-      secondaryForeground: '220 10% 75%',
-      muted: '220 18% 12%',
-      mutedForeground: '220 8% 45%',
-      accent: '45 50% 18%',
-      accentForeground: '45 70% 85%',
+      background: '0 0% 4%',              // True black
+      foreground: '0 0% 92%',             // Stark white
+      card: '0 0% 7%',
+      cardForeground: '0 0% 92%',
+      primary: '45 80% 52%',              // Film noir gold
+      primaryForeground: '0 0% 4%',
+      secondary: '0 0% 10%',
+      secondaryForeground: '0 0% 88%',
+      muted: '0 0% 10%',
+      mutedForeground: '0 0% 50%',
+      accent: '45 60% 15%',
+      accentForeground: '45 80% 90%',
       destructive: '0 55% 50%',
       destructiveForeground: '0 0% 100%',
-      border: '220 15% 15%',
-      input: '220 15% 15%',
-      ring: '45 70% 55%',
+      border: '0 0% 14%',
+      input: '0 0% 14%',
+      ring: '45 80% 52%',
     },
     lightVisualization: {
       beatColors: [
-        '#475569', '#64748B', '#94A3B8', '#D4A574',
-        '#334155', '#6B7280', '#9CA3AF', '#B8860B',
+        '#1F2937', '#374151', '#6B7280', '#D4A574',
+        '#111827', '#4B5563', '#9CA3AF', '#B8860B',
       ],
       actColors: {
-        act1: { bg: 'rgba(71, 85, 105, 0.1)', border: 'rgba(71, 85, 105, 0.3)' },
+        act1: { bg: 'rgba(31, 41, 55, 0.1)', border: 'rgba(31, 41, 55, 0.3)' },
         act2a: { bg: 'rgba(212, 165, 116, 0.1)', border: 'rgba(212, 165, 116, 0.3)' },
         act2b: { bg: 'rgba(184, 134, 11, 0.1)', border: 'rgba(184, 134, 11, 0.3)' },
-        act3: { bg: 'rgba(100, 116, 139, 0.1)', border: 'rgba(100, 116, 139, 0.3)' },
+        act3: { bg: 'rgba(75, 85, 99, 0.1)', border: 'rgba(75, 85, 99, 0.3)' },
       },
       sceneColors: [
-        '#475569', '#64748B', '#94A3B8', '#D4A574',
-        '#334155', '#6B7280', '#B8860B', '#78716C',
+        '#1F2937', '#374151', '#6B7280', '#D4A574',
+        '#111827', '#4B5563', '#B8860B', '#57534E',
       ],
       characterColors: [
-        '#475569', '#D4A574', '#64748B', '#B8860B', '#94A3B8',
-        '#78716C', '#334155', '#A3A3A3', '#6B7280', '#9CA3AF',
+        '#1F2937', '#D4A574', '#374151', '#B8860B', '#6B7280',
+        '#57534E', '#111827', '#A3A3A3', '#4B5563', '#9CA3AF',
       ],
       locationColors: [
-        '#64748B', '#71717A', '#78716C', '#6B7280', '#737373',
-        '#A1A1AA', '#A3A3A3', '#9CA3AF', '#94A3B8', '#8B8B8B',
+        '#4B5563', '#6B7280', '#57534E', '#374151', '#737373',
+        '#9CA3AF', '#A3A3A3', '#78716C', '#6B7280', '#8B8B8B',
       ],
     },
     darkVisualization: {
       beatColors: [
-        '#94A3B8', '#CBD5E1', '#E2E8F0', '#FBBF24',
-        '#64748B', '#9CA3AF', '#D1D5DB', '#F59E0B',
+        '#E5E7EB', '#D1D5DB', '#F5F5F5', '#FBBF24',
+        '#9CA3AF', '#F3F4F6', '#FFFFFF', '#F59E0B',
       ],
       actColors: {
-        act1: { bg: 'rgba(148, 163, 184, 0.15)', border: 'rgba(148, 163, 184, 0.4)' },
+        act1: { bg: 'rgba(229, 231, 235, 0.12)', border: 'rgba(229, 231, 235, 0.35)' },
         act2a: { bg: 'rgba(251, 191, 36, 0.15)', border: 'rgba(251, 191, 36, 0.4)' },
         act2b: { bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.4)' },
-        act3: { bg: 'rgba(203, 213, 225, 0.15)', border: 'rgba(203, 213, 225, 0.4)' },
+        act3: { bg: 'rgba(209, 213, 219, 0.12)', border: 'rgba(209, 213, 219, 0.35)' },
       },
       sceneColors: [
-        '#94A3B8', '#CBD5E1', '#E2E8F0', '#FBBF24',
-        '#64748B', '#9CA3AF', '#F59E0B', '#A8A29E',
+        '#E5E7EB', '#D1D5DB', '#F5F5F5', '#FBBF24',
+        '#9CA3AF', '#F3F4F6', '#F59E0B', '#D6D3D1',
       ],
       characterColors: [
-        '#94A3B8', '#FBBF24', '#CBD5E1', '#F59E0B', '#E2E8F0',
-        '#A8A29E', '#64748B', '#D4D4D4', '#9CA3AF', '#D1D5DB',
+        '#E5E7EB', '#FBBF24', '#D1D5DB', '#F59E0B', '#F5F5F5',
+        '#D6D3D1', '#9CA3AF', '#FFFFFF', '#F3F4F6', '#E5E5E5',
       ],
       locationColors: [
-        '#94A3B8', '#A1A1AA', '#A8A29E', '#9CA3AF', '#A3A3A3',
-        '#CBD5E1', '#D4D4D8', '#D6D3D1', '#D1D5DB', '#C0C0C0',
+        '#9CA3AF', '#D1D5DB', '#D6D3D1', '#E5E7EB', '#A3A3A3',
+        '#E5E5E5', '#F3F4F6', '#E7E5E4', '#F5F5F5', '#D4D4D4',
       ],
     },
     uiFont: 'geist',
-    borderRadius: 6,
-    useGlassEffect: false,
+    borderRadius: 4,
     cursor: {
-      mode: 'native',
-      blinkStyle: 'blink',
+      mode: 'line',
+      blinkStyle: 'smooth',
       blinkSpeed: 600,
-      color: '45 70% 55%',  // Amber to match noir theme accent
+      color: '45 80% 52%',  // Gold to match noir accent
       glowEnabled: true,
-      glowIntensity: 0.3,
+      glowIntensity: 0.4,
       width: 2,
     },
   },
@@ -712,101 +701,108 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
     },
     uiFont: 'inter',
     borderRadius: 16,
-    useGlassEffect: true,
   },
 
-  // Western: Dusty trails - earthy, grounded, nostalgic sepia feel
-  western: {
-    themePreset: 'western',
+  // Fantasy: Enchanted realms - purple/gold mystical, ethereal atmosphere
+  fantasy: {
+    themePreset: 'fantasy',
     lightColors: {
-      background: '40 40% 95%',           // Aged cream
-      foreground: '30 25% 28%',           // Dark sepia
-      card: '40 35% 97%',
-      cardForeground: '30 25% 28%',
-      primary: '25 55% 45%',              // Rust
+      background: '270 20% 98%',          // Soft lavender white
+      foreground: '270 15% 28%',          // Deep purple-gray
+      card: '270 15% 99%',
+      cardForeground: '270 15% 28%',
+      primary: '280 60% 50%',             // Magic purple
       primaryForeground: '0 0% 100%',
-      secondary: '40 30% 92%',
-      secondaryForeground: '30 20% 32%',
-      muted: '40 30% 92%',
-      mutedForeground: '30 15% 48%',
-      accent: '35 35% 88%',
-      accentForeground: '30 25% 28%',
+      secondary: '270 15% 95%',
+      secondaryForeground: '270 12% 32%',
+      muted: '270 15% 95%',
+      mutedForeground: '270 10% 48%',
+      accent: '45 70% 90%',               // Soft gold
+      accentForeground: '270 15% 28%',
       destructive: '0 65% 55%',
       destructiveForeground: '0 0% 100%',
-      border: '40 25% 85%',
-      input: '40 25% 85%',
-      ring: '25 55% 45%',
+      border: '270 12% 90%',
+      input: '270 12% 90%',
+      ring: '280 60% 50%',
     },
     darkColors: {
-      background: '28 22% 9%',            // Dark leather
-      foreground: '35 18% 72%',           // Dusty tan
-      card: '28 20% 11%',
-      cardForeground: '35 18% 72%',
-      primary: '25 50% 52%',              // Warm rust
-      primaryForeground: '28 22% 9%',
-      secondary: '28 18% 15%',
-      secondaryForeground: '35 15% 68%',
-      muted: '28 18% 15%',
-      mutedForeground: '30 12% 46%',
-      accent: '25 30% 18%',
-      accentForeground: '35 18% 72%',
+      background: '270 30% 7%',           // Deep forest purple
+      foreground: '270 15% 78%',          // Soft lavender
+      card: '270 25% 10%',
+      cardForeground: '270 15% 78%',
+      primary: '45 70% 58%',              // Enchanted gold
+      primaryForeground: '270 30% 7%',
+      secondary: '270 20% 14%',
+      secondaryForeground: '270 12% 72%',
+      muted: '270 20% 14%',
+      mutedForeground: '270 10% 46%',
+      accent: '280 50% 22%',
+      accentForeground: '280 40% 85%',
       destructive: '0 55% 50%',
       destructiveForeground: '0 0% 100%',
-      border: '28 15% 20%',
-      input: '28 15% 20%',
-      ring: '25 50% 52%',
+      border: '270 18% 18%',
+      input: '270 18% 18%',
+      ring: '45 70% 58%',
     },
     lightVisualization: {
       beatColors: [
-        '#A16207', '#CA8A04', '#B45309', '#92400E',
-        '#78716C', '#84CC16', '#65A30D', '#4D7C0F',
+        '#8B5CF6', '#A78BFA', '#C4B5FD', '#DDD6FE',
+        '#D97706', '#F59E0B', '#FBBF24', '#FCD34D',
       ],
       actColors: {
-        act1: { bg: 'rgba(161, 98, 7, 0.1)', border: 'rgba(161, 98, 7, 0.3)' },
-        act2a: { bg: 'rgba(202, 138, 4, 0.1)', border: 'rgba(202, 138, 4, 0.3)' },
-        act2b: { bg: 'rgba(180, 83, 9, 0.1)', border: 'rgba(180, 83, 9, 0.3)' },
-        act3: { bg: 'rgba(101, 163, 13, 0.1)', border: 'rgba(101, 163, 13, 0.3)' },
+        act1: { bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.3)' },
+        act2a: { bg: 'rgba(217, 119, 6, 0.1)', border: 'rgba(217, 119, 6, 0.3)' },
+        act2b: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)' },
+        act3: { bg: 'rgba(167, 139, 250, 0.1)', border: 'rgba(167, 139, 250, 0.3)' },
       },
       sceneColors: [
-        '#A16207', '#CA8A04', '#B45309', '#92400E',
-        '#78716C', '#84CC16', '#65A30D', '#4D7C0F',
+        '#8B5CF6', '#A78BFA', '#C4B5FD', '#D97706',
+        '#F59E0B', '#FBBF24', '#7C3AED', '#6D28D9',
       ],
       characterColors: [
-        '#A16207', '#CA8A04', '#B45309', '#92400E', '#78716C',
-        '#84CC16', '#65A30D', '#4D7C0F', '#57534E', '#A3A3A3',
+        '#8B5CF6', '#D97706', '#A78BFA', '#F59E0B', '#C4B5FD',
+        '#FBBF24', '#7C3AED', '#FCD34D', '#6D28D9', '#DDD6FE',
       ],
       locationColors: [
-        '#A8A29E', '#D6D3D1', '#E7E5E4', '#F5F5F4', '#78716C',
-        '#D4D4D4', '#E5E5E5', '#F5F5F5', '#A3A3A3', '#CACACA',
+        '#C4B5FD', '#DDD6FE', '#EDE9FE', '#F5F3FF', '#A78BFA',
+        '#FEF3C7', '#FDE68A', '#FCD34D', '#FBBF24', '#F59E0B',
       ],
     },
     darkVisualization: {
       beatColors: [
-        '#FCD34D', '#FBBF24', '#F59E0B', '#D97706',
-        '#A8A29E', '#BEF264', '#A3E635', '#84CC16',
+        '#A78BFA', '#C4B5FD', '#DDD6FE', '#EDE9FE',
+        '#FBBF24', '#FCD34D', '#FDE68A', '#FEF3C7',
       ],
       actColors: {
-        act1: { bg: 'rgba(252, 211, 77, 0.15)', border: 'rgba(252, 211, 77, 0.4)' },
+        act1: { bg: 'rgba(167, 139, 250, 0.15)', border: 'rgba(167, 139, 250, 0.4)' },
         act2a: { bg: 'rgba(251, 191, 36, 0.15)', border: 'rgba(251, 191, 36, 0.4)' },
-        act2b: { bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.4)' },
-        act3: { bg: 'rgba(163, 230, 53, 0.15)', border: 'rgba(163, 230, 53, 0.4)' },
+        act2b: { bg: 'rgba(252, 211, 77, 0.15)', border: 'rgba(252, 211, 77, 0.4)' },
+        act3: { bg: 'rgba(196, 181, 253, 0.15)', border: 'rgba(196, 181, 253, 0.4)' },
       },
       sceneColors: [
-        '#FCD34D', '#FBBF24', '#F59E0B', '#D97706',
-        '#A8A29E', '#BEF264', '#A3E635', '#84CC16',
+        '#A78BFA', '#C4B5FD', '#DDD6FE', '#FBBF24',
+        '#FCD34D', '#FDE68A', '#8B5CF6', '#7C3AED',
       ],
       characterColors: [
-        '#FCD34D', '#FBBF24', '#F59E0B', '#D97706', '#A8A29E',
-        '#BEF264', '#A3E635', '#84CC16', '#78716C', '#D4D4D4',
+        '#A78BFA', '#FBBF24', '#C4B5FD', '#FCD34D', '#DDD6FE',
+        '#FDE68A', '#8B5CF6', '#FEF3C7', '#7C3AED', '#EDE9FE',
       ],
       locationColors: [
-        '#D6D3D1', '#E7E5E4', '#F5F5F4', '#FAFAF9', '#A8A29E',
-        '#E5E5E5', '#F5F5F5', '#FAFAFA', '#D4D4D4', '#E0E0E0',
+        '#DDD6FE', '#EDE9FE', '#F5F3FF', '#FAF5FF', '#C4B5FD',
+        '#FEF3C7', '#FDE68A', '#FCD34D', '#FBBF24', '#F59E0B',
       ],
     },
-    uiFont: 'ibm-plex',
-    borderRadius: 4,
-    useGlassEffect: false,
+    uiFont: 'inter',
+    borderRadius: 12,
+    cursor: {
+      mode: 'native',
+      blinkStyle: 'smooth',
+      blinkSpeed: 530,
+      color: '45 70% 58%',  // Gold to match fantasy theme
+      glowEnabled: true,
+      glowIntensity: 0.35,
+      width: 2,
+    },
   },
 
   // Sci-Fi: Future forward - cool, precise, modern tech aesthetic
@@ -900,7 +896,6 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
     },
     uiFont: 'geist',
     borderRadius: 6,
-    useGlassEffect: true,
     cursor: {
       mode: 'native',
       blinkStyle: 'smooth',
@@ -912,8 +907,105 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
     },
   },
 
-  custom: {
-    themePreset: 'custom',
-    // Will use user-defined colors
+  // Horror: Blood and darkness - crimson red, void black, eerie atmosphere
+  horror: {
+    themePreset: 'horror',
+    lightColors: {
+      background: '0 5% 97%',             // Pale bone white
+      foreground: '0 10% 20%',            // Near black text
+      card: '0 5% 99%',
+      cardForeground: '0 10% 20%',
+      primary: '0 70% 45%',               // Blood red
+      primaryForeground: '0 0% 100%',
+      secondary: '0 5% 94%',
+      secondaryForeground: '0 8% 25%',
+      muted: '0 5% 94%',
+      mutedForeground: '0 5% 45%',
+      accent: '0 40% 92%',                // Soft crimson
+      accentForeground: '0 10% 20%',
+      destructive: '0 80% 50%',
+      destructiveForeground: '0 0% 100%',
+      border: '0 5% 88%',
+      input: '0 5% 88%',
+      ring: '0 70% 45%',
+    },
+    darkColors: {
+      background: '0 0% 3%',              // Void black
+      foreground: '30 10% 82%',           // Bone white
+      card: '0 15% 6%',
+      cardForeground: '30 10% 82%',
+      primary: '0 70% 48%',               // Blood red
+      primaryForeground: '0 0% 100%',
+      secondary: '0 12% 10%',
+      secondaryForeground: '30 8% 75%',
+      muted: '0 12% 10%',
+      mutedForeground: '0 5% 45%',
+      accent: '0 50% 15%',
+      accentForeground: '0 40% 90%',
+      destructive: '0 80% 50%',
+      destructiveForeground: '0 0% 100%',
+      border: '0 10% 14%',
+      input: '0 10% 14%',
+      ring: '0 70% 48%',
+    },
+    lightVisualization: {
+      beatColors: [
+        '#DC2626', '#EF4444', '#F87171', '#FCA5A5',
+        '#1F2937', '#374151', '#4B5563', '#6B7280',
+      ],
+      actColors: {
+        act1: { bg: 'rgba(220, 38, 38, 0.1)', border: 'rgba(220, 38, 38, 0.3)' },
+        act2a: { bg: 'rgba(31, 41, 55, 0.1)', border: 'rgba(31, 41, 55, 0.3)' },
+        act2b: { bg: 'rgba(55, 65, 81, 0.1)', border: 'rgba(55, 65, 81, 0.3)' },
+        act3: { bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.3)' },
+      },
+      sceneColors: [
+        '#DC2626', '#EF4444', '#F87171', '#1F2937',
+        '#374151', '#4B5563', '#B91C1C', '#991B1B',
+      ],
+      characterColors: [
+        '#DC2626', '#1F2937', '#EF4444', '#374151', '#F87171',
+        '#4B5563', '#B91C1C', '#6B7280', '#991B1B', '#9CA3AF',
+      ],
+      locationColors: [
+        '#4B5563', '#6B7280', '#9CA3AF', '#D1D5DB', '#374151',
+        '#FCA5A5', '#F87171', '#EF4444', '#DC2626', '#B91C1C',
+      ],
+    },
+    darkVisualization: {
+      beatColors: [
+        '#F87171', '#EF4444', '#DC2626', '#B91C1C',
+        '#D1D5DB', '#9CA3AF', '#6B7280', '#4B5563',
+      ],
+      actColors: {
+        act1: { bg: 'rgba(248, 113, 113, 0.15)', border: 'rgba(248, 113, 113, 0.4)' },
+        act2a: { bg: 'rgba(209, 213, 219, 0.12)', border: 'rgba(209, 213, 219, 0.35)' },
+        act2b: { bg: 'rgba(156, 163, 175, 0.12)', border: 'rgba(156, 163, 175, 0.35)' },
+        act3: { bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.4)' },
+      },
+      sceneColors: [
+        '#F87171', '#EF4444', '#DC2626', '#D1D5DB',
+        '#9CA3AF', '#6B7280', '#FCA5A5', '#B91C1C',
+      ],
+      characterColors: [
+        '#F87171', '#D1D5DB', '#EF4444', '#9CA3AF', '#DC2626',
+        '#6B7280', '#FCA5A5', '#4B5563', '#B91C1C', '#E5E7EB',
+      ],
+      locationColors: [
+        '#6B7280', '#9CA3AF', '#D1D5DB', '#E5E7EB', '#4B5563',
+        '#FCA5A5', '#F87171', '#EF4444', '#DC2626', '#B91C1C',
+      ],
+    },
+    uiFont: 'geist',
+    borderRadius: 4,
+    cursor: {
+      mode: 'line',
+      blinkStyle: 'blink',
+      blinkSpeed: 700,
+      color: '0 70% 48%',  // Blood red to match horror theme
+      glowEnabled: true,
+      glowIntensity: 0.5,
+      width: 2,
+    },
   },
 };

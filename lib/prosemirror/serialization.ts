@@ -89,6 +89,7 @@ export function plainTextToProseMirror(text: string): ProseMirrorNode {
   const content: ProseMirrorJSON[] = [];
 
   let i = 0;
+  let sceneCount = 0;
   let lastCharacterId: string | null = null;
 
   while (i < lines.length) {
@@ -106,12 +107,13 @@ export function plainTextToProseMirror(text: string): ProseMirrorNode {
     // Scene heading
     if (isSceneHeading(trimmed)) {
       const { type, location, timeOfDay } = parseSceneHeading(trimmed);
-      // Generate deterministic ID from line number and content
+      sceneCount++;
+      // Generate unique ID using scene count + line number to ensure uniqueness
       const contentHash = trimmed.slice(0, 20).replace(/[^a-z0-9]/gi, '').toLowerCase();
       content.push({
         type: 'scene_heading',
         attrs: {
-          id: `scene-${i}-${contentHash || 'empty'}`,
+          id: `scene-${sceneCount}-${i}-${contentHash || 'empty'}`,
           type,
           location,
           timeOfDay,

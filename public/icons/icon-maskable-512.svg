@@ -1,11 +1,10 @@
 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <!-- Maskable icon with safe zone (10% padding = 51.2px each side) -->
+  <!-- Maskable icon with safe zone (10% padding) -->
   <rect width="512" height="512" fill="#262626"/>
-  <defs>
-    <mask id="vCutMask512">
-      <rect width="512" height="512" fill="white"/>
-      <path d="M 154 51 L 256 358 L 358 51 Z" fill="black"/>
-    </mask>
-  </defs>
-  <rect x="51" y="51" width="410" height="410" rx="68" fill="#fafafa" mask="url(#vCutMask512)"/>
+  <g transform="translate(76.8, 76.8) scale(0.3584)">
+    <!-- A shape -->
+    <polygon points="320,368 452,368 452,632 308,632 164,488" fill="#fafafa"/>
+    <!-- V shape - folded paper style -->
+    <polygon points="500,368 620,368 620,512 764,368 836,368 572,632 500,632" fill="#fafafa"/>
+  </g>
 </svg>

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { Logo } from "@/components/logo"
 
 export function Footer() {
   return (
@@ -7,8 +8,9 @@ export function Footer() {
       <div className="container max-w-5xl mx-auto px-6 py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
           <div className="col-span-2 md:col-span-1">
-            <Link href="/" className="font-semibold text-lg mb-4 inline-block">
-              Verso
+            <Link href="/" className="flex items-center gap-2 font-semibold text-lg mb-4">
+              <Logo size={32} />
+              <span>Verso</span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Professional screenplay writing software for modern storytellers.

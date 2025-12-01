@@ -113,14 +113,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     };
     root.style.setProperty('--pm-line-height', lineHeightMap[settings.editor.lineHeightDensity]);
 
-    // Apply theme temperature filter
-    const temperatureFilters = {
-      neutral: 'none',
-      warm: 'sepia(0.08)',  // Subtle warm amber tint
-      cool: 'hue-rotate(10deg) saturate(1.1)',  // Subtle cool blue tint
-    };
-    root.style.setProperty('--theme-temperature-filter', temperatureFilters[settings.visual.themeTemperature]);
-
     // Apply font classes
     root.setAttribute('data-ui-font', settings.visual.uiFont);
     root.setAttribute('data-screenplay-font', settings.visual.screenplayFont);

@@ -14,6 +14,7 @@ interface ImageUploadProps {
   aspectRatio?: 'square' | 'banner' | 'auto'
   className?: string
   placeholder?: string
+  compact?: boolean
 }
 
 export function ImageUpload({
@@ -24,6 +25,7 @@ export function ImageUpload({
   aspectRatio = 'auto',
   className,
   placeholder = 'Drop an image here or click to upload',
+  compact = false,
 }: ImageUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -116,29 +118,46 @@ export function ImageUpload({
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => inputRef.current?.click()}
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4" />
-              )}
-              <span className="ml-2">Change</span>
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              onClick={handleRemove}
-              disabled={isUploading}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            {compact ? (
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                disabled={isUploading}
+                className="p-3 rounded-full bg-white/90 hover:bg-white transition-colors"
+              >
+                {isUploading ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-gray-700" />
+                ) : (
+                  <Upload className="h-5 w-5 text-gray-700" />
+                )}
+              </button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => inputRef.current?.click()}
+                  disabled={isUploading}
+                >
+                  {isUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  <span className="ml-2">Change</span>
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleRemove}
+                  disabled={isUploading}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </div>
         </div>
       ) : (
@@ -149,7 +168,8 @@ export function ImageUpload({
           onDragLeave={handleDragLeave}
           className={cn(
             'border-2 border-dashed rounded-lg cursor-pointer transition-colors',
-            'flex flex-col items-center justify-center gap-2 p-6',
+            'flex flex-col items-center justify-center',
+            compact ? 'gap-1 p-2' : 'gap-2 p-4',
             aspectClasses[aspectRatio],
             isDragging
               ? 'border-primary bg-primary/5'
@@ -159,18 +179,28 @@ export function ImageUpload({
         >
           {isUploading ? (
             <>
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Uploading...</p>
+              <Loader2 className={cn(
+                'animate-spin text-muted-foreground',
+                compact ? 'h-5 w-5' : 'h-8 w-8'
+              )} />
+              {!compact && <p className="text-sm text-muted-foreground">Uploading...</p>}
             </>
           ) : (
             <>
-              <ImageIcon className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground text-center">
-                {placeholder}
-              </p>
-              <p className="text-xs text-muted-foreground/60">
-                JPEG, PNG, GIF, WebP (max 5MB)
-              </p>
+              <ImageIcon className={cn(
+                'text-muted-foreground',
+                compact ? 'h-5 w-5' : 'h-8 w-8'
+              )} />
+              {!compact && (
+                <>
+                  <p className="text-sm text-muted-foreground text-center">
+                    {placeholder}
+                  </p>
+                  <p className="text-xs text-muted-foreground/60">
+                    JPEG, PNG, GIF, WebP (max 5MB)
+                  </p>
+                </>
+              )}
             </>
           )}
         </div>

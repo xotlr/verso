@@ -147,16 +147,16 @@ export function Aurora({
     speedRef.current = speed;
   }, [speed]);
 
-  // Get theme-based colors - rich gradient palette with 5 stops
+  // Get theme-based colors - neutral gray palette matching primary theme
   const getThemeColors = useCallback((): string[] => {
     if (colorStops) return colorStops;
 
     if (resolvedTheme === 'dark') {
-      // Dark mode: deep rich colors - blues, teals, purples, magentas
-      return ['#1a365d', '#2d5a7b', '#4a3f6b', '#6b3a5d', '#2d4a5a'];
+      // Dark mode: subtle cool grays
+      return ['#2a2a2a', '#3d3d3d', '#4a4a4a', '#3d3d3d', '#2a2a2a'];
     } else {
-      // Light mode: soft pastels - corals, lavenders, sky blues, mints, peaches
-      return ['#e8b4b8', '#b8c5d6', '#c9b8d9', '#b8d4c8', '#d9c8b8'];
+      // Light mode: soft warm grays/silvers
+      return ['#d4d4d4', '#e5e5e5', '#d9d9d9', '#e0e0e0', '#d4d4d4'];
     }
   }, [colorStops, resolvedTheme]);
 

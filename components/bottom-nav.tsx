@@ -3,12 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import {
   Home,
   FileText,
   PenTool,
   BarChart3,
-  User,
   Rows3,
   LayoutGrid,
   TrendingUp,
@@ -23,10 +23,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { ProfileAvatar } from '@/components/profile/profile-avatar';
 
 export function BottomNav() {
   const router = useRouter();
   const pathname = usePathname();
+  const { data: session } = useSession();
   const [lastScreenplayId, setLastScreenplayId] = useState<string | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -86,23 +88,46 @@ export function BottomNav() {
                         pathname.startsWith('/visualization/') ||
                         pathname.startsWith('/graph/');
 
+  // Calculate active tab index for sliding indicator
+  const getActiveIndex = () => {
+    if (isActive('/home')) return 0;
+    if (isActive('/screenplays')) return 1;
+    if (createOpen) return 2;
+    if (isToolsActive || toolsOpen) return 3;
+    if (isActive('/settings')) return 4;
+    return -1; // No indicator
+  };
+
+  const activeIndex = getActiveIndex();
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background/95 backdrop-blur-lg border-t border-border safe-area-bottom">
-      <div className="flex items-center justify-around h-16 px-2">
+      <div className="relative flex items-center justify-around h-16 px-2">
+        {/* Sliding active indicator */}
+        {activeIndex >= 0 && (
+          <div
+            className="absolute top-1 h-0.5 w-8 bg-primary rounded-full transition-all duration-300 ease-out"
+            style={{
+              left: `calc(${activeIndex} * 20% + 10% - 16px)`,
+            }}
+          />
+        )}
         {/* Home */}
         <Link
           href="/home"
           className={cn(
-            "flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg transition-all min-w-[56px] touch-manipulation relative",
+            "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
+            "transition-colors duration-200",
             isActive('/home')
               ? "text-primary font-medium"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          {isActive('/home') && (
-            <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
-          )}
-          <Home className={cn("h-5 w-5 transition-transform", isActive('/home') && "scale-110")} />
+          <Home className={cn(
+            "h-5 w-5 transition-all duration-200",
+            isActive('/home') && "scale-110",
+            "group-active:scale-90 group-active:rotate-[-8deg]"
+          )} />
           <span className="text-[10px] font-medium">Home</span>
         </Link>
 
@@ -110,16 +135,18 @@ export function BottomNav() {
         <Link
           href="/screenplays"
           className={cn(
-            "flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg transition-all min-w-[56px] touch-manipulation relative",
+            "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
+            "transition-colors duration-200",
             isActive('/screenplays')
               ? "text-primary font-medium"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          {isActive('/screenplays') && (
-            <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
-          )}
-          <FileText className={cn("h-5 w-5 transition-transform", isActive('/screenplays') && "scale-110")} />
+          <FileText className={cn(
+            "h-5 w-5 transition-all duration-200",
+            isActive('/screenplays') && "scale-110",
+            "group-active:scale-90 group-active:rotate-[-8deg]"
+          )} />
           <span className="text-[10px] font-medium">Files</span>
         </Link>
 
@@ -128,16 +155,18 @@ export function BottomNav() {
           <SheetTrigger asChild>
             <button
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg transition-all min-w-[56px] touch-manipulation relative",
+                "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
+                "transition-colors duration-200",
                 createOpen
                   ? "text-primary font-medium"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {createOpen && (
-                <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
-              )}
-              <Plus className={cn("h-5 w-5 transition-transform", createOpen && "scale-110")} />
+              <Plus className={cn(
+                "h-5 w-5 transition-all duration-200",
+                createOpen && "scale-110 rotate-45",
+                "group-active:scale-90 group-active:rotate-90"
+              )} />
               <span className="text-[10px] font-medium">Create</span>
             </button>
           </SheetTrigger>
@@ -203,16 +232,18 @@ export function BottomNav() {
           <SheetTrigger asChild>
             <button
               className={cn(
-                "flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg transition-all min-w-[56px] touch-manipulation relative",
+                "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
+                "transition-colors duration-200",
                 isToolsActive || toolsOpen
                   ? "text-primary font-medium"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {(isToolsActive || toolsOpen) && (
-                <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
-              )}
-              <BarChart3 className={cn("h-5 w-5 transition-transform", (isToolsActive || toolsOpen) && "scale-110")} />
+              <BarChart3 className={cn(
+                "h-5 w-5 transition-all duration-200",
+                (isToolsActive || toolsOpen) && "scale-110",
+                "group-active:scale-90 group-active:rotate-[-8deg]"
+              )} />
               <span className="text-[10px] font-medium">Tools</span>
             </button>
           </SheetTrigger>
@@ -311,16 +342,25 @@ export function BottomNav() {
         <Link
           href="/settings"
           className={cn(
-            "flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg transition-all min-w-[56px] touch-manipulation relative",
+            "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
+            "transition-colors duration-200",
             isActive('/settings')
               ? "text-primary font-medium"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          {isActive('/settings') && (
-            <div className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
-          )}
-          <User className={cn("h-5 w-5 transition-transform", isActive('/settings') && "scale-110")} />
+          <div className={cn(
+            "transition-all duration-200",
+            isActive('/settings') && "scale-110",
+            "group-active:scale-90"
+          )}>
+            <ProfileAvatar
+              userId={session?.user?.id || ''}
+              imageUrl={session?.user?.image}
+              name={session?.user?.name}
+              size="xs"
+            />
+          </div>
           <span className="text-[10px] font-medium">Profile</span>
         </Link>
       </div>

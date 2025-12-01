@@ -1,9 +1,6 @@
-<svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <mask id="vCut">
-      <rect width="240" height="240" rx="40" fill="white"/>
-      <path d="M 50 0 L 120 190 L 190 0 Z" fill="black"/>
-    </mask>
-  </defs>
-  <rect width="240" height="240" rx="40" fill="currentColor" mask="url(#vCut)"/>
+<svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
+  <!-- A shape -->
+  <polygon points="320,368 452,368 452,632 308,632 164,488" fill="currentColor"/>
+  <!-- V shape - folded paper style -->
+  <polygon points="500,368 620,368 620,512 764,368 836,368 572,632 500,632" fill="currentColor"/>
 </svg>

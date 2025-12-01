@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -19,17 +19,84 @@ interface AppLayoutProps {
 export default function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
   const [focusMode, setFocusMode] = useState(false);
+  const [backdropActive, setBackdropActive] = useState(false);
   const isEditorRoute = pathname.includes('/screenplay/');
 
-  // Listen for focus mode toggle events
+  // Refs for accessibility and scroll preservation
+  const focusContainerRef = useRef<HTMLDivElement>(null);
+  const scrollPositionRef = useRef(0);
+
+  // Listen for focus mode toggle events with staggered backdrop timing
   useEffect(() => {
     const handleFocusModeToggle = () => {
-      setFocusMode(prev => !prev);
+      setFocusMode(prev => {
+        const newMode = !prev;
+        if (newMode) {
+          // Save scroll position before entering focus mode
+          const scrollContainer = document.querySelector('.pm-editor-scroll-container');
+          scrollPositionRef.current = scrollContainer?.scrollTop || 0;
+          setBackdropActive(true);
+        } else {
+          // Restore scroll position after exiting
+          setTimeout(() => {
+            const scrollContainer = document.querySelector('.pm-editor-scroll-container');
+            if (scrollContainer) {
+              scrollContainer.scrollTop = scrollPositionRef.current;
+            }
+            setBackdropActive(false);
+          }, 150); // Increased delay for smoother exit
+        }
+        return newMode;
+      });
     };
 
     window.addEventListener('focus-mode-toggle', handleFocusModeToggle);
     return () => window.removeEventListener('focus-mode-toggle', handleFocusModeToggle);
   }, []);
+
+  // Body scroll lock when focus mode is active
+  useEffect(() => {
+    if (focusMode) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [focusMode]);
+
+  // Focus trap for keyboard accessibility
+  useEffect(() => {
+    if (!focusMode) return;
+
+    const container = focusContainerRef.current;
+    if (!container) return;
+
+    const handleTabKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+
+      const focusableElements = container.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"]), [contenteditable="true"]'
+      );
+
+      if (focusableElements.length === 0) return;
+
+      const firstElement = focusableElements[0] as HTMLElement;
+      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleTabKey);
+    return () => document.removeEventListener('keydown', handleTabKey);
+  }, [focusMode]);
 
   // Exit focus mode with Escape key
   useEffect(() => {
@@ -78,18 +145,45 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </Button>
           </div>
 
-          <main className={cn(
-            "flex-1 overflow-auto transition-all duration-300",
-            focusMode && "p-4",
-            // Add bottom padding on mobile for bottom nav (except in focus mode)
-            !focusMode && "pb-16 md:pb-0"
-          )}>
-            {children}
+          <main
+            ref={focusContainerRef}
+            className={cn(
+              "flex-1 overflow-auto transition-all duration-400 ease-out",
+              focusMode
+                ? "fixed inset-0 z-40 flex items-center justify-center p-4 md:p-8"
+                : "pb-16 md:pb-0"
+            )}
+            role={focusMode ? "dialog" : undefined}
+            aria-modal={focusMode ? "true" : undefined}
+            aria-label={focusMode ? "Focus mode editor" : undefined}
+          >
+            <div className={cn(
+              "w-full h-full transition-all duration-400",
+              focusMode && "max-w-5xl max-h-[90vh] overflow-auto rounded-lg md:rounded-xl"
+            )}>
+              {children}
+            </div>
           </main>
+
+          {/* Screen reader announcement for focus mode */}
+          {focusMode && (
+            <div className="sr-only" role="status" aria-live="polite">
+              Focus mode activated. Press Escape to exit.
+            </div>
+          )}
 
           {/* Bottom Navigation - mobile only, hidden in focus mode */}
           {!focusMode && <BottomNav />}
         </SidebarInset>
+
+        {/* Focus mode backdrop overlay */}
+        <div
+          className={cn(
+            "fixed inset-0 z-30 bg-black/75 backdrop-blur-[8px] transition-opacity duration-400 ease-out",
+            backdropActive ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}
+          aria-hidden="true"
+        />
 
         {/* PWA Install Prompt */}
         <InstallPrompt />

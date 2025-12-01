@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useSession, signOut } from 'next-auth/react';
 import { Search, Bell, Sun, Moon, Settings, LogOut, User } from 'lucide-react';
+import { FriesIcon } from '@/components/icons/fries-icon';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
 import {
@@ -65,18 +66,15 @@ export function MobileHeaderMenu() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative h-8 w-8 p-0"
+          className="h-8 w-8"
           aria-label="Open menu"
         >
-          <Avatar className="h-7 w-7" key={user?.image || 'no-avatar'}>
-            <AvatarImage src={user?.image || undefined} alt={user?.name || 'User'} />
-            <AvatarFallback
-              className="text-xs text-white font-medium"
-              style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
-            >
-              {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
-            </AvatarFallback>
-          </Avatar>
+          <div className={cn(
+            "transition-transform duration-300 ease-out",
+            open && "rotate-90 scale-90"
+          )}>
+            <FriesIcon size={20} />
+          </div>
         </Button>
       </SheetTrigger>
 
@@ -105,67 +103,103 @@ export function MobileHeaderMenu() {
         <nav className="flex-1 py-4 space-y-1">
           {/* Profile */}
           {session?.user?.id && (
-            <MenuItem
-              icon={User}
-              label="View Profile"
-              onClick={() => handleNavigation(`/profile/${session.user.id}`)}
-            />
+            <div
+              className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
+              style={{ animationDelay: '0ms', animationDuration: '300ms' }}
+            >
+              <MenuItem
+                icon={User}
+                label="View Profile"
+                onClick={() => handleNavigation(`/profile/${session.user.id}`)}
+              />
+            </div>
           )}
 
           {/* Search */}
-          <MenuItem icon={Search} label="Search" onClick={handleSearch} />
+          <div
+            className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
+            style={{ animationDelay: '50ms', animationDuration: '300ms' }}
+          >
+            <MenuItem icon={Search} label="Search" onClick={handleSearch} />
+          </div>
 
           {/* Notifications */}
-          <MenuItem
-            icon={Bell}
-            label="Notifications"
-            onClick={() => handleNavigation('/settings')}
-          />
-
-          <div className="h-px bg-border my-3" />
-
-          {/* Theme Toggle - Inline with Switch */}
-          <div className="flex items-center justify-between px-4 py-3.5 min-h-[48px] rounded-lg hover:bg-accent transition-colors">
-            <div className="flex items-center gap-4">
-              {theme === 'dark' ? (
-                <Moon className="h-5 w-5 shrink-0" />
-              ) : (
-                <Sun className="h-5 w-5 shrink-0" />
-              )}
-              <span className="text-[15px] font-medium">Dark Mode</span>
-            </div>
-            <Switch
-              checked={theme === 'dark'}
-              onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+          <div
+            className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
+            style={{ animationDelay: '100ms', animationDuration: '300ms' }}
+          >
+            <MenuItem
+              icon={Bell}
+              label="Notifications"
+              onClick={() => handleNavigation('/settings')}
             />
           </div>
 
-          {/* Settings */}
-          <MenuItem
-            icon={Settings}
-            label="Settings"
-            onClick={() => handleNavigation('/settings')}
+          <div
+            className="h-px bg-border my-3 animate-in fade-in fill-mode-both"
+            style={{ animationDelay: '150ms', animationDuration: '200ms' }}
           />
 
-          <div className="h-px bg-border my-3" />
+          {/* Theme Toggle - Inline with Switch */}
+          <div
+            className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
+            style={{ animationDelay: '150ms', animationDuration: '300ms' }}
+          >
+            <div className="flex items-center justify-between px-4 py-3.5 min-h-[48px] rounded-lg hover:bg-accent transition-colors">
+              <div className="flex items-center gap-4">
+                {theme === 'dark' ? (
+                  <Moon className="h-5 w-5 shrink-0" />
+                ) : (
+                  <Sun className="h-5 w-5 shrink-0" />
+                )}
+                <span className="text-[15px] font-medium">Dark Mode</span>
+              </div>
+              <Switch
+                checked={theme === 'dark'}
+                onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+              />
+            </div>
+          </div>
+
+          {/* Settings */}
+          <div
+            className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
+            style={{ animationDelay: '200ms', animationDuration: '300ms' }}
+          >
+            <MenuItem
+              icon={Settings}
+              label="Settings"
+              onClick={() => handleNavigation('/settings')}
+            />
+          </div>
+
+          <div
+            className="h-px bg-border my-3 animate-in fade-in fill-mode-both"
+            style={{ animationDelay: '250ms', animationDuration: '200ms' }}
+          />
 
           {/* Log Out */}
-          <button
-            onClick={() => {
-              setOpen(false);
-              signOut({ callbackUrl: '/' });
-            }}
-            className={cn(
-              'flex items-center gap-4 w-full px-4 py-3.5',
-              'rounded-lg transition-all duration-200',
-              'hover:bg-destructive/10 active:scale-[0.98]',
-              'text-destructive',
-              'min-h-[48px]'
-            )}
+          <div
+            className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
+            style={{ animationDelay: '250ms', animationDuration: '300ms' }}
           >
-            <LogOut className="h-5 w-5 shrink-0" />
-            <span className="text-[15px] font-medium">Log Out</span>
-          </button>
+            <button
+              onClick={() => {
+                setOpen(false);
+                signOut({ callbackUrl: '/' });
+              }}
+              className={cn(
+                'flex items-center gap-4 w-full px-4 py-3.5',
+                'rounded-lg transition-all duration-200',
+                'hover:bg-destructive/10 active:scale-[0.98]',
+                'text-destructive',
+                'min-h-[48px]'
+              )}
+            >
+              <LogOut className="h-5 w-5 shrink-0" />
+              <span className="text-[15px] font-medium">Log Out</span>
+            </button>
+          </div>
         </nav>
 
         <div className="border-t pt-4 pb-2">

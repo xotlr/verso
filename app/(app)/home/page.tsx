@@ -601,7 +601,7 @@ function WorkspacePageContent() {
                   <TabsTrigger value="projects" className="flex-1 sm:flex-none gap-2">
                     <FolderOpen className="h-4 w-4" />
                     <span className="hidden xs:inline">Projects</span>
-                    <span className="xs:hidden">Proj</span>
+                    <span className="xs:hidden">Projects</span>
                     <Badge variant="secondary" className="ml-1 text-[10px] sm:text-xs px-1.5">{filteredProjects.length}</Badge>
                   </TabsTrigger>
                 </TabsList>

@@ -9,25 +9,28 @@ interface ProfileAvatarProps {
   imageUrl?: string | null
   name?: string | null
   email?: string | null
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'md' | 'lg'
   className?: string
 }
 
 const sizeClasses = {
-  sm: 'h-[72px] w-[72px]',     // 72px - hover card
-  md: 'h-32 w-32',              // 128px - mobile profile
-  lg: 'h-32 w-32 sm:h-[134px] sm:w-[134px]', // 128px mobile, 134px desktop
+  xs: 'h-5 w-5',               // 20px - bottom nav
+  sm: 'h-10 w-10',             // 40px - hover cards
+  md: 'h-24 w-24',             // 96px - mobile profile
+  lg: 'h-32 w-32',             // 128px - desktop profile/settings
 }
 
 const borderClasses = {
-  sm: 'border-[4px]',
-  md: 'border-[5px]',
+  xs: 'border-0',
+  sm: 'border-2',              // reduced for smaller size
+  md: 'border-[4px]',
   lg: 'border-[5px]',
 }
 
 const textClasses = {
-  sm: 'text-xl',
-  md: 'text-3xl',
+  xs: 'text-[8px]',
+  sm: 'text-sm',               // reduced for smaller size
+  md: 'text-2xl',
   lg: 'text-3xl sm:text-4xl',
 }
 
@@ -53,7 +56,7 @@ export function ProfileAvatar({
       className={cn(
         sizeClasses[size],
         borderClasses[size],
-        'border-card shadow-lg ring-1 ring-black/5 rounded-md',
+        'border-background shadow-lg ring-1 ring-black/5 rounded-md',
         className
       )}
     >

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useTeam } from "@/contexts/team-context";
 import { ChevronsUpDown, Plus, Check, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,7 +75,7 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
     return (
       <div className="flex items-center gap-3 px-3 py-2">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-          <span className="text-sm font-bold text-primary-foreground">V</span>
+          <Logo size={36} color="currentColor" className="text-primary-foreground" />
         </div>
         {!isCollapsed && (
           <div className="flex flex-col gap-0.5">
@@ -100,7 +101,7 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
               {currentTeam ? (
                 <Users className="h-4 w-4 text-primary-foreground" />
               ) : (
-                <span className="text-sm font-bold text-primary-foreground">V</span>
+                <Logo size={36} color="currentColor" className="text-primary-foreground" />
               )}
             </div>
             {!isCollapsed && (
@@ -133,7 +134,7 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
             className="flex items-center gap-3 py-2"
           >
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
-              <span className="text-xs font-bold text-primary">V</span>
+              <Logo size={20} color="currentColor" className="text-primary" />
             </div>
             <div className="flex flex-col gap-0.5 flex-1">
               <span className="text-sm font-medium">Personal</span>

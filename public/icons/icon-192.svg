@@ -1,9 +1,9 @@
 <svg viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <mask id="vCut192">
-      <rect width="192" height="192" rx="32" fill="white"/>
-      <path d="M 40 0 L 96 152 L 152 0 Z" fill="black"/>
-    </mask>
-  </defs>
-  <rect width="192" height="192" rx="32" fill="#262626" mask="url(#vCut192)"/>
+  <rect width="192" height="192" rx="32" fill="#262626"/>
+  <g transform="translate(19.2, 19.2) scale(0.1536)">
+    <!-- A shape -->
+    <polygon points="320,368 452,368 452,632 308,632 164,488" fill="#fafafa"/>
+    <!-- V shape - folded paper style -->
+    <polygon points="500,368 620,368 620,512 764,368 836,368 572,632 500,632" fill="#fafafa"/>
+  </g>
 </svg>

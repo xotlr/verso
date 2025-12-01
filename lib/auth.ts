@@ -106,7 +106,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       return url
     },
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id
         // Fetch user data on initial sign-in and store in token
@@ -120,13 +120,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       // Refresh user data when session is updated (after profile changes)
       if (trigger === "update" && token.id) {
+        // Accept data passed from updateSession() call
+        if (session?.user) {
+          if (session.user.image !== undefined) {
+            token.image = session.user.image
+          }
+          if (session.user.name !== undefined) {
+            token.name = session.user.name
+          }
+        }
+        // Also verify/refresh plan from database
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { plan: true, image: true, name: true },
+          select: { plan: true },
         })
-        token.plan = dbUser?.plan || "FREE"
-        token.image = dbUser?.image
-        token.name = dbUser?.name
+        if (dbUser) {
+          token.plan = dbUser.plan || "FREE"
+        }
       }
       return token
     },

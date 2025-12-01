@@ -870,63 +870,57 @@
 
 /* Base transition for wrapper */
 .pm-editor-wrapper {
-  transition: transform var(--pm-focus-transition);
+  transition: all 400ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Center content when sidebar collapses */
+/* Focus mode - elevated pop-out effect */
 .pm-editor-wrapper.pm-focus-mode {
-  transform: translateX(var(--pm-sidebar-offset));
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--background);
+
+  /* 4-layer shadow stack for convincing depth */
+  box-shadow:
+    0 0 0 1px hsl(0 0% 100% / 0.08),          /* Rim light */
+    0 10px 25px -8px hsl(0 0% 0% / 0.25),     /* Near shadow */
+    0 25px 50px -12px hsl(0 0% 0% / 0.35),    /* Mid depth */
+    0 0 100px hsl(0 0% 0% / 0.15);            /* Ambient */
+
+  /* Enter animation with emphasized decelerate */
+  animation: focus-mode-enter 400ms cubic-bezier(0.05, 0.7, 0.1, 1) 50ms both;
 }
 
-/* Focus mode overlay - vignette/glow effect */
-.pm-editor-wrapper.pm-focus-mode::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 35;
-  opacity: 1;
-  box-shadow: var(--pm-focus-vignette);
-  transition: opacity var(--pm-focus-transition);
+@keyframes focus-mode-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
-/* Dark mode: white glow effect */
-.dark .pm-editor-wrapper.pm-focus-mode::after {
-  box-shadow: var(--pm-focus-glow);
-  background: radial-gradient(
-    ellipse at center,
-    transparent 40%,
-    hsla(0, 0%, 0%, 0.12) 100%
-  );
+/* Dark mode - 4-layer with subtle glow */
+.dark .pm-editor-wrapper.pm-focus-mode {
+  box-shadow:
+    0 0 0 1px hsl(0 0% 100% / 0.12),          /* Brighter rim */
+    0 10px 25px -8px hsl(0 0% 0% / 0.4),      /* Near shadow */
+    0 25px 50px -12px hsl(0 0% 0% / 0.5),     /* Mid depth */
+    0 0 120px hsl(0 0% 100% / 0.08);          /* Glow effect */
 }
 
 /* Page shadow transitions */
 .pm-editor-page {
-  transition: box-shadow var(--pm-focus-transition), opacity 200ms ease;
-}
-
-/* Page "float" effect in dark mode */
-.dark .pm-editor-wrapper.pm-focus-mode .pm-editor-page {
-  box-shadow: var(--pm-focus-page-glow), var(--pm-page-shadow);
-}
-
-/* Mobile: no centering needed */
-@media (max-width: 767px) {
-  .pm-editor-wrapper.pm-focus-mode {
-    transform: none;
-  }
-}
-
-/* Dual view adjustment */
-.pm-dual-mode.pm-focus-mode {
-  transform: translateX(calc(var(--pm-sidebar-offset) / 2));
+  transition: box-shadow 400ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease;
 }
 
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .pm-editor-wrapper,
-  .pm-editor-wrapper::after,
+  .pm-editor-wrapper.pm-focus-mode,
   .pm-editor-page {
     transition-duration: 0.01ms !important;
+    animation: none !important;
   }
 }

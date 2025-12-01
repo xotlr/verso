@@ -18,6 +18,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileHeaderMenu } from "@/components/mobile-header-menu";
 import { EditableTitle } from "@/components/editable-title";
 import { Search, Bell, Settings } from "lucide-react";
+import { Logo } from "@/components/logo";
 
 // Generate breadcrumbs from pathname
 function getBreadcrumbs(pathname: string, dynamicTitle: string | null): {
@@ -157,7 +158,12 @@ export function AppHeader() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      {/* Mobile: Page title */}
+      {/* Mobile: Logo on left */}
+      <Link href="/home" className="md:hidden">
+        <Logo size={32} />
+      </Link>
+
+      {/* Mobile: Page title - truly centered */}
       <div className="md:hidden flex-1 text-center">
         <span className="font-semibold text-sm">{pageTitle}</span>
       </div>

@@ -151,17 +151,50 @@
   }
 
   /* ===== THEME TRANSITIONS ===== */
-  /* Smooth color transitions when switching themes */
-  /* Uses --animation-speed from settings (default 0.2s) */
+  /* Smooth crossfade when switching themes */
   :root {
     --animation-speed: 0.2s;
-    --theme-transition: background-color var(--animation-speed) ease,
-                        color var(--animation-speed) ease,
-                        border-color var(--animation-speed) ease;
+    --theme-transition-duration: 350ms;
   }
 
+  /* Apply smooth transitions to theme-affected properties */
+  *,
+  *::before,
+  *::after {
+    transition:
+      background-color var(--theme-transition-duration) ease,
+      color var(--theme-transition-duration) ease,
+      border-color var(--theme-transition-duration) ease,
+      box-shadow var(--theme-transition-duration) ease,
+      fill var(--theme-transition-duration) ease,
+      stroke var(--theme-transition-duration) ease;
+  }
 
-  /* Disable transitions for elements that shouldn't animate */
+  /* Elements that shouldn't transition (inputs, buttons for snappy feedback) */
+  input,
+  textarea,
+  select,
+  button,
+  [data-no-transition],
+  [data-no-transition] * {
+    transition: none !important;
+  }
+
+  /* Re-enable specific transitions on buttons for hover states */
+  button {
+    transition: opacity 150ms ease, transform 150ms ease !important;
+  }
+
+  /* Respect reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+    }
+  }
+
+  /* Legacy class support */
   .no-transition,
   .no-transition * {
     transition: none !important;
@@ -696,6 +729,34 @@
     background: hsl(var(--card) / 0.95);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* ===== MOBILE NAV ANIMATIONS ===== */
+  /* Fill mode for staggered animations */
+  .fill-mode-both {
+    animation-fill-mode: both;
+  }
+
+  /* Tap bounce effect for mobile nav */
+  @keyframes tap-bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(0.92); }
+  }
+
+  .tap-bounce:active {
+    animation: tap-bounce 150ms var(--ease-out);
+  }
+
+  /* Spring bounce for icons */
+  @keyframes icon-tap {
+    0% { transform: scale(1) rotate(0deg); }
+    30% { transform: scale(0.85) rotate(-8deg); }
+    60% { transform: scale(1.05) rotate(2deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+
+  .icon-tap:active {
+    animation: icon-tap 200ms var(--ease-spring);
   }
 }
 
