@@ -2,24 +2,40 @@
 
 import * as React from "react"
 import * as TabsPrimitive from "@radix-ui/react-tabs"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
 const Tabs = TabsPrimitive.Root
 
+const tabsListVariants = cva(
+  [
+    "inline-flex h-10 items-center rounded-lg",
+    "bg-muted/50 p-1",
+    "border border-border/50",
+    "relative",
+  ],
+  {
+    variants: {
+      scrollable: {
+        true: "overflow-x-auto scrollbar-none max-w-full flex-nowrap -mx-1 px-1",
+        false: "justify-center",
+      },
+    },
+    defaultVariants: {
+      scrollable: false,
+    },
+  }
+)
+
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List> &
+    VariantProps<typeof tabsListVariants>
+>(({ className, scrollable, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
-    className={cn(
-      "inline-flex h-10 items-center justify-center rounded-lg",
-      "bg-muted/50 p-1",
-      "border border-border/50",
-      "relative",
-      className
-    )}
+    className={cn(tabsListVariants({ scrollable }), className)}
     {...props}
   />
 ))

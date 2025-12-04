@@ -1,52 +1,190 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/logo"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Menu, ArrowRight } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+
+const navLinks = [
+  { href: "/#features", label: "Features" },
+  { href: "/#how-it-works", label: "How It Works" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/#faq", label: "FAQ" },
+]
 
 export function Navbar() {
   const { data: session } = useSession()
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Track scroll position for navbar background
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10)
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/30 bg-background/50 backdrop-blur-2xl backdrop-saturate-200">
-      <div className="container max-w-5xl mx-auto px-6 flex h-14 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-semibold text-lg">
-          <Logo size={36} />
-          <span className="hidden sm:inline">Verso</span>
+    <header
+      className={cn(
+        "sticky top-0 z-50 w-full transition-all duration-300",
+        isScrolled
+          ? "border-b border-border/50 bg-background/80 backdrop-blur-xl backdrop-saturate-200 shadow-sm"
+          : "border-b border-transparent bg-transparent"
+      )}
+    >
+      <div className="container max-w-6xl mx-auto px-4 sm:px-6 flex h-16 items-center justify-between">
+        {/* Logo */}
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 font-semibold text-lg group"
+        >
+          <Logo size={36} className="transition-transform duration-300 group-hover:scale-105" />
+          <span className="hidden sm:inline transition-colors duration-200 group-hover:text-primary">
+            Verso
+          </span>
         </Link>
 
-        <nav className="absolute left-1/2 -translate-x-1/2 hidden md:flex items-center gap-8">
-          <Link
-            href="/#features"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Features
-          </Link>
-          <Link
-            href="/pricing"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Pricing
-          </Link>
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center gap-1">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                "relative px-4 py-2 text-sm font-medium text-muted-foreground",
+                "transition-colors duration-200 hover:text-foreground",
+                "after:absolute after:bottom-0 after:left-4 after:right-4 after:h-0.5",
+                "after:bg-primary after:scale-x-0 after:origin-left",
+                "after:transition-transform after:duration-300",
+                "hover:after:scale-x-100"
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
 
-        <div className="flex items-center gap-3">
+        {/* Desktop Auth Buttons */}
+        <div className="hidden md:flex items-center gap-3">
           {session ? (
-            <Button size="sm" asChild>
-              <Link href="/home">Go to App</Link>
+            <Button size="sm" asChild className="group h-9 pl-3 pr-4">
+              <Link href="/home" className="flex items-center gap-2">
+                <Avatar className="h-5 w-5">
+                  <AvatarImage src={session.user?.image || undefined} />
+                  <AvatarFallback className="text-[10px]">
+                    {session.user?.name?.charAt(0) || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <span>Go to App</span>
+                <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </Link>
             </Button>
           ) : (
             <>
-              <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex">
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className="h-9 px-4 hover:bg-accent/80 transition-colors duration-200"
+              >
                 <Link href="/login">Sign in</Link>
               </Button>
-              <Button size="sm" asChild>
-                <Link href="/signup">Get Started</Link>
+              <Button
+                size="sm"
+                asChild
+                className="h-9 px-4 group transition-all duration-200 hover:shadow-md"
+              >
+                <Link href="/signup" className="flex items-center gap-1.5">
+                  Get Started
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </Link>
               </Button>
             </>
           )}
         </div>
+
+        {/* Mobile Menu Trigger */}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild className="md:hidden">
+            <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-[300px] sm:w-[350px]">
+            <SheetHeader className="text-left">
+              <SheetTitle className="flex items-center gap-2">
+                <Logo size={28} />
+                <span>Verso</span>
+              </SheetTitle>
+            </SheetHeader>
+
+            <nav className="mt-8 flex flex-col gap-1">
+              {navLinks.map((link, index) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    "flex items-center px-3 py-3 rounded-lg text-base font-medium",
+                    "text-muted-foreground hover:text-foreground hover:bg-accent",
+                    "transition-all duration-200 active:scale-[0.98]"
+                  )}
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="mt-8 pt-6 border-t border-border space-y-3">
+              {session ? (
+                <Button asChild className="w-full h-11 group">
+                  <Link
+                    href="/home"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2"
+                  >
+                    <Avatar className="h-5 w-5">
+                      <AvatarImage src={session.user?.image || undefined} />
+                      <AvatarFallback className="text-[10px]">
+                        {session.user?.name?.charAt(0) || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>Go to App</span>
+                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </Link>
+                </Button>
+              ) : (
+                <>
+                  <Button asChild className="w-full h-11 group">
+                    <Link
+                      href="/signup"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-center gap-2"
+                    >
+                      Get Started Free
+                      <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild className="w-full h-11">
+                    <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                      Sign in
+                    </Link>
+                  </Button>
+                </>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </header>
   )

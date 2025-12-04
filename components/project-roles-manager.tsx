@@ -362,13 +362,13 @@ export function ProjectRolesManager({
 
       {/* Inline Add Form */}
       {isAdding && (
-        <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-3">
-          <div className="flex items-center gap-3">
+        <div className="bg-muted/50 border border-border rounded-lg p-3 sm:p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Select
               value={newRole.role}
               onValueChange={(value) => setNewRole((prev) => ({ ...prev, role: value }))}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
@@ -447,52 +447,57 @@ export function ProjectRolesManager({
             </div>
 
             {/* Action buttons */}
-            {inputIsEmail ? (
-              <Button
-                size="sm"
-                onClick={sendInvite}
-                disabled={isSubmitting || !newRole.role}
-              >
-                {isSubmitting ? (
-                  'Sending...'
-                ) : (
-                  <>
-                    <Mail className="h-4 w-4 mr-1.5" />
-                    Invite
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                onClick={() => addRole()}
-                disabled={isSubmitting || !newRole.role || !newRole.name.trim()}
-              >
-                {isSubmitting ? (
-                  'Adding...'
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-1.5" />
-                    Add
-                  </>
-                )}
-              </Button>
-            )}
+            <div className="flex gap-2 sm:gap-3">
+              {inputIsEmail ? (
+                <Button
+                  size="sm"
+                  onClick={sendInvite}
+                  disabled={isSubmitting || !newRole.role}
+                  className="flex-1 sm:flex-none"
+                >
+                  {isSubmitting ? (
+                    'Sending...'
+                  ) : (
+                    <>
+                      <Mail className="h-4 w-4 mr-1.5" />
+                      Invite
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => addRole()}
+                  disabled={isSubmitting || !newRole.role || !newRole.name.trim()}
+                  className="flex-1 sm:flex-none"
+                >
+                  {isSubmitting ? (
+                    'Adding...'
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-1.5" />
+                      Add
+                    </>
+                  )}
+                </Button>
+              )}
 
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setIsAdding(false);
-                setNewRole({ role: '', name: '' });
-                setShowDropdown(false);
-              }}
-            >
-              Cancel
-            </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setIsAdding(false);
+                  setNewRole({ role: '', name: '' });
+                  setShowDropdown(false);
+                }}
+                className="flex-1 sm:flex-none"
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <p className="text-xs text-muted-foreground">
               {inputIsEmail
                 ? 'Email detected - click Invite to send an invite link'
@@ -505,7 +510,7 @@ export function ProjectRolesManager({
                 variant="outline"
                 onClick={assignSelf}
                 disabled={isSubmitting}
-                className="gap-1.5"
+                className="gap-1.5 w-full sm:w-auto"
               >
                 <UserPlus className="h-3.5 w-3.5" />
                 Assign Myself

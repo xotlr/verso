@@ -482,6 +482,8 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           editable={true}
           showElementIndicator={true}
           showStats={true}
+          scenes={sceneInfos}
+          characters={charInfos}
         />
       </div>
 

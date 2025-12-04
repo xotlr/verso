@@ -1,19 +1,15 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import {
-  FileText,
-  LayoutGrid,
-  Rows3,
-  Download,
-  Users,
-  Sparkles,
-  Check,
-  ArrowRight,
-} from "lucide-react"
+import { Check, ArrowRight, Play } from "lucide-react"
 import { Aurora } from "@/components/aurora"
 import { Noise } from "@/components/noise"
 import { RotatingText } from "@/components/landing/rotating-text"
+import { StatsSection } from "@/components/landing/stats-section"
+import { FeaturesEnhancedSection } from "@/components/landing/features-enhanced-section"
+import { HowItWorksSection } from "@/components/landing/how-it-works-section"
+import { TestimonialsSection } from "@/components/landing/testimonials-section"
+import { FAQSection } from "@/components/landing/faq-section"
 
 export default function LandingPage() {
   return (
@@ -32,96 +28,85 @@ export default function LandingPage() {
         {/* Noise Overlay */}
         <Noise opacity={0.03} className="-z-10" />
 
-        <div className="container max-w-4xl mx-auto px-6 py-24">
-          <div className="flex flex-col items-center text-center space-y-8">
-            <Badge variant="secondary" className="font-normal">
+        <div className="container max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-24">
+          <div className="flex flex-col items-center text-center space-y-6 sm:space-y-8">
+            <Badge variant="secondary" className="font-normal text-xs sm:text-sm px-3 py-1">
               Professional Screenwriting Software
             </Badge>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl tracking-tight font-medium">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight font-medium leading-[1.1]">
               Write your screenplay,{" "}
-              <span className="text-primary italic">
+              <span className="text-primary italic block sm:inline mt-1 sm:mt-0">
                 <RotatingText words={["your way", "effortlessly", "beautifully"]} />
               </span>
             </h1>
 
-            <p className="text-lg text-muted-foreground max-w-xl leading-relaxed">
+            <p className="text-base sm:text-lg text-muted-foreground max-w-xl leading-relaxed px-4 sm:px-0">
               Verso is the modern screenwriting tool that helps you focus on your
               story. With powerful organization tools, industry-standard formatting,
               and seamless collaboration.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <Button size="lg" asChild className="h-11 px-6">
-                <Link href="/signup">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2 sm:pt-4 w-full sm:w-auto px-4 sm:px-0">
+              <Button
+                size="lg"
+                asChild
+                className="h-12 sm:h-11 px-6 text-base sm:text-sm group btn-hover-lift w-full sm:w-auto"
+              >
+                <Link href="/signup" className="flex items-center justify-center gap-2">
                   Start Writing Free
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" asChild className="h-11 px-6">
-                <Link href="/pricing">View Pricing</Link>
+              <Button
+                size="lg"
+                variant="outline"
+                asChild
+                className="h-12 sm:h-11 px-6 text-base sm:text-sm group btn-hover-lift w-full sm:w-auto"
+              >
+                <Link href="/#how-it-works" className="flex items-center justify-center gap-2">
+                  <Play className="h-4 w-4" />
+                  See How It Works
+                </Link>
               </Button>
+            </div>
+
+            {/* Social Proof */}
+            <div className="pt-6 sm:pt-8 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+              <div className="flex -space-x-2">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div
+                    key={i}
+                    className="w-8 h-8 rounded-full bg-muted border-2 border-background"
+                  />
+                ))}
+              </div>
+              <span>Trusted by 10,000+ screenwriters worldwide</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-32 bg-muted/30">
-        <div className="container max-w-5xl mx-auto px-6">
-          <div className="text-center space-y-4 mb-20">
-            <h2 className="text-3xl sm:text-4xl font-medium">
-              Everything you need to write
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-              Powerful features designed for screenwriters, from first draft to
-              final polish.
-            </p>
-          </div>
+      {/* Stats Section */}
+      <StatsSection />
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <FeatureCard
-              icon={<FileText className="h-6 w-6" />}
-              title="Industry-Standard Formatting"
-              description="Automatic screenplay formatting that follows Hollywood standards. Just write, we handle the rest."
-            />
-            <FeatureCard
-              icon={<LayoutGrid className="h-6 w-6" />}
-              title="Index Cards"
-              description="Organize your scenes visually with drag-and-drop index cards. Perfect for outlining and restructuring."
-            />
-            <FeatureCard
-              icon={<Rows3 className="h-6 w-6" />}
-              title="Beat Board"
-              description="Map out your story beats and see the big picture. Track character arcs and plot points."
-            />
-            <FeatureCard
-              icon={<Download className="h-6 w-6" />}
-              title="Export Anywhere"
-              description="Export to PDF, Final Draft (FDX), Fountain, and more. Your screenplay, your format."
-            />
-            <FeatureCard
-              icon={<Users className="h-6 w-6" />}
-              title="Team Collaboration"
-              description="Write together in real-time. Perfect for writing partners, rooms, and production teams."
-            />
-            <FeatureCard
-              icon={<Sparkles className="h-6 w-6" />}
-              title="Character Tracking"
-              description="Keep track of characters, locations, and dialogue. Automatic analysis and statistics."
-            />
-          </div>
-        </div>
-      </section>
+      {/* Features Section (Tabbed) */}
+      <FeaturesEnhancedSection />
+
+      {/* How It Works */}
+      <HowItWorksSection />
+
+      {/* Testimonials */}
+      <TestimonialsSection />
 
       {/* Pricing Preview Section */}
-      <section className="py-32">
-        <div className="container max-w-5xl mx-auto px-6">
-          <div className="text-center space-y-4 mb-20">
-            <h2 className="text-3xl sm:text-4xl font-medium">
+      <section className="py-24 sm:py-32">
+        <div className="container max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="text-center space-y-4 mb-16 sm:mb-20">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium">
               Simple, transparent pricing
             </h2>
-            <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+            <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto">
               Start free and upgrade as you grow. No hidden fees.
             </p>
           </div>
@@ -136,6 +121,7 @@ export default function LandingPage() {
                 "Industry-standard formatting",
                 "Index cards & beat board",
                 "PDF export",
+                "Mobile editing",
               ]}
               cta="Get Started"
               ctaHref="/signup"
@@ -147,9 +133,10 @@ export default function LandingPage() {
               description="For serious screenwriters"
               features={[
                 "Unlimited projects",
-                "All export formats",
+                "All export formats (FDX, Fountain)",
+                "Version history & diff view",
+                "AI-powered analysis",
                 "Priority support",
-                "Advanced analytics",
               ]}
               cta="Start Pro Trial"
               ctaHref="/signup"
@@ -165,6 +152,7 @@ export default function LandingPage() {
                 "Real-time collaboration",
                 "Up to 10 team members",
                 "Team workspace",
+                "Production tools",
               ]}
               cta="Contact Sales"
               ctaHref="/pricing"
@@ -173,48 +161,45 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* FAQ Section */}
+      <FAQSection />
+
       {/* CTA Section */}
-      <section className="py-32 bg-primary text-primary-foreground">
-        <div className="container max-w-3xl mx-auto px-6 text-center space-y-8">
-          <h2 className="text-3xl sm:text-4xl font-medium">
+      <section className="py-24 sm:py-32 bg-primary text-primary-foreground">
+        <div className="container max-w-3xl mx-auto px-4 sm:px-6 text-center space-y-6 sm:space-y-8">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium">
             Ready to write your masterpiece?
           </h2>
-          <p className="text-lg opacity-80 max-w-xl mx-auto">
+          <p className="text-base sm:text-lg opacity-80 max-w-xl mx-auto">
             Join thousands of screenwriters who trust Verso for their creative
-            work.
+            work. Start free, upgrade when you need to.
           </p>
-          <Button
-            size="lg"
-            variant="secondary"
-            asChild
-            className="h-11 px-6"
-          >
-            <Link href="/signup">
-              Start Writing Free
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center pt-2">
+            <Button
+              size="lg"
+              variant="secondary"
+              asChild
+              className="h-12 sm:h-11 px-6 text-base sm:text-sm group btn-hover-lift"
+            >
+              <Link href="/signup" className="flex items-center justify-center gap-2">
+                Start Writing Free
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              </Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="ghost"
+              asChild
+              className="h-12 sm:h-11 px-6 text-base sm:text-sm text-primary-foreground/90 hover:text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              <Link href="/pricing">
+                View Pricing
+              </Link>
+            </Button>
+          </div>
         </div>
       </section>
     </>
-  )
-}
-
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode
-  title: string
-  description: string
-}) {
-  return (
-    <div className="p-6 rounded-xl border bg-card">
-      <div className="mb-4 text-primary">{icon}</div>
-      <h3 className="text-base font-medium mb-2">{title}</h3>
-      <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
-    </div>
   )
 }
 
@@ -239,10 +224,10 @@ function PricingCard({
 }) {
   return (
     <div
-      className={`p-6 rounded-xl border ${
+      className={`p-6 rounded-xl border transition-all duration-300 ${
         highlighted
           ? "border-primary bg-primary/5 shadow-lg lg:scale-105"
-          : "bg-card"
+          : "bg-card hover:border-border/80 hover:shadow-md"
       }`}
     >
       {highlighted && (
@@ -263,11 +248,14 @@ function PricingCard({
         ))}
       </ul>
       <Button
-        className="w-full"
+        className="w-full h-11 group"
         variant={highlighted ? "default" : "outline"}
         asChild
       >
-        <Link href={ctaHref}>{cta}</Link>
+        <Link href={ctaHref} className="flex items-center justify-center gap-2">
+          {cta}
+          <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+        </Link>
       </Button>
     </div>
   )

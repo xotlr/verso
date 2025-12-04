@@ -188,6 +188,10 @@ model Project {
   // Production info
   budget      Float?   // Total project budget
 
+  // Publishing/Discovery
+  isPublic    Boolean   @default(false)
+  publishedAt DateTime?
+
   // Ownership
   userId String
   teamId String?
@@ -205,6 +209,7 @@ model Project {
 
   @@index([userId])
   @@index([teamId])
+  @@index([isPublic, publishedAt])
 }
 
 // Project roles (Director, Writer, Producer, etc.)

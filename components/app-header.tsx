@@ -19,6 +19,7 @@ import { MobileHeaderMenu } from "@/components/mobile-header-menu";
 import { EditableTitle } from "@/components/editable-title";
 import { Search, Bell, Settings } from "lucide-react";
 import { Logo } from "@/components/logo";
+import { cn } from "@/lib/utils";
 
 // Generate breadcrumbs from pathname
 function getBreadcrumbs(pathname: string, dynamicTitle: string | null): {
@@ -97,7 +98,11 @@ function getPageTitle(pathname: string): string {
   return "Verso";
 }
 
-export function AppHeader() {
+interface AppHeaderProps {
+  className?: string;
+}
+
+export function AppHeader({ className }: AppHeaderProps) {
   const pathname = usePathname();
   const [dynamicTitle, setDynamicTitle] = useState<string | null>(null);
 
@@ -123,7 +128,10 @@ export function AppHeader() {
   const pageTitle = getPageTitle(pathname);
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
+    <header className={cn(
+      "sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4",
+      className
+    )}>
       {/* Desktop only: sidebar trigger */}
       <SidebarTrigger className="-ml-1 hidden md:flex" />
       <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />

@@ -96,7 +96,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable}`}
     >
-      <body className="antialiased">
+      <body className="antialiased overflow-hidden h-screen">
         <AuthProvider>
           <ThemeProvider
             defaultTheme="system"

@@ -69,6 +69,7 @@ interface MobileEditorToolbarProps {
   onTogglePanel?: () => void
   onToggleZenMode: () => void
   onExportPDF: () => void
+  onOpenScenes?: () => void
 
   // View options
   onToggleLineNumbers: () => void
@@ -78,6 +79,10 @@ interface MobileEditorToolbarProps {
   showLineNumbers: boolean
   showPageBreaks: boolean
   zoom: number
+
+  // Stats (moved from StatsBar on mobile)
+  wordCount?: number
+  pageCount?: number
 
   // State
   isSaving?: boolean
@@ -118,6 +123,7 @@ export function MobileEditorToolbar({
   onTogglePanel,
   onToggleZenMode,
   onExportPDF,
+  onOpenScenes,
   onToggleLineNumbers,
   onTogglePageBreaks,
   onZoomIn,
@@ -125,6 +131,8 @@ export function MobileEditorToolbar({
   showLineNumbers,
   showPageBreaks,
   zoom,
+  wordCount,
+  pageCount,
   isSaving,
   isPanelOpen,
   className,
@@ -179,15 +187,15 @@ export function MobileEditorToolbar({
             <Plus className="h-5 w-5" />
           </Button>
 
-          {/* Find */}
+          {/* Scenes/Characters */}
           <Button
             variant="ghost"
             size="icon"
-            onClick={onToggleFindReplace}
+            onClick={onOpenScenes}
             className="h-11 w-11 rounded-xl"
-            aria-label="Find and replace"
+            aria-label="Scenes and characters"
           >
-            <Search className="h-5 w-5" />
+            <List className="h-5 w-5" />
           </Button>
 
           {/* More */}
@@ -332,7 +340,15 @@ export function MobileEditorToolbar({
           <SheetHeader className="pb-4">
             <SheetTitle>More Options</SheetTitle>
             <SheetDescription>
-              Tools, view options, and settings
+              {wordCount !== undefined && pageCount !== undefined ? (
+                <span className="flex items-center gap-2">
+                  <span>{wordCount.toLocaleString()} words</span>
+                  <span className="text-border">|</span>
+                  <span>{pageCount} {pageCount === 1 ? 'page' : 'pages'}</span>
+                </span>
+              ) : (
+                'Tools, view options, and settings'
+              )}
             </SheetDescription>
           </SheetHeader>
 
@@ -399,13 +415,24 @@ export function MobileEditorToolbar({
               <Button
                 variant="outline"
                 onClick={() => {
+                  onToggleFindReplace()
+                  setMoreSheetOpen(false)
+                }}
+                className="h-11 justify-start"
+              >
+                <Search className="h-4 w-4 mr-2" />
+                Find & Replace
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
                   onToggleSceneNavigator()
                   setMoreSheetOpen(false)
                 }}
                 className="h-11 justify-start"
               >
                 <List className="h-4 w-4 mr-2" />
-                Scenes
+                Scene Navigator
               </Button>
               {onTogglePanel && (
                 <Button

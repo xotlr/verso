@@ -212,7 +212,7 @@ export default function ProjectsPage() {
 
           {/* Content Grid */}
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="bg-card rounded-xl border border-border/60 p-5">
                   <div className="flex items-start justify-between mb-3">
@@ -241,7 +241,7 @@ export default function ProjectsPage() {
               } : undefined}
             />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
               {filteredProjects.map((project) => (
                 <div
                   key={project.id}

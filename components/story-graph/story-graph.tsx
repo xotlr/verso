@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
+import { ZoomBehavior, ZoomTransform, zoomIdentity } from 'd3-zoom';
+import { Simulation } from 'd3-force';
 import { Scene, Character, Location } from '@/types/screenplay';
 import { Beat } from '@/components/beat-board';
 import { GraphFilterState, GraphLayoutType, StoryNode, GraphLink } from '@/types/graph';
@@ -58,9 +60,9 @@ export function StoryGraph({
   );
 
   // Track zoom transform and simulation for cleanup
-  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
-  const transformRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
-  const simulationRef = useRef<d3.Simulation<StoryNode, GraphLink> | null>(null);
+  const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const transformRef = useRef<ZoomTransform>(zoomIdentity);
+  const simulationRef = useRef<Simulation<StoryNode, GraphLink> | null>(null);
 
   // Update dimensions on resize
   useEffect(() => {

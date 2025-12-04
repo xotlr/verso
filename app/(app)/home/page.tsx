@@ -398,11 +398,7 @@ function WorkspacePageContent() {
 
       if (screenplaysRes.ok) {
         const data = await screenplaysRes.json();
-        const items: ScreenplayItem[] = (data.screenplays || []).map((item: ScreenplayItem) => ({
-          ...item,
-          wordCount: 0, // Content not included in list response for performance
-        }));
-        setScreenplays(items);
+        setScreenplays(data.screenplays || []);
       }
 
       if (projectsRes.ok) {

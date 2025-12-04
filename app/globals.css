@@ -1306,3 +1306,123 @@ button {
     max-width: calc(100vw - 2rem) !important;
   }
 }
+
+/* ===== LANDING PAGE MICRO-INTERACTIONS ===== */
+@layer utilities {
+  /* Button Hover Lift */
+  .btn-hover-lift {
+    @apply transition-all duration-fast;
+  }
+
+  .btn-hover-lift:hover {
+    @apply -translate-y-0.5 shadow-lg;
+  }
+
+  .btn-hover-lift:active {
+    @apply translate-y-0 shadow-sm scale-[0.98];
+  }
+
+  /* Card Interactive */
+  .card-interactive {
+    @apply transition-all duration-normal;
+    @apply hover:-translate-y-1 hover:shadow-xl hover:border-primary/20;
+  }
+
+  /* Card Subtle Hover */
+  .card-subtle-hover {
+    @apply transition-all duration-normal;
+    @apply hover:bg-accent/50 hover:border-border/80;
+  }
+
+  /* Icon Float */
+  .icon-float {
+    @apply transition-transform duration-slow;
+  }
+
+  .icon-float:hover,
+  .card-interactive:hover .icon-float,
+  .card-subtle-hover:hover .icon-float {
+    @apply -translate-y-1;
+  }
+
+  /* Scroll Fade In */
+  .scroll-fade-in {
+    @apply opacity-0 translate-y-4 transition-all duration-slow;
+  }
+
+  .scroll-fade-in.in-view {
+    @apply opacity-100 translate-y-0;
+  }
+
+  /* Gradient Border Hover */
+  .gradient-border-hover {
+    @apply relative;
+  }
+
+  .gradient-border-hover::before {
+    content: '';
+    @apply absolute inset-0 rounded-xl opacity-0 transition-opacity duration-normal;
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.3), hsl(var(--accent) / 0.2));
+    z-index: -1;
+    filter: blur(8px);
+  }
+
+  .gradient-border-hover:hover::before {
+    @apply opacity-100;
+  }
+
+  /* Shimmer Effect */
+  .shimmer {
+    @apply relative overflow-hidden;
+  }
+
+  .shimmer::after {
+    content: '';
+    @apply absolute inset-0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--primary) / 0.1) 50%,
+      transparent 100%
+    );
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  /* Underline Animation */
+  .underline-animation {
+    @apply relative;
+  }
+
+  .underline-animation::after {
+    content: '';
+    @apply absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-normal;
+  }
+
+  .underline-animation:hover::after {
+    @apply w-full;
+  }
+}
+
+/* Respect reduced motion preferences for landing page animations */
+@media (prefers-reduced-motion: reduce) {
+  .btn-hover-lift,
+  .card-interactive,
+  .card-subtle-hover,
+  .icon-float,
+  .scroll-fade-in,
+  .gradient-border-hover,
+  .shimmer,
+  .underline-animation {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .scroll-fade-in {
+    @apply opacity-100 translate-y-0;
+  }
+}

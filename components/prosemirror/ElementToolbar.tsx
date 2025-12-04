@@ -119,10 +119,10 @@ export function ElementToolbar({ view, currentElementType, className }: ElementT
     <div
       className={cn(
         'fixed bottom-6 z-40',
-        // Mobile: center of viewport
-        'left-1/2 -translate-x-1/2',
+        // Hide on mobile - MobileEditorToolbar handles element selection
+        'hidden md:block',
         // Desktop: use CSS variable for dynamic sidebar offset
-        'md:left-[calc(50%_+_var(--sidebar-offset))] md:-translate-x-1/2',
+        'left-[calc(50%_+_var(--sidebar-offset))] -translate-x-1/2',
         'transition-[left] duration-200 ease-linear',
         className
       )}

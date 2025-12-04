@@ -73,7 +73,7 @@ export function ScreenplayCard({
                     e.preventDefault();
                     e.stopPropagation();
                   }}
-                  className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                  className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100 touch-manipulation"
                 >
                   <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                 </button>

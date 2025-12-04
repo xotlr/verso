@@ -108,7 +108,7 @@ export async function GET(request: Request) {
         select: {
           id: true,
           title: true,
-          // NOTE: content is intentionally excluded - fetch separately via /api/screenplays/[id]
+          content: true, // Include content to calculate wordCount
           synopsis: true,
           createdAt: true,
           updatedAt: true,
@@ -128,8 +128,18 @@ export async function GET(request: Request) {
       prisma.screenplay.count({ where }),
     ])
 
+    // Calculate word count for each screenplay and exclude content from response
+    const screenplaysWithWordCount = screenplays.map(screenplay => {
+      const wordCount = screenplay.content
+        ? screenplay.content.split(/\s+/).filter(Boolean).length
+        : 0
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { content: _, ...rest } = screenplay
+      return { ...rest, wordCount }
+    })
+
     const response = NextResponse.json({
-      screenplays,
+      screenplays: screenplaysWithWordCount,
       total,
       hasMore: offset + screenplays.length < total,
     })

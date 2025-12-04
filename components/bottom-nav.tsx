@@ -17,13 +17,15 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer';
 import { ProfileAvatar } from '@/components/profile/profile-avatar';
+
+// Note: We use Drawer (vaul) for bottom sheets with swipe-to-dismiss support
 
 export function BottomNav() {
   const router = useRouter();
@@ -88,30 +90,9 @@ export function BottomNav() {
                         pathname.startsWith('/visualization/') ||
                         pathname.startsWith('/graph/');
 
-  // Calculate active tab index for sliding indicator
-  const getActiveIndex = () => {
-    if (isActive('/home')) return 0;
-    if (isActive('/screenplays')) return 1;
-    if (createOpen) return 2;
-    if (isToolsActive || toolsOpen) return 3;
-    if (isActive('/settings')) return 4;
-    return -1; // No indicator
-  };
-
-  const activeIndex = getActiveIndex();
-
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background/95 backdrop-blur-lg border-t border-border safe-area-bottom">
       <div className="relative flex items-center justify-around h-16 px-2">
-        {/* Sliding active indicator */}
-        {activeIndex >= 0 && (
-          <div
-            className="absolute top-1 h-0.5 w-8 bg-primary rounded-full transition-all duration-300 ease-out"
-            style={{
-              left: `calc(${activeIndex} * 20% + 10% - 16px)`,
-            }}
-          />
-        )}
         {/* Home */}
         <Link
           href="/home"
@@ -124,11 +105,16 @@ export function BottomNav() {
           )}
         >
           <Home className={cn(
-            "h-5 w-5 transition-all duration-200",
-            isActive('/home') && "scale-110",
-            "group-active:scale-90 group-active:rotate-[-8deg]"
+            "h-5 w-5 transition-all duration-300",
+            isActive('/home')
+              ? "fill-primary stroke-primary scale-105"
+              : "fill-none stroke-current",
+            "group-active:scale-90"
           )} />
           <span className="text-[10px] font-medium">Home</span>
+          {isActive('/home') && (
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
+          )}
         </Link>
 
         {/* Files */}
@@ -143,16 +129,21 @@ export function BottomNav() {
           )}
         >
           <FileText className={cn(
-            "h-5 w-5 transition-all duration-200",
-            isActive('/screenplays') && "scale-110",
-            "group-active:scale-90 group-active:rotate-[-8deg]"
+            "h-5 w-5 transition-all duration-300",
+            isActive('/screenplays')
+              ? "fill-primary stroke-primary scale-105"
+              : "fill-none stroke-current",
+            "group-active:scale-90"
           )} />
           <span className="text-[10px] font-medium">Files</span>
+          {isActive('/screenplays') && (
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
+          )}
         </Link>
 
-        {/* Create - Central action button with quick actions sheet */}
-        <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-          <SheetTrigger asChild>
+        {/* Create - Central action button with quick actions drawer */}
+        <Drawer open={createOpen} onOpenChange={setCreateOpen}>
+          <DrawerTrigger asChild>
             <button
               className={cn(
                 "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
@@ -163,33 +154,32 @@ export function BottomNav() {
               )}
             >
               <Plus className={cn(
-                "h-5 w-5 transition-all duration-200",
-                createOpen && "scale-110 rotate-45",
-                "group-active:scale-90 group-active:rotate-90"
+                "h-5 w-5 transition-all duration-300",
+                createOpen
+                  ? "fill-primary stroke-primary scale-105 rotate-45"
+                  : "fill-none stroke-current",
+                "group-active:scale-90"
               )} />
               <span className="text-[10px] font-medium">Create</span>
+              {createOpen && (
+                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
+              )}
             </button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="h-auto rounded-t-2xl border-t-0 pb-safe">
-            {/* Drag handle */}
-            <div className="w-12 h-1.5 bg-muted-foreground/40 rounded-full mx-auto mb-4 mt-2" />
-
-            <SheetHeader className="pb-3 px-1">
-              <SheetTitle className="text-base font-semibold text-left">Create New</SheetTitle>
-            </SheetHeader>
+          </DrawerTrigger>
+          <DrawerContent className="pb-safe">
+            <DrawerHeader className="pb-3 px-5">
+              <DrawerTitle className="text-base font-semibold text-left">Create New</DrawerTitle>
+            </DrawerHeader>
 
             {/* 2-column grid */}
-            <div className="grid grid-cols-2 gap-3 pb-6">
+            <div className="grid grid-cols-2 gap-3 px-4 pb-6">
               {/* New Screenplay */}
               <button
                 onClick={() => handleCreateAction('screenplay')}
-                className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-border/50 bg-gradient-to-b from-card to-card/50 hover:border-primary/30 hover:bg-accent active:scale-95 transition-all duration-200 touch-manipulation min-h-[108px] shadow-sm hover:shadow"
+                className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-border/50 bg-card hover:bg-accent active:scale-95 transition-all duration-200 touch-manipulation min-h-[108px]"
               >
-                <div className="relative">
-                  <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="relative p-3 rounded-full bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
-                    <FileText className="h-6 w-6 text-primary" strokeWidth={2} />
-                  </div>
+                <div className="p-2.5 rounded-md bg-muted">
+                  <FileText className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
                 </div>
                 <span className="font-medium text-sm">New Screenplay</span>
               </button>
@@ -197,13 +187,10 @@ export function BottomNav() {
               {/* New Project */}
               <button
                 onClick={() => handleCreateAction('project')}
-                className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-border/50 bg-gradient-to-b from-card to-card/50 hover:border-orange-500/30 hover:bg-accent active:scale-95 transition-all duration-200 touch-manipulation min-h-[108px] shadow-sm hover:shadow"
+                className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-border/50 bg-card hover:bg-accent active:scale-95 transition-all duration-200 touch-manipulation min-h-[108px]"
               >
-                <div className="relative">
-                  <div className="absolute inset-0 bg-orange-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="relative p-3 rounded-full bg-gradient-to-br from-orange-500/10 via-orange-500/5 to-transparent">
-                    <FolderPlus className="h-6 w-6 text-orange-500" strokeWidth={2} />
-                  </div>
+                <div className="p-2.5 rounded-md bg-muted">
+                  <FolderPlus className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
                 </div>
                 <span className="font-medium text-sm">New Project</span>
               </button>
@@ -212,24 +199,21 @@ export function BottomNav() {
               {screenplayId && (
                 <button
                   onClick={() => handleCreateAction('continue')}
-                  className="group col-span-2 flex items-center gap-3 p-4 rounded-xl border border-border/50 bg-gradient-to-r from-card to-card/50 hover:border-blue-500/30 hover:bg-accent active:scale-[0.98] transition-all duration-200 touch-manipulation shadow-sm hover:shadow"
+                  className="group col-span-2 flex items-center gap-3 p-4 rounded-xl border border-border/50 bg-card hover:bg-accent active:scale-[0.98] transition-all duration-200 touch-manipulation"
                 >
-                  <div className="relative flex-shrink-0">
-                    <div className="absolute inset-0 bg-blue-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="relative p-2.5 rounded-full bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-transparent">
-                      <PenTool className="h-5 w-5 text-blue-500" strokeWidth={2} />
-                    </div>
+                  <div className="p-2 rounded-md bg-muted flex-shrink-0">
+                    <PenTool className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
                   </div>
                   <span className="font-medium text-sm">Continue Writing</span>
                 </button>
               )}
             </div>
-          </SheetContent>
-        </Sheet>
+          </DrawerContent>
+        </Drawer>
 
         {/* Tools */}
-        <Sheet open={toolsOpen} onOpenChange={setToolsOpen}>
-          <SheetTrigger asChild>
+        <Drawer open={toolsOpen} onOpenChange={setToolsOpen}>
+          <DrawerTrigger asChild>
             <button
               className={cn(
                 "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
@@ -240,20 +224,23 @@ export function BottomNav() {
               )}
             >
               <BarChart3 className={cn(
-                "h-5 w-5 transition-all duration-200",
-                (isToolsActive || toolsOpen) && "scale-110",
-                "group-active:scale-90 group-active:rotate-[-8deg]"
+                "h-5 w-5 transition-all duration-300",
+                (isToolsActive || toolsOpen)
+                  ? "fill-primary stroke-primary scale-105"
+                  : "fill-none stroke-current",
+                "group-active:scale-90"
               )} />
               <span className="text-[10px] font-medium">Tools</span>
+              {(isToolsActive || toolsOpen) && (
+                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
+              )}
             </button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="h-auto rounded-t-2xl border-t-0 pb-safe">
-            {/* Drag handle */}
-            <div className="w-12 h-1.5 bg-muted-foreground/40 rounded-full mx-auto mb-4 mt-2" />
-            <SheetHeader className="pb-4 px-1">
-              <SheetTitle className="text-left">Screenplay Tools</SheetTitle>
-            </SheetHeader>
-            <div className="grid grid-cols-2 gap-3 pb-6">
+          </DrawerTrigger>
+          <DrawerContent className="pb-safe">
+            <DrawerHeader className="pb-4 px-5">
+              <DrawerTitle className="text-left">Screenplay Tools</DrawerTitle>
+            </DrawerHeader>
+            <div className="grid grid-cols-2 gap-3 px-4 pb-6">
               <button
                 onClick={() => screenplayId && handleToolClick(`/board/${screenplayId}`)}
                 disabled={!screenplayId}
@@ -264,8 +251,8 @@ export function BottomNav() {
                     : "opacity-50 cursor-not-allowed"
                 )}
               >
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Rows3 className="h-5 w-5 text-blue-500" />
+                <div className="p-2 rounded-md bg-muted">
+                  <Rows3 className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="text-left">
                   <p className="font-medium text-sm">Beat Board</p>
@@ -283,8 +270,8 @@ export function BottomNav() {
                     : "opacity-50 cursor-not-allowed"
                 )}
               >
-                <div className="p-2 rounded-lg bg-purple-500/10">
-                  <LayoutGrid className="h-5 w-5 text-purple-500" />
+                <div className="p-2 rounded-md bg-muted">
+                  <LayoutGrid className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="text-left">
                   <p className="font-medium text-sm">Index Cards</p>
@@ -302,8 +289,8 @@ export function BottomNav() {
                     : "opacity-50 cursor-not-allowed"
                 )}
               >
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <TrendingUp className="h-5 w-5 text-green-500" />
+                <div className="p-2 rounded-md bg-muted">
+                  <TrendingUp className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="text-left">
                   <p className="font-medium text-sm">Story Graph</p>
@@ -321,8 +308,8 @@ export function BottomNav() {
                     : "opacity-50 cursor-not-allowed"
                 )}
               >
-                <div className="p-2 rounded-lg bg-orange-500/10">
-                  <BarChart3 className="h-5 w-5 text-orange-500" />
+                <div className="p-2 rounded-md bg-muted">
+                  <BarChart3 className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="text-left">
                   <p className="font-medium text-sm">Reports</p>
@@ -335,8 +322,8 @@ export function BottomNav() {
                 Open a screenplay to use these tools
               </p>
             )}
-          </SheetContent>
-        </Sheet>
+          </DrawerContent>
+        </Drawer>
 
         {/* Profile */}
         <Link
@@ -350,8 +337,8 @@ export function BottomNav() {
           )}
         >
           <div className={cn(
-            "transition-all duration-200",
-            isActive('/settings') && "scale-110",
+            "transition-all duration-300",
+            isActive('/settings') && "scale-105",
             "group-active:scale-90"
           )}>
             <ProfileAvatar
@@ -362,6 +349,9 @@ export function BottomNav() {
             />
           </div>
           <span className="text-[10px] font-medium">Profile</span>
+          {isActive('/settings') && (
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
+          )}
         </Link>
       </div>
     </nav>

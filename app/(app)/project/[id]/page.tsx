@@ -409,50 +409,50 @@ export default function ProjectPage() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
-            <div className="flex items-center justify-between mb-6">
-              <TabsList>
-                <TabsTrigger value="screenplays" className="gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <TabsList scrollable className="w-full sm:w-auto">
+                <TabsTrigger value="screenplays" className="gap-1.5 sm:gap-2">
                   <Film className="h-4 w-4" />
-                  Screenplays
-                  <Badge variant="secondary">{project._count.screenplays}</Badge>
+                  <span className="hidden xs:inline">Screenplays</span>
+                  <Badge variant="secondary" className="text-xs">{project._count.screenplays}</Badge>
                 </TabsTrigger>
-                <TabsTrigger value="notes" className="gap-2">
+                <TabsTrigger value="notes" className="gap-1.5 sm:gap-2">
                   <FileText className="h-4 w-4" />
-                  Notes
-                  <Badge variant="secondary">{project._count.notes}</Badge>
+                  <span className="hidden xs:inline">Notes</span>
+                  <Badge variant="secondary" className="text-xs">{project._count.notes}</Badge>
                 </TabsTrigger>
-                <TabsTrigger value="schedules" className="gap-2">
+                <TabsTrigger value="schedules" className="gap-1.5 sm:gap-2">
                   <Calendar className="h-4 w-4" />
-                  Schedules
-                  <Badge variant="secondary">{project._count.schedules}</Badge>
+                  <span className="hidden xs:inline">Schedules</span>
+                  <Badge variant="secondary" className="text-xs">{project._count.schedules}</Badge>
                 </TabsTrigger>
-                <TabsTrigger value="budgets" className="gap-2">
+                <TabsTrigger value="budgets" className="gap-1.5 sm:gap-2">
                   <DollarSign className="h-4 w-4" />
-                  Budgets
-                  <Badge variant="secondary">{project._count.budgets}</Badge>
+                  <span className="hidden xs:inline">Budgets</span>
+                  <Badge variant="secondary" className="text-xs">{project._count.budgets}</Badge>
                 </TabsTrigger>
-                <TabsTrigger value="resources" className="gap-2">
+                <TabsTrigger value="resources" className="gap-1.5 sm:gap-2">
                   <LinkIcon className="h-4 w-4" />
-                  Resources
-                  <Badge variant="secondary">{externalLinks.length}</Badge>
+                  <span className="hidden xs:inline">Resources</span>
+                  <Badge variant="secondary" className="text-xs">{externalLinks.length}</Badge>
                 </TabsTrigger>
-                <TabsTrigger value="crew" className="gap-2">
+                <TabsTrigger value="crew" className="gap-1.5 sm:gap-2">
                   <Users className="h-4 w-4" />
-                  Crew
-                  <Badge variant="secondary">{project.roles.length}</Badge>
+                  <span className="hidden xs:inline">Crew</span>
+                  <Badge variant="secondary" className="text-xs">{project.roles.length}</Badge>
                 </TabsTrigger>
               </TabsList>
 
               {activeTab === 'screenplays' && (
-                <Button onClick={() => setTemplateSelectorOpen(true)} className="gap-2">
+                <Button onClick={() => setTemplateSelectorOpen(true)} className="gap-2 w-full sm:w-auto">
                   <Plus className="h-4 w-4" />
-                  Add Screenplay
+                  <span className="sm:inline">Add Screenplay</span>
                 </Button>
               )}
               {activeTab === 'resources' && (
-                <Button onClick={() => setAddLinkDialogOpen(true)} className="gap-2">
+                <Button onClick={() => setAddLinkDialogOpen(true)} className="gap-2 w-full sm:w-auto">
                   <Plus className="h-4 w-4" />
-                  Add Link
+                  <span className="sm:inline">Add Link</span>
                 </Button>
               )}
             </div>
@@ -473,7 +473,7 @@ export default function ProjectPage() {
                   />
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   {project.screenplays.map((screenplay) => (
                     <div
                       key={screenplay.id}
@@ -537,7 +537,7 @@ export default function ProjectPage() {
                   <p className="text-muted-foreground">Notes feature coming soon</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   {project.notes.map((note) => (
                     <div key={note.id} className="bg-card rounded-xl border border-border/60 p-5">
                       <h3 className="font-semibold mb-2">{note.title}</h3>
@@ -562,7 +562,7 @@ export default function ProjectPage() {
                   <p className="text-muted-foreground">Scheduling feature coming soon</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   {project.schedules.map((schedule) => (
                     <div key={schedule.id} className="bg-card rounded-xl border border-border/60 p-5">
                       <h3 className="font-semibold mb-2">{schedule.title}</h3>
@@ -584,7 +584,7 @@ export default function ProjectPage() {
                   <p className="text-muted-foreground">Budgeting feature coming soon</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   {project.budgets.map((budget) => (
                     <div key={budget.id} className="bg-card rounded-xl border border-border/60 p-5">
                       <h3 className="font-semibold mb-2">{budget.title}</h3>
@@ -626,7 +626,7 @@ export default function ProjectPage() {
                       className="gap-1.5"
                     >
                       <Grid3X3 className="h-3.5 w-3.5" />
-                      All
+                      <span className="hidden xs:inline">All</span>
                       <Badge variant="secondary" className="ml-1 text-xs">
                         {externalLinks.length}
                       </Badge>
@@ -638,7 +638,7 @@ export default function ProjectPage() {
                       className="gap-1.5"
                     >
                       <Video className="h-3.5 w-3.5" />
-                      Videos
+                      <span className="hidden xs:inline">Videos</span>
                       <Badge variant="secondary" className="ml-1 text-xs">
                         {externalLinks.filter(l => l.embedType === 'youtube' || l.embedType === 'vimeo').length}
                       </Badge>
@@ -650,7 +650,7 @@ export default function ProjectPage() {
                       className="gap-1.5"
                     >
                       <FileText className="h-3.5 w-3.5" />
-                      Docs
+                      <span className="hidden xs:inline">Docs</span>
                       <Badge variant="secondary" className="ml-1 text-xs">
                         {externalLinks.filter(l => l.embedType === 'google-docs' || l.embedType === 'google-sheets' || l.embedType === 'google-slides').length}
                       </Badge>
@@ -662,7 +662,7 @@ export default function ProjectPage() {
                       className="gap-1.5"
                     >
                       <Image className="h-3.5 w-3.5" />
-                      Visual
+                      <span className="hidden xs:inline">Visual</span>
                       <Badge variant="secondary" className="ml-1 text-xs">
                         {externalLinks.filter(l => l.embedType === 'pinterest' || l.embedType === 'shotdeck' || l.embedType === 'canva').length}
                       </Badge>
@@ -674,7 +674,7 @@ export default function ProjectPage() {
                       className="gap-1.5"
                     >
                       <LinkIcon className="h-3.5 w-3.5" />
-                      Other
+                      <span className="hidden xs:inline">Other</span>
                       <Badge variant="secondary" className="ml-1 text-xs">
                         {externalLinks.filter(l => !l.embedType || l.embedType === 'generic').length}
                       </Badge>
@@ -686,7 +686,7 @@ export default function ProjectPage() {
                       No resources match this filter
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                       {filteredLinks.map((link) => (
                         <ExternalLinkCard
                           key={link.id}

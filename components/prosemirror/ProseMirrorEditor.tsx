@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Check, Loader2, ChevronLeft, ChevronRight, Maximize2, BookOpen, FileText, Scroll } from 'lucide-react';
 import {
@@ -9,12 +9,18 @@ import {
   CharacterInfo,
 } from '@/hooks/editor/useProseMirrorEditor';
 import { useResponsiveScale } from '@/hooks/editor/useResponsiveScale';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { PAGE_WIDTH_PX } from '@/lib/constants';
 import { FloatingToolbar } from './FloatingToolbar';
 import { AutocompleteDropdown } from './AutocompleteDropdown';
 import { ElementToolbar } from './ElementToolbar';
 import { EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { Button } from '@/components/ui/button';
+import { MobileEditorToolbar } from '@/components/mobile-editor-toolbar';
+import { MobileSceneCharacterSheet } from '@/components/editor/MobileSceneCharacterSheet';
+import { ScreenplayStatsMobile } from '@/components/screenplay-stats-mobile';
+import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
+import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plugins/keymap';
 import '@/styles/editor/prosemirror.css';
 
 export type ViewMode = 'single' | 'dual' | 'continuous';
@@ -31,6 +37,16 @@ export interface ProseMirrorEditorProps {
   showStats?: boolean;
   isSaving?: boolean;
   defaultViewMode?: ViewMode;
+  // Mobile toolbar props
+  scenes?: SceneInfo[];
+  characters?: CharacterInfo[];
+  onExportPDF?: () => void;
+  onToggleVersionHistory?: () => void;
+  onToggleFindReplace?: () => void;
+  showLineNumbers?: boolean;
+  showPageBreaks?: boolean;
+  onToggleLineNumbers?: () => void;
+  onTogglePageBreaks?: () => void;
 }
 
 /**
@@ -133,10 +149,21 @@ export function ProseMirrorEditor({
   showStats = true,
   isSaving = false,
   defaultViewMode = 'single',
+  scenes = [],
+  characters = [],
+  onExportPDF,
+  onToggleVersionHistory,
+  onToggleFindReplace,
+  showLineNumbers = false,
+  showPageBreaks = true,
+  onToggleLineNumbers,
+  onTogglePageBreaks,
 }: ProseMirrorEditorProps) {
   const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
   const [currentSpread, setCurrentSpread] = useState(0);
   const [isInFocusMode, setIsInFocusMode] = useState(false);
+  const [scenesSheetOpen, setScenesSheetOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   // Responsive scaling - pages are fixed size and scaled with CSS transforms
   const { scale } = useResponsiveScale(!isInFocusMode);
@@ -165,12 +192,41 @@ export function ProseMirrorEditor({
     view,
     autocompleteState,
     applyAutocompleteSuggestion,
+    canUndo,
+    canRedo,
+    undo: handleUndo,
+    redo: handleRedo,
   } = useProseMirrorEditor({
     initialContent: content,
     onUpdate: onContentChange,
     onScenesChange,
     editable,
   });
+
+  // Mobile toolbar callbacks
+  const handleInsertElement = useCallback((elementType: string) => {
+    if (!view) return;
+    setElementType(elementType as any)(view.state, view.dispatch);
+    view.focus();
+  }, [view]);
+
+  const handleBold = useCallback(() => {
+    if (!view) return;
+    toggleBold(view.state, view.dispatch);
+    view.focus();
+  }, [view]);
+
+  const handleItalic = useCallback(() => {
+    if (!view) return;
+    toggleItalic(view.state, view.dispatch);
+    view.focus();
+  }, [view]);
+
+  const handleUnderline = useCallback(() => {
+    if (!view) return;
+    toggleUnderline(view.state, view.dispatch);
+    view.focus();
+  }, [view]);
 
   // Notify parent when view is ready
   useEffect(() => {
@@ -248,8 +304,8 @@ export function ProseMirrorEditor({
         className
       )}
     >
-      {/* View mode switcher - hidden in focus mode */}
-      {isReady && !isInFocusMode && (
+      {/* View mode switcher - hidden in focus mode and on mobile */}
+      {isReady && !isInFocusMode && !isMobile && (
         <div className="pm-view-switcher hover:opacity-90 transition-opacity duration-200">
           <Button
             variant={viewMode === 'single' ? 'secondary' : 'ghost'}
@@ -284,6 +340,17 @@ export function ProseMirrorEditor({
             <Maximize2 className="h-4 w-4" />
           </Button>
         </div>
+      )}
+
+      {/* Mobile stats bar - only visible on mobile */}
+      {isMobile && isReady && (
+        <ScreenplayStatsMobile
+          wordCount={wordCount}
+          pageCount={pageCount}
+          sceneCount={scenes?.length ?? 0}
+          characterCount={characters?.length ?? 0}
+          onOpenScenes={() => setScenesSheetOpen(true)}
+        />
       )}
 
       {/* Editor container with page styling */}
@@ -351,8 +418,8 @@ export function ProseMirrorEditor({
         />
       )}
 
-      {/* Stats bar */}
-      {showStats && isReady && (
+      {/* Stats bar - hidden on mobile */}
+      {showStats && isReady && !isMobile && (
         <StatsBar wordCount={wordCount} pageCount={pageCount} isSaving={isSaving} isWasmReady={isWasmReady} />
       )}
 
@@ -365,6 +432,55 @@ export function ProseMirrorEditor({
           view={view}
           state={autocompleteState}
           onSelect={applyAutocompleteSuggestion}
+        />
+      )}
+
+      {/* Mobile editor toolbar */}
+      {isMobile && isReady && (
+        <MobileEditorToolbar
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onInsertSceneHeading={() => handleInsertElement('scene_heading')}
+          onInsertCharacter={() => handleInsertElement('character')}
+          onInsertDialogue={() => handleInsertElement('dialogue')}
+          onInsertAction={() => handleInsertElement('action')}
+          onInsertTransition={() => handleInsertElement('transition')}
+          onInsertParenthetical={() => handleInsertElement('parenthetical')}
+          onInsertDualDialogue={() => handleInsertElement('dual_dialogue')}
+          onBold={handleBold}
+          onItalic={handleItalic}
+          onUnderline={handleUnderline}
+          onAutoFormat={() => {}}
+          onSave={() => onSave?.()}
+          onToggleFindReplace={() => onToggleFindReplace?.()}
+          onToggleSceneNavigator={() => setScenesSheetOpen(true)}
+          onToggleVersionHistory={onToggleVersionHistory}
+          onToggleZenMode={toggleFocusMode}
+          onExportPDF={() => onExportPDF?.()}
+          onOpenScenes={() => setScenesSheetOpen(true)}
+          onToggleLineNumbers={() => onToggleLineNumbers?.()}
+          onTogglePageBreaks={() => onTogglePageBreaks?.()}
+          onZoomIn={() => {}}
+          onZoomOut={() => {}}
+          showLineNumbers={showLineNumbers}
+          showPageBreaks={showPageBreaks}
+          zoom={Math.round(scale * 100)}
+          wordCount={wordCount}
+          pageCount={pageCount}
+          isSaving={isSaving}
+        />
+      )}
+
+      {/* Mobile scenes/characters sheet */}
+      {isMobile && (
+        <MobileSceneCharacterSheet
+          open={scenesSheetOpen}
+          onOpenChange={setScenesSheetOpen}
+          scenes={scenes}
+          characters={characters}
+          view={view}
         />
       )}
     </div>

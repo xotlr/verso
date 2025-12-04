@@ -55,18 +55,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     return () => window.removeEventListener('focus-mode-toggle', handleFocusModeToggle);
   }, []);
 
-  // Body scroll lock when focus mode is active
-  useEffect(() => {
-    if (focusMode) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [focusMode]);
-
+  
   // Focus trap for keyboard accessibility
   useEffect(() => {
     if (!focusMode) return;
@@ -126,7 +115,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           "flex flex-col h-screen transition-all duration-500 ease-out",
           focusMode && "!ml-0"
         )}>
-          {/* Header - always shown on desktop, hidden in focus mode */}
+          {/* Header - hidden in focus mode */}
           {!focusMode && <AppHeader />}
 
           {/* Focus mode exit button - centered at top */}

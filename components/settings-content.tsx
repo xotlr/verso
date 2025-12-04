@@ -388,11 +388,32 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                 <CardDescription>Choose a visual theme for your workspace</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Classic Themes */}
+                {/* Essential Themes */}
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2">Classic</p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {(['minimal', 'warm', 'midnight', 'paper'] as ThemePreset[]).map((preset) => (
+                  <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2">Essential</p>
+                  <div className="grid grid-cols-2 md:grid-cols-2 gap-2">
+                    {(['minimal', 'romance'] as ThemePreset[]).map((preset) => (
+                      <button
+                        key={preset}
+                        onClick={() => setThemePreset(preset)}
+                        className={`p-3 rounded-lg border-2 transition-all text-left ${
+                          settings.visual.themePreset === preset
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                      >
+                        <div className="text-sm font-medium">{themeMetadata[preset].name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{themeMetadata[preset].subtitle}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Vintage Themes */}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2">Vintage</p>
+                  <div className="grid grid-cols-2 md:grid-cols-2 gap-2">
+                    {(['matcha', 'neovictorian'] as ThemePreset[]).map((preset) => (
                       <button
                         key={preset}
                         onClick={() => setThemePreset(preset)}
@@ -412,29 +433,8 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                 {/* Genre Themes */}
                 <div>
                   <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2">Genre</p>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                    {(['noir', 'romance', 'fantasy', 'sci-fi', 'horror'] as ThemePreset[]).map((preset) => (
-                      <button
-                        key={preset}
-                        onClick={() => setThemePreset(preset)}
-                        className={`p-3 rounded-lg border-2 transition-all text-left ${
-                          settings.visual.themePreset === preset
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                      >
-                        <div className="text-sm font-medium">{themeMetadata[preset].name}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{themeMetadata[preset].subtitle}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Custom Themes */}
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2">Custom</p>
-                  <div className="grid grid-cols-2 md:grid-cols-2 gap-2">
-                    {(['matcha', 'neovictorian'] as ThemePreset[]).map((preset) => (
+                  <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
+                    {(['horror'] as ThemePreset[]).map((preset) => (
                       <button
                         key={preset}
                         onClick={() => setThemePreset(preset)}

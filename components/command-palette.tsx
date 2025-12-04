@@ -25,7 +25,8 @@ import {
   ChevronRight,
   Hash,
 } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@/components/theme-provider';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Command {
   id: string;
@@ -228,18 +229,20 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
   ], [theme, setTheme, router, onClose, onOpenSettings]);
 
   // Add screenplay navigation commands
-  const screenplayCommands: Command[] = screenplays.map((sp) => ({
-    id: `screenplay-${sp.id}`,
-    label: sp.title,
-    description: 'Open screenplay',
-    icon: <FileText className="h-4 w-4" />,
-    category: 'navigation' as const,
-    keywords: [sp.title.toLowerCase(), 'open', 'screenplay'],
-    action: () => {
-      router.push(`/screenplay/${sp.id}`);
-      onClose();
-    },
-  }));
+  const screenplayCommands: Command[] = screenplays
+    .filter((sp) => sp.title) // Filter out items without titles
+    .map((sp) => ({
+      id: `screenplay-${sp.id}`,
+      label: sp.title,
+      description: 'Open screenplay',
+      icon: <FileText className="h-4 w-4" />,
+      category: 'navigation' as const,
+      keywords: [sp.title.toLowerCase(), 'open', 'screenplay'],
+      action: () => {
+        router.push(`/screenplay/${sp.id}`);
+        onClose();
+      },
+    }));
 
   const allCommands = useMemo(() => [...commands, ...screenplayCommands], [commands, screenplayCommands]);
 
@@ -331,7 +334,7 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
         </div>
 
         {/* Commands List */}
-        <div className="max-h-96 overflow-y-auto">
+        <ScrollArea className="max-h-96">
           {filteredCommands.length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-muted-foreground">No commands found</p>
@@ -388,7 +391,7 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
               );
             })
           )}
-        </div>
+        </ScrollArea>
 
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/30">

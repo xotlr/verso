@@ -200,7 +200,7 @@ function EmbedPlayerModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black">
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-2xl md:max-w-4xl p-0 overflow-hidden bg-black">
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <div className="relative">
           <Button
@@ -238,7 +238,7 @@ function GoogleDocsPreview({ link }: { link: ExternalLinkData }) {
 
   return (
     <div className={cn(
-      'relative h-32 bg-gradient-to-br flex items-center justify-center',
+      'relative h-28 sm:h-32 bg-gradient-to-br flex items-center justify-center',
       bgColors[docType]
     )}>
       <GoogleDocIcon type={docType} className="w-16 h-16 text-foreground/30" />
@@ -309,7 +309,7 @@ function NotesEditor({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-80"
+        className="w-[calc(100vw-2rem)] sm:w-80"
         align="end"
         onClick={(e) => e.stopPropagation()}
       >
@@ -390,7 +390,7 @@ export function ExternalLinkCard({
     // Pinterest, ShotDeck, Canva - show large image
     if ((embedType === 'pinterest' || embedType === 'shotdeck' || embedType === 'canva') && displayImage && !imageError) {
       return (
-        <div className="relative h-40 bg-muted overflow-hidden">
+        <div className="relative h-32 sm:h-40 bg-muted overflow-hidden">
           <img
             src={displayImage}
             alt=""
@@ -412,7 +412,7 @@ export function ExternalLinkCard({
     // Generic link with image
     if (displayImage && !imageError) {
       return (
-        <div className="relative h-32 bg-muted overflow-hidden">
+        <div className="relative h-28 sm:h-32 bg-muted overflow-hidden">
           <img
             src={displayImage}
             alt=""

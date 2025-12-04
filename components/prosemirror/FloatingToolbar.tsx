@@ -34,6 +34,7 @@ import {
   toggleUnderline,
 } from '@/lib/prosemirror/plugins/keymap';
 import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface FloatingToolbarProps {
   view: EditorView | null;
@@ -89,6 +90,7 @@ const ELEMENT_ICONS: Record<ElementType, React.ReactNode> = {
  */
 export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: FloatingToolbarProps) {
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
   const [position, setPosition] = useState<ToolbarPosition>({
     top: 0,
     left: 0,
@@ -133,7 +135,9 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
       )
     );
 
-    const top = Math.max(10, start.top - toolbarHeight - 10);
+    // On mobile, position higher to avoid overlap with bottom toolbar (56px + safe area)
+    const mobileOffset = window.innerWidth < 768 ? 20 : 10;
+    const top = Math.max(10, start.top - toolbarHeight - mobileOffset);
 
     // Update mark states
     setIsBold(isMarkActive(state, 'bold'));
@@ -206,13 +210,17 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
     return null;
   }
 
+  // Button size - larger on mobile for touch targets
+  const buttonClass = isMobile ? 'h-11 w-11 p-0' : 'h-8 w-8 p-0';
+  const iconClass = isMobile ? 'h-5 w-5' : 'h-4 w-4';
+
   return (
     <div
       ref={toolbarRef}
       className={cn(
         'fixed z-50',
         'flex items-center gap-0.5 p-1',
-        'bg-popover/98 backdrop-blur-lg',  /* Improved legibility (was 95/md) */
+        'bg-popover/98 backdrop-blur-lg',
         'border border-border rounded-lg shadow-lg',
         'animate-in fade-in-0 zoom-in-95 duration-150',
         className
@@ -223,78 +231,82 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
       }}
       onMouseDown={(e) => e.preventDefault()} // Prevent losing selection
     >
-      {/* Element Type Dropdown */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 gap-1 text-xs font-medium"
-          >
-            {ELEMENT_ICONS[currentElement]}
-            <span className="hidden sm:inline">
-              {ELEMENT_DISPLAY_NAMES[currentElement]}
-            </span>
-            <ChevronDown className="h-3 w-3 opacity-50" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-48">
-          {ELEMENT_CYCLE_ORDER.map((type) => (
-            <DropdownMenuItem
-              key={type}
-              onClick={() => handleElementChange(type)}
-              className={cn(
-                'flex items-center gap-2',
-                currentElement === type && 'bg-accent'
-              )}
-            >
-              {ELEMENT_ICONS[type]}
-              <span>{ELEMENT_DISPLAY_NAMES[type]}</span>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Element Type Dropdown - hidden on mobile, handled by MobileEditorToolbar */}
+      {!isMobile && (
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2 gap-1 text-xs font-medium"
+              >
+                {ELEMENT_ICONS[currentElement]}
+                <span className="hidden sm:inline">
+                  {ELEMENT_DISPLAY_NAMES[currentElement]}
+                </span>
+                <ChevronDown className="h-3 w-3 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              {ELEMENT_CYCLE_ORDER.map((type) => (
+                <DropdownMenuItem
+                  key={type}
+                  onClick={() => handleElementChange(type)}
+                  className={cn(
+                    'flex items-center gap-2',
+                    currentElement === type && 'bg-accent'
+                  )}
+                >
+                  {ELEMENT_ICONS[type]}
+                  <span>{ELEMENT_DISPLAY_NAMES[type]}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-      <Separator orientation="vertical" className="h-6 mx-1" />
+          <Separator orientation="vertical" className="h-6 mx-1" />
+        </>
+      )}
 
       {/* Format Buttons */}
       <Button
         variant="ghost"
         size="sm"
         className={cn(
-          'h-8 w-8 p-0',
+          buttonClass,
           isBold && 'bg-accent text-accent-foreground'
         )}
         onClick={handleBold}
         title="Bold (Cmd+B)"
       >
-        <Bold className="h-4 w-4" />
+        <Bold className={iconClass} />
       </Button>
 
       <Button
         variant="ghost"
         size="sm"
         className={cn(
-          'h-8 w-8 p-0',
+          buttonClass,
           isItalic && 'bg-accent text-accent-foreground'
         )}
         onClick={handleItalic}
         title="Italic (Cmd+I)"
       >
-        <Italic className="h-4 w-4" />
+        <Italic className={iconClass} />
       </Button>
 
       <Button
         variant="ghost"
         size="sm"
         className={cn(
-          'h-8 w-8 p-0',
+          buttonClass,
           isUnderlined && 'bg-accent text-accent-foreground'
         )}
         onClick={handleUnderline}
         title="Underline (Cmd+U)"
       >
-        <Underline className="h-4 w-4" />
+        <Underline className={iconClass} />
       </Button>
     </div>
   );

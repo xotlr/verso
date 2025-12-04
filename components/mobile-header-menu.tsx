@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@/components/theme-provider';
 import { useSession, signOut } from 'next-auth/react';
 import { Search, Bell, Sun, Moon, Settings, LogOut, User } from 'lucide-react';
 import { FriesIcon } from '@/components/icons/fries-icon';
@@ -14,6 +14,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
+  SheetClose,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -57,7 +58,9 @@ export function MobileHeaderMenu() {
 
   const handleSearch = () => {
     setOpen(false);
-    window.dispatchEvent(new CustomEvent('command-palette-open'));
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('command-palette-open'));
+    }, 150);
   };
 
   return (
@@ -78,10 +81,27 @@ export function MobileHeaderMenu() {
         </Button>
       </SheetTrigger>
 
-      <SheetContent side="right" className="w-[280px] flex flex-col">
-        <SheetHeader className="border-b pb-4">
+      <SheetContent
+        side="right"
+        className="w-full sm:w-full sm:max-w-full flex flex-col [&>button]:hidden"
+      >
+        {/* Custom close button - same position as trigger, using FriesIcon */}
+        <SheetClose asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-4 top-3 h-8 w-8"
+            aria-label="Close menu"
+          >
+            <div className="transition-transform duration-300 ease-out rotate-90 scale-90">
+              <FriesIcon size={20} />
+            </div>
+          </Button>
+        </SheetClose>
+
+        <SheetHeader className="pb-4">
           {user && (
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
               <Avatar className="h-10 w-10" key={user?.image || 'no-avatar-header'}>
                 <AvatarImage src={user?.image || undefined} alt={user?.name || 'User'} />
                 <AvatarFallback
@@ -135,11 +155,6 @@ export function MobileHeaderMenu() {
             />
           </div>
 
-          <div
-            className="h-px bg-border my-3 animate-in fade-in fill-mode-both"
-            style={{ animationDelay: '150ms', animationDuration: '200ms' }}
-          />
-
           {/* Theme Toggle - Inline with Switch */}
           <div
             className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
@@ -173,11 +188,6 @@ export function MobileHeaderMenu() {
             />
           </div>
 
-          <div
-            className="h-px bg-border my-3 animate-in fade-in fill-mode-both"
-            style={{ animationDelay: '250ms', animationDuration: '200ms' }}
-          />
-
           {/* Log Out */}
           <div
             className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
@@ -202,7 +212,7 @@ export function MobileHeaderMenu() {
           </div>
         </nav>
 
-        <div className="border-t pt-4 pb-2">
+        <div className="pt-4 pb-2">
           <div className="px-4 text-xs text-muted-foreground">Verso v1.0.0</div>
         </div>
       </SheetContent>

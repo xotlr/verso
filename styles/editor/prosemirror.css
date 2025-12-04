@@ -901,3 +901,39 @@
     animation: none !important;
   }
 }
+
+/* ============================================
+   Mobile Editor Adjustments
+   ============================================ */
+@media (max-width: 767px) {
+  /* Add padding for mobile bottom toolbar (56px + safe area) */
+  .pm-editor-wrapper {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Ensure editor scroll area accounts for bottom toolbar */
+  .pm-editor-scroll-area {
+    padding-bottom: 60px;
+  }
+
+  /* Hide view switcher (already done in JS but CSS fallback) */
+  .pm-view-switcher {
+    display: none !important;
+  }
+
+  /* Adjust page scaling origin for centered mobile pages */
+  .pm-editor-pages {
+    transform-origin: top center;
+  }
+
+  /* Better touch scrolling */
+  .pm-editor-scroll-area {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Increase tap target for page breaks */
+  .pm-page-break-container {
+    min-height: 44px;
+  }
+}

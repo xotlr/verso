@@ -19,15 +19,49 @@ const ThemeProviderContext = React.createContext<ThemeProviderState | undefined>
   undefined
 );
 
+const COOKIE_NAME = 'verso-theme';
+const COOKIE_DOMAIN = process.env.NODE_ENV === 'production' ? '.verso.ac' : undefined;
+
+function setThemeCookie(theme: Theme) {
+  const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
+  const domainPart = COOKIE_DOMAIN ? `; domain=${COOKIE_DOMAIN}` : '';
+  document.cookie = `${COOKIE_NAME}=${theme}; path=/; expires=${expires.toUTCString()}${domainPart}; SameSite=Lax`;
+}
+
+function getThemeCookie(): Theme | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${COOKIE_NAME}=([^;]*)`));
+  const value = match ? match[1] : null;
+  if (value === 'light' || value === 'dark' || value === 'system') {
+    return value;
+  }
+  return null;
+}
+
+function getInitialTheme(storageKey: string, defaultTheme: Theme): Theme {
+  if (typeof window === 'undefined') return defaultTheme;
+
+  // Priority: cookie (cross-subdomain) > localStorage > default
+  const cookieTheme = getThemeCookie();
+  if (cookieTheme) return cookieTheme;
+
+  const localTheme = localStorage.getItem(storageKey) as Theme | null;
+  if (localTheme === 'light' || localTheme === 'dark' || localTheme === 'system') {
+    // Sync localStorage to cookie for cross-subdomain access
+    setThemeCookie(localTheme);
+    return localTheme;
+  }
+
+  return defaultTheme;
+}
+
 export function ThemeProvider({
   children,
   defaultTheme = 'system',
   storageKey = 'verso-theme',
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = React.useState<Theme>(
-    () => (typeof window !== 'undefined' && localStorage.getItem(storageKey) as Theme) || defaultTheme
-  );
+  const [theme, setTheme] = React.useState<Theme>(() => getInitialTheme(storageKey, defaultTheme));
 
   React.useEffect(() => {
     const root = window.document.documentElement;
@@ -49,9 +83,10 @@ export function ThemeProvider({
   const value = React.useMemo(
     () => ({
       theme,
-      setTheme: (theme: Theme) => {
-        localStorage.setItem(storageKey, theme);
-        setTheme(theme);
+      setTheme: (newTheme: Theme) => {
+        localStorage.setItem(storageKey, newTheme);
+        setThemeCookie(newTheme);
+        setTheme(newTheme);
       },
     }),
     [theme, storageKey]
