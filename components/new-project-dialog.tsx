@@ -23,13 +23,27 @@ import {
 import { Loader2, User, Users } from 'lucide-react';
 import { useTeam } from '@/contexts/team-context';
 
+interface ProjectRole {
+  id: string;
+  role: string;
+  name: string;
+  userId: string | null;
+  user: {
+    id: string;
+    name: string | null;
+    image: string | null;
+  } | null;
+}
+
 interface ProjectItem {
   id: string;
   name: string;
   description: string | null;
   banner: string | null;
   logo: string | null;
+  budget: number | null;
   updatedAt: string;
+  roles: ProjectRole[];
   _count: {
     screenplays: number;
     notes: number;
@@ -93,6 +107,8 @@ export function NewProjectDialog({ isOpen, onClose, onCreated }: NewProjectDialo
         ...project,
         banner: project.banner || null,
         logo: project.logo || null,
+        budget: project.budget || null,
+        roles: project.roles || [],
         _count: {
           screenplays: 0,
           notes: 0,

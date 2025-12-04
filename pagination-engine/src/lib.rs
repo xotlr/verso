@@ -31,6 +31,7 @@
 use wasm_bindgen::prelude::*;
 
 pub mod layout;
+pub mod shaping;
 pub mod types;
 pub mod utils;
 
@@ -125,7 +126,7 @@ mod tests {
         let config_json = get_feature_film_config().unwrap();
         let config: PageConfig = serde_json::from_str(&config_json).unwrap();
 
-        assert_eq!(config.lines_per_page, 55);
+        assert_eq!(config.lines_per_page, 52);  // Match JS: LINES_PER_PAGE = 52
     }
 
     #[test]

@@ -56,6 +56,7 @@ export interface UseProseMirrorEditorReturn {
   isReady: boolean;
   canUndo: boolean;
   canRedo: boolean;
+  isWasmReady: boolean;
 
   // Autocomplete
   autocompleteState: AutocompleteState | null;
@@ -193,6 +194,9 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
   // Debounce extraction to avoid running on every keystroke
   const extractionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Debounce word/page count calculations
+  const statsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Store callbacks in refs to avoid dependency issues
   const onUpdateRef = useRef(onUpdate);
   const onScenesChangeRef = useRef(onScenesChange);
@@ -260,9 +264,16 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
         // Update local state
         if (tr.docChanged) {
           const doc = newState.doc;
-          setWordCount(calculateWordCount(doc));
-          setPageCount(calculatePageCount(doc)); // Fallback, will be updated by WASM
-          setCurrentDoc(doc); // Trigger WASM pagination
+          setCurrentDoc(doc); // Trigger WASM pagination (already debounced in usePagination)
+
+          // Debounce expensive word/page count calculations
+          if (statsTimeoutRef.current) {
+            clearTimeout(statsTimeoutRef.current);
+          }
+          statsTimeoutRef.current = setTimeout(() => {
+            setWordCount(calculateWordCount(doc));
+            setPageCount(calculatePageCount(doc)); // Fallback, will be updated by WASM
+          }, 300); // 300ms debounce for stats
 
           // Notify parent of content change
           if (onUpdateRef.current) {
@@ -324,9 +335,12 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     }
 
     return () => {
-      // Clean up extraction timeout
+      // Clean up timeouts
       if (extractionTimeoutRef.current) {
         clearTimeout(extractionTimeoutRef.current);
+      }
+      if (statsTimeoutRef.current) {
+        clearTimeout(statsTimeoutRef.current);
       }
       view.destroy();
       viewRef.current = null;
@@ -436,6 +450,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     isReady,
     canUndo,
     canRedo,
+    isWasmReady: pagination.isWasmReady,
 
     // Autocomplete
     autocompleteState,

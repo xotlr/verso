@@ -205,7 +205,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   return (
     <Sidebar collapsible="icon" className="border-r bg-sidebar">
       {/* Header */}
-      <SidebarHeader className="border-b border-border/50">
+      <SidebarHeader className="gap-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <TeamSwitcher isCollapsed={isCollapsed} />

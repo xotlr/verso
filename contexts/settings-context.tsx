@@ -10,7 +10,6 @@ interface SettingsContextType {
   updateEditorSettings: (updates: Partial<AppSettings['editor']>) => void;
   updateLayoutSettings: (updates: Partial<AppSettings['layout']>) => void;
   updateExportSettings: (updates: Partial<AppSettings['export']>) => void;
-  updateShortcuts: (updates: Partial<AppSettings['shortcuts']>) => void;
   setThemePreset: (preset: ThemePreset) => void;
   resetSettings: () => void;
   exportSettings: () => string;
@@ -63,7 +62,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           },
           layout: { ...defaultSettings.layout, ...parsed.layout },
           export: { ...defaultSettings.export, ...parsed.export },
-          shortcuts: { ...defaultSettings.shortcuts, ...parsed.shortcuts },
         });
       }
     } catch (error) {
@@ -105,13 +103,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     // Apply editor-specific settings
     root.style.setProperty('--pm-text-lightness', `${settings.editor.textContrast}%`);
 
-    // Apply line height based on density
-    const lineHeightMap = {
-      compact: '1.1',
-      normal: '1.15',
-      relaxed: '1.2',
-    };
-    root.style.setProperty('--pm-line-height', lineHeightMap[settings.editor.lineHeightDensity]);
+    // Line height is fixed at 16px for proper pagination (matches wasm-inspired editor)
+    // The density setting no longer affects screenplay line height
+    root.style.setProperty('--pm-line-height', '16px');
 
     // Apply font classes
     root.setAttribute('data-ui-font', settings.visual.uiFont);
@@ -171,18 +165,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
-  const updateShortcuts = useCallback((updates: Partial<AppSettings['shortcuts']>) => {
-    setSettings((prev) => {
-      const newShortcuts = { ...prev.shortcuts };
-      Object.entries(updates).forEach(([key, value]) => {
-        if (value !== undefined) {
-          newShortcuts[key] = value;
-        }
-      });
-      return { ...prev, shortcuts: newShortcuts };
-    });
-  }, []);
-
   const setThemePreset = useCallback((preset: ThemePreset) => {
     const presetSettings = themePresets[preset];
     if (presetSettings) {
@@ -231,7 +213,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         },
         layout: { ...defaultSettings.layout, ...parsed.layout },
         export: { ...defaultSettings.export, ...parsed.export },
-        shortcuts: { ...defaultSettings.shortcuts, ...parsed.shortcuts },
       });
       return true;
     } catch (error) {
@@ -247,7 +228,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     updateEditorSettings,
     updateLayoutSettings,
     updateExportSettings,
-    updateShortcuts,
     setThemePreset,
     resetSettings,
     exportSettings,

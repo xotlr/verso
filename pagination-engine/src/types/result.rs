@@ -59,6 +59,14 @@ pub struct PaginationStats {
 
     /// Pagination timing in microseconds
     pub timing_us: u64,
+
+    /// Debug: total lines used across all pages
+    #[serde(default)]
+    pub total_lines: u32,
+
+    /// Debug: average lines per element (for diagnostics)
+    #[serde(default)]
+    pub avg_lines_per_element: f32,
 }
 
 /// Complete result of pagination
@@ -89,6 +97,8 @@ impl PaginationResult {
                 break_count: 0,
                 continuation_count: 0,
                 timing_us: 0,
+                total_lines: 0,
+                avg_lines_per_element: 0.0,
             },
         }
     }

@@ -74,6 +74,13 @@ const createLinkSchema = z.object({
   image: z.string().optional().nullable(),
   siteName: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
+  // Enhanced embed fields
+  embedType: z.string().optional().nullable(),
+  embedId: z.string().optional().nullable(),
+  embedUrl: z.string().optional().nullable(),
+  thumbnailUrl: z.string().optional().nullable(),
+  isPlayable: z.boolean().optional().default(false),
+  notes: z.string().optional().nullable(),
 })
 
 // POST /api/projects/[id]/links - Create a new external link

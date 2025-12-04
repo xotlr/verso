@@ -67,11 +67,28 @@ export async function GET(request: Request) {
         coverImage: true,
         banner: true,
         logo: true,
+        budget: true,
         createdAt: true,
         updatedAt: true,
         teamId: true,
         team: {
           select: { id: true, name: true },
+        },
+        roles: {
+          select: {
+            id: true,
+            role: true,
+            name: true,
+            userId: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+          },
+          orderBy: { role: "asc" },
         },
         _count: {
           select: {

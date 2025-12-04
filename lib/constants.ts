@@ -5,7 +5,7 @@ export const MAX_HISTORY_ENTRIES = 100;
 export const TYPING_FEEDBACK_DELAY_MS = 150;
 
 // Screenplay Formatting
-export const LINES_PER_PAGE = 55;
+export const LINES_PER_PAGE = 52;
 export const WORDS_PER_PAGE_ESTIMATE = 250;
 export const SCREENPLAY_LINE_HEIGHT = 1.5;
 export const MAX_TEXT_WIDTH = 60;
@@ -13,6 +13,13 @@ export const DIALOGUE_INDENT = 25;
 export const PARENTHETICAL_INDENT = 31;
 export const MAX_DIALOGUE_WIDTH = 35;
 export const CHARACTER_INDENT = 37;
+
+// Page dimensions (US Letter at 96 DPI)
+export const PAGE_WIDTH_PX = 816;
+export const PAGE_HEIGHT_PX = 1056;
+
+// Layout
+export const SIDEBAR_WIDTH = 256; // 16rem in pixels
 
 // Storage Keys
 export const SETTINGS_STORAGE_KEY = 'verso-settings-v1';

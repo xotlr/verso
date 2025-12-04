@@ -8,10 +8,12 @@ import {
   SceneInfo,
   CharacterInfo,
 } from '@/hooks/editor/useProseMirrorEditor';
-import { ELEMENT_DISPLAY_NAMES, ElementType } from '@/lib/prosemirror';
+import { useResponsiveScale } from '@/hooks/editor/useResponsiveScale';
+import { PAGE_WIDTH_PX } from '@/lib/constants';
 import { FloatingToolbar } from './FloatingToolbar';
 import { AutocompleteDropdown } from './AutocompleteDropdown';
-import { EditorScrollArea, EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
+import { ElementToolbar } from './ElementToolbar';
+import { EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { Button } from '@/components/ui/button';
 import '@/styles/editor/prosemirror.css';
 
@@ -22,6 +24,7 @@ export interface ProseMirrorEditorProps {
   onContentChange?: (content: string) => void;
   onScenesChange?: (scenes: SceneInfo[], characters: CharacterInfo[]) => void;
   onSave?: () => void;
+  onViewReady?: (view: import('prosemirror-view').EditorView) => void;
   editable?: boolean;
   className?: string;
   showElementIndicator?: boolean;
@@ -31,61 +34,24 @@ export interface ProseMirrorEditorProps {
 }
 
 /**
- * Element type indicator pill that shows current element type.
- */
-function ElementIndicator({
-  elementType,
-  className,
-}: {
-  elementType: ElementType;
-  className?: string;
-}) {
-  const displayName = ELEMENT_DISPLAY_NAMES[elementType] || 'Unknown';
-
-  // Color coding by element type
-  const colorClasses: Record<ElementType, string> = {
-    scene_heading: 'text-blue-500 border-blue-500/30',
-    action: 'text-muted-foreground border-border',
-    character: 'text-purple-500 border-purple-500/30',
-    dialogue: 'text-foreground/80 border-border',
-    parenthetical: 'text-muted-foreground border-border',
-    transition: 'text-orange-500 border-orange-500/30',
-    dual_dialogue: 'text-violet-500 border-violet-500/30',
-  };
-
-  return (
-    <div
-      className={cn(
-        'fixed bottom-6 left-1/2 -translate-x-1/2 z-40',
-        'px-4 py-1.5 rounded-full',
-        'bg-card/95 backdrop-blur-sm border',
-        'text-xs font-medium uppercase tracking-wider',
-        'shadow-md',
-        'transition-all duration-200 ease-out',
-        colorClasses[elementType],
-        className
-      )}
-      data-type={elementType}
-    >
-      {displayName}
-    </div>
-  );
-}
-
-/**
  * Stats bar showing word count, page count, and save status.
  */
 function StatsBar({
   wordCount,
   pageCount,
   isSaving,
+  isWasmReady,
   className,
 }: {
   wordCount: number;
   pageCount: number;
   isSaving?: boolean;
+  isWasmReady?: boolean;
   className?: string;
 }) {
+  const isDev = process.env.NODE_ENV === 'development';
+  const [showWasmDebug, setShowWasmDebug] = useState(false);
+
   return (
     <div
       className={cn(
@@ -98,6 +64,36 @@ function StatsBar({
         className
       )}
     >
+      {/* WASM status - dev only, toggleable */}
+      {isDev && showWasmDebug && (
+        <>
+          <button
+            onClick={() => setShowWasmDebug(false)}
+            className={cn(
+              'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium cursor-pointer',
+              isWasmReady
+                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                : 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
+            )}
+            title="Click to hide WASM status"
+          >
+            {isWasmReady ? 'WASM' : 'JS'}
+          </button>
+          <span className="text-border">|</span>
+        </>
+      )}
+      {isDev && !showWasmDebug && (
+        <>
+          <button
+            onClick={() => setShowWasmDebug(true)}
+            className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground cursor-pointer"
+            title="Click to show WASM status"
+          >
+            ⚙
+          </button>
+          <span className="text-border">|</span>
+        </>
+      )}
       {/* Save status */}
       <span className="flex items-center gap-1.5">
         {isSaving ? (
@@ -130,6 +126,7 @@ export function ProseMirrorEditor({
   onContentChange,
   onScenesChange,
   onSave,
+  onViewReady,
   editable = true,
   className,
   showElementIndicator = true,
@@ -140,9 +137,9 @@ export function ProseMirrorEditor({
   const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
   const [currentSpread, setCurrentSpread] = useState(0);
   const [isInFocusMode, setIsInFocusMode] = useState(false);
-  const [indicatorVisible, setIndicatorVisible] = useState(true);
-  const indicatorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const scrollViewportRef = useRef<HTMLDivElement>(null);
+
+  // Responsive scaling - pages are fixed size and scaled with CSS transforms
+  const { scale } = useResponsiveScale(!isInFocusMode);
 
   // Toggle app-level focus mode (hides sidebar + header)
   const toggleFocusMode = useCallback(() => {
@@ -164,6 +161,7 @@ export function ProseMirrorEditor({
     wordCount,
     pageCount,
     isReady,
+    isWasmReady,
     view,
     autocompleteState,
     applyAutocompleteSuggestion,
@@ -174,25 +172,15 @@ export function ProseMirrorEditor({
     editable,
   });
 
+  // Notify parent when view is ready
+  useEffect(() => {
+    if (isReady && view && onViewReady) {
+      onViewReady(view);
+    }
+  }, [isReady, view, onViewReady]);
+
   // Calculate total spreads for dual view
   const totalSpreads = Math.ceil(pageCount / 2);
-
-  // Auto-hide element indicator after 2s of inactivity
-  useEffect(() => {
-    setIndicatorVisible(true);
-    if (indicatorTimeoutRef.current) {
-      clearTimeout(indicatorTimeoutRef.current);
-    }
-    indicatorTimeoutRef.current = setTimeout(() => {
-      setIndicatorVisible(false);
-    }, 2000);
-
-    return () => {
-      if (indicatorTimeoutRef.current) {
-        clearTimeout(indicatorTimeoutRef.current);
-      }
-    };
-  }, [currentElementType]);
 
   // Navigate spreads in dual view
   const goToPrevSpread = useCallback(() => {
@@ -216,10 +204,10 @@ export function ProseMirrorEditor({
       // Shift+Ctrl+E - Center current line
       if (e.shiftKey && e.ctrlKey && e.key === 'e') {
         e.preventDefault();
-        if (view && scrollViewportRef.current) {
+        const viewport = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
+        if (view && viewport) {
           const { from } = view.state.selection;
           const coords = view.coordsAtPos(from);
-          const viewport = scrollViewportRef.current;
           const viewportRect = viewport.getBoundingClientRect();
           const scrollTop = viewport.scrollTop;
           const viewportHeight = viewport.clientHeight;
@@ -299,8 +287,7 @@ export function ProseMirrorEditor({
       )}
 
       {/* Editor container with page styling */}
-      <EditorScrollArea
-        ref={scrollViewportRef}
+      <div
         className={cn(
           'pm-editor-scroll-area h-full',
           viewMode === 'continuous' && 'pm-continuous-mode'
@@ -311,11 +298,13 @@ export function ProseMirrorEditor({
             'pm-editor-pages',
             viewMode === 'dual' && 'pm-dual-view'
           )}
-          style={
-            viewMode === 'dual'
-              ? { transform: `translateX(-${currentSpread * 100}%)` }
-              : undefined
-          }
+          style={{
+            transform: viewMode === 'dual'
+              ? `translateX(-${currentSpread * 100}%) scale(${scale})`
+              : `scale(${scale})`,
+            transformOrigin: 'top center',
+            width: `${PAGE_WIDTH_PX}px`,
+          }}
         >
           {/* ProseMirror mounts here */}
           <div
@@ -327,7 +316,7 @@ export function ProseMirrorEditor({
             )}
           />
         </div>
-      </EditorScrollArea>
+      </div>
 
       {/* Dual view page navigation */}
       {viewMode === 'dual' && isReady && totalSpreads > 1 && (
@@ -354,20 +343,17 @@ export function ProseMirrorEditor({
         </div>
       )}
 
-      {/* Element type indicator */}
+      {/* Element type toolbar (expandable indicator) */}
       {showElementIndicator && isReady && (
-        <ElementIndicator
-          elementType={currentElementType}
-          className={cn(
-            'transition-opacity duration-300',
-            indicatorVisible ? 'opacity-100' : 'opacity-0'
-          )}
+        <ElementToolbar
+          view={view}
+          currentElementType={currentElementType}
         />
       )}
 
       {/* Stats bar */}
       {showStats && isReady && (
-        <StatsBar wordCount={wordCount} pageCount={pageCount} isSaving={isSaving} />
+        <StatsBar wordCount={wordCount} pageCount={pageCount} isSaving={isSaving} isWasmReady={isWasmReady} />
       )}
 
       {/* Floating toolbar on selection */}

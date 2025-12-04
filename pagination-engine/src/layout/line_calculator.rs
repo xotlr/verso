@@ -1,4 +1,21 @@
 use crate::types::{Element, PageConfig};
+use regex::Regex;
+use std::sync::LazyLock;
+
+/// Regex to strip HTML tags from content for accurate character counting.
+/// Matches JS: const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "");
+static HTML_TAG_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"<[^>]*>").expect("Invalid HTML tag regex")
+});
+
+/// Strip HTML tags from content to get raw text for measurement.
+/// This matches the JS implementation's stripHtml function.
+fn strip_html(html: &str) -> String {
+    if html.is_empty() {
+        return String::new();
+    }
+    HTML_TAG_REGEX.replace_all(html, "").into_owned()
+}
 
 /// Result of calculating lines for an element
 #[derive(Debug, Clone)]
@@ -36,9 +53,19 @@ impl<'a> LineCalculator<'a> {
         // Get max characters per line for this element type
         let chars_per_line = style.max_chars_per_line as usize;
 
+        // Strip HTML tags before measuring (matches JS stripHtml behavior)
+        let stripped_content = strip_html(&element.content);
+
         // Wrap text into lines
-        let wrapped_lines = self.wrap_text(&element.content, chars_per_line);
-        let content_lines = wrapped_lines.len() as u32;
+        let wrapped_lines = self.wrap_text(&stripped_content, chars_per_line);
+
+        // Match JS: empty block still takes 1 line height
+        // JS: if (!text) return 1;
+        let content_lines = if wrapped_lines.is_empty() || (wrapped_lines.len() == 1 && wrapped_lines[0].is_empty()) {
+            1
+        } else {
+            wrapped_lines.len() as u32
+        };
 
         // Apply line spacing (for double-spaced formats like multi-cam)
         let spaced_lines = if style.line_spacing > 1.0 {
@@ -55,7 +82,9 @@ impl<'a> LineCalculator<'a> {
             content_lines,
             space_before,
             space_after,
-            total_lines: spaced_lines + space_after as u32,
+            // Match Google AI reference: cost = marginTop + content (NO margin bottom)
+            // space_after is NOT added here - only space_before is applied by caller
+            total_lines: spaced_lines,
             wrapped_lines,
         }
     }
@@ -153,14 +182,22 @@ impl<'a> LineCalculator<'a> {
     pub fn content_lines(&self, element: &Element) -> u32 {
         let style = self.config.style_for(element.element_type);
         let chars_per_line = style.max_chars_per_line as usize;
-        self.wrap_text(&element.content, chars_per_line).len() as u32
+        // Strip HTML before measuring
+        let stripped_content = strip_html(&element.content);
+        let wrapped = self.wrap_text(&stripped_content, chars_per_line);
+        // Match JS: empty content returns 1 line
+        if wrapped.is_empty() || (wrapped.len() == 1 && wrapped[0].is_empty()) {
+            1
+        } else {
+            wrapped.len() as u32
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::ElementId;
+    use crate::types::{ElementId, ElementType};
 
     fn make_config() -> PageConfig {
         PageConfig::feature_film()
@@ -225,7 +262,8 @@ mod tests {
         let element = make_element(ElementType::Action, "");
         let result = calc.calculate(&element);
 
-        assert_eq!(result.content_lines, 0);
+        // Match JS: empty block still takes 1 line height
+        assert_eq!(result.content_lines, 1);
     }
 
     #[test]
@@ -263,5 +301,36 @@ mod tests {
 
         // 100 chars / 35 chars per line = 3 lines
         assert!(result.content_lines >= 3);
+    }
+
+    #[test]
+    fn test_html_stripping() {
+        let config = make_config();
+        let calc = LineCalculator::new(&config);
+
+        // HTML tags should be stripped before counting
+        // "Hello world" = 11 chars, fits in one line for Dialogue (35 chars max)
+        let element = make_element(ElementType::Dialogue, "<b>Hello</b> <i>world</i>");
+        let result = calc.calculate(&element);
+
+        // Should be 1 line, not counted with HTML tags
+        assert_eq!(result.content_lines, 1);
+    }
+
+    #[test]
+    fn test_html_stripping_affects_wrapping() {
+        let config = make_config();
+        let calc = LineCalculator::new(&config);
+
+        // Create text that would wrap differently with/without HTML
+        // Dialogue has 35 chars max per line
+        // Without HTML: "A test text that is exactly..." (needs wrapping based on text only)
+        let short_text = "A".repeat(30);
+        let html_content = format!("<strong>{}</strong>", short_text);
+        let element = make_element(ElementType::Dialogue, &html_content);
+        let result = calc.calculate(&element);
+
+        // 30 chars fits in one line for dialogue (35 max)
+        assert_eq!(result.content_lines, 1);
     }
 }

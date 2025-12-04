@@ -308,23 +308,29 @@ export function createAutocompletePlugin(options: AutocompletePluginOptions = {}
           }
 
           case 'Tab': {
-            // Tab selects the current suggestion
+            // Tab should pass through for element cycling (element-switching plugin)
+            // Dismiss autocomplete and let Tab be handled by element switching
+            if (state.suggestions.length > 0) {
+              const newState = { ...initialState };
+              view.dispatch(view.state.tr.setMeta(autocompletePluginKey, newState));
+              onStateChange?.(newState);
+            }
+            return false; // Let Tab pass through to element-switching plugin
+          }
+
+          case 'Enter': {
+            // Enter selects the current suggestion OR creates new block
             if (state.suggestions.length > 0) {
               event.preventDefault();
               const suggestion = state.suggestions[state.selectedIndex];
               applySuggestion(view, suggestion);
               return true;
             }
-            return false;
-          }
-
-          case 'Enter': {
-            // Enter dismisses autocomplete and lets element-switching handle it
+            // No suggestions - dismiss autocomplete and let element-switching handle Enter
             const newState = { ...initialState };
             view.dispatch(view.state.tr.setMeta(autocompletePluginKey, newState));
             onStateChange?.(newState);
-            // Return false to allow element-switching plugin to create new block
-            return false;
+            return false; // Let Enter pass through to element-switching plugin
           }
 
           case 'Escape': {

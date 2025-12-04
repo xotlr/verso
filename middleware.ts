@@ -124,6 +124,11 @@ export default authEdge((req) => {
       return addSecurityHeaders(NextResponse.redirect(loginUrl))
     }
 
+    // User is authenticated - redirect root to /home
+    if (pathname === "/") {
+      return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)))
+    }
+
     // User is authenticated, allow access to app subdomain
     return addSecurityHeaders(NextResponse.next())
   }
@@ -157,6 +162,11 @@ export default authEdge((req) => {
 
   // Redirect logged-in users from login/signup to workspace (in development)
   if (!useSubdomainRouting && isLoggedIn && (pathname === "/login" || pathname === "/signup")) {
+    return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)))
+  }
+
+  // Redirect logged-in users from root to /home (in development)
+  if (!useSubdomainRouting && isLoggedIn && pathname === "/") {
     return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)))
   }
 

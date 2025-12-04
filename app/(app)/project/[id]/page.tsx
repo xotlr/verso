@@ -39,9 +39,19 @@ import {
   Trash2,
   Edit3,
   Link as LinkIcon,
+  Video,
+  Image,
+  Grid3X3,
+  Users,
+  Clapperboard,
+  PenTool,
 } from 'lucide-react';
 import { ExternalLinkCard, ExternalLinkData } from '@/components/external-link-card';
 import { AddLinkDialog } from '@/components/add-link-dialog';
+import { ProjectRolesManager, type ProjectRole } from '@/components/project-roles-manager';
+import type { EmbedType } from '@/lib/embed-utils';
+
+type ResourceFilter = 'all' | 'videos' | 'docs' | 'visual' | 'other';
 
 interface Screenplay {
   id: string;
@@ -78,12 +88,14 @@ interface ProjectData {
   id: string;
   name: string;
   description: string | null;
+  budget: number | null;
   createdAt: string;
   updatedAt: string;
   screenplays: Screenplay[];
   notes: Note[];
   schedules: Schedule[];
   budgets: Budget[];
+  roles: ProjectRole[];
   _count: {
     screenplays: number;
     notes: number;
@@ -92,7 +104,24 @@ interface ProjectData {
   };
 }
 
-type TabValue = 'screenplays' | 'notes' | 'schedules' | 'budgets' | 'resources';
+type TabValue = 'screenplays' | 'notes' | 'schedules' | 'budgets' | 'resources' | 'crew';
+
+// Helper to get person name for a role
+function getRolePerson(roles: ProjectRole[], roleType: string): string | null {
+  const role = roles.find(r => r.role === roleType);
+  return role?.name || null;
+}
+
+// Format budget for display
+function formatBudget(budget: number): string {
+  if (budget >= 1_000_000) {
+    return `$${(budget / 1_000_000).toFixed(1)}M`;
+  }
+  if (budget >= 1_000) {
+    return `$${(budget / 1_000).toFixed(0)}K`;
+  }
+  return `$${budget.toLocaleString()}`;
+}
 
 export default function ProjectPage() {
   const params = useParams();
@@ -106,6 +135,7 @@ export default function ProjectPage() {
   const [addLinkDialogOpen, setAddLinkDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: TabValue | 'link' } | null>(null);
   const [externalLinks, setExternalLinks] = useState<ExternalLinkData[]>([]);
+  const [resourceFilter, setResourceFilter] = useState<ResourceFilter>('all');
 
 
   useEffect(() => {
@@ -197,6 +227,46 @@ export default function ProjectPage() {
       console.error('Error updating link:', error);
     }
   };
+
+  const updateLinkNotes = async (linkId: string, notes: string) => {
+    try {
+      const response = await fetch(`/api/links/${linkId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      });
+
+      if (response.ok) {
+        setExternalLinks((prev) =>
+          prev.map((link) =>
+            link.id === linkId ? { ...link, notes } : link
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error updating link notes:', error);
+    }
+  };
+
+  // Filter resources by embed type
+  const filteredLinks = externalLinks.filter((link) => {
+    if (resourceFilter === 'all') return true;
+
+    const embedType = link.embedType as EmbedType | undefined;
+
+    switch (resourceFilter) {
+      case 'videos':
+        return embedType === 'youtube' || embedType === 'vimeo';
+      case 'docs':
+        return embedType === 'google-docs' || embedType === 'google-sheets' || embedType === 'google-slides';
+      case 'visual':
+        return embedType === 'pinterest' || embedType === 'shotdeck' || embedType === 'canva';
+      case 'other':
+        return !embedType || embedType === 'generic';
+      default:
+        return true;
+    }
+  });
 
   const deleteItem = async () => {
     if (!deleteTarget) return;
@@ -303,6 +373,29 @@ export default function ProjectPage() {
                 {project.description && (
                   <p className="text-muted-foreground">{project.description}</p>
                 )}
+                {/* Director / Writer / Budget */}
+                {(getRolePerson(project.roles, 'director') || getRolePerson(project.roles, 'writer') || project.budget) && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm">
+                    {getRolePerson(project.roles, 'director') && (
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <Clapperboard className="h-4 w-4" />
+                        <span className="font-medium text-foreground">{getRolePerson(project.roles, 'director')}</span>
+                      </span>
+                    )}
+                    {getRolePerson(project.roles, 'writer') && (
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <PenTool className="h-4 w-4" />
+                        <span className="font-medium text-foreground">{getRolePerson(project.roles, 'writer')}</span>
+                      </span>
+                    )}
+                    {project.budget && (
+                      <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                        <DollarSign className="h-4 w-4" />
+                        <span className="font-medium">{formatBudget(project.budget)}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                   <span>{project._count.screenplays} screenplay{project._count.screenplays !== 1 ? 's' : ''}</span>
                   <span>&middot;</span>
@@ -342,6 +435,11 @@ export default function ProjectPage() {
                   <LinkIcon className="h-4 w-4" />
                   Resources
                   <Badge variant="secondary">{externalLinks.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="crew" className="gap-2">
+                  <Users className="h-4 w-4" />
+                  Crew
+                  <Badge variant="secondary">{project.roles.length}</Badge>
                 </TabsTrigger>
               </TabsList>
 
@@ -518,17 +616,101 @@ export default function ProjectPage() {
                   />
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {externalLinks.map((link) => (
-                    <ExternalLinkCard
-                      key={link.id}
-                      link={link}
-                      onDelete={(id) => setDeleteTarget({ id, type: 'link' })}
-                      onCategoryChange={updateLinkCategory}
-                    />
-                  ))}
-                </div>
+                <>
+                  {/* Filter buttons */}
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    <Button
+                      variant={resourceFilter === 'all' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setResourceFilter('all')}
+                      className="gap-1.5"
+                    >
+                      <Grid3X3 className="h-3.5 w-3.5" />
+                      All
+                      <Badge variant="secondary" className="ml-1 text-xs">
+                        {externalLinks.length}
+                      </Badge>
+                    </Button>
+                    <Button
+                      variant={resourceFilter === 'videos' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setResourceFilter('videos')}
+                      className="gap-1.5"
+                    >
+                      <Video className="h-3.5 w-3.5" />
+                      Videos
+                      <Badge variant="secondary" className="ml-1 text-xs">
+                        {externalLinks.filter(l => l.embedType === 'youtube' || l.embedType === 'vimeo').length}
+                      </Badge>
+                    </Button>
+                    <Button
+                      variant={resourceFilter === 'docs' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setResourceFilter('docs')}
+                      className="gap-1.5"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      Docs
+                      <Badge variant="secondary" className="ml-1 text-xs">
+                        {externalLinks.filter(l => l.embedType === 'google-docs' || l.embedType === 'google-sheets' || l.embedType === 'google-slides').length}
+                      </Badge>
+                    </Button>
+                    <Button
+                      variant={resourceFilter === 'visual' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setResourceFilter('visual')}
+                      className="gap-1.5"
+                    >
+                      <Image className="h-3.5 w-3.5" />
+                      Visual
+                      <Badge variant="secondary" className="ml-1 text-xs">
+                        {externalLinks.filter(l => l.embedType === 'pinterest' || l.embedType === 'shotdeck' || l.embedType === 'canva').length}
+                      </Badge>
+                    </Button>
+                    <Button
+                      variant={resourceFilter === 'other' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setResourceFilter('other')}
+                      className="gap-1.5"
+                    >
+                      <LinkIcon className="h-3.5 w-3.5" />
+                      Other
+                      <Badge variant="secondary" className="ml-1 text-xs">
+                        {externalLinks.filter(l => !l.embedType || l.embedType === 'generic').length}
+                      </Badge>
+                    </Button>
+                  </div>
+
+                  {filteredLinks.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      No resources match this filter
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {filteredLinks.map((link) => (
+                        <ExternalLinkCard
+                          key={link.id}
+                          link={link}
+                          onDelete={(id) => setDeleteTarget({ id, type: 'link' })}
+                          onCategoryChange={updateLinkCategory}
+                          onNotesChange={updateLinkNotes}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
+            </TabsContent>
+
+            {/* Crew Tab */}
+            <TabsContent value="crew">
+              <ProjectRolesManager
+                projectId={projectId}
+                roles={project.roles}
+                onRolesChange={(newRoles) => {
+                  setProject((prev) => prev ? { ...prev, roles: newRoles } : null);
+                }}
+              />
             </TabsContent>
           </Tabs>
         </div>

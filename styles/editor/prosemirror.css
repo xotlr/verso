@@ -9,32 +9,32 @@
    CSS Variables
    ============================================ */
 :root {
-  /* Page dimensions (US Letter) */
-  --pm-page-width: 8.5in;
-  --pm-page-min-height: 11in;
-  --pm-page-padding-top: 1in;
-  --pm-page-padding-bottom: 1in;
-  --pm-page-padding-left: 1.5in;
-  --pm-page-padding-right: 1in;
+  /* Page dimensions (US Letter at 96 DPI - fixed pixels) */
+  --pm-page-width: 816px;
+  --pm-page-height: 1056px;
+  --pm-page-min-height: 1056px;
+  --pm-page-padding-top: 96px;
+  --pm-page-padding-bottom: 96px;
+  --pm-page-padding-left: 144px;
+  --pm-page-padding-right: 96px;
 
-  /* Content width after margins */
-  --pm-content-width: 6in;
+  /* Content width after margins (6 inches = 576px) */
+  --pm-content-width: 576px;
 
-  /* Typography */
+  /* Typography (12pt Courier = 16px at 96 DPI) */
   --pm-font-family: 'Courier Prime', 'Courier New', Courier, monospace;
-  --pm-font-size: 12pt;
-  /* Line height now set by settings (compact: 1.1, normal: 1.15, relaxed: 1.2) */
-  --pm-line-height: var(--pm-line-height, 1.15);
+  --pm-font-size: 16px;
+  --pm-line-height: 16px; /* Single-spaced for proper pagination */
 
-  /* Element margins (from left edge of content area) */
+  /* Element margins (in pixels, converted from inches at 96 DPI) */
   --pm-margin-scene-heading: 0;
   --pm-margin-action: 0;
-  --pm-margin-character: 2.2in;
-  --pm-margin-dialogue-left: 1in;
-  --pm-margin-dialogue-right: 1.5in;
-  --pm-margin-parenthetical-left: 1.6in;
-  --pm-margin-parenthetical-right: 2in;
-  --pm-margin-transition: 4in;
+  --pm-margin-character: 211px;  /* 2.2in * 96 */
+  --pm-margin-dialogue-left: 96px;  /* 1.0in * 96 */
+  --pm-margin-dialogue-right: 144px;  /* 1.5in * 96 */
+  --pm-margin-parenthetical-left: 144px;  /* 1.5in * 96 */
+  --pm-margin-parenthetical-right: 192px;  /* 2.0in * 96 */
+  --pm-margin-transition: 384px;  /* 4.0in * 96 */
 
   /* Colors */
   --pm-page-bg: hsl(var(--background));  /* Use theme background, was 100% */
@@ -50,10 +50,10 @@
   --pm-color-transition: hsl(25 95% 50%);
   --pm-color-parenthetical: hsl(0 0% 50%);
 
-  /* Animation */
-  --pm-transition-element: 180ms;
-  --pm-ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  --pm-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  /* Animation - smooth, polished transitions */
+  --pm-transition-element: 120ms;
+  --pm-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncier spring for element changes */
+  --pm-ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* Smooth deceleration */
 
   /* Shadows - subtle but visible */
   --pm-page-shadow:
@@ -133,6 +133,18 @@
   background: hsl(var(--muted-foreground) / 0.3);
 }
 
+/* Scroll area (Radix ScrollArea) - centers the scaled content */
+.pm-editor-scroll-area {
+  background: hsl(var(--background));
+}
+
+/* Radix ScrollArea viewport - needs flexbox to center the scaled pages */
+.pm-editor-scroll-area [data-radix-scroll-area-viewport] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 /* ============================================
    Page Container
    ============================================ */
@@ -140,76 +152,52 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40px 20px 120px;
-  gap: 2rem; /* Google Docs-style spacing */
+  padding: 32px 0 120px;
+  gap: 32px; /* Match wasm-inspired gap-8 */
   min-height: 100%;
-  /* Background shows through margins */
   background: hsl(var(--background));
+  /* Container is centered, pages are fixed-size and scaled */
+  margin: 0 auto;
 }
 
-/* Each page gets card wrapper treatment */
+/* Each page - matches wasm-inspired editor styling */
 .pm-editor-page {
-  /* Remove background - will be on inner element */
-  background: transparent;
-  box-shadow: none;
+  /* Fixed dimensions matching wasm-inspired editor */
+  width: 816px;
+  height: 1056px;
+  min-height: 1056px;
 
-  /* Keep page dimensions for layout */
-  width: var(--pm-page-width);
-  min-height: var(--pm-page-min-height);
-
-  /* Margins as transparent padding (gray shows through) */
-  padding: var(--pm-page-padding-top) var(--pm-page-padding-right)
-           var(--pm-page-padding-bottom) var(--pm-page-padding-left);
+  /* Padding matches wasm-inspired: top right bottom left */
+  padding: 96px 96px 96px 144px;
 
   position: relative;
-
-  /* Prevent content clipping at different zoom levels */
   overflow: visible;
 
-  /* Typography */
-  font-family: var(--pm-font-family);
-  font-size: var(--pm-font-size);
-  line-height: var(--pm-line-height);
-  color: var(--pm-text-color);
+  /* White background with shadow-2xl */
+  background: white;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+
+  /* Typography - matches wasm-inspired BlockComponent */
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  font-size: 16px;
+  line-height: 16px;
+  color: hsl(0 0% 15%);  /* Softer than pure black for better readability */
+  white-space: pre-wrap;
 
   /* Font rendering optimization */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-
-  /* Virtualization hint */
-  content-visibility: auto;
-  contain-intrinsic-size: var(--pm-page-width) var(--pm-page-min-height);
 }
 
 .dark .pm-editor-page {
-  color: var(--pm-text-color-dark);
+  background: hsl(0 0% 12%);
+  color: hsl(0 0% 90%);
 }
 
-/* Inner content card - ONLY this has white background */
+/* Remove the complex ::before pseudo-element - not needed with direct styling */
 .pm-editor-page::before {
-  content: '';
-  position: absolute;
-  top: var(--pm-page-padding-top);
-  left: var(--pm-page-padding-left);
-  right: var(--pm-page-padding-right);
-  bottom: var(--pm-page-padding-bottom);
-
-  /* White card background */
-  background: var(--pm-page-bg);
-  box-shadow: var(--pm-page-shadow);
-  border-radius: 8px;
-
-  /* Paper texture */
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"), var(--pm-page-bg);
-
-  z-index: 0;
-  pointer-events: none;
-}
-
-.dark .pm-editor-page::before {
-  background: var(--pm-page-bg-dark);
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"), var(--pm-page-bg-dark);
+  display: none;
 }
 
 /* ============================================
@@ -219,9 +207,8 @@
 .pm-editor-page .ProseMirror {
   position: relative;
   z-index: 1;
-
-  /* Small internal padding for breathing room */
-  padding: 1rem;
+  /* No extra padding - page padding provides margins */
+  padding: 0;
 }
 
 .ProseMirror {
@@ -239,65 +226,87 @@
   padding: 0;
 }
 
+/* First element on page should not have top spacing (matches Google reference) */
+.pm-editor-page .ProseMirror > *:first-child {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
 /* ============================================
    Screenplay Element Styles
    ============================================ */
 
-/* All elements get smooth margin transitions */
+/* All elements get smooth transitions for polished Tab cycling */
 .ProseMirror p,
 .ProseMirror h3,
 .ProseMirror [class^="pm-"] {
   transition:
     margin-left var(--pm-transition-element) var(--pm-ease-spring),
     margin-right var(--pm-transition-element) var(--pm-ease-spring),
-    text-align 100ms var(--pm-ease-out);
-  will-change: margin-left, margin-right;
+    width var(--pm-transition-element) var(--pm-ease-spring),
+    text-align 80ms var(--pm-ease-out),
+    color 100ms ease,
+    font-weight 80ms ease;
+  will-change: margin-left, margin-right, width;
 }
 
 /* Scene Heading */
 .pm-scene-heading {
   position: relative;
-  margin-top: 1em;
+  /* Use padding-top instead of margin-top to match Google reference (prevents margin collapse) */
+  padding-top: 32px; /* 2 lines * 16px - matches Google marginTopLines: 2 */
+  margin-top: 0;
   margin-bottom: 0;
-  margin-left: var(--pm-margin-scene-heading);
+  margin-left: 0;
   margin-right: 0;
+  width: 576px; /* Full printable width */
 
   text-transform: uppercase;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
 
-/* Scene number on the left - INSIDE the content area */
+/* Scene number in the left gutter - positioned outside content area */
 .pm-scene-number-left {
   position: absolute;
-  left: 0;
-  color: hsl(var(--foreground) / 0.85);
-  font-size: 0.875rem;
-  font-weight: 700;
+  left: -80px;  /* Position in left gutter, outside content */
+  width: 60px;
+  text-align: right;
+  top: 0;
+  color: hsl(var(--foreground) / 0.4);  /* Softer, less intrusive */
+  font-size: 16px;
+  line-height: 16px;
+  font-weight: 400;
   user-select: none;
   pointer-events: none;
-  font-family: ui-monospace, monospace;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
 }
 
-/* Optional: Add hover effect on scene heading */
+/* Hover effect on scene heading shows scene number more prominently */
 .pm-scene-heading:hover .pm-scene-number-left {
-  color: hsl(var(--primary));
+  color: hsl(var(--foreground) / 0.7);
 }
 
 /* Action */
 .pm-action {
-  margin-top: 1em;
+  /* Use padding-top instead of margin-top to match Google reference */
+  padding-top: 16px; /* 1 line * 16px - matches Google marginTopLines: 1 */
+  margin-top: 0;
   margin-bottom: 0;
-  margin-left: var(--pm-margin-action);
+  margin-left: 0;
   margin-right: 0;
+  width: 576px; /* Full printable width */
 }
 
 /* Character */
 .pm-character {
-  margin-top: 1em;
+  /* Use padding-top instead of margin-top to match Google reference */
+  padding-top: 16px; /* 1 line * 16px - matches Google marginTopLines: 1 */
+  margin-top: 0;
   margin-bottom: 0;
-  margin-left: var(--pm-margin-character);
+  margin-left: 211px; /* 2.2in * 96 - matches Google */
   margin-right: 0;
+  width: 336px; /* 3.5in * 96 - matches Google */
 
   text-transform: uppercase;
   font-weight: 400;
@@ -305,20 +314,20 @@
 
 /* Dialogue */
 .pm-dialogue {
-  margin-top: 0;
+  margin-top: 0; /* marginTopLines: 0 - matches wasm-inspired */
   margin-bottom: 0;
-  margin-left: var(--pm-margin-dialogue-left);
-  margin-right: var(--pm-margin-dialogue-right);
-  max-width: 3.5in;
+  margin-left: 96px; /* 1.0in * 96 - matches wasm-inspired */
+  margin-right: 0;
+  width: 336px; /* 3.5in * 96 - matches wasm-inspired */
 }
 
 /* Parenthetical */
 .pm-parenthetical {
-  margin-top: 0;
+  margin-top: 0; /* marginTopLines: 0 - matches wasm-inspired */
   margin-bottom: 0;
-  margin-left: var(--pm-margin-parenthetical-left);
-  margin-right: var(--pm-margin-parenthetical-right);
-  max-width: 2.2in;
+  margin-left: 144px; /* 1.5in * 96 - matches wasm-inspired */
+  margin-right: 0;
+  width: 250px; /* 2.6in * 96 ≈ 250px - matches wasm-inspired */
 
   font-style: italic;
   color: var(--pm-color-parenthetical);
@@ -326,10 +335,13 @@
 
 /* Transition */
 .pm-transition {
-  margin-top: 1em;
+  /* Use padding-top instead of margin-top to match Google reference */
+  padding-top: 32px; /* 2 lines * 16px - matches Google marginTopLines: 2 */
+  margin-top: 0;
   margin-bottom: 0;
-  margin-left: var(--pm-margin-transition);
+  margin-left: 384px; /* 4.0in * 96 - matches Google */
   margin-right: 0;
+  width: 192px; /* 2.0in * 96 - matches Google */
 
   text-transform: uppercase;
   text-align: right;
@@ -338,8 +350,10 @@
 /* Dual Dialogue */
 .pm-dual-dialogue {
   display: flex;
-  gap: 0.5in;
-  margin-top: 1em;
+  gap: 48px; /* 0.5in * 96 */
+  /* Use padding-top instead of margin-top to match Google reference */
+  padding-top: 16px; /* 1 line * 16px */
+  margin-top: 0;
 }
 
 .pm-dual-dialogue-column {
@@ -348,7 +362,7 @@
 }
 
 .pm-dual-dialogue .pm-character {
-  margin-left: 0.5in;
+  margin-left: 48px; /* 0.5in * 96 */
 }
 
 .pm-dual-dialogue .pm-dialogue {
@@ -357,7 +371,7 @@
 }
 
 .pm-dual-dialogue .pm-parenthetical {
-  margin-left: 0.3in;
+  margin-left: 29px; /* 0.3in * 96 ≈ 29px */
 }
 
 /* ============================================
@@ -446,48 +460,11 @@
 /* ============================================
    Responsive Adjustments
    ============================================ */
-@media (max-width: 960px) {
-  .pm-editor-page {
-    width: 100%;
-    max-width: var(--pm-page-width);
-    padding-left: 1in;
-    padding-right: 0.75in;
-  }
-
-  /* Scale down margins proportionally */
-  :root {
-    --pm-margin-character: 1.5in;
-    --pm-margin-dialogue-left: 0.5in;
-    --pm-margin-dialogue-right: 0.75in;
-    --pm-margin-parenthetical-left: 0.8in;
-    --pm-margin-parenthetical-right: 1in;
-    --pm-margin-transition: 2.5in;
-  }
-}
-
-@media (max-width: 640px) {
-  .pm-editor-pages {
-    padding: 20px 10px 120px;
-  }
-
-  .pm-editor-page {
-    padding: 0.75in 0.5in;
-    font-size: 11pt;
-    border-radius: 0;
-    box-shadow: none;
-    border: 1px solid hsl(var(--border));
-  }
-
-  /* Further reduce margins for mobile */
-  :root {
-    --pm-margin-character: 1in;
-    --pm-margin-dialogue-left: 0.25in;
-    --pm-margin-dialogue-right: 0.25in;
-    --pm-margin-parenthetical-left: 0.4in;
-    --pm-margin-parenthetical-right: 0.4in;
-    --pm-margin-transition: 1.5in;
-  }
-}
+/*
+ * Pages are now FIXED SIZE and SCALED with CSS transforms.
+ * This matches the google-screenplay-wasm approach.
+ * No responsive reflow - scaling is handled by useResponsiveScale hook.
+ */
 
 /* ============================================
    Page Break Decorations - 3-Zone Structure

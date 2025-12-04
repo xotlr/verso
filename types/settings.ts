@@ -1,7 +1,8 @@
 export type ThemePreset =
-  | 'minimal' | 'warm' | 'midnight' | 'paper'  // Classic themes
-  | 'noir' | 'romance' | 'fantasy' | 'sci-fi' | 'horror'  // Genre themes
-  | 'matcha' | 'neovictorian';  // Custom themes
+  | 'minimal'  // Essential
+  | 'romance'  // Essential
+  | 'matcha' | 'neovictorian'  // Vintage
+  | 'horror';  // Genre
 
 export interface ThemeMetadata {
   name: string;
@@ -9,32 +10,20 @@ export interface ThemeMetadata {
 }
 
 export const themeMetadata: Record<ThemePreset, ThemeMetadata> = {
-  // Classic themes
+  // Essential themes
   minimal: { name: 'Minimal', subtitle: 'Clean and focused' },
-  warm: { name: 'Warm', subtitle: 'Cozy and inviting' },
-  midnight: { name: 'Midnight', subtitle: 'Starlit serenity' },
-  paper: { name: 'Paper', subtitle: 'Classic neutral' },
-  // Genre themes
-  noir: { name: 'Noir', subtitle: 'Shadows and smoke' },
   romance: { name: 'Romance', subtitle: 'Soft and heartfelt' },
-  fantasy: { name: 'Fantasy', subtitle: 'Enchanted realms' },
-  'sci-fi': { name: 'Sci-Fi', subtitle: 'Future forward' },
-  horror: { name: 'Horror', subtitle: 'Blood and darkness' },
-  // Custom themes
+  // Vintage themes
   matcha: { name: 'Matcha', subtitle: 'Chinese retro charm' },
   neovictorian: { name: 'Neovictorian', subtitle: 'European vintage' },
+  // Genre themes
+  horror: { name: 'Horror', subtitle: 'Dark and eerie' },
 };
 
 export type UIFont = 'inter' | 'sf-pro' | 'geist' | 'ibm-plex' | 'plus-jakarta';
 export type ScreenplayFont = 'courier-prime' | 'courier-new' | 'courier-final-draft';
 
-export type SidebarPosition = 'left' | 'right' | 'hidden';
-export type ToolbarPosition = 'top' | 'bottom' | 'floating' | 'hidden';
-export type NavigatorVisibility = 'always' | 'auto' | 'hidden';
 export type LayoutMode = 'modern' | 'classic';
-
-export type ExportFormat = 'pdf' | 'fdx' | 'fountain' | 'txt' | 'html';
-export type PaperSize = 'letter' | 'a4' | 'legal';
 
 // Cursor types
 export type CursorMode = 'native' | 'line' | 'block' | 'underscore';
@@ -108,50 +97,17 @@ export interface AutocompleteSettings {
 }
 
 export interface EditorSettings {
-  autoSaveInterval: number; // seconds, 0 = off
-  smartQuotes: boolean;
-  autoCapitalize: boolean;
-  tabBehavior: 'indent' | 'next-field' | 'autocomplete';
-  spellCheck: boolean;
-  showLineNumbers: boolean;
-  showPageBreaks: boolean;
-  pageCountMode: 'auto' | 'manual';
-  linesPerPage: number; // 54-58
-  enableSnippets: boolean;
-  enableAutocomplete: boolean; // Deprecated: use autocomplete.enabled instead
   autocomplete: AutocompleteSettings;
-  zoom: number; // 50-200, default 100
   textContrast: number; // 15-35, default 25 (lightness percentage)
-  lineHeightDensity: 'compact' | 'normal' | 'relaxed'; // 1.1, 1.15, 1.2
 }
 
 export interface LayoutSettings {
-  sidebarPosition: SidebarPosition;
-  sidebarCollapsed: boolean;
-  toolbarPosition: ToolbarPosition;
-  navigatorVisibility: NavigatorVisibility;
-  distractionFreeMode: boolean;
-  compactMode: boolean;
-  showStats: boolean;
   layoutMode: LayoutMode;
 }
 
 export interface ExportSettings {
-  defaultFormat: ExportFormat;
-  paperSize: PaperSize;
-  includeWatermark: boolean;
-  watermarkText: string;
-  showSceneNumbers: boolean;
-  sceneNumberSide: 'left' | 'right' | 'both';
-  includeHeader: boolean;
-  headerText: string;
-  includeFooter: boolean;
-  footerText: string;
-  revisionColors: boolean;
-}
-
-export interface ShortcutSettings {
-  [action: string]: string; // e.g., 'save': 'Cmd+S'
+  defaultFormat: 'pdf' | 'fdx' | 'fountain' | 'txt' | 'html';
+  paperSize: 'letter' | 'a4';
 }
 
 export interface AppSettings {
@@ -159,7 +115,6 @@ export interface AppSettings {
   editor: EditorSettings;
   layout: LayoutSettings;
   export: ExportSettings;
-  shortcuts: ShortcutSettings;
 }
 
 export const defaultSettings: AppSettings = {
@@ -269,68 +224,26 @@ export const defaultSettings: AppSettings = {
     },
   },
   editor: {
-    autoSaveInterval: 30,
-    smartQuotes: true,
-    autoCapitalize: true,
-    tabBehavior: 'autocomplete',
-    spellCheck: true,
-    showLineNumbers: false,
-    showPageBreaks: true,
-    pageCountMode: 'auto',
-    linesPerPage: 55,
-    enableSnippets: true,
-    enableAutocomplete: true,
     autocomplete: {
       enabled: true,
       delayMs: 5000, // 5 second delay by default
     },
-    zoom: 100,
     textContrast: 25, // Default lightness percentage
-    lineHeightDensity: 'normal', // Default to 1.15 line height
   },
   layout: {
-    sidebarPosition: 'right',
-    sidebarCollapsed: false,
-    toolbarPosition: 'top',
-    navigatorVisibility: 'auto',
-    distractionFreeMode: false,
-    compactMode: false,
-    showStats: true,
-    layoutMode: 'modern',
+    layoutMode: 'classic',
   },
   export: {
     defaultFormat: 'pdf',
     paperSize: 'letter',
-    includeWatermark: false,
-    watermarkText: 'DRAFT',
-    showSceneNumbers: true,
-    sceneNumberSide: 'both',
-    includeHeader: false,
-    headerText: '',
-    includeFooter: false,
-    footerText: '',
-    revisionColors: false,
-  },
-  shortcuts: {
-    save: 'Mod+S',
-    undo: 'Mod+Z',
-    redo: 'Mod+Shift+Z',
-    find: 'Mod+F',
-    replace: 'Mod+H',
-    commandPalette: 'Mod+K',
-    newScreenplay: 'Mod+N',
-    settings: 'Mod+,',
-    distractionFree: 'Mod+Shift+F',
-    insertScene: 'Mod+Shift+S',
-    insertCharacter: 'Mod+Shift+C',
-    insertDialogue: 'Mod+Shift+D',
-    insertAction: 'Mod+Shift+A',
-    insertTransition: 'Mod+Shift+T',
-    insertParenthetical: 'Mod+Shift+P',
   },
 };
 
 export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
+  // ============================================
+  // ESSENTIAL THEMES - Core workspace themes
+  // ============================================
+
   // Minimal: Clean neutral grayscale - no color tint
   minimal: {
     themePreset: 'minimal',
@@ -374,244 +287,6 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
     },
     uiFont: 'sf-pro',
     borderRadius: 9,
-  },
-  // Warm: Terracotta accent - cozy and inviting
-  warm: {
-    themePreset: 'warm',
-    lightColors: {
-      background: '40 33% 98%',           // Warm off-white
-      foreground: '30 8% 38%',            // Soft warm brown
-      card: '0 0% 100%',
-      cardForeground: '30 8% 38%',
-      primary: '24 60% 50%',              // Warm terracotta
-      primaryForeground: '0 0% 100%',
-      secondary: '37 15% 94%',
-      secondaryForeground: '30 8% 42%',
-      muted: '37 15% 94%',
-      mutedForeground: '30 6% 55%',
-      accent: '37 20% 92%',
-      accentForeground: '30 8% 38%',
-      destructive: '0 65% 55%',
-      destructiveForeground: '0 0% 100%',
-      border: '37 15% 88%',
-      input: '37 15% 88%',
-      ring: '24 50% 50%',
-    },
-    darkColors: {
-      background: '30 15% 10%',           // Warm charcoal
-      foreground: '40 12% 72%',           // Soft warm cream
-      card: '30 12% 13%',
-      cardForeground: '40 12% 72%',
-      primary: '24 55% 55%',              // Brighter terracotta
-      primaryForeground: '30 15% 10%',
-      secondary: '30 10% 18%',
-      secondaryForeground: '40 12% 68%',
-      muted: '30 10% 18%',
-      mutedForeground: '30 8% 48%',
-      accent: '30 12% 20%',
-      accentForeground: '40 12% 72%',
-      destructive: '0 55% 50%',
-      destructiveForeground: '0 0% 100%',
-      border: '30 10% 22%',
-      input: '30 10% 22%',
-      ring: '24 50% 55%',
-    },
-    uiFont: 'inter',
-    borderRadius: 12,
-  },
-  // Midnight: Deep navy/indigo with silver starlight - truly nocturnal
-  midnight: {
-    themePreset: 'midnight',
-    lightColors: {
-      background: '222 25% 97%',          // Cool slate white
-      foreground: '222 20% 28%',          // Deep navy text
-      card: '222 20% 99%',
-      cardForeground: '222 20% 28%',
-      primary: '222 50% 45%',             // Deep indigo
-      primaryForeground: '0 0% 100%',
-      secondary: '222 15% 94%',
-      secondaryForeground: '222 18% 32%',
-      muted: '222 15% 94%',
-      mutedForeground: '222 10% 48%',
-      accent: '220 30% 92%',              // Soft blue
-      accentForeground: '222 20% 28%',
-      destructive: '0 65% 55%',
-      destructiveForeground: '0 0% 100%',
-      border: '222 15% 88%',
-      input: '222 15% 88%',
-      ring: '222 50% 45%',
-    },
-    darkColors: {
-      background: '222 47% 6%',           // True midnight navy
-      foreground: '220 20% 75%',          // Silver starlight
-      card: '222 40% 9%',
-      cardForeground: '220 20% 75%',
-      primary: '220 40% 65%',             // Soft moonlight blue
-      primaryForeground: '222 47% 6%',
-      secondary: '222 35% 12%',
-      secondaryForeground: '220 18% 70%',
-      muted: '222 35% 12%',
-      mutedForeground: '222 15% 45%',
-      accent: '220 50% 18%',
-      accentForeground: '220 30% 85%',
-      destructive: '0 55% 50%',
-      destructiveForeground: '0 0% 100%',
-      border: '222 30% 15%',
-      input: '222 30% 15%',
-      ring: '220 40% 65%',
-    },
-    uiFont: 'inter',
-    borderRadius: 8,
-  },
-  // Paper: Classic neutral paper - subtle and refined
-  paper: {
-    themePreset: 'paper',
-    lightColors: {
-      background: '40 8% 98%',            // Neutral off-white
-      foreground: '0 0% 28%',             // Neutral dark gray
-      card: '40 5% 99%',
-      cardForeground: '0 0% 28%',
-      primary: '0 0% 22%',                // Near black
-      primaryForeground: '0 0% 100%',
-      secondary: '40 5% 96%',
-      secondaryForeground: '0 0% 32%',
-      muted: '40 5% 96%',
-      mutedForeground: '0 0% 48%',
-      accent: '40 6% 94%',
-      accentForeground: '0 0% 28%',
-      destructive: '0 65% 55%',
-      destructiveForeground: '0 0% 100%',
-      border: '40 5% 90%',
-      input: '40 5% 90%',
-      ring: '0 0% 22%',
-    },
-    darkColors: {
-      background: '0 0% 6%',              // Near black
-      foreground: '0 0% 70%',             // Soft gray
-      card: '0 0% 8%',
-      cardForeground: '0 0% 70%',
-      primary: '0 0% 82%',                // Light gray primary
-      primaryForeground: '0 0% 8%',
-      secondary: '0 0% 12%',
-      secondaryForeground: '0 0% 68%',
-      muted: '0 0% 12%',
-      mutedForeground: '0 0% 46%',
-      accent: '0 0% 14%',
-      accentForeground: '0 0% 70%',
-      destructive: '0 55% 50%',
-      destructiveForeground: '0 0% 100%',
-      border: '0 0% 16%',
-      input: '0 0% 16%',
-      ring: '0 0% 70%',
-    },
-    uiFont: 'geist',
-    borderRadius: 6,
-  },
-
-  // ============================================
-  // GENRE THEMES - Mood-based writing environments
-  // ============================================
-
-  // Noir: Shadows and smoke - true black, high contrast, dramatic golden accents
-  noir: {
-    themePreset: 'noir',
-    lightColors: {
-      background: '0 0% 97%',             // Near white
-      foreground: '0 0% 12%',             // Near black text
-      card: '0 0% 100%',
-      cardForeground: '0 0% 12%',
-      primary: '0 0% 8%',                 // Deep black
-      primaryForeground: '0 0% 100%',
-      secondary: '0 0% 94%',
-      secondaryForeground: '0 0% 15%',
-      muted: '0 0% 94%',
-      mutedForeground: '0 0% 40%',
-      accent: '45 80% 92%',               // Soft gold
-      accentForeground: '0 0% 12%',
-      destructive: '0 65% 55%',
-      destructiveForeground: '0 0% 100%',
-      border: '0 0% 88%',
-      input: '0 0% 88%',
-      ring: '45 70% 45%',
-    },
-    darkColors: {
-      background: '0 0% 4%',              // True black
-      foreground: '0 0% 92%',             // Stark white
-      card: '0 0% 7%',
-      cardForeground: '0 0% 92%',
-      primary: '45 80% 52%',              // Film noir gold
-      primaryForeground: '0 0% 4%',
-      secondary: '0 0% 10%',
-      secondaryForeground: '0 0% 88%',
-      muted: '0 0% 10%',
-      mutedForeground: '0 0% 50%',
-      accent: '45 60% 15%',
-      accentForeground: '45 80% 90%',
-      destructive: '0 55% 50%',
-      destructiveForeground: '0 0% 100%',
-      border: '0 0% 14%',
-      input: '0 0% 14%',
-      ring: '45 80% 52%',
-    },
-    lightVisualization: {
-      beatColors: [
-        '#1F2937', '#374151', '#6B7280', '#D4A574',
-        '#111827', '#4B5563', '#9CA3AF', '#B8860B',
-      ],
-      actColors: {
-        act1: { bg: 'rgba(31, 41, 55, 0.1)', border: 'rgba(31, 41, 55, 0.3)' },
-        act2a: { bg: 'rgba(212, 165, 116, 0.1)', border: 'rgba(212, 165, 116, 0.3)' },
-        act2b: { bg: 'rgba(184, 134, 11, 0.1)', border: 'rgba(184, 134, 11, 0.3)' },
-        act3: { bg: 'rgba(75, 85, 99, 0.1)', border: 'rgba(75, 85, 99, 0.3)' },
-      },
-      sceneColors: [
-        '#1F2937', '#374151', '#6B7280', '#D4A574',
-        '#111827', '#4B5563', '#B8860B', '#57534E',
-      ],
-      characterColors: [
-        '#1F2937', '#D4A574', '#374151', '#B8860B', '#6B7280',
-        '#57534E', '#111827', '#A3A3A3', '#4B5563', '#9CA3AF',
-      ],
-      locationColors: [
-        '#4B5563', '#6B7280', '#57534E', '#374151', '#737373',
-        '#9CA3AF', '#A3A3A3', '#78716C', '#6B7280', '#8B8B8B',
-      ],
-    },
-    darkVisualization: {
-      beatColors: [
-        '#E5E7EB', '#D1D5DB', '#F5F5F5', '#FBBF24',
-        '#9CA3AF', '#F3F4F6', '#FFFFFF', '#F59E0B',
-      ],
-      actColors: {
-        act1: { bg: 'rgba(229, 231, 235, 0.12)', border: 'rgba(229, 231, 235, 0.35)' },
-        act2a: { bg: 'rgba(251, 191, 36, 0.15)', border: 'rgba(251, 191, 36, 0.4)' },
-        act2b: { bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.4)' },
-        act3: { bg: 'rgba(209, 213, 219, 0.12)', border: 'rgba(209, 213, 219, 0.35)' },
-      },
-      sceneColors: [
-        '#E5E7EB', '#D1D5DB', '#F5F5F5', '#FBBF24',
-        '#9CA3AF', '#F3F4F6', '#F59E0B', '#D6D3D1',
-      ],
-      characterColors: [
-        '#E5E7EB', '#FBBF24', '#D1D5DB', '#F59E0B', '#F5F5F5',
-        '#D6D3D1', '#9CA3AF', '#FFFFFF', '#F3F4F6', '#E5E5E5',
-      ],
-      locationColors: [
-        '#9CA3AF', '#D1D5DB', '#D6D3D1', '#E5E7EB', '#A3A3A3',
-        '#E5E5E5', '#F3F4F6', '#E7E5E4', '#F5F5F5', '#D4D4D4',
-      ],
-    },
-    uiFont: 'geist',
-    borderRadius: 4,
-    cursor: {
-      mode: 'line',
-      blinkStyle: 'smooth',
-      blinkSpeed: 600,
-      color: '45 80% 52%',  // Gold to match noir accent
-      glowEnabled: true,
-      glowIntensity: 0.4,
-      width: 2,
-    },
   },
 
   // Romance: Soft and heartfelt - warm, inviting, gentle on eyes
@@ -707,148 +382,152 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
     borderRadius: 16,
   },
 
-  // Fantasy: Enchanted realms - purple/gold mystical, ethereal atmosphere
-  fantasy: {
-    themePreset: 'fantasy',
+  // ============================================
+  // VINTAGE THEMES - Retro cultural aesthetics
+  // ============================================
+
+  // Matcha: Soft sage and stone - muted Chinese retro
+  matcha: {
+    themePreset: 'matcha',
     lightColors: {
-      background: '270 20% 98%',          // Soft lavender white
-      foreground: '270 15% 28%',          // Deep purple-gray
-      card: '270 15% 99%',
-      cardForeground: '270 15% 28%',
-      primary: '280 60% 50%',             // Magic purple
+      background: '80 8% 96%',              // Very soft gray with sage hint
+      foreground: '80 5% 32%',              // Soft gray-green text
+      card: '80 6% 98%',                    // Nearly white cards
+      cardForeground: '80 5% 32%',
+      primary: '80 18% 45%',                // Muted sage green
       primaryForeground: '0 0% 100%',
-      secondary: '270 15% 95%',
-      secondaryForeground: '270 12% 32%',
-      muted: '270 15% 95%',
-      mutedForeground: '270 10% 48%',
-      accent: '45 70% 90%',               // Soft gold
-      accentForeground: '270 15% 28%',
-      destructive: '0 65% 55%',
-      destructiveForeground: '0 0% 100%',
-      border: '270 12% 90%',
-      input: '270 12% 90%',
-      ring: '280 60% 50%',
-    },
-    darkColors: {
-      background: '270 30% 7%',           // Deep forest purple
-      foreground: '270 15% 78%',          // Soft lavender
-      card: '270 25% 10%',
-      cardForeground: '270 15% 78%',
-      primary: '45 70% 58%',              // Enchanted gold
-      primaryForeground: '270 30% 7%',
-      secondary: '270 20% 14%',
-      secondaryForeground: '270 12% 72%',
-      muted: '270 20% 14%',
-      mutedForeground: '270 10% 46%',
-      accent: '280 50% 22%',
-      accentForeground: '280 40% 85%',
+      secondary: '80 6% 93%',               // Light stone gray
+      secondaryForeground: '80 5% 38%',
+      muted: '80 6% 93%',
+      mutedForeground: '80 4% 52%',
+      accent: '80 10% 90%',                 // Subtle sage tint
+      accentForeground: '80 5% 32%',
       destructive: '0 55% 50%',
       destructiveForeground: '0 0% 100%',
-      border: '270 18% 18%',
-      input: '270 18% 18%',
-      ring: '45 70% 58%',
+      border: '80 6% 88%',
+      input: '80 6% 88%',
+      ring: '80 18% 45%',
+    },
+    darkColors: {
+      background: '80 6% 9%',               // Deep gray with sage undertone
+      foreground: '80 8% 75%',              // Soft sage-gray text
+      card: '80 5% 12%',
+      cardForeground: '80 8% 75%',
+      primary: '80 22% 52%',                // Brighter muted sage
+      primaryForeground: '80 6% 9%',
+      secondary: '80 5% 15%',
+      secondaryForeground: '80 6% 68%',
+      muted: '80 5% 15%',
+      mutedForeground: '80 4% 48%',
+      accent: '80 8% 18%',                  // Dark sage accent
+      accentForeground: '80 8% 75%',
+      destructive: '0 50% 45%',
+      destructiveForeground: '0 0% 100%',
+      border: '80 5% 18%',
+      input: '80 5% 18%',
+      ring: '80 22% 52%',
     },
     lightVisualization: {
       beatColors: [
-        '#8B5CF6', '#A78BFA', '#C4B5FD', '#DDD6FE',
-        '#D97706', '#F59E0B', '#FBBF24', '#FCD34D',
+        '#8a9a7a', '#9cac8c', '#aebda0', '#c1cfb4',
+        '#788868', '#687858', '#586848', '#d4e0c8',
       ],
       actColors: {
-        act1: { bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.3)' },
-        act2a: { bg: 'rgba(217, 119, 6, 0.1)', border: 'rgba(217, 119, 6, 0.3)' },
-        act2b: { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)' },
-        act3: { bg: 'rgba(167, 139, 250, 0.1)', border: 'rgba(167, 139, 250, 0.3)' },
+        act1: { bg: 'rgba(138, 154, 122, 0.1)', border: 'rgba(138, 154, 122, 0.25)' },
+        act2a: { bg: 'rgba(120, 136, 104, 0.1)', border: 'rgba(120, 136, 104, 0.25)' },
+        act2b: { bg: 'rgba(104, 120, 88, 0.1)', border: 'rgba(104, 120, 88, 0.25)' },
+        act3: { bg: 'rgba(156, 172, 140, 0.1)', border: 'rgba(156, 172, 140, 0.25)' },
       },
       sceneColors: [
-        '#8B5CF6', '#A78BFA', '#C4B5FD', '#D97706',
-        '#F59E0B', '#FBBF24', '#7C3AED', '#6D28D9',
+        '#8a9a7a', '#9cac8c', '#788868', '#687858',
+        '#aebda0', '#c1cfb4', '#586848', '#d4e0c8',
       ],
       characterColors: [
-        '#8B5CF6', '#D97706', '#A78BFA', '#F59E0B', '#C4B5FD',
-        '#FBBF24', '#7C3AED', '#FCD34D', '#6D28D9', '#DDD6FE',
+        '#8a9a7a', '#788868', '#9cac8c', '#687858', '#aebda0',
+        '#586848', '#c1cfb4', '#4a5a3a', '#d4e0c8', '#b8c8a8',
       ],
       locationColors: [
-        '#C4B5FD', '#DDD6FE', '#EDE9FE', '#F5F3FF', '#A78BFA',
-        '#FEF3C7', '#FDE68A', '#FCD34D', '#FBBF24', '#F59E0B',
+        '#788868', '#687858', '#586848', '#4a5a3a', '#8a9a7a',
+        '#9cac8c', '#aebda0', '#c1cfb4', '#d4e0c8', '#b8c8a8',
       ],
     },
     darkVisualization: {
       beatColors: [
-        '#A78BFA', '#C4B5FD', '#DDD6FE', '#EDE9FE',
-        '#FBBF24', '#FCD34D', '#FDE68A', '#FEF3C7',
+        '#9cac8c', '#8a9a7a', '#788868', '#687858',
+        '#aebda0', '#c1cfb4', '#d4e0c8', '#b8c8a8',
       ],
       actColors: {
-        act1: { bg: 'rgba(167, 139, 250, 0.15)', border: 'rgba(167, 139, 250, 0.4)' },
-        act2a: { bg: 'rgba(251, 191, 36, 0.15)', border: 'rgba(251, 191, 36, 0.4)' },
-        act2b: { bg: 'rgba(252, 211, 77, 0.15)', border: 'rgba(252, 211, 77, 0.4)' },
-        act3: { bg: 'rgba(196, 181, 253, 0.15)', border: 'rgba(196, 181, 253, 0.4)' },
+        act1: { bg: 'rgba(156, 172, 140, 0.12)', border: 'rgba(156, 172, 140, 0.3)' },
+        act2a: { bg: 'rgba(138, 154, 122, 0.12)', border: 'rgba(138, 154, 122, 0.3)' },
+        act2b: { bg: 'rgba(120, 136, 104, 0.12)', border: 'rgba(120, 136, 104, 0.3)' },
+        act3: { bg: 'rgba(174, 189, 160, 0.12)', border: 'rgba(174, 189, 160, 0.3)' },
       },
       sceneColors: [
-        '#A78BFA', '#C4B5FD', '#DDD6FE', '#FBBF24',
-        '#FCD34D', '#FDE68A', '#8B5CF6', '#7C3AED',
+        '#9cac8c', '#8a9a7a', '#aebda0', '#788868',
+        '#c1cfb4', '#687858', '#d4e0c8', '#b8c8a8',
       ],
       characterColors: [
-        '#A78BFA', '#FBBF24', '#C4B5FD', '#FCD34D', '#DDD6FE',
-        '#FDE68A', '#8B5CF6', '#FEF3C7', '#7C3AED', '#EDE9FE',
+        '#9cac8c', '#aebda0', '#8a9a7a', '#c1cfb4', '#788868',
+        '#d4e0c8', '#687858', '#b8c8a8', '#586848', '#e0ecd4',
       ],
       locationColors: [
-        '#DDD6FE', '#EDE9FE', '#F5F3FF', '#FAF5FF', '#C4B5FD',
-        '#FEF3C7', '#FDE68A', '#FCD34D', '#FBBF24', '#F59E0B',
+        '#687858', '#788868', '#8a9a7a', '#9cac8c', '#586848',
+        '#aebda0', '#c1cfb4', '#d4e0c8', '#b8c8a8', '#e0ecd4',
       ],
     },
     uiFont: 'inter',
-    borderRadius: 12,
+    borderRadius: 10,
     cursor: {
-      mode: 'native',
+      mode: 'line',
       blinkStyle: 'smooth',
       blinkSpeed: 530,
-      color: '45 70% 58%',  // Gold to match fantasy theme
-      glowEnabled: true,
-      glowIntensity: 0.35,
+      color: '80 18% 45%',  // Muted sage cursor
+      glowEnabled: false,
+      glowIntensity: 0.3,
       width: 2,
     },
   },
 
-  // Sci-Fi: Future forward - cool, precise, modern tech aesthetic
-  'sci-fi': {
-    themePreset: 'sci-fi',
+  // Neovictorian: Soft charcoal and muted gold - European vintage
+  neovictorian: {
+    themePreset: 'neovictorian',
     lightColors: {
-      background: '200 20% 98%',          // Cool white
-      foreground: '200 15% 28%',          // Slate
-      card: '200 15% 99%',
-      cardForeground: '200 15% 28%',
-      primary: '195 75% 45%',             // Cyan
+      background: '30 6% 96%',              // Soft warm gray
+      foreground: '30 4% 30%',              // Muted charcoal text
+      card: '30 5% 98%',                    // Nearly white cards
+      cardForeground: '30 4% 30%',
+      primary: '38 18% 50%',                // Soft antique gold
       primaryForeground: '0 0% 100%',
-      secondary: '200 15% 95%',
-      secondaryForeground: '200 12% 32%',
-      muted: '200 15% 95%',
-      mutedForeground: '200 10% 48%',
-      accent: '195 40% 92%',
-      accentForeground: '200 15% 28%',
-      destructive: '0 65% 55%',
-      destructiveForeground: '0 0% 100%',
-      border: '200 12% 90%',
-      input: '200 12% 90%',
-      ring: '195 75% 45%',
-    },
-    darkColors: {
-      background: '200 30% 7%',           // Deep teal-black
-      foreground: '195 15% 78%',          // Light cyan
-      card: '200 25% 9%',
-      cardForeground: '195 15% 78%',
-      primary: '195 70% 52%',             // Bright cyan
-      primaryForeground: '200 30% 7%',
-      secondary: '200 20% 13%',
-      secondaryForeground: '195 12% 72%',
-      muted: '200 20% 13%',
-      mutedForeground: '200 10% 46%',
-      accent: '195 40% 18%',
-      accentForeground: '195 15% 78%',
+      secondary: '30 5% 92%',               // Light warm gray
+      secondaryForeground: '30 4% 36%',
+      muted: '30 5% 92%',
+      mutedForeground: '30 3% 52%',
+      accent: '38 12% 88%',                 // Subtle gold tint
+      accentForeground: '30 4% 30%',
       destructive: '0 55% 50%',
       destructiveForeground: '0 0% 100%',
-      border: '200 18% 18%',
-      input: '200 18% 18%',
-      ring: '195 70% 52%',
+      border: '30 5% 86%',
+      input: '30 5% 86%',
+      ring: '38 18% 50%',
+    },
+    darkColors: {
+      background: '30 5% 9%',               // Deep warm charcoal
+      foreground: '30 6% 75%',              // Soft warm gray text
+      card: '30 4% 12%',
+      cardForeground: '30 6% 75%',
+      primary: '38 22% 55%',                // Brighter soft gold
+      primaryForeground: '30 5% 9%',
+      secondary: '30 4% 15%',
+      secondaryForeground: '30 5% 68%',
+      muted: '30 4% 15%',
+      mutedForeground: '30 3% 48%',
+      accent: '38 10% 18%',                 // Dark gold accent
+      accentForeground: '30 6% 75%',
+      destructive: '0 50% 45%',
+      destructiveForeground: '0 0% 100%',
+      border: '30 4% 18%',
+      input: '30 4% 18%',
+      ring: '38 22% 55%',
     },
     lightVisualization: {
       beatColors: [
@@ -1009,210 +688,6 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       color: '0 70% 48%',  // Blood red to match horror theme
       glowEnabled: true,
       glowIntensity: 0.5,
-      width: 2,
-    },
-  },
-
-  // Matcha: Soft sage and stone - muted Chinese retro
-  matcha: {
-    themePreset: 'matcha',
-    lightColors: {
-      background: '80 8% 96%',              // Very soft gray with sage hint
-      foreground: '80 5% 32%',              // Soft gray-green text
-      card: '80 6% 98%',                    // Nearly white cards
-      cardForeground: '80 5% 32%',
-      primary: '80 18% 45%',                // Muted sage green
-      primaryForeground: '0 0% 100%',
-      secondary: '80 6% 93%',               // Light stone gray
-      secondaryForeground: '80 5% 38%',
-      muted: '80 6% 93%',
-      mutedForeground: '80 4% 52%',
-      accent: '80 10% 90%',                 // Subtle sage tint
-      accentForeground: '80 5% 32%',
-      destructive: '0 55% 50%',
-      destructiveForeground: '0 0% 100%',
-      border: '80 6% 88%',
-      input: '80 6% 88%',
-      ring: '80 18% 45%',
-    },
-    darkColors: {
-      background: '80 6% 9%',               // Deep gray with sage undertone
-      foreground: '80 8% 75%',              // Soft sage-gray text
-      card: '80 5% 12%',
-      cardForeground: '80 8% 75%',
-      primary: '80 22% 52%',                // Brighter muted sage
-      primaryForeground: '80 6% 9%',
-      secondary: '80 5% 15%',
-      secondaryForeground: '80 6% 68%',
-      muted: '80 5% 15%',
-      mutedForeground: '80 4% 48%',
-      accent: '80 8% 18%',                  // Dark sage accent
-      accentForeground: '80 8% 75%',
-      destructive: '0 50% 45%',
-      destructiveForeground: '0 0% 100%',
-      border: '80 5% 18%',
-      input: '80 5% 18%',
-      ring: '80 22% 52%',
-    },
-    lightVisualization: {
-      beatColors: [
-        '#8a9a7a', '#9cac8c', '#aebda0', '#c1cfb4',
-        '#788868', '#687858', '#586848', '#d4e0c8',
-      ],
-      actColors: {
-        act1: { bg: 'rgba(138, 154, 122, 0.1)', border: 'rgba(138, 154, 122, 0.25)' },
-        act2a: { bg: 'rgba(120, 136, 104, 0.1)', border: 'rgba(120, 136, 104, 0.25)' },
-        act2b: { bg: 'rgba(104, 120, 88, 0.1)', border: 'rgba(104, 120, 88, 0.25)' },
-        act3: { bg: 'rgba(156, 172, 140, 0.1)', border: 'rgba(156, 172, 140, 0.25)' },
-      },
-      sceneColors: [
-        '#8a9a7a', '#9cac8c', '#788868', '#687858',
-        '#aebda0', '#c1cfb4', '#586848', '#d4e0c8',
-      ],
-      characterColors: [
-        '#8a9a7a', '#788868', '#9cac8c', '#687858', '#aebda0',
-        '#586848', '#c1cfb4', '#4a5a3a', '#d4e0c8', '#b8c8a8',
-      ],
-      locationColors: [
-        '#788868', '#687858', '#586848', '#4a5a3a', '#8a9a7a',
-        '#9cac8c', '#aebda0', '#c1cfb4', '#d4e0c8', '#b8c8a8',
-      ],
-    },
-    darkVisualization: {
-      beatColors: [
-        '#9cac8c', '#8a9a7a', '#788868', '#687858',
-        '#aebda0', '#c1cfb4', '#d4e0c8', '#b8c8a8',
-      ],
-      actColors: {
-        act1: { bg: 'rgba(156, 172, 140, 0.12)', border: 'rgba(156, 172, 140, 0.3)' },
-        act2a: { bg: 'rgba(138, 154, 122, 0.12)', border: 'rgba(138, 154, 122, 0.3)' },
-        act2b: { bg: 'rgba(120, 136, 104, 0.12)', border: 'rgba(120, 136, 104, 0.3)' },
-        act3: { bg: 'rgba(174, 189, 160, 0.12)', border: 'rgba(174, 189, 160, 0.3)' },
-      },
-      sceneColors: [
-        '#9cac8c', '#8a9a7a', '#aebda0', '#788868',
-        '#c1cfb4', '#687858', '#d4e0c8', '#b8c8a8',
-      ],
-      characterColors: [
-        '#9cac8c', '#aebda0', '#8a9a7a', '#c1cfb4', '#788868',
-        '#d4e0c8', '#687858', '#b8c8a8', '#586848', '#e0ecd4',
-      ],
-      locationColors: [
-        '#687858', '#788868', '#8a9a7a', '#9cac8c', '#586848',
-        '#aebda0', '#c1cfb4', '#d4e0c8', '#b8c8a8', '#e0ecd4',
-      ],
-    },
-    uiFont: 'inter',
-    borderRadius: 10,
-    cursor: {
-      mode: 'line',
-      blinkStyle: 'smooth',
-      blinkSpeed: 530,
-      color: '80 18% 45%',  // Muted sage cursor
-      glowEnabled: false,
-      glowIntensity: 0.3,
-      width: 2,
-    },
-  },
-
-  // Neovictorian: Soft charcoal and muted gold - European vintage
-  neovictorian: {
-    themePreset: 'neovictorian',
-    lightColors: {
-      background: '30 6% 96%',              // Soft warm gray
-      foreground: '30 4% 30%',              // Muted charcoal text
-      card: '30 5% 98%',                    // Nearly white cards
-      cardForeground: '30 4% 30%',
-      primary: '38 18% 50%',                // Soft antique gold
-      primaryForeground: '0 0% 100%',
-      secondary: '30 5% 92%',               // Light warm gray
-      secondaryForeground: '30 4% 36%',
-      muted: '30 5% 92%',
-      mutedForeground: '30 3% 52%',
-      accent: '38 12% 88%',                 // Subtle gold tint
-      accentForeground: '30 4% 30%',
-      destructive: '0 55% 50%',
-      destructiveForeground: '0 0% 100%',
-      border: '30 5% 86%',
-      input: '30 5% 86%',
-      ring: '38 18% 50%',
-    },
-    darkColors: {
-      background: '30 5% 9%',               // Deep warm charcoal
-      foreground: '30 6% 75%',              // Soft warm gray text
-      card: '30 4% 12%',
-      cardForeground: '30 6% 75%',
-      primary: '38 22% 55%',                // Brighter soft gold
-      primaryForeground: '30 5% 9%',
-      secondary: '30 4% 15%',
-      secondaryForeground: '30 5% 68%',
-      muted: '30 4% 15%',
-      mutedForeground: '30 3% 48%',
-      accent: '38 10% 18%',                 // Dark gold accent
-      accentForeground: '30 6% 75%',
-      destructive: '0 50% 45%',
-      destructiveForeground: '0 0% 100%',
-      border: '30 4% 18%',
-      input: '30 4% 18%',
-      ring: '38 22% 55%',
-    },
-    lightVisualization: {
-      beatColors: [
-        '#a89880', '#b8a890', '#c8b8a0', '#d8c8b0',
-        '#686058', '#787068', '#888078', '#989088',
-      ],
-      actColors: {
-        act1: { bg: 'rgba(168, 152, 128, 0.1)', border: 'rgba(168, 152, 128, 0.25)' },
-        act2a: { bg: 'rgba(104, 96, 88, 0.1)', border: 'rgba(104, 96, 88, 0.25)' },
-        act2b: { bg: 'rgba(120, 112, 104, 0.1)', border: 'rgba(120, 112, 104, 0.25)' },
-        act3: { bg: 'rgba(184, 168, 144, 0.1)', border: 'rgba(184, 168, 144, 0.25)' },
-      },
-      sceneColors: [
-        '#a89880', '#b8a890', '#686058', '#787068',
-        '#c8b8a0', '#888078', '#d8c8b0', '#989088',
-      ],
-      characterColors: [
-        '#a89880', '#686058', '#b8a890', '#787068', '#c8b8a0',
-        '#888078', '#d8c8b0', '#989088', '#e8d8c0', '#a8a098',
-      ],
-      locationColors: [
-        '#686058', '#787068', '#888078', '#989088', '#a89880',
-        '#b8a890', '#c8b8a0', '#d8c8b0', '#e8d8c0', '#a8a098',
-      ],
-    },
-    darkVisualization: {
-      beatColors: [
-        '#b8a890', '#a89880', '#988870', '#887860',
-        '#c8b8a0', '#d8c8b0', '#e8d8c0', '#d0c8b8',
-      ],
-      actColors: {
-        act1: { bg: 'rgba(184, 168, 144, 0.12)', border: 'rgba(184, 168, 144, 0.3)' },
-        act2a: { bg: 'rgba(200, 184, 160, 0.1)', border: 'rgba(200, 184, 160, 0.25)' },
-        act2b: { bg: 'rgba(216, 200, 176, 0.1)', border: 'rgba(216, 200, 176, 0.25)' },
-        act3: { bg: 'rgba(168, 152, 128, 0.12)', border: 'rgba(168, 152, 128, 0.3)' },
-      },
-      sceneColors: [
-        '#b8a890', '#a89880', '#c8b8a0', '#d8c8b0',
-        '#988870', '#e8d8c0', '#887860', '#d0c8b8',
-      ],
-      characterColors: [
-        '#b8a890', '#c8b8a0', '#a89880', '#d8c8b0', '#988870',
-        '#e8d8c0', '#887860', '#d0c8b8', '#786850', '#f0e8d8',
-      ],
-      locationColors: [
-        '#989088', '#a8a098', '#b8b0a8', '#c8c0b8', '#888078',
-        '#b8a890', '#a89880', '#c8b8a0', '#d8c8b0', '#f0e8d8',
-      ],
-    },
-    uiFont: 'inter',
-    borderRadius: 8,
-    cursor: {
-      mode: 'line',
-      blinkStyle: 'smooth',
-      blinkSpeed: 530,
-      color: '38 18% 50%',  // Soft gold cursor
-      glowEnabled: false,
-      glowIntensity: 0.3,
       width: 2,
     },
   },

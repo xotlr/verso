@@ -44,6 +44,8 @@ export interface UsePaginationReturn {
   error: Error | null;
   /** Timing stats */
   timing: { lastDurationMs: number } | null;
+  /** Whether WASM engine is loaded and working */
+  isWasmReady: boolean;
 }
 
 /**
@@ -67,6 +69,7 @@ export function usePagination(
   const positionMapRef = useRef<PositionMap | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastDocRef = useRef<ProseMirrorNode | null>(null);
+  const docVersionRef = useRef(0); // Track document version to discard stale results
 
   /**
    * Run pagination on the current document
@@ -75,6 +78,10 @@ export function usePagination(
     if (!doc || !enabled) {
       return;
     }
+
+    // Increment version and capture it for this request
+    docVersionRef.current++;
+    const thisVersion = docVersionRef.current;
 
     setIsPending(true);
     setError(null);
@@ -90,36 +97,49 @@ export function usePagination(
 
       // Debug: Log serialized elements (comment out in production)
       if (process.env.NODE_ENV === 'development') {
-        console.log('[usePagination] Serialized elements:', elements.length, 'IDs:', elements.slice(0, 5).map(e => e.id));
+        console.log('[usePagination] Serialized elements:', elements.length, 'version:', thisVersion);
       }
 
       // Run pagination
       const paginationResult = await runPagination(elements, config);
 
-      // Debug: Log WASM result (comment out in production)
+      // CRITICAL: Discard stale results if document changed while we were waiting
+      if (thisVersion !== docVersionRef.current) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[usePagination] Discarding stale result (version', thisVersion, 'vs current', docVersionRef.current, ')');
+        }
+        return; // Don't update state with stale result
+      }
+
+      // Debug: Log WASM result with diagnostic stats
       if (process.env.NODE_ENV === 'development') {
         console.log('[usePagination] WASM result:', {
           pageCount: paginationResult.stats.page_count,
-          pages: paginationResult.pages.map(p => ({
-            id: p.identifier,
-            elementCount: p.elements.length,
-            firstElementId: p.elements[0]?.element_id,
-          })),
+          elementCount: paginationResult.stats.element_count,
+          totalLines: paginationResult.stats.total_lines,
+          avgLinesPerElement: paginationResult.stats.avg_lines_per_element?.toFixed(2),
+          durationMs: performance.now() - startTime,
         });
       }
 
       setResult(paginationResult);
       setTiming({ lastDurationMs: performance.now() - startTime });
     } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
-      console.error('[usePagination] Error:', err);
+      // Only set error if this is still the current version
+      if (thisVersion === docVersionRef.current) {
+        setError(err instanceof Error ? err : new Error(String(err)));
+        console.error('[usePagination] Error:', err);
+      }
     } finally {
-      setIsPending(false);
+      // Only clear pending if this is still the current version
+      if (thisVersion === docVersionRef.current) {
+        setIsPending(false);
+      }
     }
   }, [doc, config, enabled]);
 
   /**
-   * Debounced pagination trigger
+   * Debounced pagination trigger with dynamic delay for large documents
    */
   useEffect(() => {
     if (!enabled || !doc) {
@@ -137,10 +157,18 @@ export function usePagination(
       clearTimeout(debounceTimerRef.current);
     }
 
+    // Dynamic debounce: longer delay for larger documents to reduce CPU load
+    const elementCount = doc.content.childCount;
+    const dynamicDebounce = elementCount > 500
+      ? 500  // Very large doc (100+ pages): 500ms debounce
+      : elementCount > 100
+        ? 300  // Large doc (20+ pages): 300ms debounce
+        : debounceMs; // Normal: use provided debounce
+
     // Set new timer
     debounceTimerRef.current = setTimeout(() => {
       runPaginationOnDoc();
-    }, debounceMs);
+    }, dynamicDebounce);
 
     return () => {
       if (debounceTimerRef.current) {
@@ -194,6 +222,9 @@ export function usePagination(
     runPaginationOnDoc();
   }, [runPaginationOnDoc]);
 
+  // WASM is ready if we've successfully gotten a result at least once
+  const isWasmReady = result !== null && error === null;
+
   return {
     result,
     isPending,
@@ -203,6 +234,7 @@ export function usePagination(
     recalculate,
     error,
     timing,
+    isWasmReady,
   };
 }
 

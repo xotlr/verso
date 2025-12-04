@@ -41,12 +41,41 @@ class PaginationWorkerManager {
     this.initializing = true;
 
     this.initPromise = new Promise((resolve, reject) => {
+      // Guard against SSR - window must exist
+      if (typeof window === 'undefined') {
+        this.initializing = false;
+        reject(new Error('Worker cannot be initialized in SSR context'));
+        return;
+      }
+
+      // Guard against missing Worker support
+      if (typeof Worker === 'undefined') {
+        this.initializing = false;
+        reject(new Error('Web Workers are not supported in this environment'));
+        return;
+      }
+
       try {
-        // Create the worker using webpack-compatible new URL() pattern
-        this.worker = new Worker(
-          new URL('../../public/workers/pagination.worker.js', import.meta.url),
-          { type: 'module' }
-        );
+        // Create the worker - use full URL for proper module loading
+        const origin = window.location.origin;
+        if (!origin) {
+          throw new Error('Unable to determine origin');
+        }
+        console.log('[PaginationWorker] Initializing with origin:', origin);
+
+        const workerUrl = new URL('/workers/pagination.worker.js', origin);
+        console.log('[PaginationWorker] Worker URL:', workerUrl.href);
+
+        this.worker = new Worker(workerUrl, { type: 'module' });
+      } catch (workerError) {
+        console.error('[PaginationWorker] Failed to create Worker:', workerError);
+        this.initializing = false;
+        const errorMsg = workerError instanceof Error ? workerError.message : String(workerError || 'Unknown error');
+        reject(new Error(`Failed to create Worker: ${errorMsg}`));
+        return;
+      }
+
+      try {
 
         // Set up message handler
         this.worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
@@ -54,8 +83,8 @@ class PaginationWorkerManager {
         };
 
         this.worker.onerror = (error) => {
-          console.error('[PaginationWorker] Error:', error);
-          reject(new Error(`Worker error: ${error.message}`));
+          console.error('[PaginationWorker] Worker error:', error);
+          reject(new Error(`Worker error: ${error.message || 'Unknown error'}`));
         };
 
         // Send init message
@@ -88,9 +117,9 @@ class PaginationWorkerManager {
   }
 
   /**
-   * Run pagination on a set of elements
+   * Run pagination on a set of elements with timeout protection
    */
-  async paginate(elements: Element[], config: PageConfig): Promise<PaginationResult> {
+  async paginate(elements: Element[], config: PageConfig, timeoutMs = 5000): Promise<PaginationResult> {
     if (!this.initialized) {
       await this.initialize();
     }
@@ -101,7 +130,8 @@ class PaginationWorkerManager {
 
     const requestId = `req_${++this.requestCounter}`;
 
-    return new Promise((resolve, reject) => {
+    // Create the pagination promise
+    const paginationPromise = new Promise<PaginationResult>((resolve, reject) => {
       this.pendingRequests.set(requestId, { resolve, reject });
 
       this.worker!.postMessage({
@@ -111,6 +141,20 @@ class PaginationWorkerManager {
         config,
       } as WorkerRequest);
     });
+
+    // Create timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        // Clean up the pending request on timeout
+        if (this.pendingRequests.has(requestId)) {
+          this.pendingRequests.delete(requestId);
+          reject(new Error(`Pagination timeout after ${timeoutMs}ms`));
+        }
+      }, timeoutMs);
+    });
+
+    // Race between pagination and timeout
+    return Promise.race([paginationPromise, timeoutPromise]);
   }
 
   /**

@@ -94,14 +94,17 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
           <button
             className={cn(
               "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors bg-muted/50 hover:bg-accent",
-              isCollapsed && "justify-center px-0"
+              isCollapsed && "justify-center px-0 h-10 mx-auto bg-transparent hover:bg-transparent"
             )}
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary shrink-0">
+            <div className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-lg bg-primary shrink-0",
+              isCollapsed && "bg-transparent h-full w-full"
+            )}>
               {currentTeam ? (
-                <Users className="h-4 w-4 text-primary-foreground" />
+                <Users className={cn("h-4 w-4", isCollapsed ? "text-foreground" : "text-primary-foreground")} />
               ) : (
-                <Logo size={36} color="currentColor" className="text-primary-foreground" />
+                <Logo size={36} color="currentColor" className={cn(isCollapsed ? "text-foreground" : "text-primary-foreground")} />
               )}
             </div>
             {!isCollapsed && (

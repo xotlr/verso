@@ -74,6 +74,7 @@ const updateLinkSchema = z.object({
   title: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
 })
 
 // PATCH /api/links/[id] - Update a link

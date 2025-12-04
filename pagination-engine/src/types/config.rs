@@ -125,15 +125,17 @@ impl ElementStyle {
     pub fn default_for(element_type: ElementType) -> Self {
         match element_type {
             ElementType::SceneHeading => Self {
+                max_chars_per_line: 58,
                 space_before: 2,
                 keep_with_next: true,
-                keep_with_next_lines: 2,
+                keep_with_next_lines: 3,  // Orphan prevention: need 3+ lines after heading
                 force_uppercase: true,
                 can_split: false,
                 ..Self::default()
             },
 
             ElementType::Action => Self {
+                max_chars_per_line: 58,  // Match JS: FORMATTING_RULES.ACTION.maxCharsPerLine
                 space_before: 1,
                 can_split: true,
                 min_lines_before_split: 2,
@@ -143,7 +145,7 @@ impl ElementStyle {
 
             ElementType::Character => Self {
                 margin_left: 2.2,  // ~3.7" from page left with 1.5" page margin
-                max_chars_per_line: 38,
+                max_chars_per_line: 37,  // Match JS: FORMATTING_RULES.CHARACTER.maxCharsPerLine
                 space_before: 1,
                 force_uppercase: true,
                 keep_with_next: true,
@@ -164,7 +166,7 @@ impl ElementStyle {
             },
 
             ElementType::Parenthetical => Self {
-                margin_left: 1.6,   // 3.1" from page left
+                margin_left: 1.5,   // Match JS: 1.5" from printable area
                 margin_right: 2.3,  // 2.9" from page right
                 max_chars_per_line: 25,
                 space_before: 0,
@@ -176,9 +178,9 @@ impl ElementStyle {
 
             ElementType::Transition => Self {
                 margin_left: 4.0,  // Right-aligned
-                max_chars_per_line: 20,
+                max_chars_per_line: 16,  // Match JS: FORMATTING_RULES.TRANSITION.maxCharsPerLine
                 space_before: 2,
-                space_after: 1,
+                space_after: 0,  // Match Google AI reference: no bottom margin
                 force_uppercase: true,
                 can_split: false,
                 ..Self::default()
@@ -186,7 +188,7 @@ impl ElementStyle {
 
             ElementType::ActBreak => Self {
                 space_before: 4,
-                space_after: 4,
+                space_after: 0,  // Match Google AI reference: no bottom margin
                 force_uppercase: true,
                 can_split: false,
                 ..Self::default()
@@ -305,7 +307,7 @@ impl PageConfig {
 
         Self {
             paper_size: PaperSize::UsLetter,
-            lines_per_page: 55,
+            lines_per_page: 52,  // Match JS: LINES_PER_PAGE = 52
             char_width_pt: 7.2,
             line_height_pt: 12.0,
             margins: MarginConfig::default(),
@@ -357,7 +359,7 @@ mod tests {
     #[test]
     fn test_feature_film_config() {
         let config = PageConfig::feature_film();
-        assert_eq!(config.lines_per_page, 55);
+        assert_eq!(config.lines_per_page, 52);  // Match JS: LINES_PER_PAGE = 52
         assert_eq!(config.paper_size, PaperSize::UsLetter);
         assert!(config.element_styles.contains_key(&ElementType::SceneHeading));
     }

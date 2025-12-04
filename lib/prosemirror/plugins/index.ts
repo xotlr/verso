@@ -10,6 +10,7 @@ import { createPaginationPlugin } from './pagination';
 import { createSceneNumberingPlugin } from './scene-numbering';
 import { createSmartClickPlugin } from './smart-click';
 import { createAutocompletePlugin, AutocompletePluginOptions } from './autocomplete';
+import { createCollaborationPlugin, CollaborationPluginOptions } from './collaboration';
 
 export interface CreatePluginsOptions {
   // Enable input rules for auto-formatting
@@ -32,6 +33,10 @@ export interface CreatePluginsOptions {
   autocomplete?: boolean;
   // Autocomplete options
   autocompleteOptions?: AutocompletePluginOptions;
+  // Enable real-time collaboration
+  collaboration?: boolean;
+  // Collaboration options
+  collaborationOptions?: CollaborationPluginOptions;
 }
 
 const defaultOptions: CreatePluginsOptions = {
@@ -44,6 +49,7 @@ const defaultOptions: CreatePluginsOptions = {
   pagination: true,
   sceneNumbering: true,
   autocomplete: true,
+  collaboration: false, // Disabled by default, enabled when collaboration is active
 };
 
 /**
@@ -94,6 +100,11 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
     plugins.push(createAutocompletePlugin(opts.autocompleteOptions || {}));
   }
 
+  // Real-time collaboration
+  if (opts.collaboration) {
+    plugins.push(createCollaborationPlugin(opts.collaborationOptions || {}));
+  }
+
   // Drop cursor
   if (opts.dropCursor) {
     plugins.push(dropCursor());
@@ -115,6 +126,8 @@ export { createSceneNumberingPlugin, sceneNumberingPluginKey } from './scene-num
 export { createSmartClickPlugin, smartClickPluginKey } from './smart-click';
 export { createAutocompletePlugin, autocompletePluginKey, applySuggestion } from './autocomplete';
 export type { AutocompleteState, AutocompleteSuggestion, AutocompletePluginOptions } from './autocomplete';
+export { createCollaborationPlugin, collaborationPluginKey, updateRemoteUsers, applyRemoteChange } from './collaboration';
+export type { CollaborationPluginOptions, CollaborationPluginState } from './collaboration';
 
 // Pagination plugin exports
 export {

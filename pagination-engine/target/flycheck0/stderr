@@ -1,45 +1,12 @@
-   0.090355908s  INFO prepare_target{force=false package_id=verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine) target="verso_pagination_engine"}: cargo::core::compiler::fingerprint: fingerprint error for verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine)/Check { test: true }/TargetInner { name_inferred: true, ..: lib_target("verso_pagination_engine", ["cdylib", "rlib"], "/home/user/pluto/screenwriter/pagination-engine/src/lib.rs", Edition2021) }
-   0.090399028s  INFO prepare_target{force=false package_id=verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine) target="verso_pagination_engine"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/user/pluto/screenwriter/pagination-engine/target/debug/.fingerprint/verso-pagination-engine-4cf298e2ca3e7def/test-lib-verso_pagination_engine`
-
-Caused by:
-    No such file or directory (os error 2)
-
-Stack backtrace:
-   0: cargo_util::paths::read_bytes
-   1: cargo_util::paths::read
-   2: cargo::core::compiler::fingerprint::_compare_old_fingerprint
-   3: cargo::core::compiler::fingerprint::prepare_target
-   4: cargo::core::compiler::compile
-   5: <cargo::core::compiler::build_runner::BuildRunner>::compile
-   6: cargo::ops::cargo_compile::compile_ws
-   7: cargo::ops::cargo_compile::compile_with_exec
-   8: cargo::ops::cargo_compile::compile
-   9: cargo::commands::check::exec
-  10: <cargo::cli::Exec>::exec
-  11: cargo::main
-  12: std::sys::backtrace::__rust_begin_short_backtrace::<fn(), ()>
-  13: std::rt::lang_start::<()>::{closure#0}
-  14: core::ops::function::impls::<impl core::ops::function::FnOnce<A> for &F>::call_once
-             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/core/src/ops/function.rs:287:21
-  15: std::panicking::catch_unwind::do_call
-             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/panicking.rs:590:40
-  16: std::panicking::catch_unwind
-             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/panicking.rs:553:19
-  17: std::panic::catch_unwind
-             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/panic.rs:359:14
-  18: std::rt::lang_start_internal::{{closure}}
-             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/rt.rs:175:24
-  19: std::panicking::catch_unwind::do_call
-             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/panicking.rs:590:40
-  20: std::panicking::catch_unwind
-             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/panicking.rs:553:19
-  21: std::panic::catch_unwind
-             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/panic.rs:359:14
-  22: std::rt::lang_start_internal
-             at /rustc/ed61e7d7e242494fb7057f2657300d9e77bb4fcb/library/std/src/rt.rs:171:5
-  23: main
-  24: <unknown>
-  25: __libc_start_main
-  26: <unknown>
+   0.045309873s  INFO prepare_target{force=false package_id=verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine) target="verso_pagination_engine"}: cargo::core::compiler::fingerprint: stale: changed "/home/user/pluto/screenwriter/pagination-engine/src/types/result.rs"
+   0.045335405s  INFO prepare_target{force=false package_id=verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine) target="verso_pagination_engine"}: cargo::core::compiler::fingerprint:           (vs) "/home/user/pluto/screenwriter/pagination-engine/target/debug/.fingerprint/verso-pagination-engine-6d10b29b05b1681b/dep-lib-verso_pagination_engine"
+   0.045339398s  INFO prepare_target{force=false package_id=verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine) target="verso_pagination_engine"}: cargo::core::compiler::fingerprint:                FileTime { seconds: 1764800750, nanos: 554567040 } < FileTime { seconds: 1764802162, nanos: 294547105 }
+   0.046102664s  INFO prepare_target{force=false package_id=verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine) target="verso_pagination_engine"}: cargo::core::compiler::fingerprint: fingerprint dirty for verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine)/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("verso_pagination_engine", ["cdylib", "rlib"], "/home/user/pluto/screenwriter/pagination-engine/src/lib.rs", Edition2021) }
+   0.046148450s  INFO prepare_target{force=false package_id=verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine) target="verso_pagination_engine"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(StaleItem(ChangedFile { reference: "/home/user/pluto/screenwriter/pagination-engine/target/debug/.fingerprint/verso-pagination-engine-6d10b29b05b1681b/dep-lib-verso_pagination_engine", reference_mtime: FileTime { seconds: 1764800750, nanos: 554567040 }, stale: "/home/user/pluto/screenwriter/pagination-engine/src/types/result.rs", stale_mtime: FileTime { seconds: 1764802162, nanos: 294547105 } }))
+   0.069130994s  INFO prepare_target{force=false package_id=verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine) target="verso_pagination_engine"}: cargo::core::compiler::fingerprint: stale: changed "/home/user/pluto/screenwriter/pagination-engine/src/types/result.rs"
+   0.069154607s  INFO prepare_target{force=false package_id=verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine) target="verso_pagination_engine"}: cargo::core::compiler::fingerprint:           (vs) "/home/user/pluto/screenwriter/pagination-engine/target/debug/.fingerprint/verso-pagination-engine-b918b54c8754234a/dep-test-lib-verso_pagination_engine"
+   0.069158219s  INFO prepare_target{force=false package_id=verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine) target="verso_pagination_engine"}: cargo::core::compiler::fingerprint:                FileTime { seconds: 1764800750, nanos: 554567040 } < FileTime { seconds: 1764802162, nanos: 294547105 }
+   0.069806749s  INFO prepare_target{force=false package_id=verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine) target="verso_pagination_engine"}: cargo::core::compiler::fingerprint: fingerprint dirty for verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine)/Check { test: true }/TargetInner { name_inferred: true, ..: lib_target("verso_pagination_engine", ["cdylib", "rlib"], "/home/user/pluto/screenwriter/pagination-engine/src/lib.rs", Edition2021) }
+   0.069834950s  INFO prepare_target{force=false package_id=verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine) target="verso_pagination_engine"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(StaleItem(ChangedFile { reference: "/home/user/pluto/screenwriter/pagination-engine/target/debug/.fingerprint/verso-pagination-engine-b918b54c8754234a/dep-test-lib-verso_pagination_engine", reference_mtime: FileTime { seconds: 1764800750, nanos: 554567040 }, stale: "/home/user/pluto/screenwriter/pagination-engine/src/types/result.rs", stale_mtime: FileTime { seconds: 1764802162, nanos: 294547105 } }))
     Checking verso-pagination-engine v0.1.0 (/home/user/pluto/screenwriter/pagination-engine)
-error: could not compile `verso-pagination-engine` (lib test) due to 8 previous errors
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.45s

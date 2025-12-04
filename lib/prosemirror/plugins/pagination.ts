@@ -12,23 +12,23 @@ export const paginationPluginKey = new PluginKey<PaginationState>('pagination');
  * Font: Courier 12pt (10 chars/inch, 6 lines/inch)
  */
 const PAGE_METRICS = {
-  // Lines per page (standard screenplay)
-  LINES_PER_PAGE: 55,
+  // Lines per page (standard screenplay - matches WASM engine)
+  LINES_PER_PAGE: 52,
 
   // Approximate characters per line
-  CHARS_PER_LINE: 60,
+  CHARS_PER_LINE: 58,
 
-  // Line height in pixels (12pt Courier at 96 DPI)
-  LINE_HEIGHT_PX: 18,
+  // Line height in pixels (12pt Courier at 96 DPI = 16px)
+  LINE_HEIGHT_PX: 16,
 
-  // Page content height in pixels (9.5" usable at 96 DPI)
-  PAGE_HEIGHT_PX: 912,
+  // Page content height in pixels (9" usable at 96 DPI)
+  PAGE_HEIGHT_PX: 864,
 
   // Minimum lines to keep together for dialogue
   MIN_DIALOGUE_LINES: 2,
 
   // Minimum lines before page break for character name
-  MIN_LINES_BEFORE_BREAK: 2,
+  MIN_LINES_BEFORE_BREAK: 3,
 };
 
 /**
@@ -54,7 +54,8 @@ export interface PaginationState {
   // Store the full WASM result for advanced queries
   wasmResult: PaginationResult | null;
   // Track if we're using WASM or fallback calculation
-  source: 'wasm' | 'fallback';
+  // 'stale' means we're keeping old page breaks while waiting for WASM
+  source: 'wasm' | 'fallback' | 'stale';
 }
 
 /**
@@ -454,15 +455,26 @@ export function createPaginationPlugin(): Plugin {
           };
         }
 
-        // If document changed, recalculate with fallback (WASM update will come later)
+        // If document changed, keep previous page breaks (stale but fast)
+        // WASM will update with accurate results shortly
+        // Only recalculate fallback on first load (when we have no page breaks)
         if (tr.docChanged) {
-          const pageBreaks = calculateFallbackPageBreaks(newState.doc);
+          if (prevState.pageBreaks.length === 0) {
+            // First calculation - use fallback
+            const pageBreaks = calculateFallbackPageBreaks(newState.doc);
+            return {
+              pageBreaks,
+              pageCount: pageBreaks.length + 1,
+              currentPage: getCurrentPage(newState, pageBreaks),
+              wasmResult: null,
+              source: 'fallback',
+            };
+          }
+          // Keep stale page breaks - WASM will update shortly
           return {
-            pageBreaks,
-            pageCount: pageBreaks.length + 1,
-            currentPage: getCurrentPage(newState, pageBreaks),
+            ...prevState,
             wasmResult: null,
-            source: 'fallback',
+            source: 'stale',
           };
         }
 

@@ -7,6 +7,79 @@ use crate::types::{
 };
 use super::{ContinuationManager, LineCalculation, LineCalculator};
 
+/// Check if two elements form a "glue pair" that must stay together.
+/// Matches JS implementation:
+/// ```javascript
+/// const isGluePair = (first, second) => {
+///   if (first.type === 'CHARACTER') {
+///     return second.type === 'DIALOGUE' || second.type === 'PARENTHETICAL';
+///   }
+///   if (first.type === 'PARENTHETICAL') {
+///     return second.type === 'DIALOGUE';
+///   }
+///   return false;
+/// };
+/// ```
+fn is_glue_pair(first: &Element, second: &Element) -> bool {
+    match first.element_type {
+        // Character must stick to Dialogue or Parenthetical
+        ElementType::Character => {
+            matches!(second.element_type, ElementType::Dialogue | ElementType::Parenthetical)
+        }
+        // Parenthetical must stick to Dialogue
+        ElementType::Parenthetical => {
+            matches!(second.element_type, ElementType::Dialogue)
+        }
+        _ => false,
+    }
+}
+
+/// Calculate the total cost (in lines) for a glue group starting at index `start_idx`.
+/// A glue group is a chain of elements that must stay together:
+/// - CHARACTER + DIALOGUE
+/// - CHARACTER + PARENTHETICAL + DIALOGUE
+/// - PARENTHETICAL + DIALOGUE
+///
+/// Returns (group_cost, group_end_index) where group_end_index is exclusive.
+fn calculate_glue_group_cost(
+    elements: &[Element],
+    start_idx: usize,
+    config: &PageConfig,
+    current_y: u32,
+) -> (u32, usize) {
+    let line_calc = LineCalculator::new(config);
+    let first_element = &elements[start_idx];
+    let first_lines = line_calc.calculate(first_element);
+
+    // Calculate actual cost for first element (no margin if at top of page)
+    let first_actual_cost = if current_y == 0 {
+        first_lines.total_lines
+    } else {
+        first_lines.space_before as u32 + first_lines.total_lines
+    };
+
+    let mut group_cost = first_actual_cost;
+    let mut group_end = start_idx + 1;
+    let mut curr_element = first_element;
+
+    // Walk forward collecting glued elements
+    while group_end < elements.len() {
+        let next_element = &elements[group_end];
+
+        if is_glue_pair(curr_element, next_element) {
+            let next_lines = line_calc.calculate(next_element);
+            // Subsequent elements in group always include their margin
+            group_cost += next_lines.space_before as u32 + next_lines.total_lines;
+            curr_element = next_element;
+            group_end += 1;
+        } else {
+            break;
+        }
+    }
+
+    (group_cost, group_end)
+}
+
 /// Decision for how to handle an element at a page boundary
 #[derive(Debug)]
 enum BreakDecision {
@@ -178,6 +251,17 @@ impl PaginationState {
 
         let page_count = self.pages.len() as u32;
 
+        // Calculate total lines across all pages for diagnostics
+        let total_lines: u32 = self.pages.iter()
+            .map(|p| p.lines_used as u32)
+            .sum();
+
+        let avg_lines = if element_count > 0 {
+            total_lines as f32 / element_count as f32
+        } else {
+            0.0
+        };
+
         PaginationResult {
             pages: self.pages,
             element_positions: self.element_positions,
@@ -188,6 +272,8 @@ impl PaginationState {
                 break_count: self.break_count,
                 continuation_count: self.continuation_count,
                 timing_us,
+                total_lines,
+                avg_lines_per_element: avg_lines,
             },
         }
     }
@@ -213,13 +299,21 @@ pub fn paginate(elements: &[Element], config: &PageConfig) -> PaginationResult {
         // Calculate lines for this element
         let lines = line_calc.calculate(element);
 
-        // Calculate total space needed
+        // Calculate total space needed for this element alone
         let space_before = if state.at_page_start() { 0 } else { lines.space_before };
         let total_needed = space_before as u32 + lines.total_lines;
 
         let remaining = state.lines_remaining(config.lines_per_page) as u32;
+        let current_y = state.current_page.lines_used as u32;
 
-        // Decide what to do
+        // Calculate glue group cost (matches JS lookahead/glue logic)
+        // This checks if CHARACTER+DIALOGUE or CHARACTER+PARENTHETICAL+DIALOGUE chains fit together
+        let (group_cost, _group_end) = calculate_glue_group_cost(elements, idx, config, current_y);
+
+        // Check if the whole glue group exceeds remaining space
+        let group_exceeds = group_cost > remaining;
+
+        // Decide what to do, passing glue group information
         let decision = decide_break(
             element,
             &lines,
@@ -227,6 +321,7 @@ pub fn paginate(elements: &[Element], config: &PageConfig) -> PaginationResult {
             remaining,
             config,
             &elements[idx..],
+            group_exceeds,
         );
 
         match decision {
@@ -326,7 +421,14 @@ fn decide_break(
     remaining: u32,
     config: &PageConfig,
     upcoming: &[Element],
+    glue_group_exceeds: bool,
 ) -> BreakDecision {
+    // First check: Does the glue group exceed remaining space?
+    // If so, break before (matches JS: if (groupCost > spaceRemaining) forceBreak = true)
+    if glue_group_exceeds {
+        return BreakDecision::BreakBefore;
+    }
+
     // If it fits, we're done
     if total_needed <= remaining {
         // But check orphan rules for keep_with_next
@@ -338,6 +440,17 @@ fn decide_break(
                 return BreakDecision::BreakBefore;
             }
         }
+
+        // Additional orphan control for scene headings (matches JS):
+        // A Scene Heading should not fall on the last 2 lines
+        // JS: if (spaceRemaining - actualCost < 3) forceBreak = true;
+        if element.element_type == ElementType::SceneHeading {
+            let space_after = remaining.saturating_sub(total_needed);
+            if space_after < 3 {
+                return BreakDecision::BreakBefore;
+            }
+        }
+
         return BreakDecision::Fits;
     }
 
@@ -545,7 +658,97 @@ mod tests {
 
         let result = paginate(&elements, &config);
 
-        // Timing should be recorded (can't assert exact value)
-        assert!(result.stats.timing_us >= 0);
+        // Timing is measured by JavaScript worker, Rust returns 0
+        // Just verify pagination completed without errors
+        assert!(!result.pages.is_empty());
+    }
+
+    #[test]
+    fn test_is_glue_pair_character_dialogue() {
+        let char_elem = make_element("1", ElementType::Character, "SARAH");
+        let dial_elem = make_element("2", ElementType::Dialogue, "Hello there.");
+
+        assert!(is_glue_pair(&char_elem, &dial_elem));
+    }
+
+    #[test]
+    fn test_is_glue_pair_character_parenthetical() {
+        let char_elem = make_element("1", ElementType::Character, "SARAH");
+        let paren_elem = make_element("2", ElementType::Parenthetical, "(sadly)");
+
+        assert!(is_glue_pair(&char_elem, &paren_elem));
+    }
+
+    #[test]
+    fn test_is_glue_pair_parenthetical_dialogue() {
+        let paren_elem = make_element("1", ElementType::Parenthetical, "(sadly)");
+        let dial_elem = make_element("2", ElementType::Dialogue, "Hello there.");
+
+        assert!(is_glue_pair(&paren_elem, &dial_elem));
+    }
+
+    #[test]
+    fn test_is_glue_pair_action_dialogue_false() {
+        let action_elem = make_element("1", ElementType::Action, "She walks in.");
+        let dial_elem = make_element("2", ElementType::Dialogue, "Hello there.");
+
+        assert!(!is_glue_pair(&action_elem, &dial_elem));
+    }
+
+    #[test]
+    fn test_glue_group_character_dialogue() {
+        let config = PageConfig::feature_film();
+        let elements = vec![
+            make_element("1", ElementType::Character, "SARAH"),
+            make_element("2", ElementType::Dialogue, "Hello there."),
+            make_element("3", ElementType::Action, "She exits."),
+        ];
+
+        let (cost, end_idx) = calculate_glue_group_cost(&elements, 0, &config, 0);
+
+        // Should include CHARACTER + DIALOGUE but not ACTION
+        assert_eq!(end_idx, 2);
+        assert!(cost > 0);
+    }
+
+    #[test]
+    fn test_glue_group_character_parenthetical_dialogue() {
+        let config = PageConfig::feature_film();
+        let elements = vec![
+            make_element("1", ElementType::Character, "SARAH"),
+            make_element("2", ElementType::Parenthetical, "(sadly)"),
+            make_element("3", ElementType::Dialogue, "Goodbye."),
+            make_element("4", ElementType::Action, "She exits."),
+        ];
+
+        let (cost, end_idx) = calculate_glue_group_cost(&elements, 0, &config, 0);
+
+        // Should include CHARACTER + PARENTHETICAL + DIALOGUE but not ACTION
+        assert_eq!(end_idx, 3);
+        assert!(cost > 0);
+    }
+
+    #[test]
+    fn test_glue_group_keeps_together_on_page_break() {
+        let config = PageConfig::feature_film();
+
+        // Fill page almost completely (52 lines per page)
+        // Each action line with 1 space before = 2 lines, need ~25 actions to fill
+        let mut elements: Vec<Element> = (0..24)
+            .map(|i| make_element(&format!("a{}", i), ElementType::Action, "Action text here."))
+            .collect();
+
+        // Add a CHARACTER + DIALOGUE pair that should go to the next page as a unit
+        elements.push(make_element("char", ElementType::Character, "SARAH"));
+        elements.push(make_dialogue("dial", "Hello, this is dialogue.", "SARAH"));
+
+        let result = paginate(&elements, &config);
+
+        // CHARACTER and DIALOGUE should be on the same page
+        let char_pos = result.element_positions.get("char").unwrap();
+        let dial_pos = result.element_positions.get("dial").unwrap();
+
+        assert_eq!(char_pos.pages[0], dial_pos.pages[0],
+            "CHARACTER and DIALOGUE should be on the same page due to glue logic");
     }
 }

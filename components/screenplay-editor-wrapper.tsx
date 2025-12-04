@@ -7,17 +7,22 @@ import { VersionHistorySidebar } from "./version-history-sidebar";
 import { VersionCompareDialog } from "./version-compare-dialog";
 import { SceneWorkspacePanel } from "./scene-workspace-panel";
 import { ScreenplayDetailsDrawer } from "./screenplay-details-drawer";
+import { EditorSecondaryPanel } from "./editor/EditorSecondaryPanel";
+import { ClassicEditorWrapper, ClassicSceneInfo, ClassicCharacterInfo } from "./classic-editor/ClassicEditorWrapper";
+import { CollaborationAvatars } from "./collaboration/CollaborationAvatars";
 import { Scene, Character, Location } from "@/types/screenplay";
 import { ScreenplayVersion } from "@/types/version";
 import { parseScreenplayText } from "@/lib/screenplay-utils";
 import { proseMirrorToPlainText, isProseMirrorContent } from "@/lib/prosemirror";
 import { useSettings } from "@/contexts/settings-context";
 import { useOfflineSave } from "@/hooks/use-offline-save";
+import { useCollaboration } from "@/hooks/use-collaboration";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { FileText } from "lucide-react";
 import type { SceneInfo, CharacterInfo } from "@/hooks/editor/useProseMirrorEditor";
+import type { EditorView } from "prosemirror-view";
+import type { CollaborationOperation } from "@/types/collaboration";
 
 interface ScreenplayEditorWrapperProps {
   projectId: string; // Actually screenplayId - keeping prop name for compatibility
@@ -39,6 +44,10 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   const [compareVersion, setCompareVersion] = useState<ScreenplayVersion | null>(null);
   const [sceneWorkspaceScene, setSceneWorkspaceScene] = useState<Scene | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
+  const [sceneInfos, setSceneInfos] = useState<SceneInfo[]>([]);
+  const [charInfos, setCharInfos] = useState<CharacterInfo[]>([]);
+  const [currentScene, setCurrentScene] = useState<SceneInfo | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const versionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastVersionContentRef = useRef<string>("");
@@ -71,6 +80,37 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
 
   const { settings } = useSettings();
   const layoutMode = settings.layout.layoutMode;
+
+  // Real-time collaboration
+  const collaboration = useCollaboration({
+    screenplayId,
+    editorType: layoutMode === 'modern' ? 'prosemirror' : 'classic',
+    enabled: true, // TODO: Make this conditional based on user permissions
+    onRemoteChange: useCallback((operation: CollaborationOperation) => {
+      // Handle remote changes from other users
+      if (operation.operationType === 'replace' && operation.content) {
+        // Update screenplay text with remote changes
+        const remoteText = operation.content;
+
+        // Only apply if different from current content
+        if (remoteText !== screenplayTextRef.current) {
+          console.log('📥 Applying remote change from', operation.userId);
+          setScreenplayText(remoteText);
+          screenplayTextRef.current = remoteText;
+
+          // Parse and update scenes/characters
+          const parsed = parseScreenplayText(remoteText);
+          setScenes(parsed.scenes || []);
+          setCharacters(parsed.characters || []);
+          setLocations(parsed.locations || []);
+
+          toast.info('Screenplay updated by collaborator', {
+            duration: 2000,
+          });
+        }
+      }
+    }, []),
+  });
 
   // Load screenplay from database
   useEffect(() => {
@@ -181,10 +221,19 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
       setCharacters(parsed.characters || []);
       setLocations(parsed.locations || []);
 
+      // Broadcast changes to collaborators
+      if (collaboration.isConnected) {
+        collaboration.broadcastChange({
+          type: 'replace',
+          content: text,
+          cursorPosition: 0, // TODO: Get actual cursor position
+        });
+      }
+
       // Save to server
       saveScreenplay(text);
     }, 2000); // Auto-save after 2 seconds of inactivity
-  }, [saveScreenplay]);
+  }, [saveScreenplay, collaboration]);
 
   // Sync ref with state on initial load and version restore
   useEffect(() => {
@@ -283,11 +332,22 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     }
   }, [screenplayId]);
 
+  // Handle scene/character extraction from Classic editor
+  const handleClassicScenesChange = useCallback((newSceneInfos: ClassicSceneInfo[], newCharInfos: ClassicCharacterInfo[]) => {
+    // Classic types are compatible with SceneInfo/CharacterInfo
+    setSceneInfos(newSceneInfos as SceneInfo[]);
+    setCharInfos(newCharInfos as CharacterInfo[]);
+  }, []);
+
   // Handle scene/character extraction from ProseMirror
   // Must be declared before early return to follow React hooks rules
-  const handleScenesChange = useCallback((sceneInfos: SceneInfo[], charInfos: CharacterInfo[]) => {
+  const handleScenesChange = useCallback((newSceneInfos: SceneInfo[], newCharInfos: CharacterInfo[]) => {
+    // Store ProseMirror scene/char infos for sidebars
+    setSceneInfos(newSceneInfos);
+    setCharInfos(newCharInfos);
+
     // Convert ProseMirror SceneInfo to existing Scene type
-    const convertedScenes: Scene[] = sceneInfos.map((s, idx) => ({
+    const convertedScenes: Scene[] = newSceneInfos.map((s, idx) => ({
       id: s.id,
       number: idx + 1,
       heading: `${s.type}. ${s.location} - ${s.timeOfDay}`,
@@ -304,7 +364,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     setScenes(convertedScenes);
 
     // Convert ProseMirror CharacterInfo to existing Character type
-    const convertedChars: Character[] = charInfos.map((c) => ({
+    const convertedChars: Character[] = newCharInfos.map((c) => ({
       id: c.id,
       name: c.name,
       color: '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'),
@@ -312,6 +372,47 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     }));
     setCharacters(convertedChars);
   }, []);
+
+  // Track current scene based on cursor position
+  useEffect(() => {
+    if (!editorView || sceneInfos.length === 0) {
+      setCurrentScene(null);
+      return;
+    }
+
+    const updateCurrentScene = () => {
+      const { from } = editorView.state.selection;
+      // Find the scene that contains this position
+      let foundScene: SceneInfo | null = null;
+      for (let i = sceneInfos.length - 1; i >= 0; i--) {
+        if (sceneInfos[i].position <= from) {
+          foundScene = sceneInfos[i];
+          break;
+        }
+      }
+      setCurrentScene(foundScene);
+    };
+
+    // Update on selection changes
+    updateCurrentScene();
+
+    // Listen for transaction updates
+    const handleTransaction = () => {
+      updateCurrentScene();
+    };
+
+    // Add listener via DOM since we can't hook into ProseMirror directly here
+    const container = editorView.dom;
+    container.addEventListener('focus', handleTransaction);
+    container.addEventListener('click', handleTransaction);
+    container.addEventListener('keyup', handleTransaction);
+
+    return () => {
+      container.removeEventListener('focus', handleTransaction);
+      container.removeEventListener('click', handleTransaction);
+      container.removeEventListener('keyup', handleTransaction);
+    };
+  }, [editorView, sceneInfos]);
 
   if (isLoading) {
     return (
@@ -326,41 +427,65 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     );
   }
 
-  return (
-    <div className={cn("h-full relative flex flex-col", `layout-${layoutMode}`)}>
-      {/* Vertical tab trigger on right edge */}
-      <button
-        onClick={() => setIsDetailsOpen(true)}
-        className={cn(
-          "fixed right-0 top-1/2 -translate-y-1/2 z-40",
-          "px-3 py-6 rounded-l-lg",
-          "bg-card/95 backdrop-blur-sm",
-          "border border-r-0 border-border",
-          "shadow-lg hover:shadow-xl",
-          "transition-all duration-200",
-          "flex flex-col items-center gap-2",
-          "hover:px-4"
-        )}
-        aria-label="Open screenplay details"
-      >
-        <FileText className="h-4 w-4" />
-        <span className="text-xs font-medium [writing-mode:vertical-lr] rotate-180">
-          Details
-        </span>
-      </button>
+  // Classic Mode: Use the Google-style WYSIWYG page editor
+  if (layoutMode === 'classic') {
+    return (
+      <div className={cn("h-full flex", `layout-${layoutMode}`)}>
+        {/* Activity Bar + Secondary Panel - Scenes & Characters */}
+        <EditorSecondaryPanel
+          scenes={sceneInfos}
+          characters={charInfos}
+          view={null}  // Classic mode doesn't use ProseMirror EditorView
+          screenplayId={screenplayId}
+        />
 
-      <div className="flex-1 overflow-hidden">
+        {/* Main content area - classic editor */}
+        <div className="flex-1 overflow-hidden relative">
+          <ClassicEditorWrapper
+            screenplayId={screenplayId}
+            onTitleChange={onTitleChange}
+            onScenesChange={handleClassicScenesChange}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Modern Mode: Use the ProseMirror-based editor
+  return (
+    <div className={cn("h-full flex", `layout-${layoutMode}`)}>
+      {/* Activity Bar + Secondary Panel - Scenes & Characters */}
+      <EditorSecondaryPanel
+        scenes={sceneInfos}
+        characters={charInfos}
+        view={editorView}
+        screenplayId={screenplayId}
+      />
+
+      {/* Main content area - editor */}
+      <div className="flex-1 overflow-hidden relative">
+        {/* Collaboration Avatars - floating in top right */}
+        <div className="fixed top-4 right-4 z-50">
+          <CollaborationAvatars
+            remoteUsers={collaboration.remoteUsers}
+            isConnected={collaboration.isConnected}
+          />
+        </div>
+
         <ProseMirrorEditor
           content={screenplayText}
           onContentChange={handleTextChange}
           onScenesChange={handleScenesChange}
           onSave={() => saveScreenplay(screenplayText, true)}
+          onViewReady={setEditorView}
           isSaving={isSaving}
           editable={true}
           showElementIndicator={true}
           showStats={true}
         />
       </div>
+
+      {/* Floating panels and dialogs */}
       <EditorFloatingPanel
         isOpen={isPanelOpen}
         onClose={() => setIsPanelOpen(false)}

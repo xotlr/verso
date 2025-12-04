@@ -1,6 +1,6 @@
 'use client'
 
-import { getMeshGradientStyle } from '@/lib/avatar-gradient'
+import { getPrimaryGradientStyle } from '@/lib/avatar-gradient'
 import { cn } from '@/lib/utils'
 
 interface ProfileBannerProps {
@@ -32,7 +32,7 @@ export function ProfileBanner({
         rounded && 'rounded-t-2xl overflow-hidden',
         className
       )}
-      style={bannerUrl ? undefined : getMeshGradientStyle(userId)}
+      style={bannerUrl ? undefined : getPrimaryGradientStyle(userId)}
     >
       {bannerUrl && (
         // eslint-disable-next-line @next/next/no-img-element

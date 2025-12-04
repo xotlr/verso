@@ -1,0 +1,5 @@
+{
+  "name": "ScreenCraft AI - WASM-Inspired Screenplay Editor",
+  "description": "A high-performance screenplay editor featuring real-time pagination logic (simulating a WASM layout engine), standard screenplay formatting, and AI-powered script assistance using Google Gemini 2.5.",
+  "requestFramePermissions": []
+}

@@ -37,8 +37,23 @@ import {
   Folder,
   Film,
   FileText,
+  DollarSign,
+  Clapperboard,
+  PenTool,
 } from 'lucide-react';
-import { getMeshGradientStyle } from '@/lib/avatar-gradient';
+import { getPrimaryGradientStyle } from '@/lib/avatar-gradient';
+
+interface ProjectRole {
+  id: string;
+  role: string;
+  name: string;
+  userId: string | null;
+  user: {
+    id: string;
+    name: string | null;
+    image: string | null;
+  } | null;
+}
 
 interface ProjectItem {
   id: string;
@@ -46,13 +61,32 @@ interface ProjectItem {
   description: string | null;
   banner: string | null;
   logo: string | null;
+  budget: number | null;
   updatedAt: string;
+  roles: ProjectRole[];
   _count: {
     screenplays: number;
     notes: number;
     schedules: number;
     budgets: number;
   };
+}
+
+// Helper to get person name for a role
+function getRolePerson(roles: ProjectRole[], roleType: string): string | null {
+  const role = roles.find(r => r.role === roleType);
+  return role?.name || null;
+}
+
+// Format budget for display
+function formatBudget(budget: number): string {
+  if (budget >= 1_000_000) {
+    return `$${(budget / 1_000_000).toFixed(1)}M`;
+  }
+  if (budget >= 1_000) {
+    return `$${(budget / 1_000).toFixed(0)}K`;
+  }
+  return `$${budget.toLocaleString()}`;
 }
 
 export default function ProjectsPage() {
@@ -226,7 +260,7 @@ export default function ProjectsPage() {
                       ) : (
                         <div
                           className="w-full h-full"
-                          style={getMeshGradientStyle(project.id)}
+                          style={getPrimaryGradientStyle(project.id)}
                         />
                       )}
                       {/* Logo overlay */}
@@ -286,9 +320,33 @@ export default function ProjectsPage() {
                         </DropdownMenu>
                       </div>
 
-                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2 leading-relaxed">
                         {project.description || 'No description'}
                       </p>
+
+                      {/* Roles & Budget */}
+                      {(getRolePerson(project.roles, 'director') || getRolePerson(project.roles, 'writer') || project.budget) && (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3 text-xs text-muted-foreground">
+                          {getRolePerson(project.roles, 'director') && (
+                            <span className="flex items-center gap-1" title="Director">
+                              <Clapperboard className="h-3 w-3" />
+                              {getRolePerson(project.roles, 'director')}
+                            </span>
+                          )}
+                          {getRolePerson(project.roles, 'writer') && (
+                            <span className="flex items-center gap-1" title="Writer">
+                              <PenTool className="h-3 w-3" />
+                              {getRolePerson(project.roles, 'writer')}
+                            </span>
+                          )}
+                          {project.budget && (
+                            <span className="flex items-center gap-1 text-green-600 dark:text-green-400" title="Budget">
+                              <DollarSign className="h-3 w-3" />
+                              {formatBudget(project.budget)}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">

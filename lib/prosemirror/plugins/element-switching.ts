@@ -1,5 +1,6 @@
 import { Plugin, PluginKey, Command, TextSelection } from 'prosemirror-state';
 import { keymap } from 'prosemirror-keymap';
+import { EditorView } from 'prosemirror-view';
 import { screenplaySchema, ElementType, getNextElementType, getPreviousElementType } from '../schema';
 
 export const elementSwitchingPluginKey = new PluginKey('elementSwitching');
@@ -22,9 +23,10 @@ function isCurrentBlockEmpty(state: { selection: { $head: { parent: { textConten
 
 /**
  * Change the current block to a different element type.
+ * Applies a flash animation for visual feedback.
  */
 function setElementType(type: ElementType): Command {
-  return (state, dispatch) => {
+  return (state, dispatch, view) => {
     const nodeType = screenplaySchema.nodes[type];
     if (!nodeType) return false;
 
@@ -36,6 +38,19 @@ function setElementType(type: ElementType): Command {
     if (dispatch) {
       const tr = state.tr.setBlockType($from.pos, $to.pos, nodeType);
       dispatch(tr.scrollIntoView());
+
+      // Apply flash animation for visual feedback
+      if (view) {
+        requestAnimationFrame(() => {
+          const dom = view.domAtPos($from.start()).node as HTMLElement;
+          if (dom && dom.classList) {
+            dom.classList.add('pm-element-changed');
+            setTimeout(() => {
+              dom.classList.remove('pm-element-changed');
+            }, 400);
+          }
+        });
+      }
     }
 
     return true;
@@ -48,21 +63,21 @@ function setElementType(type: ElementType): Command {
  * Element cycle order:
  * Scene Heading → Action → Character → Dialogue → Parenthetical → Transition
  */
-const handleTab: Command = (state, dispatch) => {
+const handleTab: Command = (state, dispatch, view) => {
   const currentType = getCurrentElementType(state);
   const nextType = getNextElementType(currentType);
 
-  return setElementType(nextType)(state, dispatch);
+  return setElementType(nextType)(state, dispatch, view);
 };
 
 /**
  * Shift+Tab command: Cycle to previous element type.
  */
-const handleShiftTab: Command = (state, dispatch) => {
+const handleShiftTab: Command = (state, dispatch, view) => {
   const currentType = getCurrentElementType(state);
   const prevType = getPreviousElementType(currentType);
 
-  return setElementType(prevType)(state, dispatch);
+  return setElementType(prevType)(state, dispatch, view);
 };
 
 /**

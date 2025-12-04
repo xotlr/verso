@@ -298,7 +298,8 @@ import {
   Folder,
 } from 'lucide-react';
 import { PendingInviteBanner } from '@/components/pending-invite-banner';
-import { getMeshGradientStyle } from '@/lib/avatar-gradient';
+import { PendingProjectRoleInviteBanner } from '@/components/pending-project-role-invite-banner';
+import { getPrimaryGradientStyle } from '@/lib/avatar-gradient';
 import { StatsCards } from '@/components/dashboard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
@@ -551,8 +552,9 @@ function WorkspacePageContent() {
       {/* Main Content */}
       <main className="flex-1 overflow-auto bg-background pb-20 md:pb-0">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-          {/* Pending Team Invites */}
+          {/* Pending Invites */}
           <PendingInviteBanner />
+          <PendingProjectRoleInviteBanner />
 
           {/* Page Title and Actions */}
           <div className="mb-4 sm:mb-6 md:mb-8 space-y-4 sm:space-y-6">
@@ -623,9 +625,9 @@ function WorkspacePageContent() {
           {/* Content Grid - key prop triggers animation on tab change */}
           <div key={activeTab} className="animate-tab-content-in">
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="min-h-[180px] bg-gradient-to-br from-card to-card/50 backdrop-blur-sm rounded-xl border border-border/60 p-6">
+                <div key={i} className="min-h-[140px] sm:min-h-[180px] bg-card rounded-xl border border-border/60 p-3 sm:p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <Skeleton className="h-5 w-3/4 mb-2" />
@@ -652,28 +654,30 @@ function WorkspacePageContent() {
                 } : undefined}
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
-                {/* Import Drop Zone Card */}
-                <ImportDropZoneCard
-                  context="dashboard"
-                  onImportComplete={handleImportComplete}
-                  onImportError={(error) => console.error('Import error:', error)}
-                />
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+                {/* Import Drop Zone Card - Hidden on mobile */}
+                <div className="hidden sm:block">
+                  <ImportDropZoneCard
+                    context="dashboard"
+                    onImportComplete={handleImportComplete}
+                    onImportError={(error) => console.error('Import error:', error)}
+                  />
+                </div>
                 {filteredScreenplays.map((screenplay) => (
                   <div
                     key={screenplay.id}
-                    className="group relative min-h-[180px] flex flex-col bg-gradient-to-br from-card to-card/50 backdrop-blur-sm rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200"
+                    className="group relative min-h-[140px] sm:min-h-[180px] flex flex-col bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200 touch-manipulation active:scale-[0.98]"
                   >
                     <Link href={`/editor/${screenplay.id}`}>
-                      <div className="p-6 cursor-pointer flex-1 flex flex-col">
-                        <div className="flex items-start justify-between mb-3">
+                      <div className="p-3 sm:p-6 cursor-pointer flex-1 flex flex-col">
+                        <div className="flex items-start justify-between mb-2 sm:mb-3">
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-semibold text-foreground mb-1.5 line-clamp-1 group-hover:text-primary transition-colors">
+                            <h3 className="text-sm sm:text-lg font-semibold text-foreground mb-1 sm:mb-1.5 line-clamp-2 sm:line-clamp-1 group-hover:text-primary transition-colors">
                               {screenplay.title}
                             </h3>
-                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                              <Clock className="h-4 w-4" />
-                              <span>{formatDistanceToNow(new Date(screenplay.updatedAt), { addSuffix: true })}</span>
+                            <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-muted-foreground">
+                              <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+                              <span className="truncate">{formatDistanceToNow(new Date(screenplay.updatedAt), { addSuffix: true })}</span>
                             </div>
                           </div>
                           <DropdownMenu>
@@ -709,22 +713,18 @@ function WorkspacePageContent() {
                           </DropdownMenu>
                         </div>
 
-                        <div className="flex items-center justify-between mt-auto pt-4">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">
+                        <div className="flex items-center justify-between mt-auto pt-2 sm:pt-4">
+                          <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                            <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2">
                               {screenplay.wordCount.toLocaleString()} words
                             </Badge>
                             {screenplay.project ? (
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 sm:px-2 hidden sm:inline-flex">
                                 {screenplay.project.name}
                               </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs text-muted-foreground">
-                                Standalone
-                              </Badge>
-                            )}
+                            ) : null}
                           </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                          <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
                         </div>
                       </div>
                     </Link>
@@ -746,15 +746,15 @@ function WorkspacePageContent() {
                 } : undefined}
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
                 {filteredProjects.map((project) => (
                   <div
                     key={project.id}
-                    className="group relative min-h-[220px] flex flex-col bg-gradient-to-br from-card to-card/50 backdrop-blur-sm rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200 overflow-hidden"
+                    className="group relative min-h-[180px] sm:min-h-[220px] flex flex-col bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200 overflow-hidden touch-manipulation active:scale-[0.98]"
                   >
                     <Link href={`/project/${project.id}`}>
                       {/* Banner */}
-                      <div className="h-20 relative">
+                      <div className="h-14 sm:h-20 relative">
                         {project.banner ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -765,30 +765,30 @@ function WorkspacePageContent() {
                         ) : (
                           <div
                             className="w-full h-full"
-                            style={getMeshGradientStyle(project.id)}
+                            style={getPrimaryGradientStyle(project.id)}
                           />
                         )}
                         {/* Logo overlay */}
                         {project.logo && (
-                          <div className="absolute -bottom-4 left-4">
+                          <div className="absolute -bottom-3 sm:-bottom-4 left-3 sm:left-4">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={project.logo}
                               alt=""
-                              className="w-10 h-10 rounded-lg border-2 border-card object-cover shadow-sm"
+                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg border-2 border-card object-cover shadow-sm"
                             />
                           </div>
                         )}
                       </div>
-                      <div className={`p-6 cursor-pointer flex-1 flex flex-col ${project.logo ? 'pt-7' : ''}`}>
-                        <div className="flex items-start justify-between mb-3">
+                      <div className={`p-3 sm:p-6 cursor-pointer flex-1 flex flex-col ${project.logo ? 'pt-5 sm:pt-7' : ''}`}>
+                        <div className="flex items-start justify-between mb-2 sm:mb-3">
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-semibold text-foreground mb-1.5 line-clamp-1 group-hover:text-primary transition-colors">
+                            <h3 className="text-sm sm:text-lg font-semibold text-foreground mb-1 sm:mb-1.5 line-clamp-2 sm:line-clamp-1 group-hover:text-primary transition-colors">
                               {project.name}
                             </h3>
-                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                              <Clock className="h-4 w-4" />
-                              <span>{formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}</span>
+                            <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-muted-foreground">
+                              <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+                              <span className="truncate">{formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}</span>
                             </div>
                           </div>
                           <DropdownMenu>
@@ -820,17 +820,17 @@ function WorkspacePageContent() {
                           </DropdownMenu>
                         </div>
 
-                        <p className="text-sm text-muted-foreground mb-auto pb-4 line-clamp-2 leading-relaxed">
+                        <p className="text-xs sm:text-sm text-muted-foreground mb-auto pb-2 sm:pb-4 line-clamp-2 leading-relaxed hidden sm:block">
                           {project.description || 'No description'}
                         </p>
 
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>{project._count.screenplays} screenplay{project._count.screenplays !== 1 ? 's' : ''}</span>
-                            <span>&middot;</span>
-                            <span>{project._count.notes} note{project._count.notes !== 1 ? 's' : ''}</span>
+                        <div className="flex items-center justify-between mt-auto">
+                          <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
+                            <span>{project._count.screenplays} script{project._count.screenplays !== 1 ? 's' : ''}</span>
+                            <span className="hidden sm:inline">&middot;</span>
+                            <span className="hidden sm:inline">{project._count.notes} note{project._count.notes !== 1 ? 's' : ''}</span>
                           </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                          <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
                         </div>
                       </div>
                     </Link>

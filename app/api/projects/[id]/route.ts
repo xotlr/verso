@@ -99,6 +99,22 @@ export async function GET(request: Request, { params }: RouteParams) {
           },
           orderBy: { createdAt: "desc" },
         },
+        roles: {
+          select: {
+            id: true,
+            role: true,
+            name: true,
+            userId: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+          },
+          orderBy: { role: "asc" },
+        },
         _count: {
           select: {
             screenplays: true,
@@ -127,6 +143,7 @@ const updateProjectSchema = z.object({
   coverImage: z.string().optional().nullable(),
   banner: z.string().url().optional().nullable(),
   logo: z.string().url().optional().nullable(),
+  budget: z.number().min(0).optional().nullable(),
 })
 
 // PUT /api/projects/[id] - Update a project (workspace)

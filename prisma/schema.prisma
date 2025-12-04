@@ -99,6 +99,17 @@ model User {
   activities         Activity[]
   teamAuditLogs      TeamAuditLog[]      @relation("AuditLogActor")
 
+  // Collaboration relations
+  screenplayOperations  ScreenplayOperation[]   @relation("ScreenplayOperations")
+  collaborationSessions CollaborationSession[]  @relation("CollaborationSessions")
+  resolvedConflicts     CollaborationConflict[] @relation("ConflictResolver")
+
+  // Project roles (when user is assigned as director, writer, etc.)
+  projectRoles          ProjectRole[]
+
+  // Project role invites sent by this user
+  projectRoleInvitesSent ProjectRoleInvite[] @relation("ProjectRoleInvitesSent")
+
   @@index([plan]) // Used in limit checks
 }
 
@@ -174,6 +185,9 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Production info
+  budget      Float?   // Total project budget
+
   // Ownership
   userId String
   teamId String?
@@ -186,9 +200,49 @@ model Project {
   schedules     Schedule[]
   budgets       Budget[]
   externalLinks ExternalLink[]
+  roles         ProjectRole[]
+  roleInvites   ProjectRoleInvite[]
 
   @@index([userId])
   @@index([teamId])
+}
+
+// Project roles (Director, Writer, Producer, etc.)
+model ProjectRole {
+  id        String   @id @default(cuid())
+  projectId String
+  role      String   // "director" | "writer" | "producer" | "cinematographer" | "editor" | "composer" | etc.
+  name      String   // Person's name
+  userId    String?  // Optional link to a Verso user
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, role, name]) // Prevent duplicate role assignments
+  @@index([projectId])
+  @@index([userId])
+}
+
+// Project role invites (pending invitations to join a project in a specific role)
+model ProjectRoleInvite {
+  id        String   @id @default(cuid())
+  projectId String
+  email     String
+  role      String   // "director" | "writer" | "producer" | etc.
+  token     String   @unique @default(cuid())
+  expiresAt DateTime
+  invitedBy String
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inviter User    @relation("ProjectRoleInvitesSent", fields: [invitedBy], references: [id])
+
+  @@unique([projectId, email, role]) // One invite per email+role per project
+  @@index([token])
+  @@index([email])
+  @@index([projectId])
 }
 
 // Screenplay = Actual screenplay document (can be standalone or in a project)
@@ -229,8 +283,14 @@ model Screenplay {
   team        Team?               @relation(fields: [teamId], references: [id], onDelete: Cascade)
   versions    ScreenplayVersion[]
   sceneMetas  SceneMeta[]
+  characterMetas CharacterMeta[]
   sceneAttachments SceneAttachment[]
   shots       Shot[]
+
+  // Collaboration relations
+  operations           ScreenplayOperation[]
+  collaborationSessions CollaborationSession[]
+  conflicts             CollaborationConflict[]
 
   @@index([userId])
   @@index([projectId])
@@ -287,6 +347,28 @@ model SceneMeta {
   screenplay   Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
 
   @@unique([screenplayId, sceneId])
+  @@index([screenplayId])
+}
+
+// Character metadata (roles, notes per character)
+model CharacterMeta {
+  id            String   @id @default(cuid())
+  screenplayId  String
+  characterName String   // Character name (extracted from dialogue)
+
+  // Metadata
+  role          String   @default("Supporting") // Protagonist, Antagonist, Supporting, Minor
+  description   String?  @db.Text
+  notes         String?  @db.Text
+
+  // Tracking
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  screenplay    Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+
+  @@unique([screenplayId, characterName])
   @@index([screenplayId])
 }
 
@@ -462,6 +544,14 @@ model ExternalLink {
   siteName    String?
   category    String?  // "research" | "reference" | "script" | "other"
 
+  // Enhanced embed support
+  embedType    String?  // "youtube" | "pinterest" | "shotdeck" | "google-docs" | "google-sheets" | "google-slides" | "canva" | "vimeo" | "generic"
+  embedId      String?  // Platform-specific ID (e.g., YouTube video ID)
+  embedUrl     String?  // Pre-computed embed URL for iframes
+  thumbnailUrl String?  // High-quality thumbnail URL
+  isPlayable   Boolean  @default(false) // Can play inline (videos)
+  notes        String?  @db.Text // Rich text notes about this resource
+
   userId      String
   projectId   String
   createdAt   DateTime @default(now())
@@ -472,6 +562,7 @@ model ExternalLink {
 
   @@index([projectId])
   @@index([userId])
+  @@index([embedType])
 }
 
 // Activity feed for dashboard
@@ -506,4 +597,59 @@ model TeamAuditLog {
 
   @@index([teamId, createdAt])
   @@index([actorId])
+}
+
+// Real-time collaboration models
+model ScreenplayOperation {
+  id              String   @id @default(uuid())
+  screenplayId    String   @map("screenplay_id")
+  userId          String   @map("user_id")
+  operationType   String   @map("operation_type") // 'insert', 'delete', 'replace', 'cursor_move'
+  position        Int?
+  content         String?  @db.Text
+  metadata        Json?
+  timestamp       DateTime @default(now())
+  sequenceNumber  BigInt   @default(autoincrement()) @map("sequence_number")
+
+  screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  user       User       @relation("ScreenplayOperations", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([screenplayId, timestamp(sort: Desc)])
+  @@index([screenplayId, sequenceNumber(sort: Desc)])
+  @@map("screenplay_operations")
+}
+
+model CollaborationSession {
+  id             String   @id @default(uuid())
+  screenplayId   String   @map("screenplay_id")
+  userId         String   @map("user_id")
+  editorType     String   @map("editor_type") // 'prosemirror' or 'classic'
+  cursorPosition Int      @default(0) @map("cursor_position")
+  lastSeen       DateTime @default(now()) @map("last_seen")
+  metadata       Json?
+
+  screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  user       User       @relation("CollaborationSessions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([screenplayId, userId])
+  @@index([screenplayId, lastSeen(sort: Desc)])
+  @@map("collaboration_sessions")
+}
+
+model CollaborationConflict {
+  id                      String    @id @default(uuid())
+  screenplayId            String    @map("screenplay_id")
+  operationId             String?   @map("operation_id")
+  conflictingOperationId  String?   @map("conflicting_operation_id")
+  resolved                Boolean   @default(false)
+  resolutionStrategy      String?   @map("resolution_strategy") // 'manual', 'auto_merge', 'last_write_wins'
+  resolvedBy              String?   @map("resolved_by")
+  resolvedAt              DateTime? @map("resolved_at")
+  createdAt               DateTime  @default(now()) @map("created_at")
+
+  screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  resolver   User?      @relation("ConflictResolver", fields: [resolvedBy], references: [id])
+
+  @@index([screenplayId, resolved, createdAt(sort: Desc)])
+  @@map("collaboration_conflicts")
 }

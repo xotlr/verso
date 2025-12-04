@@ -152,6 +152,9 @@ export interface PaginationStats {
   break_count: number;
   continuation_count: number;
   timing_us: number;
+  // Debug stats
+  total_lines?: number;
+  avg_lines_per_element?: number;
 }
 
 export interface PaginationResult {

@@ -1,0 +1,10 @@
+/home/user/pluto/screenwriter/pagination-engine/target/debug/deps/unicode_canonical_combining_class-2c007af933a6ff5e.d: /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-canonical-combining-class-0.5.0/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-canonical-combining-class-0.5.0/src/canonical_combining_class.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-canonical-combining-class-0.5.0/src/tables.rs /home/user/pluto/screenwriter/pagination-engine/target/debug/build/unicode-canonical-combining-class-fd88cf17b42288cc/out/canonical_combining_class.rs
+
+/home/user/pluto/screenwriter/pagination-engine/target/debug/deps/libunicode_canonical_combining_class-2c007af933a6ff5e.rmeta: /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-canonical-combining-class-0.5.0/src/lib.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-canonical-combining-class-0.5.0/src/canonical_combining_class.rs /home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-canonical-combining-class-0.5.0/src/tables.rs /home/user/pluto/screenwriter/pagination-engine/target/debug/build/unicode-canonical-combining-class-fd88cf17b42288cc/out/canonical_combining_class.rs
+
+/home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-canonical-combining-class-0.5.0/src/lib.rs:
+/home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-canonical-combining-class-0.5.0/src/canonical_combining_class.rs:
+/home/user/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-canonical-combining-class-0.5.0/src/tables.rs:
+/home/user/pluto/screenwriter/pagination-engine/target/debug/build/unicode-canonical-combining-class-fd88cf17b42288cc/out/canonical_combining_class.rs:
+
+# env-dep:OUT_DIR=/home/user/pluto/screenwriter/pagination-engine/target/debug/build/unicode-canonical-combining-class-fd88cf17b42288cc/out

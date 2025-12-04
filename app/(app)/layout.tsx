@@ -8,6 +8,7 @@ import { AppHeader } from "@/components/app-header";
 import { BottomNav } from "@/components/bottom-nav";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductivityProvider } from "@/contexts/productivity-context";
@@ -33,13 +34,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
         const newMode = !prev;
         if (newMode) {
           // Save scroll position before entering focus mode
-          const scrollContainer = document.querySelector('.pm-editor-scroll-container');
+          const scrollContainer = document.querySelector('[data-radix-scroll-area-viewport]');
           scrollPositionRef.current = scrollContainer?.scrollTop || 0;
           setBackdropActive(true);
         } else {
           // Restore scroll position after exiting
           setTimeout(() => {
-            const scrollContainer = document.querySelector('.pm-editor-scroll-container');
+            const scrollContainer = document.querySelector('[data-radix-scroll-area-viewport]');
             if (scrollContainer) {
               scrollContainer.scrollTop = scrollPositionRef.current;
             }
@@ -128,9 +129,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
           {/* Header - always shown on desktop, hidden in focus mode */}
           {!focusMode && <AppHeader />}
 
-          {/* Focus mode exit button - appears with fade */}
+          {/* Focus mode exit button - centered at top */}
           <div className={cn(
-            "fixed top-4 right-4 z-50 transition-all duration-300 ease-out",
+            "fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ease-out",
             focusMode ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
           )}>
             <Button
@@ -148,7 +149,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           <main
             ref={focusContainerRef}
             className={cn(
-              "flex-1 overflow-auto transition-all duration-400 ease-out",
+              "flex-1 overflow-hidden transition-all duration-400 ease-out",
               focusMode
                 ? "fixed inset-0 z-40 flex items-center justify-center p-4 md:p-8"
                 : "pb-16 md:pb-0"
@@ -157,12 +158,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
             aria-modal={focusMode ? "true" : undefined}
             aria-label={focusMode ? "Focus mode editor" : undefined}
           >
-            <div className={cn(
-              "w-full h-full transition-all duration-400",
-              focusMode && "max-w-5xl max-h-[90vh] overflow-auto rounded-lg md:rounded-xl"
-            )}>
-              {children}
-            </div>
+            <ScrollArea className="h-full w-full">
+              <div className={cn(
+                "w-full min-h-full transition-all duration-400",
+                focusMode && "max-w-5xl max-h-[90vh] rounded-lg md:rounded-xl"
+              )}>
+                {children}
+              </div>
+            </ScrollArea>
           </main>
 
           {/* Screen reader announcement for focus mode */}

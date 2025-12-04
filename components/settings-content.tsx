@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { Download, Upload, RotateCcw, Palette, Type, Layout, FileDown, Keyboard, CreditCard, Loader2, ChevronRight, Globe, Lock, Eye } from 'lucide-react';
+import { Download, Upload, RotateCcw, Palette, Type, Layout, CreditCard, Loader2, ChevronRight, Globe, Lock, Eye } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ImageUpload } from '@/components/image-upload';
-import { ThemePreset, UIFont, ScreenplayFont, SidebarPosition, ToolbarPosition, themeMetadata } from '@/types/settings';
+import { ThemePreset, UIFont, ScreenplayFont, themeMetadata } from '@/types/settings';
 import { downloadFile, createFileInput, readFileAsText } from '@/lib/dom-utils';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -185,8 +185,6 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
     { value: 'appearance', icon: Palette, label: 'Appearance' },
     { value: 'editor', icon: Type, label: 'Editor' },
     { value: 'layout', icon: Layout, label: 'Layout' },
-    { value: 'export', icon: FileDown, label: 'Export' },
-    { value: 'shortcuts', icon: Keyboard, label: 'Shortcuts' },
   ];
 
   return (
@@ -711,73 +709,6 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
           <TabsContent value="editor" className="space-y-6 m-0">
             <Card>
               <CardHeader className="pb-4">
-                <CardTitle className="text-base">Auto-Save</CardTitle>
-                <CardDescription>Configure automatic saving behavior</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">Interval</label>
-                    <span className="text-sm text-muted-foreground tabular-nums">{settings.editor.autoSaveInterval === 0 ? 'Off' : `${settings.editor.autoSaveInterval}s`}</span>
-                  </div>
-                  <Slider
-                    value={[settings.editor.autoSaveInterval]}
-                    onValueChange={([value]) => updateEditorSettings({ autoSaveInterval: value })}
-                    min={0}
-                    max={120}
-                    step={10}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Formatting</CardTitle>
-                <CardDescription>Text formatting options</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {[
-                  { key: 'smartQuotes', label: 'Smart Quotes' },
-                  { key: 'autoCapitalize', label: 'Auto-Capitalize' },
-                  { key: 'spellCheck', label: 'Spell Check' },
-                ].map((setting) => (
-                  <div key={setting.key} className="flex items-center justify-between">
-                    <label className="text-sm font-medium">{setting.label}</label>
-                    <Checkbox
-                      checked={settings.editor[setting.key as keyof typeof settings.editor] as boolean}
-                      onCheckedChange={(checked) => updateEditorSettings({ [setting.key]: checked as boolean })}
-                    />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Display</CardTitle>
-                <CardDescription>Editor display preferences</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {[
-                  { key: 'showLineNumbers', label: 'Show Line Numbers' },
-                  { key: 'showPageBreaks', label: 'Show Page Breaks' },
-                  { key: 'enableSnippets', label: 'Enable Snippets' },
-                  { key: 'enableAutocomplete', label: 'Enable Autocomplete' },
-                ].map((setting) => (
-                  <div key={setting.key} className="flex items-center justify-between py-0.5">
-                    <label className="text-sm font-medium">{setting.label}</label>
-                    <Checkbox
-                      checked={settings.editor[setting.key as keyof typeof settings.editor] as boolean}
-                      onCheckedChange={(checked) => updateEditorSettings({ [setting.key]: checked as boolean })}
-                    />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-4">
                 <CardTitle className="text-base">Autocomplete</CardTitle>
                 <CardDescription>AI-powered suggestions while typing</CardDescription>
               </CardHeader>
@@ -795,45 +726,26 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm font-medium mb-1.5 block">Suggestion Delay</label>
-                    <Select
-                      value={settings.editor.autocomplete.delayMs.toString()}
-                      onValueChange={(value) => updateEditorSettings({
-                        autocomplete: { ...settings.editor.autocomplete, delayMs: parseInt(value) }
-                      })}
-                      disabled={!settings.editor.autocomplete.enabled}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select delay" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">Immediate</SelectItem>
-                        <SelectItem value="1000">1 second</SelectItem>
-                        <SelectItem value="3000">3 seconds</SelectItem>
-                        <SelectItem value="5000">5 seconds</SelectItem>
-                        <SelectItem value="10000">10 seconds</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <label className="text-sm font-medium mb-1.5 block">Tab Behavior</label>
-                    <Select
-                      value={settings.editor.tabBehavior}
-                      onValueChange={(value) => updateEditorSettings({ tabBehavior: value as 'indent' | 'next-field' | 'autocomplete' })}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select behavior" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="indent">Indent</SelectItem>
-                        <SelectItem value="next-field">Next Field</SelectItem>
-                        <SelectItem value="autocomplete">Autocomplete</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Suggestion Delay</label>
+                  <Select
+                    value={settings.editor.autocomplete.delayMs.toString()}
+                    onValueChange={(value) => updateEditorSettings({
+                      autocomplete: { ...settings.editor.autocomplete, delayMs: parseInt(value) }
+                    })}
+                    disabled={!settings.editor.autocomplete.enabled}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select delay" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Immediate</SelectItem>
+                      <SelectItem value="1000">1 second</SelectItem>
+                      <SelectItem value="3000">3 seconds</SelectItem>
+                      <SelectItem value="5000">5 seconds</SelectItem>
+                      <SelectItem value="10000">10 seconds</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
@@ -844,7 +756,6 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                 <CardDescription>Optimize text display for readability</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Text Contrast */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium">Text Contrast</label>
@@ -861,33 +772,6 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                     Lower = darker text (higher contrast). Higher = lighter text (easier on eyes).
                   </p>
                 </div>
-
-                {/* Line Height Density */}
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Line Height</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { value: 'compact', label: 'Compact', desc: '1.1' },
-                      { value: 'normal', label: 'Normal', desc: '1.15' },
-                      { value: 'relaxed', label: 'Relaxed', desc: '1.2' },
-                    ].map((density) => (
-                      <button
-                        key={density.value}
-                        onClick={() => updateEditorSettings({
-                          lineHeightDensity: density.value as 'compact' | 'normal' | 'relaxed'
-                        })}
-                        className={`p-2.5 rounded-lg border-2 transition-all text-left ${
-                          settings.editor.lineHeightDensity === density.value
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                      >
-                        <span className="font-medium text-sm">{density.label}</span>
-                        <span className="block text-xs text-muted-foreground">{density.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -896,181 +780,37 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
           <TabsContent value="layout" className="space-y-6 m-0">
             <Card>
               <CardHeader className="pb-4">
-                <CardTitle className="text-base">Sidebar</CardTitle>
-                <CardDescription>Sidebar position and visibility</CardDescription>
+                <CardTitle className="text-base">Editor Mode</CardTitle>
+                <CardDescription>Switch between editor layouts</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['left', 'right', 'hidden'] as SidebarPosition[]).map((pos) => (
-                    <button
-                      key={pos}
-                      onClick={() => updateLayoutSettings({ sidebarPosition: pos })}
-                      className={`p-2.5 rounded-lg border-2 transition-all capitalize text-sm font-medium ${
-                        settings.layout.sidebarPosition === pos
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      {pos}
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Toolbar</CardTitle>
-                <CardDescription>Toolbar position and behavior</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {(['top', 'bottom', 'floating', 'hidden'] as ToolbarPosition[]).map((pos) => (
-                    <button
-                      key={pos}
-                      onClick={() => updateLayoutSettings({ toolbarPosition: pos })}
-                      className={`p-2.5 rounded-lg border-2 transition-all capitalize text-sm font-medium ${
-                        settings.layout.toolbarPosition === pos
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      {pos}
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">View Options</CardTitle>
-                <CardDescription>Toggle display elements</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {[
-                  { key: 'distractionFreeMode', label: 'Distraction Free Mode' },
-                  { key: 'compactMode', label: 'Compact Mode' },
-                  { key: 'showStats', label: 'Show Statistics' },
-                ].map((setting) => (
-                  <div key={setting.key} className="flex items-center justify-between py-0.5">
-                    <label className="text-sm font-medium">{setting.label}</label>
-                    <Checkbox
-                      checked={settings.layout[setting.key as keyof typeof settings.layout] as boolean}
-                      onCheckedChange={(checked) => updateLayoutSettings({ [setting.key]: checked as boolean })}
-                    />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Export Settings */}
-          <TabsContent value="export" className="space-y-6 m-0">
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Default Format</CardTitle>
-                <CardDescription>Choose your preferred export format</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-5 gap-2">
-                  {['pdf', 'fdx', 'fountain', 'txt', 'html'].map((format) => (
-                    <button
-                      key={format}
-                      onClick={() => updateExportSettings({ defaultFormat: format as 'pdf' | 'fdx' | 'fountain' | 'txt' | 'html' })}
-                      className={`p-2 rounded-lg border-2 transition-all uppercase text-xs font-medium ${
-                        settings.export.defaultFormat === format
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      {format}
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Page Setup</CardTitle>
-                <CardDescription>Paper size for exports</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-2">
-                  {['letter', 'a4', 'legal'].map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => updateExportSettings({ paperSize: size as 'letter' | 'a4' | 'legal' })}
-                      className={`p-2.5 rounded-lg border-2 transition-all uppercase text-sm font-medium ${
-                        settings.export.paperSize === size
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Options</CardTitle>
-                <CardDescription>Additional export settings</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {[
-                  { key: 'showSceneNumbers', label: 'Show Scene Numbers' },
-                  { key: 'revisionColors', label: 'Revision Colors' },
-                  { key: 'includeWatermark', label: 'Include Watermark' },
-                  { key: 'includeHeader', label: 'Include Header' },
-                  { key: 'includeFooter', label: 'Include Footer' },
-                ].map((setting) => (
-                  <div key={setting.key} className="flex items-center justify-between py-0.5">
-                    <label className="text-sm font-medium">{setting.label}</label>
-                    <Checkbox
-                      checked={settings.export[setting.key as keyof typeof settings.export] as boolean}
-                      onCheckedChange={(checked) => updateExportSettings({ [setting.key]: checked as boolean })}
-                    />
-                  </div>
-                ))}
-
-                {settings.export.includeWatermark && (
-                  <div className="pt-2">
-                    <label className="text-sm font-medium mb-1.5 block">Watermark Text</label>
-                    <Input
-                      value={settings.export.watermarkText}
-                      onChange={(e) => updateExportSettings({ watermarkText: e.target.value })}
-                      placeholder="DRAFT"
-                      className="h-9"
-                    />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Shortcuts */}
-          <TabsContent value="shortcuts" className="space-y-6 m-0">
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Keyboard Shortcuts</CardTitle>
-                <CardDescription>Use &quot;Mod&quot; for Cmd (Mac) / Ctrl (Windows)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-1">
-                  {Object.entries(settings.shortcuts).map(([action, shortcut]) => (
-                    <div key={action} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
-                      <span className="text-sm font-medium capitalize">
-                        {action.replace(/([A-Z])/g, ' $1').trim()}
-                      </span>
-                      <Badge variant="secondary" className="font-mono text-xs">
-                        {shortcut.replace('Mod', '⌘/Ctrl')}
-                      </Badge>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => updateLayoutSettings({ layoutMode: 'modern' })}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      settings.layout.layoutMode === 'modern'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="text-sm font-medium">Modern</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      ProseMirror-based editor with WASM pagination
                     </div>
-                  ))}
+                  </button>
+                  <button
+                    onClick={() => updateLayoutSettings({ layoutMode: 'classic' })}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      settings.layout.layoutMode === 'classic'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="text-sm font-medium">Classic</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      WYSIWYG page-based editor with JS pagination
+                    </div>
+                  </button>
                 </div>
               </CardContent>
             </Card>

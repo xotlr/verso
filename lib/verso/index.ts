@@ -41,7 +41,7 @@ export { getPaginationWorker, runPagination } from './worker';
 // Default configuration
 export const DEFAULT_FEATURE_FILM_CONFIG: import('./types').PageConfig = {
   paper_size: 'us_letter',
-  lines_per_page: 55,
+  lines_per_page: 52,
   char_width_pt: 7.2,
   line_height_pt: 12.0,
   margins: {
@@ -54,7 +54,7 @@ export const DEFAULT_FEATURE_FILM_CONFIG: import('./types').PageConfig = {
     scene_heading: {
       margin_left: 0,
       margin_right: 0,
-      max_chars_per_line: 60,
+      max_chars_per_line: 58,
       space_before: 2,
       space_after: 0,
       line_spacing: 1.0,
@@ -62,13 +62,13 @@ export const DEFAULT_FEATURE_FILM_CONFIG: import('./types').PageConfig = {
       min_lines_before_split: 0,
       min_lines_after_split: 0,
       keep_with_next: true,
-      keep_with_next_lines: 2,
+      keep_with_next_lines: 3,
       force_uppercase: true,
     },
     action: {
       margin_left: 0,
       margin_right: 0,
-      max_chars_per_line: 60,
+      max_chars_per_line: 58,
       space_before: 1,
       space_after: 0,
       line_spacing: 1.0,
@@ -82,7 +82,7 @@ export const DEFAULT_FEATURE_FILM_CONFIG: import('./types').PageConfig = {
     character: {
       margin_left: 2.2,
       margin_right: 0,
-      max_chars_per_line: 38,
+      max_chars_per_line: 37,
       space_before: 1,
       space_after: 0,
       line_spacing: 1.0,
@@ -108,7 +108,7 @@ export const DEFAULT_FEATURE_FILM_CONFIG: import('./types').PageConfig = {
       force_uppercase: false,
     },
     parenthetical: {
-      margin_left: 1.6,
+      margin_left: 1.5,
       margin_right: 2.3,
       max_chars_per_line: 25,
       space_before: 0,
@@ -124,9 +124,9 @@ export const DEFAULT_FEATURE_FILM_CONFIG: import('./types').PageConfig = {
     transition: {
       margin_left: 4.0,
       margin_right: 0,
-      max_chars_per_line: 20,
+      max_chars_per_line: 16,
       space_before: 2,
-      space_after: 1,
+      space_after: 0,  // Match Google AI reference: no bottom margin
       line_spacing: 1.0,
       can_split: false,
       min_lines_before_split: 0,
@@ -182,7 +182,7 @@ export const DEFAULT_FEATURE_FILM_CONFIG: import('./types').PageConfig = {
       margin_right: 0,
       max_chars_per_line: 60,
       space_before: 4,
-      space_after: 4,
+      space_after: 0,  // Match Google AI reference: no bottom margin
       line_spacing: 1.0,
       can_split: false,
       min_lines_before_split: 0,

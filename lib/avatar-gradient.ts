@@ -1,7 +1,10 @@
 /**
  * Avatar Gradient Generator
  * Generates unique, consistent aurora-style mesh gradients based on user IDs
+ * Supports theme-aware gradients using visualization palette colors
  */
+
+import type { CSSProperties } from 'react';
 
 /**
  * Simple hash function to convert a string to a number
@@ -44,6 +47,27 @@ function hashToBaseColor(hash: number): string {
   const saturation = 30 + (hash % 20); // 30-50% - less saturated
   const lightness = 15 + (hash % 15); // 15-30% - dark
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+/**
+ * Generate a simple primary-based gradient for project banners
+ * Uses CSS variables so it automatically adapts to theme
+ */
+export function generatePrimaryGradient(id: string): string {
+  const hash = hashString(id);
+  const angle = (hash % 180) + 45; // 45-225 degrees
+
+  // Use CSS variable for primary color with varying opacity
+  return `linear-gradient(${angle}deg, hsl(var(--primary) / 0.15), hsl(var(--primary) / 0.35)), hsl(var(--muted))`;
+}
+
+/**
+ * Get primary-based gradient style - automatically adapts to theme via CSS variables
+ */
+export function getPrimaryGradientStyle(id: string): CSSProperties {
+  return {
+    background: generatePrimaryGradient(id),
+  };
 }
 
 /**
@@ -117,7 +141,7 @@ export function getBaseColor(userId: string): string {
 /**
  * Generate CSS style object for use in React components (banner/large areas)
  */
-export function getMeshGradientStyle(userId: string): React.CSSProperties {
+export function getMeshGradientStyle(userId: string): CSSProperties {
   return {
     background: generateMeshGradient(userId),
   };
@@ -126,7 +150,7 @@ export function getMeshGradientStyle(userId: string): React.CSSProperties {
 /**
  * Generate CSS style object for simple gradient (avatars)
  */
-export function getSimpleGradientStyle(userId: string): React.CSSProperties {
+export function getSimpleGradientStyle(userId: string): CSSProperties {
   return {
     background: generateSimpleGradient(userId),
   };
