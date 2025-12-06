@@ -84,11 +84,16 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
   const { theme, setTheme } = useTheme();
   const [screenplays, setScreenplays] = useState<Array<{ id: string; title: string }>>([]);
   const [recentIds, setRecentIds] = useState<string[]>([]);
+  const [search, setSearch] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load recent commands on mount
+  // Load recent commands on mount, reset search when closed
   useEffect(() => {
-    setRecentIds(getRecentCommands());
+    if (isOpen) {
+      setRecentIds(getRecentCommands());
+    } else {
+      setSearch('');
+    }
   }, [isOpen]);
 
   // Load screenplays with caching
@@ -115,6 +120,7 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
   // Execute command and track in recent
   const runCommand = useCallback((commandId: string, action: () => void) => {
     saveRecentCommand(commandId);
+    setSearch('');
     action();
   }, []);
 
@@ -361,6 +367,8 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
             <Search className="h-5 w-5 text-muted-foreground flex-shrink-0" />
             <Command.Input
               ref={inputRef}
+              value={search}
+              onValueChange={setSearch}
               placeholder="Type a command or search..."
               autoFocus
               className="flex-1 bg-transparent text-foreground placeholder-muted-foreground outline-none text-base py-4"

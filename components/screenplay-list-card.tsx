@@ -17,6 +17,7 @@ import {
   Edit3,
   Download,
   Star,
+  FolderInput,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,6 +47,7 @@ interface ScreenplayListCardProps {
   onExport?: () => void;
   onDelete?: () => void;
   onToggleFavorite?: () => void;
+  onMoveToProject?: () => void;
 }
 
 export function ScreenplayListCard({
@@ -60,12 +62,13 @@ export function ScreenplayListCard({
   onExport,
   onDelete,
   onToggleFavorite,
+  onMoveToProject,
 }: ScreenplayListCardProps) {
   const linkHref = href || `/screenplay/${screenplay.id}`;
   const displayText = screenplay.logline || screenplay.synopsis;
   const isCompact = variant === 'compact';
 
-  const hasActions = onEdit || onExport || onDelete || onToggleFavorite;
+  const hasActions = onEdit || onExport || onDelete || onToggleFavorite || onMoveToProject;
 
   // Get author display name - prefer custom author field, then user name
   const authorName = screenplay.author || screenplay.user?.name;
@@ -153,6 +156,12 @@ export function ScreenplayListCard({
                     <DropdownMenuItem onClick={onExport}>
                       <Download className="mr-2 h-4 w-4" />
                       Export
+                    </DropdownMenuItem>
+                  )}
+                  {onMoveToProject && (
+                    <DropdownMenuItem onClick={onMoveToProject}>
+                      <FolderInput className="mr-2 h-4 w-4" />
+                      Move to Project
                     </DropdownMenuItem>
                   )}
                   {onDelete && (

@@ -17,7 +17,7 @@ export const themeMetadata: Record<ThemePreset, ThemeMetadata> = {
   neovictorian: { name: 'Neovictorian', subtitle: 'European vintage' },
   // Genre themes
   romance: { name: 'Romance', subtitle: 'Soft and heartfelt' },
-  horror: { name: 'Horror', subtitle: 'Victorian gothic darkness' },
+  horror: { name: 'Horror', subtitle: 'Blood red on gray' },
 };
 
 export type UIFont = 'inter' | 'sf-pro' | 'geist' | 'ibm-plex' | 'plus-jakarta';
@@ -635,46 +635,46 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
     },
   },
 
-  // Horror: Victorian gothic darkness - Bloodborne inspired, amber lantern glow
+  // Horror: Desaturated gothic with blood red accents
   horror: {
     themePreset: 'horror',
     lightColors: {
-      background: '30 6% 94%',            // Aged parchment gray
-      foreground: '25 10% 18%',           // Dark sepia
-      card: '30 5% 96%',
-      cardForeground: '25 10% 18%',
-      primary: '32 45% 38%',              // Muted bronze/amber
-      primaryForeground: '30 6% 94%',
-      secondary: '30 5% 90%',
-      secondaryForeground: '25 8% 25%',
-      muted: '30 5% 90%',
-      mutedForeground: '25 5% 45%',
-      accent: '35 15% 88%',               // Faded amber tint
-      accentForeground: '25 10% 18%',
-      destructive: '0 50% 45%',
-      destructiveForeground: '30 6% 94%',
-      border: '30 5% 85%',
-      input: '30 5% 85%',
-      ring: '32 45% 38%',
+      background: '0 3% 94%',             // Desaturated cool gray
+      foreground: '0 5% 20%',             // Dark desaturated
+      card: '0 2% 96%',
+      cardForeground: '0 5% 20%',
+      primary: '0 65% 45%',               // Blood red
+      primaryForeground: '0 0% 98%',
+      secondary: '0 3% 90%',
+      secondaryForeground: '0 5% 25%',
+      muted: '0 3% 90%',
+      mutedForeground: '0 3% 45%',
+      accent: '0 5% 88%',                 // Faint gray
+      accentForeground: '0 5% 20%',
+      destructive: '0 65% 45%',
+      destructiveForeground: '0 0% 98%',
+      border: '0 3% 85%',
+      input: '0 3% 85%',
+      ring: '0 65% 45%',
     },
     darkColors: {
-      background: '25 12% 5%',            // Deep Yharnam black
-      foreground: '35 18% 75%',           // Pale amber-cream
-      card: '25 10% 8%',
-      cardForeground: '35 18% 75%',
-      primary: '38 55% 50%',              // Amber lantern glow
-      primaryForeground: '25 12% 5%',
-      secondary: '25 8% 12%',
-      secondaryForeground: '35 15% 68%',
-      muted: '25 8% 12%',
-      mutedForeground: '30 8% 42%',
-      accent: '30 18% 14%',               // Dark bronze
-      accentForeground: '35 18% 75%',
-      destructive: '0 45% 42%',
-      destructiveForeground: '35 18% 85%',
-      border: '25 8% 16%',
-      input: '25 8% 16%',
-      ring: '38 55% 50%',
+      background: '0 5% 6%',              // Deep desaturated black
+      foreground: '0 5% 75%',             // Pale gray
+      card: '0 4% 9%',
+      cardForeground: '0 5% 75%',
+      primary: '0 70% 50%',               // Blood red
+      primaryForeground: '0 0% 98%',
+      secondary: '0 4% 12%',
+      secondaryForeground: '0 5% 68%',
+      muted: '0 4% 12%',
+      mutedForeground: '0 4% 45%',
+      accent: '0 6% 14%',                 // Dark gray
+      accentForeground: '0 5% 75%',
+      destructive: '0 70% 50%',
+      destructiveForeground: '0 0% 98%',
+      border: '0 4% 16%',
+      input: '0 4% 16%',
+      ring: '0 70% 50%',
     },
     lightVisualization: {
       beatColors: [

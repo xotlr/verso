@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TemplateSelector } from '@/components/template-selector';
+import { MoveToProjectDialog } from '@/components/move-to-project-dialog';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { ListPageToolbar, FilterPill, SORT_OPTIONS } from '@/components/ui/list-page-toolbar';
 import { ScreenplayListCard, ScreenplayListCardSkeleton } from '@/components/screenplay-list-card';
@@ -49,6 +50,8 @@ interface Screenplay {
   wordCount?: number;
   project: { id: string; name: string } | null;
   team: { id: string; name: string } | null;
+  author?: string | null;
+  user?: { id: string; name: string | null } | null;
 }
 
 interface Filters {
@@ -68,6 +71,7 @@ function ScreenplaysContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<Screenplay | null>(null);
 
 
   // Initialize filters from URL params
@@ -278,6 +282,17 @@ function ScreenplaysContent() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {moveTarget && (
+        <MoveToProjectDialog
+          open={!!moveTarget}
+          onOpenChange={(open) => !open && setMoveTarget(null)}
+          screenplayId={moveTarget.id}
+          screenplayTitle={moveTarget.title}
+          currentProjectId={moveTarget.project?.id}
+          onSuccess={loadScreenplays}
+        />
+      )}
+
       <PageLayout
         title="Screenplays"
         description={`${filteredScreenplays.length} screenplay${filteredScreenplays.length !== 1 ? 's' : ''}${searchQuery || activeFilterCount > 0 ? ' (filtered)' : ''}`}
@@ -431,15 +446,18 @@ function ScreenplaysContent() {
                   genre: screenplay.genre,
                   isFavorite: screenplay.isFavorite,
                   project: screenplay.project,
+                  author: screenplay.author,
+                  user: screenplay.user,
                 }}
                 href={`/screenplay/${screenplay.id}`}
                 showFavorite={true}
                 showGenre={true}
                 showProject={false}
-                showWordCount={false}
+                showWordCount={true}
                 onEdit={() => router.push(`/screenplay/${screenplay.id}`)}
                 onToggleFavorite={() => toggleFavorite(screenplay.id, screenplay.isFavorite)}
                 onExport={() => exportScreenplay(screenplay)}
+                onMoveToProject={() => setMoveTarget(screenplay)}
                 onDelete={() => setDeleteTarget(screenplay.id)}
               />
             ))}

@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { ExternalLinkCard, ExternalLinkData } from '@/components/external-link-card';
 import { AddLinkDialog } from '@/components/add-link-dialog';
+import { AddExistingScreenplayDialog } from '@/components/add-existing-screenplay-dialog';
 import { ProjectRolesManager, type ProjectRole } from '@/components/project-roles-manager';
 import { ProjectRoleNeedsManager } from '@/components/project-role-needs-manager';
 import { useSession } from 'next-auth/react';
@@ -137,6 +138,7 @@ export default function ProjectPage() {
   const [activeTab, setActiveTab] = useState<TabValue>('screenplays');
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [addLinkDialogOpen, setAddLinkDialogOpen] = useState(false);
+  const [addExistingDialogOpen, setAddExistingDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: TabValue | 'link' } | null>(null);
   const [externalLinks, setExternalLinks] = useState<ExternalLinkData[]>([]);
   const [resourceFilter, setResourceFilter] = useState<ResourceFilter>('all');
@@ -344,6 +346,16 @@ export default function ProjectPage() {
         projectId={projectId}
       />
 
+      {project && (
+        <AddExistingScreenplayDialog
+          open={addExistingDialogOpen}
+          onOpenChange={setAddExistingDialogOpen}
+          projectId={projectId}
+          projectName={project.name}
+          onSuccess={loadProject}
+        />
+      )}
+
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -448,10 +460,24 @@ export default function ProjectPage() {
               </TabsList>
 
               {activeTab === 'screenplays' && (
-                <Button onClick={() => setTemplateSelectorOpen(true)} className="gap-2 w-full sm:w-auto">
-                  <Plus className="h-4 w-4" />
-                  <span className="sm:inline">Add Screenplay</span>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button className="gap-2 w-full sm:w-auto">
+                      <Plus className="h-4 w-4" />
+                      <span className="sm:inline">Add Screenplay</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setTemplateSelectorOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create New
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setAddExistingDialogOpen(true)}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Add Existing
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               {activeTab === 'resources' && (
                 <Button onClick={() => setAddLinkDialogOpen(true)} className="gap-2 w-full sm:w-auto">
