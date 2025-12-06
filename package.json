@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
-    "build": "prisma generate && next build --webpack",
+    "dev": "next dev",
+    "build": "prisma generate && next build",
     "build:wasm": "cd pagination-engine && wasm-pack build --target web --out-dir ../public/wasm",
     "build:wasm:release": "cd pagination-engine && wasm-pack build --target web --release --out-dir ../public/wasm",
     "start": "next start",
@@ -62,7 +62,7 @@
     "input-otp": "^1.4.2",
     "jszip": "^3.10.1",
     "lucide-react": "^0.511.0",
-    "next": "^16.0.7",
+    "next": "^15.5.7",
     "next-auth": "^5.0.0-beta.30",
     "next-themes": "^0.4.6",
     "ogl": "^1.0.11",
@@ -103,7 +103,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "^16.0.7",
+    "eslint-config-next": "^15.5.7",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"

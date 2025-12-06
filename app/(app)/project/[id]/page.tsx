@@ -460,24 +460,16 @@ export default function ProjectPage() {
               </TabsList>
 
               {activeTab === 'screenplays' && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button className="gap-2 w-full sm:w-auto">
-                      <Plus className="h-4 w-4" />
-                      <span className="sm:inline">Add Screenplay</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setTemplateSelectorOpen(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create New
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setAddExistingDialogOpen(true)}>
-                      <FileText className="mr-2 h-4 w-4" />
-                      Add Existing
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="flex gap-2">
+                  <Button onClick={() => setTemplateSelectorOpen(true)} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    <span className="hidden sm:inline">Create New</span>
+                  </Button>
+                  <Button variant="outline" onClick={() => setAddExistingDialogOpen(true)} className="gap-2">
+                    <FileText className="h-4 w-4" />
+                    <span className="hidden sm:inline">Add Existing</span>
+                  </Button>
+                </div>
               )}
               {activeTab === 'resources' && (
                 <Button onClick={() => setAddLinkDialogOpen(true)} className="gap-2 w-full sm:w-auto">

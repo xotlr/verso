@@ -59,8 +59,8 @@ export function AddExistingScreenplayDialog({
       const response = await fetch('/api/screenplays?standalone=true');
       if (response.ok) {
         const data = await response.json();
-        // Ensure data is an array
-        setScreenplays(Array.isArray(data) ? data : []);
+        // API returns { screenplays: [...], total, hasMore }
+        setScreenplays(data.screenplays || []);
       }
     } catch (error) {
       console.error('Error loading screenplays:', error);

@@ -123,7 +123,7 @@ export default function LandingPage() {
                 "Unlimited screenplays",
                 "1 project",
                 "PDF export",
-                "Dark mode",
+                "Basic analytics",
               ]}
               cta="Get Started"
               ctaHref="/signup"

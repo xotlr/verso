@@ -8,6 +8,9 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
+  // Fix workspace root detection (multiple lockfiles issue)
+  outputFileTracingRoot: __dirname,
+
   // Enable subdomain routing for local development
   // Access: localhost:3000 (landing) and app.localhost:3000 (app)
   // Note: Add "127.0.0.1 app.localhost" to /etc/hosts for local subdomain testing
