@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
     };
   },
 
+
   // Enable WebAssembly support for the pagination engine
   webpack: (config, { isServer }) => {
     // Enable WASM
