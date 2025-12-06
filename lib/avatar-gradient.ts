@@ -1,7 +1,6 @@
 /**
  * Avatar Gradient Generator
- * Generates unique, consistent aurora-style mesh gradients based on user IDs
- * Supports theme-aware gradients using visualization palette colors
+ * Generates unique, consistent neutral grayscale gradients based on user IDs
  */
 
 import type { CSSProperties } from 'react';
@@ -20,33 +19,29 @@ function hashString(str: string): number {
 }
 
 /**
- * Generate HSL color from hash - vibrant aurora colors
+ * Generate HSL color from hash - neutral grayscale
  */
 function hashToAuroraHSL(hash: number, offset: number = 0): string {
-  const hue = (hash + offset * 97) % 360; // Different offset for variety
-  const saturation = 70 + (hash % 25); // 70-95% - more saturated
-  const lightness = 50 + (hash % 20); // 50-70%
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  const adjustedHash = hash + offset * 97;
+  const lightness = 40 + (adjustedHash % 30); // 40-70% - varied grays
+  return `hsl(0, 0%, ${lightness}%)`;
 }
 
 /**
- * Generate HSLA color from hash with specified alpha
+ * Generate HSLA color from hash with specified alpha - neutral grayscale
  */
 function hashToAuroraHSLA(hash: number, offset: number, alpha: number): string {
-  const hue = (hash + offset * 97) % 360;
-  const saturation = 70 + (hash % 25);
-  const lightness = 50 + (hash % 20);
-  return `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
+  const adjustedHash = hash + offset * 97;
+  const lightness = 40 + (adjustedHash % 30); // 40-70% - varied grays
+  return `hsla(0, 0%, ${lightness}%, ${alpha})`;
 }
 
 /**
- * Generate a darker base color for backgrounds
+ * Generate a darker base color for backgrounds - neutral grayscale
  */
 function hashToBaseColor(hash: number): string {
-  const hue = hash % 360;
-  const saturation = 30 + (hash % 20); // 30-50% - less saturated
-  const lightness = 15 + (hash % 15); // 15-30% - dark
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  const lightness = 15 + (hash % 15); // 15-30% - dark grays
+  return `hsl(0, 0%, ${lightness}%)`;
 }
 
 /**

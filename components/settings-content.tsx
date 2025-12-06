@@ -489,8 +489,8 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                 {/* Essential Themes */}
                 <div>
                   <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2">Essential</p>
-                  <div className="grid grid-cols-2 md:grid-cols-2 gap-2">
-                    {(['minimal', 'romance'] as ThemePreset[]).map((preset) => (
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['minimal', 'paper'] as ThemePreset[]).map((preset) => (
                       <button
                         key={preset}
                         onClick={() => setThemePreset(preset)}
@@ -531,8 +531,8 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                 {/* Genre Themes */}
                 <div>
                   <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2">Genre</p>
-                  <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
-                    {(['horror'] as ThemePreset[]).map((preset) => (
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['romance', 'horror'] as ThemePreset[]).map((preset) => (
                       <button
                         key={preset}
                         onClick={() => setThemePreset(preset)}

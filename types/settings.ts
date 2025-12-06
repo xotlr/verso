@@ -1,8 +1,7 @@
 export type ThemePreset =
-  | 'minimal'  // Essential
-  | 'romance'  // Essential
+  | 'minimal' | 'paper'  // Essential
   | 'matcha' | 'neovictorian'  // Vintage
-  | 'horror';  // Genre
+  | 'romance' | 'horror';  // Genre
 
 export interface ThemeMetadata {
   name: string;
@@ -12,12 +11,13 @@ export interface ThemeMetadata {
 export const themeMetadata: Record<ThemePreset, ThemeMetadata> = {
   // Essential themes
   minimal: { name: 'Minimal', subtitle: 'Clean and focused' },
-  romance: { name: 'Romance', subtitle: 'Soft and heartfelt' },
+  paper: { name: 'Paper', subtitle: 'Classic screenplay feel' },
   // Vintage themes
   matcha: { name: 'Matcha', subtitle: 'Chinese retro charm' },
   neovictorian: { name: 'Neovictorian', subtitle: 'European vintage' },
   // Genre themes
-  horror: { name: 'Horror', subtitle: 'Dark and eerie' },
+  romance: { name: 'Romance', subtitle: 'Soft and heartfelt' },
+  horror: { name: 'Horror', subtitle: 'Victorian gothic darkness' },
 };
 
 export type UIFont = 'inter' | 'sf-pro' | 'geist' | 'ibm-plex' | 'plus-jakarta';
@@ -121,44 +121,44 @@ export const defaultSettings: AppSettings = {
   visual: {
     themePreset: 'minimal',
     lightColors: {
-      // Warm paper tones (matches globals.css)
-      background: '40 33% 98%',           // Warm off-white
-      foreground: '30 8% 38%',            // Soft warm brown - easy on eyes
+      // Neutral tones (matches globals.css)
+      background: '0 0% 98%',             // Neutral off-white
+      foreground: '0 0% 25%',             // Dark gray text
       card: '0 0% 100%',                  // Pure white cards
-      cardForeground: '30 8% 38%',
-      primary: '24 60% 50%',              // Warm terracotta
+      cardForeground: '0 0% 15%',
+      primary: '0 0% 15%',                // Near black
       primaryForeground: '0 0% 100%',
-      secondary: '37 15% 94%',
-      secondaryForeground: '30 8% 42%',
-      muted: '37 15% 94%',
-      mutedForeground: '30 6% 55%',       // Gentle secondary text
-      accent: '37 20% 92%',
-      accentForeground: '30 8% 38%',
+      secondary: '0 0% 95%',
+      secondaryForeground: '0 0% 20%',
+      muted: '0 0% 95%',
+      mutedForeground: '0 0% 40%',        // Medium gray secondary text
+      accent: '0 0% 93%',
+      accentForeground: '0 0% 15%',
       destructive: '0 65% 55%',
       destructiveForeground: '0 0% 100%',
-      border: '37 15% 88%',
-      input: '37 15% 88%',
-      ring: '24 50% 50%',
+      border: '0 0% 90%',
+      input: '0 0% 90%',
+      ring: '0 0% 40%',
     },
     darkColors: {
-      // Warm dark tones (matches globals.css)
-      background: '30 15% 10%',           // Warm charcoal
-      foreground: '40 12% 72%',           // Soft warm cream - easy on eyes
-      card: '30 12% 13%',
-      cardForeground: '40 12% 72%',
-      primary: '24 55% 55%',              // Brighter terracotta
-      primaryForeground: '30 15% 10%',
-      secondary: '30 10% 18%',
-      secondaryForeground: '40 12% 68%',
-      muted: '30 10% 18%',
-      mutedForeground: '30 8% 48%',       // Gentle secondary text
-      accent: '30 12% 20%',
-      accentForeground: '40 12% 72%',
+      // Neutral dark tones (matches globals.css)
+      background: '0 0% 8%',              // Near black
+      foreground: '0 0% 85%',             // Light gray text
+      card: '0 0% 10%',
+      cardForeground: '0 0% 92%',
+      primary: '0 0% 90%',                // Light gray primary
+      primaryForeground: '0 0% 10%',
+      secondary: '0 0% 15%',
+      secondaryForeground: '0 0% 85%',
+      muted: '0 0% 15%',
+      mutedForeground: '0 0% 60%',        // Medium gray secondary text
+      accent: '0 0% 18%',
+      accentForeground: '0 0% 90%',
       destructive: '0 55% 50%',
       destructiveForeground: '0 0% 100%',
-      border: '30 10% 22%',
-      input: '30 10% 22%',
-      ring: '24 50% 55%',
+      border: '0 0% 20%',
+      input: '0 0% 20%',
+      ring: '0 0% 60%',
     },
     lightVisualization: {
       beatColors: [
@@ -287,6 +287,51 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
     },
     uiFont: 'sf-pro',
     borderRadius: 9,
+  },
+
+  // Paper: Monochromatic off-white/cream - classic screenplay aesthetic
+  paper: {
+    themePreset: 'paper',
+    lightColors: {
+      background: '45 15% 96%',             // Off-white cream
+      foreground: '45 8% 22%',              // Warm brown-gray (monochromatic)
+      card: '45 12% 98%',                   // Slightly lighter cream
+      cardForeground: '45 8% 22%',
+      primary: '45 10% 20%',                // Warm dark brown
+      primaryForeground: '45 15% 96%',
+      secondary: '45 12% 92%',              // Soft cream
+      secondaryForeground: '45 8% 28%',
+      muted: '45 12% 92%',
+      mutedForeground: '45 6% 45%',
+      accent: '45 14% 90%',
+      accentForeground: '45 8% 22%',
+      destructive: '0 50% 50%',
+      destructiveForeground: '45 15% 96%',
+      border: '45 10% 86%',
+      input: '45 10% 86%',
+      ring: '45 10% 20%',
+    },
+    darkColors: {
+      background: '45 8% 8%',               // Warm dark brown-black
+      foreground: '45 12% 80%',             // Cream text
+      card: '45 6% 11%',
+      cardForeground: '45 12% 80%',
+      primary: '45 12% 85%',                // Light cream primary
+      primaryForeground: '45 8% 8%',
+      secondary: '45 5% 14%',
+      secondaryForeground: '45 10% 75%',
+      muted: '45 5% 14%',
+      mutedForeground: '45 5% 48%',
+      accent: '45 6% 16%',
+      accentForeground: '45 12% 80%',
+      destructive: '0 45% 45%',
+      destructiveForeground: '45 12% 90%',
+      border: '45 5% 18%',
+      input: '45 5% 18%',
+      ring: '45 12% 70%',
+    },
+    uiFont: 'inter',
+    borderRadius: 10,
   },
 
   // Romance: Soft and heartfelt - warm, inviting, gentle on eyes
@@ -590,104 +635,104 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
     },
   },
 
-  // Horror: Blood and darkness - crimson red, void black, eerie atmosphere
+  // Horror: Victorian gothic darkness - Bloodborne inspired, amber lantern glow
   horror: {
     themePreset: 'horror',
     lightColors: {
-      background: '0 5% 97%',             // Pale bone white
-      foreground: '0 10% 20%',            // Near black text
-      card: '0 5% 99%',
-      cardForeground: '0 10% 20%',
-      primary: '0 70% 45%',               // Blood red
-      primaryForeground: '0 0% 100%',
-      secondary: '0 5% 94%',
-      secondaryForeground: '0 8% 25%',
-      muted: '0 5% 94%',
-      mutedForeground: '0 5% 45%',
-      accent: '0 40% 92%',                // Soft crimson
-      accentForeground: '0 10% 20%',
-      destructive: '0 80% 50%',
-      destructiveForeground: '0 0% 100%',
-      border: '0 5% 88%',
-      input: '0 5% 88%',
-      ring: '0 70% 45%',
+      background: '30 6% 94%',            // Aged parchment gray
+      foreground: '25 10% 18%',           // Dark sepia
+      card: '30 5% 96%',
+      cardForeground: '25 10% 18%',
+      primary: '32 45% 38%',              // Muted bronze/amber
+      primaryForeground: '30 6% 94%',
+      secondary: '30 5% 90%',
+      secondaryForeground: '25 8% 25%',
+      muted: '30 5% 90%',
+      mutedForeground: '25 5% 45%',
+      accent: '35 15% 88%',               // Faded amber tint
+      accentForeground: '25 10% 18%',
+      destructive: '0 50% 45%',
+      destructiveForeground: '30 6% 94%',
+      border: '30 5% 85%',
+      input: '30 5% 85%',
+      ring: '32 45% 38%',
     },
     darkColors: {
-      background: '0 0% 3%',              // Void black
-      foreground: '30 10% 82%',           // Bone white
-      card: '0 15% 6%',
-      cardForeground: '30 10% 82%',
-      primary: '0 70% 48%',               // Blood red
-      primaryForeground: '0 0% 100%',
-      secondary: '0 12% 10%',
-      secondaryForeground: '30 8% 75%',
-      muted: '0 12% 10%',
-      mutedForeground: '0 5% 45%',
-      accent: '0 50% 15%',
-      accentForeground: '0 40% 90%',
-      destructive: '0 80% 50%',
-      destructiveForeground: '0 0% 100%',
-      border: '0 10% 14%',
-      input: '0 10% 14%',
-      ring: '0 70% 48%',
+      background: '25 12% 5%',            // Deep Yharnam black
+      foreground: '35 18% 75%',           // Pale amber-cream
+      card: '25 10% 8%',
+      cardForeground: '35 18% 75%',
+      primary: '38 55% 50%',              // Amber lantern glow
+      primaryForeground: '25 12% 5%',
+      secondary: '25 8% 12%',
+      secondaryForeground: '35 15% 68%',
+      muted: '25 8% 12%',
+      mutedForeground: '30 8% 42%',
+      accent: '30 18% 14%',               // Dark bronze
+      accentForeground: '35 18% 75%',
+      destructive: '0 45% 42%',
+      destructiveForeground: '35 18% 85%',
+      border: '25 8% 16%',
+      input: '25 8% 16%',
+      ring: '38 55% 50%',
     },
     lightVisualization: {
       beatColors: [
-        '#DC2626', '#EF4444', '#F87171', '#FCA5A5',
-        '#1F2937', '#374151', '#4B5563', '#6B7280',
+        '#92713A', '#A67C3D', '#B8894A', '#C9995A',
+        '#3D3530', '#4A423C', '#574F48', '#655C54',
       ],
       actColors: {
-        act1: { bg: 'rgba(220, 38, 38, 0.1)', border: 'rgba(220, 38, 38, 0.3)' },
-        act2a: { bg: 'rgba(31, 41, 55, 0.1)', border: 'rgba(31, 41, 55, 0.3)' },
-        act2b: { bg: 'rgba(55, 65, 81, 0.1)', border: 'rgba(55, 65, 81, 0.3)' },
-        act3: { bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.3)' },
+        act1: { bg: 'rgba(146, 113, 58, 0.1)', border: 'rgba(146, 113, 58, 0.3)' },
+        act2a: { bg: 'rgba(61, 53, 48, 0.1)', border: 'rgba(61, 53, 48, 0.3)' },
+        act2b: { bg: 'rgba(74, 66, 60, 0.1)', border: 'rgba(74, 66, 60, 0.3)' },
+        act3: { bg: 'rgba(166, 124, 61, 0.1)', border: 'rgba(166, 124, 61, 0.3)' },
       },
       sceneColors: [
-        '#DC2626', '#EF4444', '#F87171', '#1F2937',
-        '#374151', '#4B5563', '#B91C1C', '#991B1B',
+        '#92713A', '#A67C3D', '#B8894A', '#3D3530',
+        '#4A423C', '#574F48', '#7A6230', '#655C54',
       ],
       characterColors: [
-        '#DC2626', '#1F2937', '#EF4444', '#374151', '#F87171',
-        '#4B5563', '#B91C1C', '#6B7280', '#991B1B', '#9CA3AF',
+        '#92713A', '#3D3530', '#A67C3D', '#4A423C', '#B8894A',
+        '#574F48', '#7A6230', '#655C54', '#5C4A28', '#787068',
       ],
       locationColors: [
-        '#4B5563', '#6B7280', '#9CA3AF', '#D1D5DB', '#374151',
-        '#FCA5A5', '#F87171', '#EF4444', '#DC2626', '#B91C1C',
+        '#574F48', '#655C54', '#787068', '#8A827A', '#4A423C',
+        '#C9995A', '#B8894A', '#A67C3D', '#92713A', '#7A6230',
       ],
     },
     darkVisualization: {
       beatColors: [
-        '#F87171', '#EF4444', '#DC2626', '#B91C1C',
-        '#D1D5DB', '#9CA3AF', '#6B7280', '#4B5563',
+        '#D4A84B', '#C9995A', '#B8894A', '#A67C3D',
+        '#A89A8C', '#968878', '#847668', '#726458',
       ],
       actColors: {
-        act1: { bg: 'rgba(248, 113, 113, 0.15)', border: 'rgba(248, 113, 113, 0.4)' },
-        act2a: { bg: 'rgba(209, 213, 219, 0.12)', border: 'rgba(209, 213, 219, 0.35)' },
-        act2b: { bg: 'rgba(156, 163, 175, 0.12)', border: 'rgba(156, 163, 175, 0.35)' },
-        act3: { bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.4)' },
+        act1: { bg: 'rgba(212, 168, 75, 0.15)', border: 'rgba(212, 168, 75, 0.4)' },
+        act2a: { bg: 'rgba(168, 154, 140, 0.12)', border: 'rgba(168, 154, 140, 0.35)' },
+        act2b: { bg: 'rgba(150, 136, 120, 0.12)', border: 'rgba(150, 136, 120, 0.35)' },
+        act3: { bg: 'rgba(201, 153, 90, 0.15)', border: 'rgba(201, 153, 90, 0.4)' },
       },
       sceneColors: [
-        '#F87171', '#EF4444', '#DC2626', '#D1D5DB',
-        '#9CA3AF', '#6B7280', '#FCA5A5', '#B91C1C',
+        '#D4A84B', '#C9995A', '#B8894A', '#A89A8C',
+        '#968878', '#847668', '#E0B860', '#A67C3D',
       ],
       characterColors: [
-        '#F87171', '#D1D5DB', '#EF4444', '#9CA3AF', '#DC2626',
-        '#6B7280', '#FCA5A5', '#4B5563', '#B91C1C', '#E5E7EB',
+        '#D4A84B', '#A89A8C', '#C9995A', '#968878', '#B8894A',
+        '#847668', '#E0B860', '#726458', '#A67C3D', '#BAB0A6',
       ],
       locationColors: [
-        '#6B7280', '#9CA3AF', '#D1D5DB', '#E5E7EB', '#4B5563',
-        '#FCA5A5', '#F87171', '#EF4444', '#DC2626', '#B91C1C',
+        '#847668', '#968878', '#A89A8C', '#BAB0A6', '#726458',
+        '#E0B860', '#D4A84B', '#C9995A', '#B8894A', '#A67C3D',
       ],
     },
     uiFont: 'geist',
     borderRadius: 4,
     cursor: {
       mode: 'line',
-      blinkStyle: 'blink',
-      blinkSpeed: 700,
-      color: '0 70% 48%',  // Blood red to match horror theme
+      blinkStyle: 'smooth',
+      blinkSpeed: 600,
+      color: '38 55% 50%',  // Amber lantern glow
       glowEnabled: true,
-      glowIntensity: 0.5,
+      glowIntensity: 0.4,
       width: 2,
     },
   },
