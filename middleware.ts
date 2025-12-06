@@ -23,6 +23,7 @@ const appRoutes = [
   "/visualization",
   "/settings",
   "/help",
+  "/connections",
 ]
 
 // Legacy route redirects (simple path-to-path mappings)

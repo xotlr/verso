@@ -48,23 +48,19 @@ export async function GET() {
     const todayWordCount = todaySessions.reduce((sum, s) => sum + s.wordCount, 0)
     const todayDuration = todaySessions.reduce((sum, s) => sum + s.duration, 0)
 
-    // Check and update streak
+    // Calculate current streak (read-only, no mutation)
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
 
     let currentStreak = stats.currentStreak
 
-    // If last write was before yesterday, reset streak
+    // If last write was before yesterday, streak is broken (but don't mutate DB here)
     if (stats.lastWriteDate) {
       const lastWrite = new Date(stats.lastWriteDate)
       lastWrite.setHours(0, 0, 0, 0)
 
-      if (lastWrite < yesterday) {
+      if (lastWrite.getTime() < yesterday.getTime()) {
         currentStreak = 0
-        await prisma.userStats.update({
-          where: { userId: session.user.id },
-          data: { currentStreak: 0 },
-        })
       }
     }
 

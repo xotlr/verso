@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import {
-  Home,
   Settings,
   Plus,
   LayoutGrid,
@@ -17,17 +16,20 @@ import {
   Sparkles,
   CreditCard,
   FolderOpen,
-  Folder,
   Film,
   User,
   Keyboard,
   BookOpen,
   LayoutTemplate,
   HelpCircle,
-  Compass,
   Clapperboard,
   Mail,
+  Users,
 } from "lucide-react";
+import { TbHome, TbHomeFilled } from 'react-icons/tb';
+import { PiFilmScript, PiFilmScriptFill } from 'react-icons/pi';
+import { RiFolder6Line, RiFolder6Fill } from 'react-icons/ri';
+import { MdOutlineExplore, MdExplore } from 'react-icons/md';
 import { TeamSwitcher } from "@/components/team-switcher";
 
 import { cn } from '@/lib/utils';
@@ -144,27 +146,39 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   const { count: inviteCount } = usePendingInvites();
 
 
-  // Main navigation items
-  const mainNavItems = [
+  // Main navigation items with filled/outline icon pairs
+  // notification: true shows a small dot, number shows count
+  const mainNavItems: Array<{
+    title: string;
+    url: string;
+    icon: typeof TbHome;
+    activeIcon?: typeof TbHomeFilled;
+    notification?: boolean | number;
+  }> = [
     {
       title: "Home",
       url: "/home",
-      icon: Home,
+      icon: TbHome,
+      activeIcon: TbHomeFilled,
     },
     {
       title: "Screenplays",
       url: "/screenplays",
-      icon: Film,
+      icon: PiFilmScript,
+      activeIcon: PiFilmScriptFill,
     },
     {
       title: "Projects",
       url: "/projects",
-      icon: Folder,
+      icon: RiFolder6Line,
+      activeIcon: RiFolder6Fill,
     },
     {
       title: "Explore",
       url: "/explore",
-      icon: Compass,
+      icon: MdOutlineExplore,
+      activeIcon: MdExplore,
+      notification: true, // Show dot to indicate new content to discover
     },
   ];
 
@@ -256,9 +270,11 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                   title={item.title}
                   url={item.url}
                   icon={item.icon}
+                  activeIcon={item.activeIcon}
                   pathname={pathname}
                   isCollapsed={isCollapsed}
                   index={index}
+                  notification={item.notification}
                 />
               ))}
             </SidebarMenu>
@@ -444,6 +460,12 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                       <Link href={`/profile/${session?.user?.id}`} className="cursor-pointer">
                         <User className="mr-2 h-4 w-4" />
                         View Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/connections" className="cursor-pointer">
+                        <Users className="mr-2 h-4 w-4" />
+                        Connections
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setInvitesOpen(true)} className="cursor-pointer">

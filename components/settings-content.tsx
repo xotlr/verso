@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { Download, Upload, RotateCcw, Palette, Type, Layout, CreditCard, Loader2, ChevronRight, Globe, Lock, Eye } from 'lucide-react';
+import { Download, Upload, RotateCcw, Palette, Type, Layout, CreditCard, Loader2, ChevronRight, Globe, Lock, Eye, AtSign, Check, AlertCircle } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -37,6 +37,7 @@ interface SettingsContentProps {
 
 interface UserProfile {
   name: string;
+  username: string;
   title: string;
   bio: string;
   avatar: string | null;
@@ -65,6 +66,7 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
   // Profile state
   const [profile, setProfile] = useState<UserProfile>({
     name: session?.user?.name || '',
+    username: '',
     title: '',
     bio: '',
     avatar: session?.user?.image || null,
@@ -74,6 +76,11 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isLoadingBilling, setIsLoadingBilling] = useState(false);
+
+  // Username check state
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const usernameTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Fetch profile data on mount
   React.useEffect(() => {
@@ -91,18 +98,68 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
         const data = await response.json();
         setProfile({
           name: data.name || '',
+          username: data.username || '',
           title: data.title || '',
           bio: data.bio || '',
           avatar: data.image || null,
           banner: data.banner || null,
           isPublic: data.isPublic ?? true,
         });
+        // If user has username, mark as available
+        if (data.username) {
+          setUsernameStatus('available');
+        }
       }
     } catch (error) {
       console.error('Failed to fetch profile:', error);
     } finally {
       setIsLoadingProfile(false);
     }
+  };
+
+  const checkUsername = async (username: string) => {
+    if (!username || username.length < 3) {
+      setUsernameStatus('idle');
+      setUsernameError(null);
+      return;
+    }
+
+    setUsernameStatus('checking');
+    setUsernameError(null);
+
+    try {
+      const response = await fetch('/api/users/username/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      });
+      const data = await response.json();
+
+      if (data.available) {
+        setUsernameStatus('available');
+        setUsernameError(null);
+      } else {
+        setUsernameStatus(data.error?.includes('taken') ? 'taken' : 'invalid');
+        setUsernameError(data.error || 'Username not available');
+      }
+    } catch {
+      setUsernameStatus('idle');
+      setUsernameError('Failed to check username');
+    }
+  };
+
+  const handleUsernameChange = (value: string) => {
+    setProfile(p => ({ ...p, username: value }));
+
+    // Clear any pending check
+    if (usernameTimeoutRef.current) {
+      clearTimeout(usernameTimeoutRef.current);
+    }
+
+    // Debounce the check
+    usernameTimeoutRef.current = setTimeout(() => {
+      checkUsername(value);
+    }, 500);
   };
 
   const handleSaveProfile = async () => {
@@ -114,6 +171,7 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: profile.name,
+          username: profile.username || null,
           title: profile.title,
           bio: profile.bio,
           image: profile.avatar,
@@ -123,13 +181,14 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
       });
       if (response.ok) {
         toast.success('Profile saved');
-        // Refresh the session to update cached user data (avatar, name, etc.)
+        // Refresh the session to update cached user data (avatar, name, username, etc.)
         // Pass the updated data to ensure the JWT callback receives it
         await updateSession({
           user: {
             ...session?.user,
             image: profile.avatar,
             name: profile.name,
+            username: profile.username || null,
           }
         });
       } else {
@@ -264,6 +323,45 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                       </div>
                     </div>
 
+                    {/* Username */}
+                    <div>
+                      <Label className="text-xs font-medium uppercase tracking-wide mb-1.5 block text-muted-foreground">Username</Label>
+                      <div className="relative">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                          <AtSign className="h-4 w-4" />
+                        </div>
+                        <Input
+                          value={profile.username}
+                          onChange={(e) => handleUsernameChange(e.target.value.toLowerCase())}
+                          placeholder="your_username"
+                          className={cn(
+                            "h-9 pl-9 pr-9",
+                            usernameStatus === 'available' && "border-green-500 focus-visible:ring-green-500",
+                            (usernameStatus === 'taken' || usernameStatus === 'invalid') && "border-red-500 focus-visible:ring-red-500"
+                          )}
+                        />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          {usernameStatus === 'checking' && (
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          )}
+                          {usernameStatus === 'available' && (
+                            <Check className="h-4 w-4 text-green-500" />
+                          )}
+                          {(usernameStatus === 'taken' || usernameStatus === 'invalid') && (
+                            <AlertCircle className="h-4 w-4 text-red-500" />
+                          )}
+                        </div>
+                      </div>
+                      {usernameError && (
+                        <p className="text-xs text-red-500 mt-1">{usernameError}</p>
+                      )}
+                      {profile.username && usernameStatus === 'available' && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Your profile: verso.ac/u/{profile.username}
+                        </p>
+                      )}
+                    </div>
+
                     {/* Bio */}
                     <div>
                       <Label className="text-xs font-medium uppercase tracking-wide mb-1.5 block text-muted-foreground">Bio</Label>
@@ -321,7 +419,7 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                           size="sm"
                           className="flex-1 sm:flex-none"
                         >
-                          <Link href={`/profile/${session?.user?.id}`}>
+                          <Link href={profile.username ? `/u/${profile.username}` : `/profile/${session?.user?.id}`}>
                             <Eye className="h-4 w-4 mr-2" />
                             View Profile
                           </Link>

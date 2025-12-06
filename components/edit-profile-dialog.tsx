@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import {
   Dialog,
@@ -17,13 +17,15 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ImageUpload } from '@/components/image-upload'
-import { Loader2, Image as ImageIcon, User, Link as LinkIcon, Eye, Sparkles, X } from 'lucide-react'
+import { Loader2, Image as ImageIcon, User, Link as LinkIcon, Eye, Sparkles, X, AtSign, Check, AlertCircle } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 
 interface UserProfile {
   id: string
   name: string | null
+  username?: string | null
   email: string | null
   image: string | null
   banner: string | null
@@ -69,6 +71,7 @@ export function EditProfileDialog({
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: user.name || '',
+    username: user.username || '',
     image: user.image || '',
     banner: user.banner || '',
     bio: user.bio || '',
@@ -85,6 +88,59 @@ export function EditProfileDialog({
   })
   const [newInterest, setNewInterest] = useState('')
   const [newSkill, setNewSkill] = useState('')
+
+  // Username check state
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>(
+    user.username ? 'available' : 'idle'
+  )
+  const [usernameError, setUsernameError] = useState<string | null>(null)
+  const usernameTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+
+  const checkUsername = async (username: string) => {
+    if (!username || username.length < 3) {
+      setUsernameStatus('idle')
+      setUsernameError(null)
+      return
+    }
+
+    setUsernameStatus('checking')
+    setUsernameError(null)
+
+    try {
+      const response = await fetch('/api/users/username/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+      })
+      const data = await response.json()
+
+      if (data.available) {
+        setUsernameStatus('available')
+        setUsernameError(null)
+      } else {
+        setUsernameStatus(data.error?.includes('taken') ? 'taken' : 'invalid')
+        setUsernameError(data.error || 'Username not available')
+      }
+    } catch {
+      setUsernameStatus('idle')
+      setUsernameError('Failed to check username')
+    }
+  }
+
+  const handleUsernameChange = (value: string) => {
+    const normalized = value.toLowerCase()
+    setFormData((prev) => ({ ...prev, username: normalized }))
+
+    // Clear any pending check
+    if (usernameTimeoutRef.current) {
+      clearTimeout(usernameTimeoutRef.current)
+    }
+
+    // Debounce the check
+    usernameTimeoutRef.current = setTimeout(() => {
+      checkUsername(normalized)
+    }, 500)
+  }
 
   const handleChange = (field: keyof typeof formData, value: string | boolean | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -236,6 +292,46 @@ export function EditProfileDialog({
                   placeholder="Screenwriter, Director, etc."
                 />
               </div>
+            </div>
+
+            {/* Username */}
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  <AtSign className="h-4 w-4" />
+                </div>
+                <Input
+                  id="username"
+                  value={formData.username}
+                  onChange={(e) => handleUsernameChange(e.target.value)}
+                  placeholder="your_username"
+                  className={cn(
+                    "pl-9 pr-9",
+                    usernameStatus === 'available' && "border-green-500 focus-visible:ring-green-500",
+                    (usernameStatus === 'taken' || usernameStatus === 'invalid') && "border-red-500 focus-visible:ring-red-500"
+                  )}
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  {usernameStatus === 'checking' && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  {usernameStatus === 'available' && (
+                    <Check className="h-4 w-4 text-green-500" />
+                  )}
+                  {(usernameStatus === 'taken' || usernameStatus === 'invalid') && (
+                    <AlertCircle className="h-4 w-4 text-red-500" />
+                  )}
+                </div>
+              </div>
+              {usernameError && (
+                <p className="text-xs text-red-500">{usernameError}</p>
+              )}
+              {formData.username && usernameStatus === 'available' && (
+                <p className="text-xs text-muted-foreground">
+                  Your profile: verso.ac/u/{formData.username}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

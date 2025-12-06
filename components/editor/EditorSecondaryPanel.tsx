@@ -46,7 +46,7 @@ export function EditorSecondaryPanel({
   screenplayId,
   className,
 }: EditorSecondaryPanelProps) {
-  const [activePanel, setActivePanel] = useState<ActivityBarPanel>(null);
+  const [activePanel, setActivePanel] = useState<ActivityBarPanel>('scenes');
   const [expandedActs, setExpandedActs] = useState<Set<string>>(new Set(['act-1']));
   const [characterRoles, setCharacterRoles] = useState<Map<string, CharacterRole>>(new Map());
   const [characterFilter, setCharacterFilter] = useState('');
@@ -97,6 +97,37 @@ export function EditorSecondaryPanel({
 
     loadRoles();
   }, [screenplayId, storageKey]);
+
+  // Auto-assign roles based on dialogue count when no roles exist
+  useEffect(() => {
+    // Only run after initial load is complete
+    if (isInitialLoadRef.current) return;
+    // Only auto-assign if we have characters but no roles assigned
+    if (characters.length === 0) return;
+    if (characterRoles.size > 0) return;
+
+    // Sort characters by dialogue count (highest first)
+    const sortedChars = [...characters].sort((a, b) => b.dialogueCount - a.dialogueCount);
+
+    // Auto-assign roles based on dialogue ranking
+    const autoRoles = new Map<string, CharacterRole>();
+    sortedChars.forEach((char, index) => {
+      if (index === 0 && char.dialogueCount > 0) {
+        // Top character with dialogue = Protagonist
+        autoRoles.set(char.id, 'Protagonist');
+      } else if (index <= 2 && char.dialogueCount > 0) {
+        // #2-3 with dialogue = Supporting
+        autoRoles.set(char.id, 'Supporting');
+      } else {
+        // Rest = Minor
+        autoRoles.set(char.id, 'Minor');
+      }
+    });
+
+    if (autoRoles.size > 0) {
+      setCharacterRoles(autoRoles);
+    }
+  }, [characters, characterRoles.size]);
 
   // Save character roles to localStorage and API when they change
   useEffect(() => {
@@ -220,25 +251,45 @@ export function EditorSecondaryPanel({
 
   const isPanelOpen = activePanel !== null;
 
+  // Calculate total width for parent spacing
+  const totalWidth = isPanelOpen ? 'calc(3rem + 16rem)' : '3rem'; // w-12 (3rem) + w-64 (16rem)
+
   return (
-    <div className={cn('hidden md:flex h-full shrink-0 sticky top-0', className)}>
-      {/* Activity Bar - always visible on desktop, hidden on mobile */}
-      <ActivityBar
-        activePanel={activePanel}
-        onPanelChange={setActivePanel}
-        scenesCount={scenes.length}
-        charactersCount={characters.length}
+    <>
+      {/* Spacer div to push content - matches the fixed sidebar width */}
+      <div
+        className="hidden md:block shrink-0 transition-all duration-200 ease-out"
+        style={{ width: totalWidth }}
       />
 
-      {/* Expandable Panel */}
+      {/* Fixed sidebar container */}
       <div
         className={cn(
-          'h-full bg-card border-r border-border overflow-hidden',
-          'transition-all duration-200 ease-out',
-          'rounded-r-xl shadow-sm',
-          isPanelOpen ? 'w-64' : 'w-0'
+          'hidden md:flex fixed top-16 bottom-0 z-20',
+          'left-[var(--sidebar-width)]',
+          className
         )}
       >
+        {/* Activity Bar - always visible on desktop */}
+        <div className="h-full">
+          <ActivityBar
+            activePanel={activePanel}
+            onPanelChange={setActivePanel}
+            scenesCount={scenes.length}
+            charactersCount={characters.length}
+          />
+        </div>
+
+        {/* Expandable Panel */}
+        <div
+          className={cn(
+            'h-full',
+            'bg-card border-r border-border overflow-hidden',
+            'transition-all duration-200 ease-out',
+            'shadow-sm',
+            isPanelOpen ? 'w-64' : 'w-0'
+          )}
+        >
         {isPanelOpen && (
           <div className="w-64 h-full flex flex-col overflow-hidden">
             {/* Panel Header */}
@@ -483,6 +534,7 @@ export function EditorSecondaryPanel({
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

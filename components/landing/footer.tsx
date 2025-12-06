@@ -1,8 +1,15 @@
+"use client"
+
 import Link from "next/link"
+import { ArrowUp } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Logo } from "@/components/logo"
+import { Button } from "@/components/ui/button"
 
 export function Footer() {
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
   return (
     <footer className="border-t border-border/40">
       <div className="container max-w-5xl mx-auto px-6 py-16">
@@ -70,7 +77,18 @@ export function Footer() {
           <p className="text-sm text-muted-foreground">
             &copy; {new Date().getFullYear()} Verso. All rights reserved.
           </p>
-          <ThemeToggle />
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={scrollToTop}
+              className="gap-2"
+            >
+              <ArrowUp className="h-4 w-4" />
+              Back to top
+            </Button>
+            <ThemeToggle />
+          </div>
         </div>
       </div>
     </footer>

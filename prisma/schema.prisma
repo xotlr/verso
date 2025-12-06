@@ -50,14 +50,17 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
-  password      String?   // For credentials auth (hashed with bcrypt)
+  password      String? // For credentials auth (hashed with bcrypt)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Username (for clean profile URLs like /u/johndoe)
+  username String? @unique
+
   // Profile
-  banner   String?        // Banner image URL
-  bio      String?   @db.Text
-  title    String?        // "Screenwriter", "Director", etc.
+  banner   String? // Banner image URL
+  bio      String? @db.Text
+  title    String? // "Screenwriter", "Director", etc.
   location String?
   website  String?
 
@@ -67,9 +70,9 @@ model User {
   imdb     String?
 
   // Bento Blocks - Profile showcase
-  interests  String[]  @default([])  // Genres, movies, directors they like
-  skills     String[]  @default([])  // Director, Writer, DOP, Editor, etc.
-  lookingFor String?   @db.Text      // "Looking for a DOP in LA"
+  interests  String[] @default([]) // Genres, movies, directors they like
+  skills     String[] @default([]) // Director, Writer, DOP, Editor, etc.
+  lookingFor String?  @db.Text // "Looking for a DOP in LA"
 
   // Profile visibility
   isPublic Boolean @default(true)
@@ -105,12 +108,20 @@ model User {
   resolvedConflicts     CollaborationConflict[] @relation("ConflictResolver")
 
   // Project roles (when user is assigned as director, writer, etc.)
-  projectRoles          ProjectRole[]
+  projectRoles ProjectRole[]
 
   // Project role invites sent by this user
   projectRoleInvitesSent ProjectRoleInvite[] @relation("ProjectRoleInvitesSent")
 
+  // Role applications (interest in open project roles)
+  roleApplications ProjectRoleApplication[]
+
+  // Professional connections
+  connectionsSent     Connection[] @relation("ConnectionRequester")
+  connectionsReceived Connection[] @relation("ConnectionAddressee")
+
   @@index([plan]) // Used in limit checks
+  @@index([username])
 }
 
 model Team {
@@ -122,19 +133,19 @@ model Team {
 
   // Profile
   banner      String?
-  logo        String?        // Team logo
-  description String?   @db.Text
+  logo        String? // Team logo
+  description String? @db.Text
   website     String?
-  isPublic    Boolean   @default(true)
+  isPublic    Boolean @default(true)
 
   // Billing / Seats
   stripeCustomerId       String?   @unique
   stripeSubscriptionId   String?   @unique
   stripePriceId          String?
   stripeCurrentPeriodEnd DateTime?
-  maxSeats               Int       @default(3)  // Based on plan (PRO=3, TEAM=10)
+  maxSeats               Int       @default(3) // Based on plan (PRO=3, TEAM=10)
 
-  owner       User         @relation("TeamOwner", fields: [ownerId], references: [id])
+  owner       User           @relation("TeamOwner", fields: [ownerId], references: [id])
   members     TeamMember[]
   invites     TeamInvite[]
   projects    Project[]
@@ -180,13 +191,13 @@ model Project {
   name        String
   description String?  @db.Text
   coverImage  String?
-  banner      String?  // Banner image URL
-  logo        String?  // Project logo/icon URL
+  banner      String? // Banner image URL
+  logo        String? // Project logo/icon URL
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Production info
-  budget      Float?   // Total project budget
+  budget Float? // Total project budget
 
   // Publishing/Discovery
   isPublic    Boolean   @default(false)
@@ -197,8 +208,8 @@ model Project {
   teamId String?
 
   // Relations
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team          Team?          @relation(fields: [teamId], references: [id])
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team          Team?               @relation(fields: [teamId], references: [id])
   screenplays   Screenplay[]
   notes         Note[]
   schedules     Schedule[]
@@ -206,6 +217,7 @@ model Project {
   externalLinks ExternalLink[]
   roles         ProjectRole[]
   roleInvites   ProjectRoleInvite[]
+  roleNeeds     ProjectRoleNeed[]
 
   @@index([userId])
   @@index([teamId])
@@ -216,9 +228,9 @@ model Project {
 model ProjectRole {
   id        String   @id @default(cuid())
   projectId String
-  role      String   // "director" | "writer" | "producer" | "cinematographer" | "editor" | "composer" | etc.
-  name      String   // Person's name
-  userId    String?  // Optional link to a Verso user
+  role      String // "director" | "writer" | "producer" | "cinematographer" | "editor" | "composer" | etc.
+  name      String // Person's name
+  userId    String? // Optional link to a Verso user
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -235,7 +247,7 @@ model ProjectRoleInvite {
   id        String   @id @default(cuid())
   projectId String
   email     String
-  role      String   // "director" | "writer" | "producer" | etc.
+  role      String // "director" | "writer" | "producer" | etc.
   token     String   @unique @default(cuid())
   expiresAt DateTime
   invitedBy String
@@ -248,6 +260,49 @@ model ProjectRoleInvite {
   @@index([token])
   @@index([email])
   @@index([projectId])
+}
+
+// Project role needs (open positions/roles the project is looking for)
+model ProjectRoleNeed {
+  id          String   @id @default(cuid())
+  projectId   String
+  role        String   // "director" | "writer" | "producer" | "cinematographer" | etc.
+  description String?  @db.Text
+  location    String?  // "Los Angeles", "Remote", etc.
+  isPaid      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project      Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  applications ProjectRoleApplication[]
+
+  @@index([projectId])
+}
+
+// Applications/Interest for open project roles
+model ProjectRoleApplication {
+  id          String            @id @default(cuid())
+  roleNeedId  String
+  userId      String
+  message     String?           @db.Text
+  status      ApplicationStatus @default(PENDING)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  roleNeed ProjectRoleNeed @relation(fields: [roleNeedId], references: [id], onDelete: Cascade)
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roleNeedId, userId]) // One application per user per role need
+  @@index([roleNeedId])
+  @@index([userId])
+  @@index([status])
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
 }
 
 // Screenplay = Actual screenplay document (can be standalone or in a project)
@@ -266,9 +321,9 @@ model Screenplay {
 
   // Screenplay type
   type         ScreenplayType @default(FEATURE)
-  season       Int?           // For TV shows
-  episode      Int?           // For TV shows
-  episodeTitle String?        // For TV shows
+  season       Int? // For TV shows
+  episode      Int? // For TV shows
+  episodeTitle String? // For TV shows
 
   // Quick Access fields
   isFavorite   Boolean   @default(false)
@@ -283,17 +338,17 @@ model Screenplay {
   author      String?
 
   // Relations
-  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project     Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  team        Team?               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  versions    ScreenplayVersion[]
-  sceneMetas  SceneMeta[]
-  characterMetas CharacterMeta[]
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project          Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  team             Team?               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  versions         ScreenplayVersion[]
+  sceneMetas       SceneMeta[]
+  characterMetas   CharacterMeta[]
   sceneAttachments SceneAttachment[]
-  shots       Shot[]
+  shots            Shot[]
 
   // Collaboration relations
-  operations           ScreenplayOperation[]
+  operations            ScreenplayOperation[]
   collaborationSessions CollaborationSession[]
   conflicts             CollaborationConflict[]
 
@@ -306,28 +361,29 @@ model Screenplay {
 
 // Version history for screenplays
 model ScreenplayVersion {
-  id            String   @id @default(cuid())
-  screenplayId  String
+  id           String @id @default(cuid())
+  screenplayId String
 
   // Content
-  content       String   @db.Text
+  content String @db.Text
 
   // Metadata
   versionNumber Int
-  label         String?  // User-named snapshots
-  reason        String   // "manual" | "auto" | "interval" | "restore"
+  label         String? // User-named snapshots
+  reason        String // "manual" | "auto" | "interval" | "restore"
+  revisionColor String? // Industry-standard revision color: white, blue, pink, yellow, green, goldenrod, buff, salmon
 
   // Stats
-  wordCount     Int
-  sceneCount    Int
+  wordCount  Int
+  sceneCount Int
 
   // Tracking
-  createdAt     DateTime @default(now())
-  createdBy     String
+  createdAt DateTime @default(now())
+  createdBy String
 
   // Relations
-  screenplay    Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
-  creator       User       @relation("ScreenplayVersionCreator", fields: [createdBy], references: [id])
+  screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  creator    User       @relation("ScreenplayVersionCreator", fields: [createdBy], references: [id])
 
   @@index([screenplayId, createdAt])
   @@index([screenplayId, versionNumber])
@@ -335,21 +391,21 @@ model ScreenplayVersion {
 
 // Scene metadata (colors, notes per scene)
 model SceneMeta {
-  id           String   @id @default(cuid())
+  id           String @id @default(cuid())
   screenplayId String
-  sceneId      String   // References scene ID in screenplay content
+  sceneId      String // References scene ID in screenplay content
 
   // Metadata
-  color        String?  // Hex color for scene (e.g., "#FF5733")
-  notes        String?  @db.Text
-  mood         String?  // e.g., "tense", "romantic", "action"
+  color String? // Hex color for scene (e.g., "#FF5733")
+  notes String? @db.Text
+  mood  String? // e.g., "tense", "romantic", "action"
 
   // Tracking
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  screenplay   Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
 
   @@unique([screenplayId, sceneId])
   @@index([screenplayId])
@@ -357,21 +413,21 @@ model SceneMeta {
 
 // Character metadata (roles, notes per character)
 model CharacterMeta {
-  id            String   @id @default(cuid())
+  id            String @id @default(cuid())
   screenplayId  String
-  characterName String   // Character name (extracted from dialogue)
+  characterName String // Character name (extracted from dialogue)
 
   // Metadata
-  role          String   @default("Supporting") // Protagonist, Antagonist, Supporting, Minor
-  description   String?  @db.Text
-  notes         String?  @db.Text
+  role        String  @default("Supporting") // Protagonist, Antagonist, Supporting, Minor
+  description String? @db.Text
+  notes       String? @db.Text
 
   // Tracking
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  screenplay    Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
 
   @@unique([screenplayId, characterName])
   @@index([screenplayId])
@@ -379,22 +435,22 @@ model CharacterMeta {
 
 // Scene attachments (images, references, mood board)
 model SceneAttachment {
-  id           String   @id @default(cuid())
+  id           String @id @default(cuid())
   screenplayId String
-  sceneId      String   // References scene ID in screenplay content
+  sceneId      String // References scene ID in screenplay content
 
   // Attachment data
-  type         String   // "image" | "reference" | "moodboard"
-  url          String   // Supabase Storage URL
-  filename     String?  // Original filename
+  type         String // "image" | "reference" | "moodboard"
+  url          String // Supabase Storage URL
+  filename     String? // Original filename
   caption      String?
-  displayOrder Int      @default(0)
+  displayOrder Int     @default(0)
 
   // Tracking
-  createdAt    DateTime @default(now())
+  createdAt DateTime @default(now())
 
   // Relations
-  screenplay   Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
 
   @@index([screenplayId, sceneId])
   @@index([screenplayId])
@@ -402,39 +458,39 @@ model SceneAttachment {
 
 // Shot = Production shotlist for filming
 model Shot {
-  id           String   @id @default(cuid())
+  id           String @id @default(cuid())
   screenplayId String
-  sceneId      String   // Links to scene (e.g., "scene-1")
+  sceneId      String // Links to scene (e.g., "scene-1")
 
   // Core info
-  shotNumber   Int      // Order within scene (1, 2, 3...)
-  description  String   @db.Text
+  shotNumber  Int // Order within scene (1, 2, 3...)
+  description String @db.Text
 
   // Shot type & framing
-  shotType     String?  // WIDE, MEDIUM, CLOSE_UP, etc.
-  cameraAngle  String?  // EYE_LEVEL, HIGH_ANGLE, LOW_ANGLE, etc.
+  shotType    String? // WIDE, MEDIUM, CLOSE_UP, etc.
+  cameraAngle String? // EYE_LEVEL, HIGH_ANGLE, LOW_ANGLE, etc.
 
   // Camera movement
-  movement     String?  // STATIC, PAN, TILT, DOLLY, CRANE, HANDHELD, etc.
+  movement String? // STATIC, PAN, TILT, DOLLY, CRANE, HANDHELD, etc.
 
   // Technical details
-  duration     Int?     // Estimated duration in seconds
-  lens         String?  // 24mm, 50mm, 85mm, etc.
+  duration Int? // Estimated duration in seconds
+  lens     String? // 24mm, 50mm, 85mm, etc.
 
   // Production notes
-  equipment    String?  @db.Text  // Camera, rig, special equipment
-  lighting     String?  @db.Text  // Lighting setup notes
-  audio        String?  @db.Text  // Audio/sound notes
-  notes        String?  @db.Text  // General notes
+  equipment String? @db.Text // Camera, rig, special equipment
+  lighting  String? @db.Text // Lighting setup notes
+  audio     String? @db.Text // Audio/sound notes
+  notes     String? @db.Text // General notes
 
   // Status
-  status       String   @default("planned") // planned, setup, shot, approved
+  status String @default("planned") // planned, setup, shot, approved
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  screenplay   Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
 
   @@index([screenplayId])
   @@index([screenplayId, sceneId])
@@ -497,8 +553,9 @@ model Budget {
 
 enum Plan {
   FREE
+  PLUS
   PRO
-  TEAM
+  MAX
 }
 
 enum TeamRole {
@@ -540,27 +597,27 @@ model WritingSession {
 
 // External links (Google Docs, research URLs, etc.)
 model ExternalLink {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   url         String
   title       String?
-  description String?  @db.Text
+  description String? @db.Text
   favicon     String?
-  image       String?  // Open Graph image
+  image       String? // Open Graph image
   siteName    String?
-  category    String?  // "research" | "reference" | "script" | "other"
+  category    String? // "research" | "reference" | "script" | "other"
 
   // Enhanced embed support
-  embedType    String?  // "youtube" | "pinterest" | "shotdeck" | "google-docs" | "google-sheets" | "google-slides" | "canva" | "vimeo" | "generic"
-  embedId      String?  // Platform-specific ID (e.g., YouTube video ID)
-  embedUrl     String?  // Pre-computed embed URL for iframes
-  thumbnailUrl String?  // High-quality thumbnail URL
-  isPlayable   Boolean  @default(false) // Can play inline (videos)
-  notes        String?  @db.Text // Rich text notes about this resource
+  embedType    String? // "youtube" | "pinterest" | "shotdeck" | "google-docs" | "google-sheets" | "google-slides" | "canva" | "vimeo" | "generic"
+  embedId      String? // Platform-specific ID (e.g., YouTube video ID)
+  embedUrl     String? // Pre-computed embed URL for iframes
+  thumbnailUrl String? // High-quality thumbnail URL
+  isPlayable   Boolean @default(false) // Can play inline (videos)
+  notes        String? @db.Text // Rich text notes about this resource
 
-  userId      String
-  projectId   String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  userId    String
+  projectId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -574,10 +631,10 @@ model ExternalLink {
 model Activity {
   id          String   @id @default(cuid())
   userId      String
-  type        String   // "screenplay_created" | "screenplay_edited" | "project_created" | "screenplay_published"
-  entityId    String?  // ID of screenplay/project
-  entityTitle String?  // Cached title for display
-  metadata    Json?    // Extra context (word count delta, etc.)
+  type        String // "screenplay_created" | "screenplay_edited" | "project_created" | "screenplay_published"
+  entityId    String? // ID of screenplay/project
+  entityTitle String? // Cached title for display
+  metadata    Json? // Extra context (word count delta, etc.)
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -589,11 +646,11 @@ model Activity {
 model TeamAuditLog {
   id         String   @id @default(cuid())
   teamId     String
-  actorId    String   // User who performed action
-  action     String   // "team_created", "member_added", "settings_updated", etc.
-  targetType String?  // "member", "invite", "settings", "billing"
-  targetId   String?  // ID of affected resource
-  metadata   Json?    // Before/after values, extra context
+  actorId    String // User who performed action
+  action     String // "team_created", "member_added", "settings_updated", etc.
+  targetType String? // "member", "invite", "settings", "billing"
+  targetId   String? // ID of affected resource
+  metadata   Json? // Before/after values, extra context
   ipAddress  String?
   createdAt  DateTime @default(now())
 
@@ -606,15 +663,15 @@ model TeamAuditLog {
 
 // Real-time collaboration models
 model ScreenplayOperation {
-  id              String   @id @default(uuid())
-  screenplayId    String   @map("screenplay_id")
-  userId          String   @map("user_id")
-  operationType   String   @map("operation_type") // 'insert', 'delete', 'replace', 'cursor_move'
-  position        Int?
-  content         String?  @db.Text
-  metadata        Json?
-  timestamp       DateTime @default(now())
-  sequenceNumber  BigInt   @default(autoincrement()) @map("sequence_number")
+  id             String   @id @default(uuid())
+  screenplayId   String   @map("screenplay_id")
+  userId         String   @map("user_id")
+  operationType  String   @map("operation_type") // 'insert', 'delete', 'replace', 'cursor_move'
+  position       Int?
+  content        String?  @db.Text
+  metadata       Json?
+  timestamp      DateTime @default(now())
+  sequenceNumber BigInt   @default(autoincrement()) @map("sequence_number")
 
   screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
   user       User       @relation("ScreenplayOperations", fields: [userId], references: [id], onDelete: Cascade)
@@ -642,19 +699,42 @@ model CollaborationSession {
 }
 
 model CollaborationConflict {
-  id                      String    @id @default(uuid())
-  screenplayId            String    @map("screenplay_id")
-  operationId             String?   @map("operation_id")
-  conflictingOperationId  String?   @map("conflicting_operation_id")
-  resolved                Boolean   @default(false)
-  resolutionStrategy      String?   @map("resolution_strategy") // 'manual', 'auto_merge', 'last_write_wins'
-  resolvedBy              String?   @map("resolved_by")
-  resolvedAt              DateTime? @map("resolved_at")
-  createdAt               DateTime  @default(now()) @map("created_at")
+  id                     String    @id @default(uuid())
+  screenplayId           String    @map("screenplay_id")
+  operationId            String?   @map("operation_id")
+  conflictingOperationId String?   @map("conflicting_operation_id")
+  resolved               Boolean   @default(false)
+  resolutionStrategy     String?   @map("resolution_strategy") // 'manual', 'auto_merge', 'last_write_wins'
+  resolvedBy             String?   @map("resolved_by")
+  resolvedAt             DateTime? @map("resolved_at")
+  createdAt              DateTime  @default(now()) @map("created_at")
 
   screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
   resolver   User?      @relation("ConflictResolver", fields: [resolvedBy], references: [id])
 
   @@index([screenplayId, resolved, createdAt(sort: Desc)])
   @@map("collaboration_conflicts")
+}
+
+// Professional connections (LinkedIn-style mutual connections)
+model Connection {
+  id          String           @id @default(cuid())
+  requesterId String
+  addresseeId String
+  status      ConnectionStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  requester User @relation("ConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("ConnectionAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([requesterId, status])
+  @@index([addresseeId, status])
+}
+
+enum ConnectionStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
 }

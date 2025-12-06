@@ -56,7 +56,20 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     const project = await prisma.project.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        coverImage: true,
+        banner: true,
+        logo: true,
+        budget: true,
+        isPublic: true,
+        publishedAt: true,
+        userId: true,
+        teamId: true,
+        createdAt: true,
+        updatedAt: true,
         team: {
           select: { id: true, name: true },
         },

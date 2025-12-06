@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/components/theme-provider';
 import { useSession, signOut } from 'next-auth/react';
@@ -14,11 +13,15 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-  SheetClose,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+
+interface MobileHeaderMenuProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
 
 interface MenuItemProps {
   icon: React.ComponentType<{ className?: string }>;
@@ -44,27 +47,26 @@ function MenuItem({ icon: Icon, label, onClick }: MenuItemProps) {
   );
 }
 
-export function MobileHeaderMenu() {
+export function MobileHeaderMenu({ open, onOpenChange }: MobileHeaderMenuProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
-  const [open, setOpen] = useState(false);
   const user = session?.user;
 
   const handleNavigation = (path: string) => {
-    setOpen(false);
+    onOpenChange(false);
     setTimeout(() => router.push(path), 150);
   };
 
   const handleSearch = () => {
-    setOpen(false);
+    onOpenChange(false);
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('command-palette-open'));
     }, 150);
   };
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger asChild>
         <Button
           variant="ghost"
@@ -74,7 +76,7 @@ export function MobileHeaderMenu() {
         >
           <div className={cn(
             "transition-transform duration-300 ease-out",
-            open && "rotate-90 scale-90"
+            open && "scale-x-[-1]"
           )}>
             <FriesIcon size={20} />
           </div>
@@ -83,29 +85,16 @@ export function MobileHeaderMenu() {
 
       <SheetContent
         side="right"
-        className="w-full sm:w-full sm:max-w-full flex flex-col [&>button]:hidden"
+        className="w-full sm:w-full sm:max-w-full flex flex-col [&>button:last-of-type]:hidden pt-4 border-l-0"
       >
-        {/* Custom close button - same position as trigger, using FriesIcon */}
-        <SheetClose asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-4 top-3 h-8 w-8"
-            aria-label="Close menu"
-          >
-            <div className="transition-transform duration-300 ease-out rotate-90 scale-90">
-              <FriesIcon size={20} />
-            </div>
-          </Button>
-        </SheetClose>
-
         <SheetHeader className="pb-4">
+          <SheetTitle className="sr-only">Menu</SheetTitle>
           {user && (
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
-              <Avatar className="h-10 w-10" key={user?.image || 'no-avatar-header'}>
-                <AvatarImage src={user?.image || undefined} alt={user?.name || 'User'} />
+            <div className="flex items-center gap-3 p-3 rounded-sm bg-muted">
+              <Avatar className="h-10 w-10 rounded-sm" key={user?.image || 'no-avatar-header'}>
+                <AvatarImage src={user?.image || undefined} alt={user?.name || 'User'} className="rounded-sm" />
                 <AvatarFallback
-                  className="text-sm text-white font-medium"
+                  className="text-sm text-white font-medium rounded-sm"
                   style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
                 >
                   {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
@@ -117,7 +106,6 @@ export function MobileHeaderMenu() {
               </div>
             </div>
           )}
-          <SheetTitle className="text-left text-lg sr-only">Menu</SheetTitle>
         </SheetHeader>
 
         <nav className="flex-1 py-4 space-y-1">
@@ -195,7 +183,7 @@ export function MobileHeaderMenu() {
           >
             <button
               onClick={() => {
-                setOpen(false);
+                onOpenChange(false);
                 signOut({ callbackUrl: '/' });
               }}
               className={cn(

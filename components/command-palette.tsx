@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { Command } from 'cmdk';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import {
   Search,
@@ -22,20 +24,19 @@ import {
   Type,
   EyeOff,
   Layout,
-  ChevronRight,
   Hash,
+  Clock,
 } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
-interface Command {
+interface CommandItem {
   id: string;
   label: string;
   description?: string;
   icon: React.ReactNode;
   shortcut?: string;
   action: () => void;
-  category: 'navigation' | 'actions' | 'formatting' | 'view' | 'settings';
+  category: 'recent' | 'navigation' | 'actions' | 'formatting' | 'view' | 'settings';
   keywords?: string[];
 }
 
@@ -45,35 +46,89 @@ interface CommandPaletteProps {
   onOpenSettings?: () => void;
 }
 
+// Cache for screenplays - persists across palette opens
+let screenplayCache: Array<{ id: string; title: string }> | null = null;
+let cacheTimestamp = 0;
+const CACHE_DURATION = 60000; // 1 minute
+
+// Recent commands storage key
+const RECENT_COMMANDS_KEY = 'verso-recent-commands';
+const MAX_RECENT_COMMANDS = 5;
+
+function getRecentCommands(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(RECENT_COMMANDS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentCommand(commandId: string) {
+  if (typeof window === 'undefined') return;
+  // Don't save screenplay navigation to recent (too dynamic)
+  if (commandId.startsWith('screenplay-')) return;
+
+  try {
+    const recent = getRecentCommands().filter(id => id !== commandId);
+    recent.unshift(commandId);
+    localStorage.setItem(RECENT_COMMANDS_KEY, JSON.stringify(recent.slice(0, MAX_RECENT_COMMANDS)));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPaletteProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const [query, setQuery] = useState('');
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [screenplays, setScreenplays] = useState<Array<{id: string; title: string}>>([]);
+  const [screenplays, setScreenplays] = useState<Array<{ id: string; title: string }>>([]);
+  const [recentIds, setRecentIds] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load screenplays from API for navigation
+  // Load recent commands on mount
   useEffect(() => {
-    if (isOpen) {
-      fetch('/api/projects')
-        .then(res => res.ok ? res.json() : [])
-        .then((projects: Array<{ id: string; title: string }>) => {
-          setScreenplays(projects.map(p => ({ id: p.id, title: p.title })));
-        })
-        .catch(() => setScreenplays([]));
-    }
+    setRecentIds(getRecentCommands());
   }, [isOpen]);
 
-  const commands: Command[] = useMemo(() => [
+  // Load screenplays with caching
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const now = Date.now();
+    if (screenplayCache && (now - cacheTimestamp) < CACHE_DURATION) {
+      setScreenplays(screenplayCache);
+      return;
+    }
+
+    fetch('/api/screenplays')
+      .then(res => res.ok ? res.json() : [])
+      .then((screenplayList: Array<{ id: string; title: string }>) => {
+        const mapped = screenplayList.map(s => ({ id: s.id, title: s.title }));
+        screenplayCache = mapped;
+        cacheTimestamp = now;
+        setScreenplays(mapped);
+      })
+      .catch(() => setScreenplays([]));
+  }, [isOpen]);
+
+  // Execute command and track in recent
+  const runCommand = useCallback((commandId: string, action: () => void) => {
+    saveRecentCommand(commandId);
+    action();
+  }, []);
+
+  // Base commands (without screenplays)
+  const baseCommands: CommandItem[] = useMemo(() => [
     // Navigation
     {
       id: 'new-screenplay',
       label: 'New Screenplay',
       description: 'Create a new screenplay',
       icon: <Plus className="h-4 w-4" />,
-      shortcut: 'Cmd+N',
+      shortcut: '⌘N',
       category: 'navigation',
-      keywords: ['create', 'new', 'start'],
+      keywords: ['create', 'new', 'start', 'project'],
       action: async () => {
         try {
           const response = await fetch('/api/projects', {
@@ -86,6 +141,8 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
           });
           if (response.ok) {
             const project = await response.json();
+            // Invalidate cache when new screenplay created
+            screenplayCache = null;
             router.push(`/screenplay/${project.id}`);
           }
         } catch (error) {
@@ -100,7 +157,7 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
       description: 'View all screenplays',
       icon: <Layout className="h-4 w-4" />,
       category: 'navigation',
-      keywords: ['home', 'library', 'list'],
+      keywords: ['home', 'library', 'list', 'projects', 'dashboard'],
       action: () => {
         router.push('/home');
         onClose();
@@ -113,8 +170,9 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
       description: 'Download in various formats',
       icon: <Download className="h-4 w-4" />,
       category: 'actions',
-      keywords: ['download', 'save', 'pdf', 'fdx'],
+      keywords: ['download', 'save', 'pdf', 'fdx', 'fountain'],
       action: () => {
+        // TODO: Open export dialog
         onClose();
       },
     },
@@ -124,8 +182,9 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
       description: 'Load from file',
       icon: <Upload className="h-4 w-4" />,
       category: 'actions',
-      keywords: ['load', 'open', 'upload'],
+      keywords: ['load', 'open', 'upload', 'fdx', 'fountain'],
       action: () => {
+        // TODO: Open import dialog
         onClose();
       },
     },
@@ -134,45 +193,11 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
       label: 'Print',
       description: 'Print screenplay',
       icon: <Printer className="h-4 w-4" />,
-      shortcut: 'Cmd+P',
+      shortcut: '⌘P',
       category: 'actions',
-      keywords: ['print'],
+      keywords: ['print', 'paper'],
       action: () => {
         window.print();
-        onClose();
-      },
-    },
-    // Formatting
-    {
-      id: 'insert-scene',
-      label: 'Insert Scene Heading',
-      icon: <Hash className="h-4 w-4" />,
-      shortcut: 'Cmd+Shift+S',
-      category: 'formatting',
-      keywords: ['scene', 'heading', 'int', 'ext'],
-      action: () => {
-        onClose();
-      },
-    },
-    {
-      id: 'insert-character',
-      label: 'Insert Character',
-      icon: <Type className="h-4 w-4" />,
-      shortcut: 'Cmd+Shift+C',
-      category: 'formatting',
-      keywords: ['character', 'name'],
-      action: () => {
-        onClose();
-      },
-    },
-    {
-      id: 'insert-dialogue',
-      label: 'Insert Dialogue',
-      icon: <Type className="h-4 w-4" />,
-      shortcut: 'Cmd+Shift+D',
-      category: 'formatting',
-      keywords: ['dialogue', 'speech'],
-      action: () => {
         onClose();
       },
     },
@@ -182,8 +207,49 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
       description: 'Analyze screenplay with AI',
       icon: <Sparkles className="h-4 w-4" />,
       category: 'actions',
-      keywords: ['ai', 'claude', 'analyze', 'feedback'],
+      keywords: ['ai', 'claude', 'analyze', 'feedback', 'review'],
       action: () => {
+        // TODO: Open AI analysis panel
+        onClose();
+      },
+    },
+    // Formatting
+    {
+      id: 'insert-scene',
+      label: 'Insert Scene Heading',
+      description: 'INT./EXT. LOCATION - TIME',
+      icon: <Hash className="h-4 w-4" />,
+      shortcut: '⌘⇧S',
+      category: 'formatting',
+      keywords: ['scene', 'heading', 'int', 'ext', 'slugline'],
+      action: () => {
+        // TODO: Dispatch editor event
+        onClose();
+      },
+    },
+    {
+      id: 'insert-character',
+      label: 'Insert Character',
+      description: 'Add character name block',
+      icon: <Type className="h-4 w-4" />,
+      shortcut: '⌘⇧C',
+      category: 'formatting',
+      keywords: ['character', 'name', 'actor'],
+      action: () => {
+        // TODO: Dispatch editor event
+        onClose();
+      },
+    },
+    {
+      id: 'insert-dialogue',
+      label: 'Insert Dialogue',
+      description: 'Add dialogue block',
+      icon: <Type className="h-4 w-4" />,
+      shortcut: '⌘⇧D',
+      category: 'formatting',
+      keywords: ['dialogue', 'speech', 'talk'],
+      action: () => {
+        // TODO: Dispatch editor event
         onClose();
       },
     },
@@ -194,7 +260,7 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
       description: 'Toggle dark/light theme',
       icon: theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />,
       category: 'view',
-      keywords: ['theme', 'dark', 'light', 'mode'],
+      keywords: ['theme', 'dark', 'light', 'mode', 'appearance'],
       action: () => {
         setTheme(theme === 'dark' ? 'light' : 'dark');
         onClose();
@@ -205,10 +271,11 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
       label: 'Toggle Distraction Free',
       description: 'Hide all UI elements',
       icon: <EyeOff className="h-4 w-4" />,
-      shortcut: 'Cmd+Shift+F',
+      shortcut: '⌘⇧F',
       category: 'view',
-      keywords: ['distraction', 'focus', 'zen'],
+      keywords: ['distraction', 'focus', 'zen', 'fullscreen'],
       action: () => {
+        // TODO: Toggle distraction free mode
         onClose();
       },
     },
@@ -218,9 +285,9 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
       label: 'Open Settings',
       description: 'Customize your experience',
       icon: <Settings className="h-4 w-4" />,
-      shortcut: 'Cmd+,',
+      shortcut: '⌘,',
       category: 'settings',
-      keywords: ['preferences', 'config', 'customize'],
+      keywords: ['preferences', 'config', 'customize', 'options'],
       action: () => {
         onOpenSettings?.();
         onClose();
@@ -228,78 +295,46 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
     },
   ], [theme, setTheme, router, onClose, onOpenSettings]);
 
-  // Add screenplay navigation commands
-  const screenplayCommands: Command[] = screenplays
-    .filter((sp) => sp.title) // Filter out items without titles
-    .map((sp) => ({
-      id: `screenplay-${sp.id}`,
-      label: sp.title,
-      description: 'Open screenplay',
-      icon: <FileText className="h-4 w-4" />,
-      category: 'navigation' as const,
-      keywords: [sp.title.toLowerCase(), 'open', 'screenplay'],
-      action: () => {
-        router.push(`/screenplay/${sp.id}`);
-        onClose();
-      },
-    }));
+  // Screenplay navigation commands
+  const screenplayCommands: CommandItem[] = useMemo(() =>
+    screenplays
+      .filter((sp) => sp.title)
+      .map((sp) => ({
+        id: `screenplay-${sp.id}`,
+        label: sp.title,
+        description: 'Open screenplay',
+        icon: <FileText className="h-4 w-4" />,
+        category: 'navigation' as const,
+        keywords: [sp.title.toLowerCase(), 'open', 'screenplay', 'project'],
+        action: () => {
+          router.push(`/screenplay/${sp.id}`);
+          onClose();
+        },
+      })),
+    [screenplays, router, onClose]
+  );
 
-  const allCommands = useMemo(() => [...commands, ...screenplayCommands], [commands, screenplayCommands]);
-
-  // Filter commands based on query
-  const filteredCommands = useMemo(() => {
-    if (!query.trim()) return allCommands;
-    const lowerQuery = query.toLowerCase();
-    return allCommands.filter((cmd) => {
-      const matchesLabel = cmd.label.toLowerCase().includes(lowerQuery);
-      const matchesDescription = cmd.description?.toLowerCase().includes(lowerQuery);
-      const matchesKeywords = cmd.keywords?.some((k) => k.includes(lowerQuery));
-      return matchesLabel || matchesDescription || matchesKeywords;
+  // Create a map for quick command lookup
+  const commandMap = useMemo(() => {
+    const map = new Map<string, CommandItem>();
+    [...baseCommands, ...screenplayCommands].forEach(cmd => {
+      map.set(cmd.id, cmd);
     });
-  }, [query, allCommands]);
+    return map;
+  }, [baseCommands, screenplayCommands]);
 
-  // Group commands by category
-  const groupedCommands = useMemo(() => {
-    const groups: Record<string, Command[]> = {};
-    filteredCommands.forEach((cmd) => {
-      if (!groups[cmd.category]) {
-        groups[cmd.category] = [];
-      }
-      groups[cmd.category].push(cmd);
-    });
-    return groups;
-  }, [filteredCommands]);
+  // Recent commands (only show ones that exist)
+  const recentCommands: CommandItem[] = useMemo(() =>
+    recentIds
+      .map(id => commandMap.get(id))
+      .filter((cmd): cmd is CommandItem => cmd !== undefined)
+      .map(cmd => ({ ...cmd, category: 'recent' as const })),
+    [recentIds, commandMap]
+  );
 
-  // Reset selection when filtered commands change
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [filteredCommands]);
-
-  // Handle keyboard navigation
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedIndex((prev) => (prev + 1) % filteredCommands.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedIndex((prev) => (prev - 1 + filteredCommands.length) % filteredCommands.length);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (filteredCommands[selectedIndex]) {
-        filteredCommands[selectedIndex].action();
-      }
-    }
-  }, [filteredCommands, selectedIndex]);
-
-  // Reset state when closed
-  useEffect(() => {
-    if (!isOpen) {
-      setQuery('');
-      setSelectedIndex(0);
-    }
-  }, [isOpen]);
-
+  const categoryOrder = ['recent', 'navigation', 'actions', 'formatting', 'view', 'settings'] as const;
   const categoryLabels: Record<string, string> = {
+    recent: 'Recent',
     navigation: 'Navigation',
     actions: 'Actions',
     formatting: 'Formatting',
@@ -307,108 +342,161 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
     settings: 'Settings',
   };
 
-  let currentIndex = 0;
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl p-0 gap-0 overflow-hidden [&>button]:hidden">
+      <DialogContent
+        className="max-w-xl p-0 gap-0 overflow-hidden [&>button]:hidden sm:max-h-[85vh] max-h-[100dvh] sm:rounded-lg rounded-none sm:top-[50%] top-0 sm:translate-y-[-50%] translate-y-0"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          inputRef.current?.focus();
+        }}
+      >
         <VisuallyHidden>
           <DialogTitle>Command Palette</DialogTitle>
         </VisuallyHidden>
 
-        {/* Search Input */}
-        <div className="flex items-center gap-3 p-4 border-b border-border">
-          <Search className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-          <input
-            type="text"
-            placeholder="Type a command or search..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            autoFocus
-            className="flex-1 bg-transparent text-foreground placeholder-muted-foreground outline-none text-base"
-          />
-          <kbd className="hidden sm:block px-2 py-1 text-xs font-mono bg-muted text-muted-foreground rounded">
-            ESC
-          </kbd>
-        </div>
+        <Command className="rounded-lg" loop shouldFilter={true}>
+          {/* Search Input */}
+          <div className="flex items-center gap-3 px-4 border-b border-border">
+            <Search className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <Command.Input
+              ref={inputRef}
+              placeholder="Type a command or search..."
+              autoFocus
+              className="flex-1 bg-transparent text-foreground placeholder-muted-foreground outline-none text-base py-4"
+            />
+            <kbd className="hidden sm:block px-2 py-1 text-xs font-mono bg-muted text-muted-foreground rounded">
+              ESC
+            </kbd>
+          </div>
 
-        {/* Commands List */}
-        <ScrollArea className="max-h-96">
-          {filteredCommands.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-muted-foreground">No commands found</p>
-            </div>
-          ) : (
-            Object.entries(groupedCommands).map(([category, cmds]) => {
-              const groupStart = currentIndex;
-              currentIndex += cmds.length;
+          {/* Commands List */}
+          <ScrollArea className="max-h-[60vh] sm:max-h-[50vh]">
+            <Command.List>
+              <Command.Empty className="p-8 text-center text-muted-foreground">
+                No commands found
+              </Command.Empty>
+
+            {/* Recent Commands */}
+            {recentCommands.length > 0 && (
+              <Command.Group heading={
+                <div className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <Clock className="h-3 w-3" />
+                  {categoryLabels.recent}
+                </div>
+              }>
+                {recentCommands.map((cmd) => (
+                  <Command.Item
+                    key={`recent-${cmd.id}`}
+                    value={`recent ${cmd.label} ${cmd.keywords?.join(' ')}`}
+                    onSelect={() => runCommand(cmd.id, cmd.action)}
+                    className="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg cursor-pointer data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary text-foreground"
+                    style={{ width: 'calc(100% - 16px)' }}
+                  >
+                    <div className="flex-shrink-0 text-muted-foreground data-[selected=true]:text-primary">
+                      {cmd.icon}
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <div className="text-sm font-medium truncate">{cmd.label}</div>
+                      {cmd.description && (
+                        <div className="text-xs text-muted-foreground truncate">{cmd.description}</div>
+                      )}
+                    </div>
+                    {cmd.shortcut && (
+                      <kbd className="hidden sm:block px-2 py-1 text-xs font-mono bg-muted text-muted-foreground rounded">
+                        {cmd.shortcut}
+                      </kbd>
+                    )}
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {/* Base Commands by Category */}
+            {categoryOrder.filter(cat => cat !== 'recent').map((category) => {
+              const commands = baseCommands.filter(cmd => cmd.category === category);
+              if (commands.length === 0) return null;
 
               return (
-                <div key={category} className="py-2">
-                  <div className="px-4 py-2">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <Command.Group
+                  key={category}
+                  heading={
+                    <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       {categoryLabels[category]}
-                    </h3>
-                  </div>
-                  {cmds.map((cmd, idx) => {
-                    const cmdIndex = groupStart + idx;
-                    const isSelected = cmdIndex === selectedIndex;
-
-                    return (
-                      <button
-                        key={cmd.id}
-                        onClick={cmd.action}
-                        onMouseEnter={() => setSelectedIndex(cmdIndex)}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg transition-colors ${
-                          isSelected
-                            ? 'bg-primary/10 text-primary'
-                            : 'text-foreground hover:bg-accent'
-                        }`}
-                        style={{ width: 'calc(100% - 16px)' }}
-                      >
-                        <div className={`flex-shrink-0 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
-                          {cmd.icon}
-                        </div>
-                        <div className="flex-1 text-left min-w-0">
-                          <div className="text-sm font-medium truncate">{cmd.label}</div>
-                          {cmd.description && (
-                            <div className="text-xs text-muted-foreground truncate">{cmd.description}</div>
-                          )}
-                        </div>
-                        {cmd.shortcut && (
-                          <kbd className="hidden sm:block px-2 py-1 text-xs font-mono bg-muted text-muted-foreground rounded">
-                            {cmd.shortcut.replace('Cmd', '⌘')}
-                          </kbd>
+                    </div>
+                  }
+                >
+                  {commands.map((cmd) => (
+                    <Command.Item
+                      key={cmd.id}
+                      value={`${cmd.label} ${cmd.description || ''} ${cmd.keywords?.join(' ')}`}
+                      onSelect={() => runCommand(cmd.id, cmd.action)}
+                      className="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg cursor-pointer data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary text-foreground"
+                      style={{ width: 'calc(100% - 16px)' }}
+                    >
+                      <div className="flex-shrink-0 text-muted-foreground">
+                        {cmd.icon}
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <div className="text-sm font-medium truncate">{cmd.label}</div>
+                        {cmd.description && (
+                          <div className="text-xs text-muted-foreground truncate">{cmd.description}</div>
                         )}
-                        {isSelected && (
-                          <ChevronRight className="h-4 w-4 flex-shrink-0 text-primary" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                      </div>
+                      {cmd.shortcut && (
+                        <kbd className="hidden sm:block px-2 py-1 text-xs font-mono bg-muted text-muted-foreground rounded">
+                          {cmd.shortcut}
+                        </kbd>
+                      )}
+                    </Command.Item>
+                  ))}
+                </Command.Group>
               );
-            })
-          )}
-        </ScrollArea>
+            })}
 
-        {/* Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/30">
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-muted rounded font-mono">↑↓</kbd>
-              Navigate
-            </span>
-            <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-muted rounded font-mono">↵</kbd>
-              Select
-            </span>
+            {/* Screenplays */}
+            {screenplayCommands.length > 0 && (
+              <Command.Group heading={
+                <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Screenplays
+                </div>
+              }>
+                {screenplayCommands.map((cmd) => (
+                  <Command.Item
+                    key={cmd.id}
+                    value={`screenplay ${cmd.label} ${cmd.keywords?.join(' ')}`}
+                    onSelect={() => runCommand(cmd.id, cmd.action)}
+                    className="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg cursor-pointer data-[selected=true]:bg-primary/10 data-[selected=true]:text-primary text-foreground"
+                    style={{ width: 'calc(100% - 16px)' }}
+                  >
+                    <div className="flex-shrink-0 text-muted-foreground">
+                      {cmd.icon}
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <div className="text-sm font-medium truncate">{cmd.label}</div>
+                      <div className="text-xs text-muted-foreground truncate">{cmd.description}</div>
+                    </div>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+            </Command.List>
+          </ScrollArea>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/30">
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <kbd className="px-1.5 py-0.5 bg-muted rounded font-mono">↑↓</kbd>
+                Navigate
+              </span>
+              <span className="flex items-center gap-1">
+                <kbd className="px-1.5 py-0.5 bg-muted rounded font-mono">↵</kbd>
+                Select
+              </span>
+            </div>
           </div>
-          <span className="text-xs text-muted-foreground">
-            {filteredCommands.length} commands
-          </span>
-        </div>
+        </Command>
       </DialogContent>
     </Dialog>
   );

@@ -17,6 +17,7 @@ import {
   Camera,
 } from 'lucide-react'
 import { EditProfileDialog } from '@/components/edit-profile-dialog'
+import { ConnectButton } from '@/components/connect-button'
 import {
   ProfileBanner,
   ProfileAvatar,
@@ -192,8 +193,8 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Edit Button - Twitter-style pill button */}
-            {isOwnProfile && (
+            {/* Edit Button or Connect Button */}
+            {isOwnProfile ? (
               <Button
                 onClick={() => setEditDialogOpen(true)}
                 variant="outline"
@@ -202,6 +203,8 @@ export default function ProfilePage() {
                 <Edit className="h-4 w-4 mr-2" />
                 Edit profile
               </Button>
+            ) : (
+              <ConnectButton userId={userId} className="rounded-full px-5" />
             )}
           </div>
         </div>

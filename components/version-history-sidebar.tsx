@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ScreenplayVersion, VersionsResponse } from '@/types/version';
+import { ScreenplayVersion, VersionsResponse, REVISION_COLOR_MAP, RevisionColor } from '@/types/version';
 import {
   Clock,
   History,
@@ -221,18 +221,52 @@ export function VersionHistorySidebar({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {versions.map((version) => (
+                  {versions.map((version) => {
+                    const revisionColorInfo = version.revisionColor
+                      ? REVISION_COLOR_MAP[version.revisionColor as RevisionColor]
+                      : null;
+
+                    return (
                     <div
                       key={version.id}
-                      className="border rounded-lg p-3 hover:bg-muted/50 transition-colors"
+                      className="border rounded-lg p-3 hover:bg-muted/50 transition-colors relative overflow-hidden"
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      {/* Revision color indicator strip */}
+                      {revisionColorInfo && (
+                        <div
+                          className="absolute left-0 top-0 bottom-0 w-1"
+                          style={{ backgroundColor: revisionColorInfo.hex }}
+                        />
+                      )}
+                      <div className="flex items-start justify-between gap-2 pl-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
+                            {/* Revision color dot */}
+                            {revisionColorInfo && (
+                              <div
+                                className="w-3 h-3 rounded-full border border-border shrink-0"
+                                style={{ backgroundColor: revisionColorInfo.hex }}
+                                title={`${revisionColorInfo.name} revision`}
+                              />
+                            )}
                             <span className="font-medium text-sm">
                               Version {version.versionNumber}
                             </span>
                             {getReasonBadge(version.reason)}
+                            {/* Revision color name badge */}
+                            {revisionColorInfo && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] px-1.5 py-0"
+                                style={{
+                                  backgroundColor: revisionColorInfo.hex,
+                                  borderColor: revisionColorInfo.hex === '#ffffff' ? undefined : revisionColorInfo.hex,
+                                  color: ['white', 'yellow', 'buff'].includes(version.revisionColor || '') ? '#1f2937' : undefined
+                                }}
+                              >
+                                {revisionColorInfo.name}
+                              </Badge>
+                            )}
                           </div>
 
                           {editingLabel === version.id ? (
@@ -337,7 +371,8 @@ export function VersionHistorySidebar({
                         </div>
                       </div>
                     </div>
-                  ))}
+                  );
+                  })}
 
                   {hasMore && (
                     <Button

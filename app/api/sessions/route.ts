@@ -49,31 +49,31 @@ export async function POST(request: NextRequest) {
     })
 
     if (stats) {
-      const lastWrite = stats.lastWriteDate
-        ? new Date(stats.lastWriteDate)
-        : null
-
-      if (lastWrite) {
-        lastWrite.setHours(0, 0, 0, 0)
-      }
-
       const yesterday = new Date(today)
       yesterday.setDate(yesterday.getDate() - 1)
 
-      let newStreak = stats.currentStreak
+      // Normalize lastWrite to start of day for comparison
+      const lastWriteDay = stats.lastWriteDate
+        ? new Date(new Date(stats.lastWriteDate).setHours(0, 0, 0, 0)).getTime()
+        : null
 
-      // If last write was yesterday or today, continue/maintain streak
-      if (!lastWrite || lastWrite < yesterday) {
-        // Starting fresh or continuing from yesterday
-        newStreak = lastWrite && lastWrite.getTime() === yesterday.getTime()
-          ? stats.currentStreak + 1
-          : 1
-      } else if (lastWrite.getTime() === today.getTime()) {
-        // Already wrote today, keep streak
+      const todayTime = today.getTime()
+      const yesterdayTime = yesterday.getTime()
+
+      let newStreak: number
+
+      if (!lastWriteDay) {
+        // First ever session
+        newStreak = 1
+      } else if (lastWriteDay === todayTime) {
+        // Already wrote today - keep streak
         newStreak = stats.currentStreak
-      } else if (lastWrite.getTime() === yesterday.getTime()) {
-        // First session today after yesterday, increment
+      } else if (lastWriteDay === yesterdayTime) {
+        // Wrote yesterday, this is first session today - increment streak
         newStreak = stats.currentStreak + 1
+      } else {
+        // Missed days (lastWrite is before yesterday), reset to 1
+        newStreak = 1
       }
 
       await prisma.userStats.update({

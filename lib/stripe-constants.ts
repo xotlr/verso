@@ -2,26 +2,36 @@
  * Stripe Product and Price IDs for Verso
  *
  * Configure these price IDs in your environment variables:
+ * - NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID
+ * - NEXT_PUBLIC_STRIPE_PLUS_YEARLY_PRICE_ID
  * - NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID
  * - NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID
- * - NEXT_PUBLIC_STRIPE_TEAM_MONTHLY_PRICE_ID
- * - NEXT_PUBLIC_STRIPE_TEAM_YEARLY_PRICE_ID
+ * - NEXT_PUBLIC_STRIPE_MAX_MONTHLY_PRICE_ID
+ * - NEXT_PUBLIC_STRIPE_MAX_YEARLY_PRICE_ID
  */
 
 export const STRIPE_PLANS = {
+  plus: {
+    name: "Plus",
+    monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID || "",
+    yearlyPriceId: process.env.NEXT_PUBLIC_STRIPE_PLUS_YEARLY_PRICE_ID || "",
+    monthlyPrice: 12.99,
+    yearlyPrice: 99.99,
+  },
   pro: {
     name: "Pro",
     monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID || "",
     yearlyPriceId: process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID || "",
-    monthlyPrice: 12.99,
-    yearlyPrice: 99.99,
+    monthlyPrice: 29.99,
+    yearlyPrice: 249.99,
   },
-  team: {
-    name: "MAX",
-    monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_TEAM_MONTHLY_PRICE_ID || "",
-    yearlyPriceId: process.env.NEXT_PUBLIC_STRIPE_TEAM_YEARLY_PRICE_ID || "",
-    monthlyPrice: 39.99,
-    yearlyPrice: 399.99,
+  max: {
+    name: "Max",
+    monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_MAX_MONTHLY_PRICE_ID || "",
+    yearlyPriceId: process.env.NEXT_PUBLIC_STRIPE_MAX_YEARLY_PRICE_ID || "",
+    monthlyPrice: 99.99,
+    yearlyPrice: 899.99,
+    perUser: true,
   },
 } as const
 

@@ -57,10 +57,10 @@ function StatItem({ icon, value, suffix = "", label, delay = 0 }: StatItemProps)
   return (
     <div
       ref={ref}
-      className="flex flex-col items-center text-center space-y-2 sm:space-y-3 p-4 sm:p-6 rounded-xl transition-all duration-normal hover:bg-accent/30"
+      className="flex flex-col items-center text-center space-y-2 sm:space-y-3 p-4 sm:p-6 rounded-xl transition-all duration-normal hover:bg-primary-foreground/10"
       style={{ transitionDelay: `${delay}ms` }}
     >
-      <div className="p-2 sm:p-3 rounded-full bg-primary/10 text-primary icon-float">
+      <div className="p-2 sm:p-3 rounded-full bg-primary-foreground/10 text-primary-foreground icon-float">
         {icon}
       </div>
       <div className="space-y-0.5 sm:space-y-1">
@@ -68,7 +68,7 @@ function StatItem({ icon, value, suffix = "", label, delay = 0 }: StatItemProps)
           {count.toLocaleString()}
           {suffix}
         </div>
-        <p className="text-xs sm:text-sm text-muted-foreground">{label}</p>
+        <p className="text-xs sm:text-sm opacity-70">{label}</p>
       </div>
     </div>
   )
@@ -76,13 +76,13 @@ function StatItem({ icon, value, suffix = "", label, delay = 0 }: StatItemProps)
 
 export function StatsSection() {
   return (
-    <section className="py-16 sm:py-24 bg-muted/20">
+    <section className="py-16 sm:py-24 bg-primary text-primary-foreground">
       <div className="container max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium">
             Trusted by storytellers worldwide
           </h2>
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4 sm:px-0">
+          <p className="text-base sm:text-lg opacity-80 max-w-2xl mx-auto px-4 sm:px-0">
             Join thousands of screenwriters bringing their stories to life with Verso
           </p>
         </div>

@@ -6,11 +6,12 @@ import { z } from "zod"
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
 // Plan limits for screenplay creation
-const PLAN_LIMITS = {
+const PLAN_LIMITS: Record<string, number> = {
   FREE: 3,
+  PLUS: 20,
   PRO: 50,
   TEAM: 100,
-} as const
+}
 
 // GET /api/screenplays - List all screenplays for the user (standalone and in projects)
 export async function GET(request: Request) {
@@ -110,6 +111,7 @@ export async function GET(request: Request) {
           title: true,
           content: true, // Include content to calculate wordCount
           synopsis: true,
+          logline: true,
           createdAt: true,
           updatedAt: true,
           projectId: true,
@@ -117,10 +119,14 @@ export async function GET(request: Request) {
           isFavorite: true,
           lastOpenedAt: true,
           genre: true,
+          author: true,
           project: {
             select: { id: true, name: true },
           },
           team: {
+            select: { id: true, name: true },
+          },
+          user: {
             select: { id: true, name: true },
           },
         },

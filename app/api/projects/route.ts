@@ -6,11 +6,21 @@ import { z } from "zod"
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
 // Plan limits for project (workspace) creation
-const PLAN_LIMITS = {
+const PLAN_LIMITS: Record<string, number> = {
   FREE: 1,
+  PLUS: 5,
   PRO: 10,
   TEAM: 25,
-} as const
+}
+
+// Default role slots created for new projects
+const DEFAULT_PROJECT_ROLES = [
+  "director",
+  "writer",
+  "producer",
+  "cinematographer",
+  "editor",
+] as const
 
 // GET /api/projects - List all projects (workspaces) for the user
 export async function GET(request: Request) {
@@ -89,6 +99,12 @@ export async function GET(request: Request) {
             },
           },
           orderBy: { role: "asc" },
+        },
+        // Include first 3 screenplays for folder preview
+        screenplays: {
+          take: 3,
+          select: { id: true, title: true },
+          orderBy: { updatedAt: "desc" },
         },
         _count: {
           select: {
@@ -215,6 +231,16 @@ export async function POST(request: Request) {
         userId: session.user.id,
         teamId: teamId || null,
       },
+    })
+
+    // Create default unfilled role slots for the project
+    await prisma.projectRole.createMany({
+      data: DEFAULT_PROJECT_ROLES.map((role) => ({
+        projectId: project.id,
+        role,
+        name: "Unfilled",
+        userId: null,
+      })),
     })
 
     // Create activity record

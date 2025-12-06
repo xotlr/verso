@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileHeaderMenu } from "@/components/mobile-header-menu";
 import { EditableTitle } from "@/components/editable-title";
-import { Search, Bell, Settings } from "lucide-react";
+import { Search, Bell, Settings, ArrowLeft } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 
@@ -105,6 +105,7 @@ interface AppHeaderProps {
 export function AppHeader({ className }: AppHeaderProps) {
   const pathname = usePathname();
   const [dynamicTitle, setDynamicTitle] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Listen for screenplay title updates
   useEffect(() => {
@@ -127,9 +128,21 @@ export function AppHeader({ className }: AppHeaderProps) {
   const breadcrumbs = getBreadcrumbs(pathname, dynamicTitle);
   const pageTitle = getPageTitle(pathname);
 
+  // Check if on a detail/editor page where we should show back button on mobile
+  const isDetailPage = pathname.startsWith("/screenplay/") ||
+                       pathname.startsWith("/board/") ||
+                       pathname.startsWith("/cards/") ||
+                       pathname.startsWith("/visualization/") ||
+                       pathname.startsWith("/graph/") ||
+                       pathname.startsWith("/shotlist/") ||
+                       pathname.startsWith("/project/") ||
+                       pathname.startsWith("/read/") ||
+                       pathname.startsWith("/profile/") ||
+                       pathname.startsWith("/team/");
+
   return (
     <header className={cn(
-      "sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4",
+      "sticky top-0 z-[60] flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4",
       className
     )}>
       {/* Desktop only: sidebar trigger */}
@@ -166,14 +179,25 @@ export function AppHeader({ className }: AppHeaderProps) {
         </BreadcrumbList>
       </Breadcrumb>
 
-      {/* Mobile: Logo on left */}
-      <Link href="/home" className="md:hidden">
-        <Logo size={32} />
-      </Link>
+      {/* Mobile: Logo or Back button on left */}
+      {isDetailPage ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden h-9 w-9 -ml-1"
+          onClick={() => window.history.back()}
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+      ) : (
+        <Link href="/home" className="md:hidden">
+          <Logo size={32} />
+        </Link>
+      )}
 
-      {/* Mobile: Page title - truly centered */}
+      {/* Mobile: Page title - shows "Menu" when menu is open */}
       <div className="md:hidden flex-1 text-center">
-        <span className="font-semibold text-sm">{pageTitle}</span>
+        <span className="font-semibold text-sm">{menuOpen ? "Menu" : pageTitle}</span>
       </div>
 
       {/* Desktop: Individual action buttons */}
@@ -200,7 +224,7 @@ export function AppHeader({ className }: AppHeaderProps) {
 
       {/* Mobile: Right-side menu */}
       <div className="md:hidden">
-        <MobileHeaderMenu />
+        <MobileHeaderMenu open={menuOpen} onOpenChange={setMenuOpen} />
       </div>
     </header>
   );

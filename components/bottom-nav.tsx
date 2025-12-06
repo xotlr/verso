@@ -5,8 +5,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import {
-  Home,
-  FileText,
   PenTool,
   BarChart3,
   Rows3,
@@ -14,7 +12,10 @@ import {
   TrendingUp,
   Plus,
   FolderPlus,
+  FileText,
 } from 'lucide-react';
+import { TbHome, TbHomeFilled } from 'react-icons/tb';
+import { PiFilmScript, PiFilmScriptFill } from 'react-icons/pi';
 import { cn } from '@/lib/utils';
 import {
   Drawer,
@@ -104,20 +105,18 @@ export function BottomNav() {
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          <Home className={cn(
-            "h-5 w-5 transition-all duration-300",
-            isActive('/home')
-              ? "fill-primary stroke-primary scale-105"
-              : "fill-none stroke-current",
-            "group-active:scale-90"
-          )} />
+          {isActive('/home') ? (
+            <TbHomeFilled className="h-5 w-5 transition-all duration-300 scale-105 group-active:scale-90" />
+          ) : (
+            <TbHome className="h-5 w-5 transition-all duration-300 group-active:scale-90" />
+          )}
           <span className="text-[10px] font-medium">Home</span>
           {isActive('/home') && (
             <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
           )}
         </Link>
 
-        {/* Files */}
+        {/* Scripts */}
         <Link
           href="/screenplays"
           className={cn(
@@ -128,14 +127,12 @@ export function BottomNav() {
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          <FileText className={cn(
-            "h-5 w-5 transition-all duration-300",
-            isActive('/screenplays')
-              ? "fill-primary stroke-primary scale-105"
-              : "fill-none stroke-current",
-            "group-active:scale-90"
-          )} />
-          <span className="text-[10px] font-medium">Files</span>
+          {isActive('/screenplays') ? (
+            <PiFilmScriptFill className="h-5 w-5 transition-all duration-300 scale-105 group-active:scale-90" />
+          ) : (
+            <PiFilmScript className="h-5 w-5 transition-all duration-300 group-active:scale-90" />
+          )}
+          <span className="text-[10px] font-medium">Scripts</span>
           {isActive('/screenplays') && (
             <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
           )}

@@ -1,15 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TemplateSelector } from '@/components/template-selector';
-import { FilterChips, Filters } from '@/components/screenplays/filter-chips';
+import { PageLayout } from '@/components/layouts/page-layout';
+import { ListPageToolbar, FilterPill, SORT_OPTIONS } from '@/components/ui/list-page-toolbar';
+import { ScreenplayListCard, ScreenplayListCardSkeleton } from '@/components/screenplay-list-card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,29 +21,24 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
-  Search,
-  Clock,
-  MoreHorizontal,
-  Trash2,
-  Edit3,
-  Download,
   Star,
   Plus,
-  Film,
-  Folder,
+  ChevronDown,
+  Clock,
 } from 'lucide-react';
+import { PiFilmScript } from 'react-icons/pi';
+import { RiFolder6Line } from 'react-icons/ri';
 
 interface Screenplay {
   id: string;
   title: string;
   synopsis: string | null;
+  logline?: string | null;
   updatedAt: string;
   createdAt: string;
   projectId: string | null;
@@ -51,8 +46,17 @@ interface Screenplay {
   isFavorite: boolean;
   lastOpenedAt: string | null;
   genre: string | null;
+  wordCount?: number;
   project: { id: string; name: string } | null;
   team: { id: string; name: string } | null;
+}
+
+interface Filters {
+  favorites: boolean;
+  recent: boolean;
+  standalone: boolean;
+  hasProject: boolean;
+  genre: string | null;
 }
 
 function ScreenplaysContent() {
@@ -222,6 +226,31 @@ function ScreenplaysContent() {
     window.history.replaceState(null, '', newUrl);
   }, [filters]);
 
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.favorites) count++;
+    if (filters.recent) count++;
+    if (filters.standalone) count++;
+    if (filters.hasProject) count++;
+    if (filters.genre) count++;
+    return count;
+  }, [filters]);
+
+  const clearFilters = () => {
+    setFilters({
+      favorites: false,
+      recent: false,
+      standalone: false,
+      hasProject: false,
+      genre: null,
+    });
+  };
+
+  const toggleFilter = (key: keyof Omit<Filters, 'genre'>) => {
+    setFilters({ ...filters, [key]: !filters[key] });
+  };
+
   return (
     <>
       <TemplateSelector
@@ -249,213 +278,206 @@ function ScreenplaysContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <main className="flex-1 overflow-auto bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header */}
-          <div className="mb-8 space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-1 flex items-center gap-3">
-                  <Film className="h-8 w-8" />
-                  Screenplays
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  {filteredScreenplays.length} screenplay{filteredScreenplays.length !== 1 ? 's' : ''}
-                  {searchQuery || Object.values(filters).some(Boolean) ? ' (filtered)' : ''}
-                </p>
-              </div>
-              <Button onClick={() => setTemplateOpen(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                New Screenplay
-              </Button>
-            </div>
-
-            {/* Search */}
-            <div className="relative max-w-md">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search screenplays..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-2 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring text-foreground placeholder-muted-foreground transition-all"
+      <PageLayout
+        title="Screenplays"
+        description={`${filteredScreenplays.length} screenplay${filteredScreenplays.length !== 1 ? 's' : ''}${searchQuery || activeFilterCount > 0 ? ' (filtered)' : ''}`}
+        actions={
+          <Button onClick={() => setTemplateOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New Screenplay</span>
+            <span className="sm:hidden">New</span>
+          </Button>
+        }
+      >
+        {/* Search and Filters */}
+        <ListPageToolbar
+          search={{
+            value: searchQuery,
+            onChange: setSearchQuery,
+            placeholder: 'Search screenplays...',
+          }}
+          filters={
+            <>
+              <FilterPill
+                active={filters.favorites}
+                onClick={() => toggleFilter('favorites')}
+                icon={<Star className={`h-3.5 w-3.5 ${filters.favorites ? 'fill-current' : ''}`} />}
+                label="Favorites"
+                activeColor="yellow"
               />
-            </div>
+              <FilterPill
+                active={filters.recent}
+                onClick={() => toggleFilter('recent')}
+                icon={<Clock className="h-3.5 w-3.5" />}
+                label="Recent"
+                activeColor="blue"
+              />
+              <FilterPill
+                active={filters.standalone}
+                onClick={() => toggleFilter('standalone')}
+                icon={<PiFilmScript className="h-3.5 w-3.5" />}
+                label="Standalone"
+                activeColor="green"
+              />
+              <FilterPill
+                active={filters.hasProject}
+                onClick={() => toggleFilter('hasProject')}
+                icon={<RiFolder6Line className="h-3.5 w-3.5" />}
+                label="In Project"
+                activeColor="purple"
+              />
 
-            {/* Filter chips */}
-            <FilterChips
-              filters={filters}
-              genres={genres}
-              onChange={setFilters}
-            />
-          </div>
+              {/* Genre dropdown */}
+              {genres.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                        filters.genre
+                          ? 'bg-primary/20 text-primary border-primary/30'
+                          : 'bg-muted hover:bg-muted/80 text-muted-foreground border-transparent'
+                      }`}
+                    >
+                      {filters.genre || 'Genre'}
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-1" align="start">
+                    <button
+                      onClick={() => setFilters({ ...filters, genre: null })}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
+                        !filters.genre ? 'bg-accent' : 'hover:bg-accent'
+                      }`}
+                    >
+                      All Genres
+                    </button>
+                    {genres.map((genre) => (
+                      <button
+                        key={genre}
+                        onClick={() => setFilters({ ...filters, genre })}
+                        className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
+                          filters.genre === genre ? 'bg-accent' : 'hover:bg-accent'
+                        }`}
+                      >
+                        {genre}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              )}
 
-          {/* Content Grid */}
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-card rounded-xl border border-border/60 p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <Skeleton className="h-5 w-3/4 mb-2" />
-                      <Skeleton className="h-3 w-1/3" />
-                    </div>
-                  </div>
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-4 w-2/3 mb-4" />
-                  <Skeleton className="h-5 w-20" />
-                </div>
-              ))}
-            </div>
-          ) : filteredScreenplays.length === 0 ? (
-            <EmptyState
-              icon={<Film className="h-8 w-8 text-muted-foreground" />}
-              title={searchQuery || Object.values(filters).some(Boolean) ? 'No screenplays found' : 'No screenplays yet'}
-              description={
-                searchQuery || Object.values(filters).some(Boolean)
-                  ? 'Try adjusting your filters or search'
-                  : 'Create your first screenplay to get started'
-              }
-              action={
-                !searchQuery && !Object.values(filters).some(Boolean)
-                  ? {
-                      label: 'Create Screenplay',
-                      onClick: () => setTemplateOpen(true),
-                      icon: <Plus className="h-5 w-5" />,
-                    }
-                  : undefined
-              }
-            />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredScreenplays.map((screenplay) => (
-                <div
-                  key={screenplay.id}
-                  className="group relative bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200 overflow-hidden"
+              {/* Clear filters */}
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={clearFilters}
+                  className="text-xs text-muted-foreground hover:text-foreground"
                 >
-                  <Link href={`/screenplay/${screenplay.id}`}>
-                    <div className="p-5 cursor-pointer">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <Film className="h-4 w-4 text-primary flex-shrink-0" />
-                            <h3 className="text-base font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-                              {screenplay.title}
-                            </h3>
-                            {screenplay.isFavorite && (
-                              <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500 flex-shrink-0" />
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span>
-                              {formatDistanceToNow(new Date(screenplay.updatedAt), { addSuffix: true })}
-                            </span>
-                            {screenplay.project && (
-                              <>
-                                <span className="text-border">|</span>
-                                <Folder className="h-3 w-3" />
-                                <span className="truncate max-w-[100px]">{screenplay.project.name}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                              className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                            >
-                              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => router.push(`/screenplay/${screenplay.id}`)}>
-                              <Edit3 className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => toggleFavorite(screenplay.id, screenplay.isFavorite)}>
-                              <Star className={`mr-2 h-4 w-4 ${screenplay.isFavorite ? 'fill-current' : ''}`} />
-                              {screenplay.isFavorite ? 'Unfavorite' : 'Favorite'}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportScreenplay(screenplay)}>
-                              <Download className="mr-2 h-4 w-4" />
-                              Export
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => setDeleteTarget(screenplay.id)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                  Clear ({activeFilterCount})
+                </button>
+              )}
+            </>
+          }
+          className="mb-6"
+        />
 
-                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
-                        {screenplay.synopsis || 'No synopsis'}
-                      </p>
-
-                      <div className="flex items-center gap-2">
-                        {screenplay.genre && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                            {screenplay.genre}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
+        {/* Content Grid */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="min-h-[140px] sm:min-h-[180px] bg-card rounded-xl border border-border/60 p-3 sm:p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <Skeleton className="h-5 w-3/4 mb-2" />
+                    <Skeleton className="h-3 w-1/3" />
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
+                <Skeleton className="h-4 w-full mb-2" />
+                <Skeleton className="h-4 w-2/3 mb-4" />
+                <Skeleton className="h-5 w-20" />
+              </div>
+            ))}
+          </div>
+        ) : filteredScreenplays.length === 0 ? (
+          <EmptyState
+            icon={<PiFilmScript className="h-8 w-8 text-muted-foreground" />}
+            title={searchQuery || activeFilterCount > 0 ? 'No screenplays found' : 'No screenplays yet'}
+            description={
+              searchQuery || activeFilterCount > 0
+                ? 'Try adjusting your filters or search'
+                : 'Create your first screenplay to get started'
+            }
+            action={
+              !searchQuery && activeFilterCount === 0
+                ? {
+                    label: 'Create Screenplay',
+                    onClick: () => setTemplateOpen(true),
+                    icon: <Plus className="h-5 w-5" />,
+                  }
+                : undefined
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+            {filteredScreenplays.map((screenplay) => (
+              <ScreenplayListCard
+                key={screenplay.id}
+                screenplay={{
+                  id: screenplay.id,
+                  title: screenplay.title,
+                  logline: screenplay.logline,
+                  synopsis: screenplay.synopsis,
+                  updatedAt: screenplay.updatedAt,
+                  wordCount: screenplay.wordCount,
+                  genre: screenplay.genre,
+                  isFavorite: screenplay.isFavorite,
+                  project: screenplay.project,
+                }}
+                href={`/screenplay/${screenplay.id}`}
+                showFavorite={true}
+                showGenre={true}
+                showProject={false}
+                showWordCount={false}
+                onEdit={() => router.push(`/screenplay/${screenplay.id}`)}
+                onToggleFavorite={() => toggleFavorite(screenplay.id, screenplay.isFavorite)}
+                onExport={() => exportScreenplay(screenplay)}
+                onDelete={() => setDeleteTarget(screenplay.id)}
+              />
+            ))}
+          </div>
+        )}
+      </PageLayout>
     </>
   );
 }
 
 function ScreenplaysLoading() {
   return (
-    <main className="flex-1 overflow-auto bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8 space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <Skeleton className="h-9 w-48 mb-2" />
-              <Skeleton className="h-4 w-24" />
-            </div>
-            <Skeleton className="h-10 w-36" />
+    <PageLayout>
+      <div className="mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <Skeleton className="h-8 sm:h-9 w-48 mb-2" />
+            <Skeleton className="h-4 w-24" />
           </div>
-          <Skeleton className="h-10 w-80" />
-          <div className="flex gap-2">
-            <Skeleton className="h-8 w-24" />
-            <Skeleton className="h-8 w-20" />
-            <Skeleton className="h-8 w-28" />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-card rounded-xl border border-border/60 p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <Skeleton className="h-5 w-3/4 mb-2" />
-                  <Skeleton className="h-3 w-1/3" />
-                </div>
-              </div>
-              <Skeleton className="h-4 w-full mb-2" />
-              <Skeleton className="h-4 w-2/3 mb-4" />
-              <Skeleton className="h-5 w-20" />
-            </div>
-          ))}
+          <Skeleton className="h-10 w-36" />
         </div>
       </div>
-    </main>
+      <div className="mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <Skeleton className="h-10 w-full max-w-md" />
+          <div className="flex gap-2">
+            <Skeleton className="h-8 w-24 rounded-full" />
+            <Skeleton className="h-8 w-20 rounded-full" />
+            <Skeleton className="h-8 w-28 rounded-full" />
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+        {[1, 2, 3].map((i) => (
+          <ScreenplayListCardSkeleton key={i} />
+        ))}
+      </div>
+    </PageLayout>
   );
 }
 

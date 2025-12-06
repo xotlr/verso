@@ -112,7 +112,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         </div>
 
         <SidebarInset className={cn(
-          "flex flex-col h-screen transition-all duration-500 ease-out",
+          "flex flex-col h-screen transition-all duration-500 ease-out overflow-x-hidden",
           focusMode && "!ml-0"
         )}>
           {/* Header - hidden in focus mode */}

@@ -346,9 +346,13 @@ export function ProjectRolesManager({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Team</h3>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Team
+          </h3>
           <p className="text-sm text-muted-foreground">
-            {roles.length} member{roles.length !== 1 ? 's' : ''}
+            {roles.filter((r) => r.userId !== null).length} member{roles.filter((r) => r.userId !== null).length !== 1 ? 's' : ''}
+            {roles.filter((r) => r.userId === null).length > 0 && ` · ${roles.filter((r) => r.userId === null).length} unfilled`}
             {pendingInvites.length > 0 && ` · ${pendingInvites.length} pending`}
           </p>
         </div>
@@ -387,11 +391,13 @@ export function ProjectRolesManager({
             </Select>
 
             <div className="relative flex-1" ref={dropdownRef}>
-              <Input
-                ref={inputRef}
-                placeholder="Search users or enter email..."
-                value={newRole.name}
-                onChange={(e) => setNewRole((prev) => ({ ...prev, name: e.target.value }))}
+              <div className="relative">
+                <Input
+                  ref={inputRef}
+                  placeholder="Search users or enter email..."
+                  value={newRole.name}
+                  onChange={(e) => setNewRole((prev) => ({ ...prev, name: e.target.value }))}
+                  className={cn(newRole.name.trim() && "pr-8")}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && newRole.role && newRole.name.trim()) {
                     e.preventDefault();
@@ -416,7 +422,20 @@ export function ProjectRolesManager({
                   }
                 }}
                 autoFocus
-              />
+                />
+                {/* Auto-detect indicator */}
+                {newRole.name.trim() && (
+                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                    {inputIsEmail ? (
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                    ) : searchResults.length > 0 ? (
+                      <Users className="h-4 w-4 text-primary" />
+                    ) : (
+                      <User className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* User search dropdown */}
               {showDropdown && searchResults.length > 0 && (
@@ -428,9 +447,9 @@ export function ProjectRolesManager({
                       className="w-full flex items-center gap-3 px-3 py-2 hover:bg-muted transition-colors text-left"
                       onClick={() => selectUser(user)}
                     >
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={user.image || undefined} />
-                        <AvatarFallback className="text-xs">
+                      <Avatar className="h-8 w-8 rounded-md">
+                        <AvatarImage src={user.image || undefined} className="rounded-md" />
+                        <AvatarFallback className="text-xs rounded-md">
                           {(user.name || user.email).charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
@@ -537,7 +556,7 @@ export function ProjectRolesManager({
                   className="group flex items-center justify-between px-4 py-3"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
+                    <div className="h-9 w-9 rounded-md bg-muted flex items-center justify-center">
                       <Mail className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div>
@@ -591,55 +610,110 @@ export function ProjectRolesManager({
           }}
         />
       ) : roles.length > 0 ? (
-        <div className="border border-border rounded-lg divide-y divide-border">
-          {roles.map((role) => {
-            const Icon = getRoleIcon(role.role);
-            const colorClass = getRoleColor(role.role);
-            return (
-              <div
-                key={role.id}
-                className="group flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  {role.user ? (
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage src={role.user.image || undefined} />
-                      <AvatarFallback className="text-sm font-medium">
-                        {role.name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  ) : (
-                    <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        {role.name.charAt(0).toUpperCase()}
-                      </span>
+        <>
+          {/* Filled Roles */}
+          {roles.filter((r) => r.userId !== null).length > 0 && (
+            <div className="border border-border rounded-lg divide-y divide-border">
+              {roles.filter((r) => r.userId !== null).map((role) => {
+                const Icon = getRoleIcon(role.role);
+                const colorClass = getRoleColor(role.role);
+                return (
+                  <div
+                    key={role.id}
+                    className="group flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9 rounded-md">
+                        <AvatarImage src={role.user?.image || undefined} className="rounded-md" />
+                        <AvatarFallback className="text-sm font-medium rounded-md">
+                          {role.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium text-sm flex items-center gap-2">
+                          {role.name}
+                          {role.userId === session?.user?.id && (
+                            <Badge variant="secondary" className="text-xs">You</Badge>
+                          )}
+                        </div>
+                        <div className={cn('flex items-center gap-1.5 text-xs', colorClass)}>
+                          <Icon className="h-3 w-3" />
+                          {getRoleLabel(role.role)}
+                        </div>
+                      </div>
                     </div>
-                  )}
-                  <div>
-                    <div className="font-medium text-sm flex items-center gap-2">
-                      {role.name}
-                      {role.userId === session?.user?.id && (
-                        <Badge variant="secondary" className="text-xs">You</Badge>
-                      )}
-                    </div>
-                    <div className={cn('flex items-center gap-1.5 text-xs', colorClass)}>
-                      <Icon className="h-3 w-3" />
-                      {getRoleLabel(role.role)}
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => deleteRole(role.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => deleteRole(role.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Unfilled Roles */}
+          {roles.filter((r) => r.userId === null).length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Unfilled Roles
+              </h4>
+              <div className="border border-dashed border-border rounded-lg divide-y divide-dashed divide-border">
+                {roles.filter((r) => r.userId === null).map((role) => {
+                  const Icon = getRoleIcon(role.role);
+                  const colorClass = getRoleColor(role.role);
+                  return (
+                    <div
+                      key={role.id}
+                      className="group flex items-center justify-between px-4 py-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-md border-2 border-dashed border-border flex items-center justify-center bg-muted/30">
+                          <Icon className={cn('h-4 w-4', colorClass)} />
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm text-muted-foreground">
+                            {getRoleLabel(role.role)}
+                          </div>
+                          <div className="text-xs text-muted-foreground/70">
+                            Looking for talent
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => {
+                            setNewRole({ role: role.role, name: '' });
+                            setIsAdding(true);
+                          }}
+                        >
+                          <UserPlus className="h-3.5 w-3.5 mr-1" />
+                          Assign
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteRole(role.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          )}
+        </>
       ) : null}
     </div>
   );

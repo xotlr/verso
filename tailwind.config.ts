@@ -120,6 +120,14 @@ const config: Config = {
   			bounce: 'var(--ease-bounce)'
   		},
   		keyframes: {
+  			'shimmer': {
+  				'0%': {
+  					transform: 'translateX(-100%)'
+  				},
+  				'100%': {
+  					transform: 'translateX(100%)'
+  				}
+  			},
   			'fade-in': {
   				from: {
   					opacity: '0'
@@ -168,6 +176,7 @@ const config: Config = {
   			}
   		},
   		animation: {
+  			'shimmer': 'shimmer 5s infinite',
   			'fade-in': 'fade-in var(--duration-normal) var(--ease-out)',
   			'fade-out': 'fade-out var(--duration-normal) var(--ease-out)',
   			'slide-up': 'slide-up var(--duration-normal) var(--ease-out)',

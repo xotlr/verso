@@ -93,8 +93,8 @@ export function ImportDropZone({
   return (
     <div
       className={cn(
-        'relative rounded-lg border-2 border-dashed transition-all duration-200',
-        'flex flex-col items-center justify-center gap-4 p-8',
+        'relative rounded-lg border-2 border-dotted transition-all duration-200',
+        'flex flex-col items-center justify-center gap-2 sm:gap-3 p-4 sm:p-6',
         isDragging && 'border-primary bg-primary/5 scale-[1.02]',
         state === 'idle' && !isDragging && 'border-border hover:border-primary/50 hover:bg-muted/50',
         state === 'processing' && 'border-primary/50 bg-primary/5',
@@ -122,16 +122,16 @@ export function ImportDropZone({
       {/* Idle State */}
       {state === 'idle' && !isDragging && (
         <>
-          <div className="rounded-full bg-muted p-4">
-            <Upload className="h-8 w-8 text-muted-foreground" />
+          <div className="rounded-full bg-muted p-3">
+            <Upload className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
           </div>
           <div className="text-center">
-            <p className="text-lg font-medium">Drop screenplay here</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm sm:text-base font-medium">Drop screenplay here</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               or click to browse
             </p>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[10px] sm:text-xs text-muted-foreground/60 italic">
             Supports .{supportedFormats}
           </p>
         </>
@@ -140,24 +140,24 @@ export function ImportDropZone({
       {/* Dragging State */}
       {isDragging && (
         <>
-          <div className="rounded-full bg-primary/10 p-4">
-            <FileText className="h-8 w-8 text-primary animate-pulse" />
+          <div className="rounded-full bg-primary/10 p-3">
+            <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-primary animate-pulse" />
           </div>
-          <p className="text-lg font-medium text-primary">Drop to import</p>
+          <p className="text-sm sm:text-base font-medium text-primary">Drop to import</p>
         </>
       )}
 
       {/* Processing State */}
       {state === 'processing' && progress && (
         <>
-          <div className="rounded-full bg-primary/10 p-4">
-            <Loader2 className="h-8 w-8 text-primary animate-spin" />
+          <div className="rounded-full bg-primary/10 p-3">
+            <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 text-primary animate-spin" />
           </div>
-          <div className="text-center space-y-2 w-full max-w-xs">
-            <p className="text-sm font-medium">{progress.message}</p>
-            <Progress value={progress.percent} className="h-2" />
+          <div className="text-center space-y-1.5 w-full max-w-xs">
+            <p className="text-xs sm:text-sm font-medium">{progress.message}</p>
+            <Progress value={progress.percent} className="h-1.5" />
             {progress.filename && (
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                 {progress.filename}
               </p>
             )}
@@ -168,14 +168,14 @@ export function ImportDropZone({
       {/* Success State */}
       {state === 'success' && result && (
         <>
-          <div className="rounded-full bg-green-500/10 p-4">
-            <CheckCircle className="h-8 w-8 text-green-500" />
+          <div className="rounded-full bg-green-500/10 p-3">
+            <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
           </div>
           <div className="text-center">
-            <p className="text-lg font-medium text-green-600">
+            <p className="text-sm sm:text-base font-medium text-green-600">
               Import successful
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {result.scenes?.length || 0} scenes, {result.wordCount || 0} words
             </p>
           </div>
@@ -185,12 +185,12 @@ export function ImportDropZone({
       {/* Error State */}
       {state === 'error' && (
         <>
-          <div className="rounded-full bg-destructive/10 p-4">
-            <AlertCircle className="h-8 w-8 text-destructive" />
+          <div className="rounded-full bg-destructive/10 p-3">
+            <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-destructive" />
           </div>
           <div className="text-center">
-            <p className="text-lg font-medium text-destructive">Import failed</p>
-            <p className="text-sm text-muted-foreground max-w-xs">
+            <p className="text-sm sm:text-base font-medium text-destructive">Import failed</p>
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-xs">
               {error}
             </p>
           </div>

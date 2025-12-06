@@ -58,10 +58,9 @@ export default function PricingPage() {
       monthlyPrice: 0,
       yearlyPrice: 0,
       features: [
-        "Up to 3 projects",
+        "Unlimited screenplays & pages",
+        "1 project",
         "Industry-standard formatting",
-        "Index cards view",
-        "Beat board",
         "PDF export",
         "Dark mode",
       ],
@@ -75,45 +74,63 @@ export default function PricingPage() {
       priceIdYearly: undefined,
     },
     {
-      name: "Pro",
+      name: "Plus",
       description: "For serious screenwriters",
       monthlyPrice: 12.99,
       yearlyPrice: 99.99,
-      yearlyDiscount: "Save €56",
+      yearlyDiscount: "Save $56",
       features: [
         "Unlimited projects",
         "All export formats (PDF, FDX, Fountain)",
-        "Index cards view",
-        "Beat board",
+        "Index cards & beat board",
         "Character analytics",
-        "Priority support",
         "Cloud sync",
+        "Priority support",
+      ],
+      limitations: [],
+      cta: "Upgrade to Plus",
+      highlighted: true,
+      priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
+      priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PLUS_YEARLY_PRICE_ID,
+    },
+    {
+      name: "Pro",
+      description: "For writing teams",
+      monthlyPrice: 29.99,
+      yearlyPrice: 249.99,
+      yearlyDiscount: "Save $110",
+      features: [
+        "Everything in Plus",
+        "Real-time collaboration",
+        "Up to 5 team members",
+        "Version history",
+        "Comments & notes",
+        "Team workspace",
       ],
       limitations: [],
       cta: "Upgrade to Pro",
-      highlighted: true,
       priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID,
       priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID,
     },
     {
-      name: "MAX",
-      description: "For writing teams & production",
-      monthlyPrice: 39.99,
-      yearlyPrice: 399.99,
-      yearlyDiscount: "Save €80",
+      name: "Max",
+      description: "For production & studios",
+      monthlyPrice: 99.99,
+      yearlyPrice: 899.99,
+      yearlyDiscount: "Save $300",
+      perUser: true,
       features: [
         "Everything in Pro",
-        "Real-time collaboration",
-        "Up to 10 team members",
-        "Team workspace",
-        "Version history",
-        "Comments & notes",
+        "Unlimited team members",
+        "Production tools",
+        "Schedules & budgets",
         "Admin controls",
+        "Custom branding",
       ],
       limitations: [],
-      cta: "Upgrade to MAX",
-      priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_TEAM_MONTHLY_PRICE_ID,
-      priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_TEAM_YEARLY_PRICE_ID,
+      cta: "Upgrade to Max",
+      priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_MAX_MONTHLY_PRICE_ID,
+      priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_MAX_YEARLY_PRICE_ID,
     },
   ]
 
@@ -149,11 +166,11 @@ export default function PricingPage() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative p-8 rounded-2xl border ${
+              className={`relative p-6 rounded-2xl border ${
                 plan.highlighted
                   ? "border-primary bg-primary/5 shadow-xl"
                   : "bg-card"
@@ -167,16 +184,17 @@ export default function PricingPage() {
 
               <div className="mb-6">
                 <h2 className="text-2xl font-bold">{plan.name}</h2>
-                <p className="text-muted-foreground mt-1">{plan.description}</p>
+                <p className="text-muted-foreground mt-1 text-sm">{plan.description}</p>
               </div>
 
               <div className="mb-6">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-5xl font-bold">
-                    €{isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                  <span className="text-4xl font-bold">
+                    ${isYearly ? plan.yearlyPrice : plan.monthlyPrice}
                   </span>
-                  <span className="text-muted-foreground">
+                  <span className="text-muted-foreground text-sm">
                     /{isYearly ? "year" : "month"}
+                    {plan.perUser && "/user"}
                   </span>
                 </div>
                 {isYearly && plan.yearlyDiscount && (

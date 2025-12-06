@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface ClaudeAnalysisProps {
   isOpen: boolean;
@@ -113,12 +114,11 @@ export function ClaudeAnalysis({ isOpen, screenplay, onClose }: ClaudeAnalysisPr
                   <label className="block text-sm font-medium text-foreground mb-2">
                     Anthropic API Key
                   </label>
-                  <input
+                  <Input
                     type="password"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="sk-ant-..."
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   <p className="text-sm text-muted-foreground mt-1">
                     Get your API key from{' '}

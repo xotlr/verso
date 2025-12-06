@@ -15,8 +15,8 @@ export default function LandingPage() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
-        {/* Aurora Background */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden -mt-[4.5rem] pt-[4.5rem]">
+        {/* Aurora Background - extends behind navbar */}
         <div className="absolute inset-0 -z-10">
           <Aurora
             amplitude={1.4}
@@ -30,7 +30,10 @@ export default function LandingPage() {
 
         <div className="container max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-24">
           <div className="flex flex-col items-center text-center space-y-6 sm:space-y-8">
-            <Badge variant="secondary" className="font-normal text-xs sm:text-sm px-3 py-1">
+            <Badge
+              variant="secondary"
+              className="font-normal text-xs sm:text-sm px-3 py-1 relative overflow-hidden isolate before:absolute before:inset-0 before:animate-shimmer before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:mix-blend-overlay"
+            >
               Professional Screenwriting Software
             </Badge>
 
@@ -101,7 +104,7 @@ export default function LandingPage() {
 
       {/* Pricing Preview Section */}
       <section className="py-24 sm:py-32">
-        <div className="container max-w-5xl mx-auto px-4 sm:px-6">
+        <div className="container max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center space-y-4 mb-16 sm:mb-20">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium">
               Simple, transparent pricing
@@ -111,48 +114,59 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
             <PricingCard
               name="Free"
               price="$0"
               description="Perfect for getting started"
               features={[
-                "Up to 3 projects",
-                "Industry-standard formatting",
-                "Index cards & beat board",
+                "Unlimited screenplays",
+                "1 project",
                 "PDF export",
-                "Mobile editing",
+                "Dark mode",
               ]}
               cta="Get Started"
               ctaHref="/signup"
             />
             <PricingCard
-              name="Pro"
-              price="$12"
+              name="Plus"
+              price="$12.99"
               period="/month"
-              description="For serious screenwriters"
+              description="For serious writers"
               features={[
                 "Unlimited projects",
-                "All export formats (FDX, Fountain)",
-                "Version history & diff view",
-                "AI-powered analysis",
-                "Priority support",
+                "All export formats",
+                "Character analytics",
+                "Cloud sync",
               ]}
-              cta="Start Pro Trial"
+              cta="Start Plus Trial"
               ctaHref="/signup"
               highlighted
             />
             <PricingCard
-              name="Team"
-              price="$29"
+              name="Pro"
+              price="$29.99"
               period="/month"
               description="For writing teams"
               features={[
-                "Everything in Pro",
+                "Everything in Plus",
                 "Real-time collaboration",
-                "Up to 10 team members",
-                "Team workspace",
+                "Up to 5 team members",
+                "Version history",
+              ]}
+              cta="Start Pro Trial"
+              ctaHref="/signup"
+            />
+            <PricingCard
+              name="Max"
+              price="$99.99"
+              period="/user/month"
+              description="For production"
+              features={[
+                "Everything in Pro",
+                "Unlimited team",
                 "Production tools",
+                "Admin controls",
               ]}
               cta="Contact Sales"
               ctaHref="/pricing"

@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/collapsible';
 import { KeyboardShortcutsDialog } from '@/components/keyboard-shortcuts-dialog';
 import { FormattingGuideDialog } from '@/components/formatting-guide-dialog';
+import { PageLayout } from '@/components/layouts/page-layout';
 import { toast } from 'sonner';
 
 // Help content data
@@ -227,16 +228,11 @@ export default function HelpPage() {
   };
 
   return (
-    <main className="flex-1 overflow-auto bg-background">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Help & Feedback</h1>
-          <p className="text-muted-foreground">
-            Find answers to common questions or let us know how we can improve.
-          </p>
-        </div>
-
+    <PageLayout
+      narrow
+      title="Help & Feedback"
+      description="Find answers to common questions or let us know how we can improve."
+    >
         {/* Search */}
         <div className="relative mb-8">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -462,11 +458,10 @@ export default function HelpPage() {
             </div>
           </>
         )}
-      </div>
 
       {/* Dialogs */}
       <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <FormattingGuideDialog open={formattingOpen} onOpenChange={setFormattingOpen} />
-    </main>
+    </PageLayout>
   );
 }

@@ -82,9 +82,9 @@ vec3 getGradientColor(float t) {
 void main() {
   vec2 uv = gl_FragCoord.xy / uResolution;
 
-  // Slow, flowing color shift across x-axis with time
-  float colorShift = uv.x + sin(uTime * 0.02) * 0.2;
-  vec3 rampColor = getGradientColor(fract(colorShift));
+  // Color based on wave height - no horizontal edge artifacts
+  float colorShift = 0.5 + sin(uTime * 0.02) * 0.1;
+  vec3 rampColor = getGradientColor(colorShift);
 
   // Multiple layered waves - ultra smooth and slow
   float t = uTime * 0.3;
@@ -101,7 +101,7 @@ void main() {
   float midPoint = 0.12;
   float auroraAlpha = smoothstep(midPoint - uBlend * 0.7, midPoint + uBlend * 0.7, intensity);
 
-  vec3 auroraColor = intensity * rampColor * 1.4;
+  vec3 auroraColor = intensity * rampColor * 2.0;
 
   fragColor = vec4(auroraColor * auroraAlpha, auroraAlpha * 0.85);
 }
@@ -118,6 +118,49 @@ function hexToRgb(hex: string): [number, number, number] {
     ];
   }
   return [0.5, 0.5, 0.5];
+}
+
+// Convert HSL to hex
+function hslToHex(h: number, s: number, l: number): string {
+  s /= 100;
+  l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+// Get the --primary CSS variable and create a scale from it
+function getPrimaryScale(): string[] {
+  if (typeof window === 'undefined') {
+    return ['#333333', '#2b2b2b', '#262626', '#2b2b2b', '#333333'];
+  }
+
+  const style = getComputedStyle(document.documentElement);
+  const primaryHsl = style.getPropertyValue('--primary').trim();
+
+  // Parse HSL values (format: "0 0% 15%")
+  const match = primaryHsl.match(/(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%/);
+  if (!match) {
+    return ['#333333', '#2b2b2b', '#262626', '#2b2b2b', '#333333'];
+  }
+
+  const h = parseFloat(match[1]);
+  const s = parseFloat(match[2]);
+  const l = parseFloat(match[3]);
+
+  // Create a 5-stop scale - primary dominant with subtle variance
+  const variance = 8;
+  return [
+    hslToHex(h, s, l), // primary
+    hslToHex(h, s, Math.min(100, l + variance)),
+    hslToHex(h, s, l), // primary
+    hslToHex(h, s, Math.max(0, l - variance)),
+    hslToHex(h, s, l), // primary
+  ];
 }
 
 interface AuroraProps {
@@ -147,43 +190,38 @@ export function Aurora({
     speedRef.current = speed;
   }, [speed]);
 
-  // Get theme-based colors - neutral gray palette matching primary theme
+  // Get theme-based colors - dynamically reads --primary CSS variable
   const getThemeColors = useCallback((): string[] => {
     if (colorStops) return colorStops;
-
-    if (resolvedTheme === 'dark') {
-      // Dark mode: subtle cool grays
-      return ['#2a2a2a', '#3d3d3d', '#4a4a4a', '#3d3d3d', '#2a2a2a'];
-    } else {
-      // Light mode: soft warm grays/silvers
-      return ['#d4d4d4', '#e5e5e5', '#d9d9d9', '#e0e0e0', '#d4d4d4'];
-    }
+    return getPrimaryScale();
   }, [colorStops, resolvedTheme]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const renderer = new Renderer({
-      alpha: true,
-      premultipliedAlpha: true,
-      antialias: true,
-    });
-    rendererRef.current = renderer;
+    // Small delay to ensure CSS variables are computed after page load
+    const initTimeout = setTimeout(() => {
+      const renderer = new Renderer({
+        alpha: true,
+        premultipliedAlpha: true,
+        antialias: true,
+      });
+      rendererRef.current = renderer;
 
-    const gl = renderer.gl;
-    gl.clearColor(0, 0, 0, 0);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    (gl.canvas as HTMLCanvasElement).style.backgroundColor = 'transparent';
+      const gl = renderer.gl;
+      gl.clearColor(0, 0, 0, 0);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      (gl.canvas as HTMLCanvasElement).style.backgroundColor = 'transparent';
 
-    const geometry = new Triangle(gl);
-    if (geometry.attributes.uv) {
-      delete geometry.attributes.uv;
-    }
+      const geometry = new Triangle(gl);
+      if (geometry.attributes.uv) {
+        delete geometry.attributes.uv;
+      }
 
-    const colors = getThemeColors();
-    const colorStopsArray = colors.map(hexToRgb);
+      const colors = getThemeColors();
+      const colorStopsArray = colors.map(hexToRgb);
 
     const program = new Program(gl, {
       vertex: VERT,
@@ -226,15 +264,20 @@ export function Aurora({
       renderer.render({ scene: mesh });
     };
 
-    animationRef.current = requestAnimationFrame(animate);
+      animationRef.current = requestAnimationFrame(animate);
+    }, 50);
 
     return () => {
+      clearTimeout(initTimeout);
       cancelAnimationFrame(animationRef.current);
-      resizeObserver.disconnect();
-      if (container && gl.canvas.parentNode === container) {
-        container.removeChild(gl.canvas as HTMLCanvasElement);
+      const renderer = rendererRef.current;
+      if (renderer) {
+        const gl = renderer.gl;
+        if (container && gl.canvas.parentNode === container) {
+          container.removeChild(gl.canvas as HTMLCanvasElement);
+        }
+        gl.getExtension('WEBGL_lose_context')?.loseContext();
       }
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
       rendererRef.current = null;
       programRef.current = null;
     };

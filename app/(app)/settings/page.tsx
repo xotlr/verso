@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SettingsContent } from '@/components/settings-content';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageLayout } from '@/components/layouts/page-layout';
 
 function SettingsPageContent() {
   const searchParams = useSearchParams();
@@ -14,19 +15,21 @@ function SettingsPageContent() {
 
 function SettingsLoading() {
   return (
-    <div className="space-y-4 p-4">
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-64 w-full" />
-    </div>
+    <PageLayout narrow>
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    </PageLayout>
   );
 }
 
 export default function SettingsPage() {
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6">
+    <PageLayout narrow>
       <Suspense fallback={<SettingsLoading />}>
         <SettingsPageContent />
       </Suspense>
-    </div>
+    </PageLayout>
   );
 }

@@ -49,6 +49,8 @@ import {
 import { ExternalLinkCard, ExternalLinkData } from '@/components/external-link-card';
 import { AddLinkDialog } from '@/components/add-link-dialog';
 import { ProjectRolesManager, type ProjectRole } from '@/components/project-roles-manager';
+import { ProjectRoleNeedsManager } from '@/components/project-role-needs-manager';
+import { useSession } from 'next-auth/react';
 import type { EmbedType } from '@/lib/embed-utils';
 
 type ResourceFilter = 'all' | 'videos' | 'docs' | 'visual' | 'other';
@@ -89,6 +91,7 @@ interface ProjectData {
   name: string;
   description: string | null;
   budget: number | null;
+  userId: string;
   createdAt: string;
   updatedAt: string;
   screenplays: Screenplay[];
@@ -126,6 +129,7 @@ function formatBudget(budget: number): string {
 export default function ProjectPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session } = useSession();
   const projectId = params.id as string;
 
   const [project, setProject] = useState<ProjectData | null>(null);
@@ -410,35 +414,35 @@ export default function ProjectPage() {
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <TabsList scrollable className="w-full sm:w-auto">
-                <TabsTrigger value="screenplays" className="gap-1.5 sm:gap-2">
+              <TabsList className="w-full sm:w-auto flex-wrap h-auto gap-1 p-1">
+                <TabsTrigger value="screenplays" className="gap-1.5 px-3 py-1.5">
                   <Film className="h-4 w-4" />
-                  <span className="hidden xs:inline">Screenplays</span>
+                  <span className="hidden sm:inline">Screenplays</span>
                   <Badge variant="secondary" className="text-xs">{project._count.screenplays}</Badge>
                 </TabsTrigger>
-                <TabsTrigger value="notes" className="gap-1.5 sm:gap-2">
+                <TabsTrigger value="notes" className="gap-1.5 px-3 py-1.5">
                   <FileText className="h-4 w-4" />
-                  <span className="hidden xs:inline">Notes</span>
+                  <span className="hidden sm:inline">Notes</span>
                   <Badge variant="secondary" className="text-xs">{project._count.notes}</Badge>
                 </TabsTrigger>
-                <TabsTrigger value="schedules" className="gap-1.5 sm:gap-2">
+                <TabsTrigger value="schedules" className="gap-1.5 px-3 py-1.5">
                   <Calendar className="h-4 w-4" />
-                  <span className="hidden xs:inline">Schedules</span>
+                  <span className="hidden sm:inline">Schedules</span>
                   <Badge variant="secondary" className="text-xs">{project._count.schedules}</Badge>
                 </TabsTrigger>
-                <TabsTrigger value="budgets" className="gap-1.5 sm:gap-2">
+                <TabsTrigger value="budgets" className="gap-1.5 px-3 py-1.5">
                   <DollarSign className="h-4 w-4" />
-                  <span className="hidden xs:inline">Budgets</span>
+                  <span className="hidden sm:inline">Budgets</span>
                   <Badge variant="secondary" className="text-xs">{project._count.budgets}</Badge>
                 </TabsTrigger>
-                <TabsTrigger value="resources" className="gap-1.5 sm:gap-2">
+                <TabsTrigger value="resources" className="gap-1.5 px-3 py-1.5">
                   <LinkIcon className="h-4 w-4" />
-                  <span className="hidden xs:inline">Resources</span>
+                  <span className="hidden sm:inline">Resources</span>
                   <Badge variant="secondary" className="text-xs">{externalLinks.length}</Badge>
                 </TabsTrigger>
-                <TabsTrigger value="crew" className="gap-1.5 sm:gap-2">
+                <TabsTrigger value="crew" className="gap-1.5 px-3 py-1.5">
                   <Users className="h-4 w-4" />
-                  <span className="hidden xs:inline">Crew</span>
+                  <span className="hidden sm:inline">Crew</span>
                   <Badge variant="secondary" className="text-xs">{project.roles.length}</Badge>
                 </TabsTrigger>
               </TabsList>
@@ -703,13 +707,19 @@ export default function ProjectPage() {
             </TabsContent>
 
             {/* Crew Tab */}
-            <TabsContent value="crew">
+            <TabsContent value="crew" className="space-y-8">
               <ProjectRolesManager
                 projectId={projectId}
                 roles={project.roles}
                 onRolesChange={(newRoles) => {
                   setProject((prev) => prev ? { ...prev, roles: newRoles } : null);
                 }}
+              />
+
+              {/* Open Roles / Role Needs */}
+              <ProjectRoleNeedsManager
+                projectId={projectId}
+                isOwner={project.userId === session?.user?.id}
               />
             </TabsContent>
           </Tabs>

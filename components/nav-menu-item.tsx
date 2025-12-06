@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { LucideIcon } from 'lucide-react';
+import { IconType } from 'react-icons';
 
 import { cn } from '@/lib/utils';
-import { Badge } from "@/components/ui/badge";
 import {
   SidebarMenuItem,
   SidebarMenuButton,
@@ -19,7 +19,8 @@ import {
 interface NavMenuItemProps {
   title: string;
   url?: string;
-  icon: LucideIcon;
+  icon: LucideIcon | IconType;
+  activeIcon?: IconType;  // Optional filled icon for active state
   notification?: number | boolean;
   pathname: string;
   isCollapsed: boolean;
@@ -31,6 +32,7 @@ export function NavMenuItem({
   title,
   url,
   icon: Icon,
+  activeIcon: ActiveIcon,
   notification,
   pathname,
   isCollapsed: _isCollapsed,
@@ -38,6 +40,9 @@ export function NavMenuItem({
   onClick,
 }: NavMenuItemProps) {
   const isActive = url ? (pathname === url || pathname.startsWith(`${url}/`)) : false;
+
+  // Use active icon if provided and item is active, otherwise use default icon
+  const CurrentIcon = (isActive && ActiveIcon) ? ActiveIcon : Icon;
 
   return (
     <SidebarMenuItem
@@ -63,30 +68,19 @@ export function NavMenuItem({
                   )}
                   aria-current={isActive ? "page" : undefined}
                 >
-                  <div className="inline-block mr-2 group-data-[collapsible=icon]:mr-0">
-                    <Icon className={cn(
+                  <div className="relative inline-block mr-2 group-data-[collapsible=icon]:mr-0">
+                    <CurrentIcon className={cn(
                       "h-4 w-4 transition-colors duration-150",
                       isActive ? "text-foreground" : "text-muted-foreground group-hover/item:text-foreground"
                     )} />
+                    {notification && (
+                      <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-primary rounded-full" />
+                    )}
                   </div>
 
                   <span className="font-medium group-data-[collapsible=icon]:sr-only">
                     {title}
                   </span>
-
-                  {notification && (
-                    <Badge
-                      className="ml-auto h-4 min-w-4 flex items-center justify-center px-1 bg-primary text-primary-foreground text-xs font-semibold group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:h-2 group-data-[collapsible=icon]:min-w-2 group-data-[collapsible=icon]:p-0"
-                    >
-                      <span className="group-data-[collapsible=icon]:sr-only">
-                        {typeof notification === 'number'
-                          ? notification > 9
-                            ? '9+'
-                            : notification
-                          : ''}
-                      </span>
-                    </Badge>
-                  )}
                 </Link>
               ) : (
                 <button
@@ -99,8 +93,11 @@ export function NavMenuItem({
                     "group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:rounded-lg"
                   )}
                 >
-                  <div className="inline-block mr-2 group-data-[collapsible=icon]:mr-0">
-                    <Icon className="h-4 w-4 transition-colors duration-150 group-hover/item:text-foreground" />
+                  <div className="relative inline-block mr-2 group-data-[collapsible=icon]:mr-0">
+                    <CurrentIcon className="h-4 w-4 transition-colors duration-150 group-hover/item:text-foreground" />
+                    {notification && (
+                      <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-primary rounded-full" />
+                    )}
                   </div>
 
                   <span className="font-medium group-data-[collapsible=icon]:sr-only">

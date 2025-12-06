@@ -1,10 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, Suspense, useMemo } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { formatDistanceToNow } from 'date-fns';
 
 // Smart algorithm to determine if a greeting works with a name appended
 function shouldShowName(greeting: string): boolean {
@@ -38,231 +36,302 @@ function shouldShowName(greeting: string): boolean {
   return false;
 }
 
-// Holiday-specific greetings
-function getHolidayGreetings(month: number, day: number): string[] | null {
-  // New Year's (Jan 1-3)
-  if (month === 0 && day <= 3) return [
-    "Happy New Year", "New year, new screenplay", "Fresh start energy",
-    "Time to write your best year yet"
-  ];
-  // Valentine's Day (Feb 14)
-  if (month === 1 && day === 14) return [
-    "Write something romantic today", "Happy Valentine's Day",
-    "Love stories start here"
-  ];
-  // St. Patrick's Day (Mar 17)
-  if (month === 2 && day === 17) return [
-    "Feeling lucky", "May your dialogue be golden"
-  ];
-  // April Fools (Apr 1)
-  if (month === 3 && day === 1) return [
-    "No joke, time to write", "Plot twist ahead"
-  ];
-  // Independence Day (Jul 4)
-  if (month === 6 && day === 4) return [
-    "Happy 4th", "Declare your creative independence"
-  ];
-  // Halloween (Oct 25-31)
-  if (month === 9 && day >= 25) return [
-    "Spooky screenplay season", "Write something scary",
-    "The horror draft awaits", "Frighteningly good writing weather"
-  ];
-  // Thanksgiving (Nov 22-28)
-  if (month === 10 && day >= 22 && day <= 28) return [
-    "Grateful for stories", "Write what you're thankful for"
-  ];
-  // Christmas season (Dec 15-25)
-  if (month === 11 && day >= 15 && day <= 25) return [
-    "Happy holidays", "Tis the season to write",
-    "Holiday magic on the page", "The gift of storytelling"
-  ];
-  // New Year's Eve (Dec 31)
-  if (month === 11 && day === 31) return [
-    "Last writes of the year", "Finish the year strong",
-    "One more scene before midnight"
-  ];
-  // Award Season (Feb-Mar)
-  if (month === 1 || month === 2) return [
-    "Oscar season inspiration", "Award-worthy writing awaits",
-    "And the award goes to"
-  ];
-  return null;
+// ============================================================================
+// CONTEXTUAL GREETING SYSTEM
+// Behavior-reactive greetings that notice user patterns and get "unhinged"
+// ============================================================================
+
+interface GreetingContext {
+  userName?: string | null;
+  screenplayCount: number;
+  wordsThisWeek: number;
+  currentStreak: number;
+  longestStreak: number;
+  dailyGoal: number;
+  lastWriteDate: string | null;
 }
 
-// Playful, creative greetings based on time, day, season, activity, and holidays
-function getGreeting(userName?: string | null, screenplayCount?: number): { text: string; showName: boolean; name?: string } {
+type GreetingCategory =
+  | 'LEGENDARY'
+  | 'GHOST_LONG'
+  | 'GHOST_MEDIUM'
+  | 'GHOST_SHORT'
+  | 'RETURNING_CHAMP'
+  | 'ON_FIRE'
+  | 'CREATOR_NOT_WRITER'
+  | 'STREAK_BROKEN'
+  | 'CRUSHING_IT'
+  | 'SLACKING'
+  | 'FIRST_TIME'
+  | 'TIME_BASED';
+
+// GHOST greetings - scaled by days absent
+const ghostGreetingsShort = [ // 3-4 days
+  "Oh, so you DO remember this exists",
+  "The prodigal writer returns",
+  "Well well well... look who decided to show up",
+  "Back from the dead, I see",
+  "The scripts were starting to worry",
+];
+
+const ghostGreetingsMedium = [ // 5-6 days
+  "I was starting to think you forgot how to type",
+  "*blows dust off keyboard* Welcome back",
+  "The scripts were getting lonely",
+  "Almost filed a missing persons report",
+  "The blank pages held a vigil",
+];
+
+const ghostGreetingsLong = [ // 7+ days
+  "It's been a while. A LONG while.",
+  "I was about to file a missing persons report",
+  "The blank pages staged a protest. They're back now",
+  "Did you get lost? For over a week?!",
+  "The muse almost gave up on you",
+  "Resurrection complete. Welcome back",
+];
+
+// LEGENDARY greetings (7+ day streak)
+const legendaryGreetings = [
+  "UNSTOPPABLE!",
+  "At this point you're just showing off",
+  "Are you even human?!",
+  "The writing gods have blessed you",
+  "Legend. Absolute legend",
+  "Writing machine activated",
+  "They'll write legends about this streak",
+  "Peak performance unlocked",
+];
+
+// ON_FIRE greetings (3-6 day streak)
+const onFireGreetings = [
+  "You're on FIRE",
+  "The legend continues",
+  "Streak mode: activated",
+  "Unstoppable momentum",
+  "Keep that fire burning",
+  "The muse is obsessed with you",
+];
+
+// RETURNING_CHAMP greetings (matching or beating longest streak)
+const returningChampGreetings = [
+  "You've matched your personal best!",
+  "This is your LONGEST STREAK EVER",
+  "Historic moment. You're making history",
+  "New personal record territory",
+  "The champion has returned",
+];
+
+// STREAK_BROKEN greetings
+const streakBrokenGreetings = [
+  "The streak... it's gone. But you're here now",
+  "Yesterday happened. Today's a new day",
+  "We don't talk about yesterday",
+  "Starting fresh. No judgment. (Okay, a little judgment)",
+  "The counter reset. Your talent didn't",
+  "Back to day one. Let's make it count",
+];
+
+// CREATOR_NOT_WRITER greetings (many screenplays, no words this week)
+const creatorNotWriterGreetings = [
+  "Another new screenplay? How about finishing one?",
+  "I see you like the 'New Screenplay' button",
+  "Creating is easy. Writing is the hard part",
+  "Interesting strategy. Many files, zero words",
+  "The 'new file' button fears you. Your current drafts miss you",
+  "Collection growing, word count... not so much",
+];
+
+// CRUSHING_IT greetings (high weekly output)
+const crushingItGreetings = [
+  "Save some talent for the rest of us",
+  "At this rate you'll finish by Tuesday",
+  "The keyboard called. It needs a break",
+  "Absolute writing rampage",
+  "The productivity is off the charts",
+  "Slow down, Shakespeare",
+];
+
+// SLACKING greetings (below daily goal)
+const slackingGreetings = [
+  "Your daily goal misses you",
+  "The blank page is judging you (lovingly)",
+  "Just a few words. That's all I ask",
+  "The cursor has been blinking for days",
+  "Your characters are waiting",
+];
+
+// FIRST_TIME greetings (no screenplays)
+const firstTimeGreetings = [
+  "Your blank page awaits",
+  "Every great writer started here",
+  "Chapter one begins now",
+  "The cursor blinks with possibility",
+  "Your first masterpiece awaits",
+  "Welcome to the writer's life",
+];
+
+// Helper to pick from array with seed
+function pickFromPool(pool: string[], seed: number): string {
+  return pool[seed % pool.length];
+}
+
+// Calculate days since last write
+function getDaysSinceLastWrite(lastWriteDate: string | null): number | null {
+  if (!lastWriteDate) return null;
+  const last = new Date(lastWriteDate);
+  const now = new Date();
+  const diffTime = now.getTime() - last.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+}
+
+// Main contextual greeting function
+function getContextualGreeting(ctx: GreetingContext): {
+  text: string;
+  showName: boolean;
+  name?: string;
+  category: GreetingCategory;
+} {
+  const {
+    userName,
+    screenplayCount,
+    wordsThisWeek,
+    currentStreak,
+    longestStreak,
+    dailyGoal,
+    lastWriteDate
+  } = ctx;
+
+  const firstName = userName?.split(' ')[0];
+  const minuteSeed = Math.floor(Date.now() / 60000);
+  const daysSinceWrite = getDaysSinceLastWrite(lastWriteDate);
+
+  // Priority 1: LEGENDARY (7+ day streak) - Peak celebration
+  if (currentStreak >= 7) {
+    const text = `${pickFromPool(legendaryGreetings, minuteSeed)} ${currentStreak} days!`;
+    return { text, showName: false, name: firstName, category: 'LEGENDARY' };
+  }
+
+  // Priority 2: GHOST detection (3+ days absent)
+  if (daysSinceWrite !== null && daysSinceWrite >= 3) {
+    let pool: string[];
+    let category: GreetingCategory;
+
+    if (daysSinceWrite >= 7) {
+      pool = ghostGreetingsLong;
+      category = 'GHOST_LONG';
+    } else if (daysSinceWrite >= 5) {
+      pool = ghostGreetingsMedium;
+      category = 'GHOST_MEDIUM';
+    } else {
+      pool = ghostGreetingsShort;
+      category = 'GHOST_SHORT';
+    }
+
+    const text = pickFromPool(pool, minuteSeed);
+    return { text, showName: false, name: firstName, category };
+  }
+
+  // Priority 3: RETURNING_CHAMP (matching or exceeding longest streak, streak >= 5)
+  if (currentStreak >= 5 && currentStreak >= longestStreak && longestStreak > 0) {
+    const text = `${pickFromPool(returningChampGreetings, minuteSeed)} ${currentStreak} days!`;
+    return { text, showName: false, name: firstName, category: 'RETURNING_CHAMP' };
+  }
+
+  // Priority 4: ON_FIRE (3-6 day streak)
+  if (currentStreak >= 3) {
+    const text = `${currentStreak}-day streak! ${pickFromPool(onFireGreetings, minuteSeed)}`;
+    return { text, showName: false, name: firstName, category: 'ON_FIRE' };
+  }
+
+  // Priority 5: CREATOR_NOT_WRITER (many screenplays, 0 words this week)
+  if (screenplayCount > 5 && wordsThisWeek === 0) {
+    const text = pickFromPool(creatorNotWriterGreetings, minuteSeed);
+    return { text, showName: false, name: firstName, category: 'CREATOR_NOT_WRITER' };
+  }
+
+  // Priority 6: STREAK_BROKEN (streak is 0 but had one before)
+  if (currentStreak === 0 && longestStreak > 0 && daysSinceWrite !== null && daysSinceWrite >= 1 && daysSinceWrite < 3) {
+    const text = pickFromPool(streakBrokenGreetings, minuteSeed);
+    return { text, showName: false, name: firstName, category: 'STREAK_BROKEN' };
+  }
+
+  // Priority 7: Productivity levels
+  if (wordsThisWeek > dailyGoal * 5) {
+    const text = `${wordsThisWeek.toLocaleString()} words this week?! ${pickFromPool(crushingItGreetings, minuteSeed)}`;
+    return { text, showName: false, name: firstName, category: 'CRUSHING_IT' };
+  }
+
+  if (wordsThisWeek < dailyGoal && screenplayCount > 0 && wordsThisWeek === 0) {
+    const text = pickFromPool(slackingGreetings, minuteSeed);
+    return { text, showName: false, name: firstName, category: 'SLACKING' };
+  }
+
+  // Priority 8: First time user
+  if (screenplayCount === 0) {
+    const text = pickFromPool(firstTimeGreetings, minuteSeed);
+    return { text, showName: shouldShowName(text), name: firstName, category: 'FIRST_TIME' };
+  }
+
+  // Priority 9: Fall back to time-based greeting
+  return getTimeBasedGreeting(userName);
+}
+
+// Time-based greeting fallback (original system)
+function getTimeBasedGreeting(userName?: string | null): {
+  text: string;
+  showName: boolean;
+  name?: string;
+  category: GreetingCategory;
+} {
   const now = new Date();
   const hour = now.getHours();
-  const day = now.getDay();
-  const month = now.getMonth();
-  const dayOfMonth = now.getDate();
   const firstName = userName?.split(' ')[0];
+  const minuteSeed = Math.floor(Date.now() / 60000);
 
-  // Time-based greetings (fixed boundaries: night = 9PM-5AM)
   const timeGreetings: Record<string, string[]> = {
     morning: [
-      "Rise and write",
-      "Morning muse reporting for duty",
-      "Coffee's ready, screenplay's waiting",
-      "Dawn of a new scene",
-      "The early bird writes the script",
-      "Fresh morning, fresh pages",
-      "Sunrise storytelling",
-      "Good morning, wordsmith",
-      "Good morning",
-      "Time to caffeinate and create",
-      "The morning draft awaits",
-      "Bright ideas for a bright morning",
-      "Morning pages",
+      "Rise and write", "Morning muse reporting for duty", "Coffee's ready, screenplay's waiting",
+      "Dawn of a new scene", "The early bird writes the script", "Fresh morning, fresh pages",
+      "Good morning, wordsmith", "Good morning", "Time to caffeinate and create",
     ],
     afternoon: [
-      "Afternoon plot twist incoming",
-      "The afternoon writing window is open",
-      "Prime writing hours activated",
-      "Post-lunch creativity surge",
-      "Afternoon act two",
-      "The mid-day muse strikes",
-      "Dialogue time",
-      "Afternoon inspiration loading",
-      "Good afternoon",
-      "Peak creativity hours",
-      "The afternoon shift",
-      "Midday momentum",
+      "Afternoon plot twist incoming", "Prime writing hours activated", "Post-lunch creativity surge",
+      "Afternoon act two", "Good afternoon", "Peak creativity hours", "Midday momentum",
     ],
     evening: [
-      "Evening pages await",
-      "Golden hour for golden dialogue",
-      "The evening draft calls",
-      "Evening writing ritual",
-      "Twilight tales",
-      "Wind down with words",
-      "The quiet hours begin",
-      "Dusk to draft",
-      "Good evening",
-      "Sunset scripting",
-      "Evening edit time",
-      "The evening muse awakens",
+      "Evening pages await", "Golden hour for golden dialogue", "The evening draft calls",
+      "Evening writing ritual", "Good evening", "Sunset scripting", "The evening muse awakens",
     ],
     night: [
-      "Burning the midnight oil",
-      "Night owl mode: engaged",
-      "The muse works late tonight",
-      "Moonlit manuscript time",
-      "The witching hour of creativity",
-      "Late night legends are written now",
-      "Quiet hours, loud ideas",
-      "The night shift begins",
-      "Stars out, scripts out",
-      "Midnight magic",
-      "The world sleeps, writers create",
-      "Night writer",
-      "After hours creativity",
+      "Burning the midnight oil", "Night owl mode: engaged", "The muse works late tonight",
+      "Moonlit manuscript time", "Late night legends are written now", "Quiet hours, loud ideas",
+      "Night writer", "After hours creativity",
     ],
   };
 
-  // Day-based greetings
-  const daySpecial: Record<number, string[]> = {
-    0: ["Sunday story time", "Weekend writing vibes", "Lazy Sunday, busy pen", "Sunday screenplay brunch", "Sunday scripting"],
-    1: ["Monday momentum", "New week, new scenes", "Monday motivation", "Fresh start energy", "Monday magic"],
-    2: ["Tuesday tales", "Second day surge", "Two days in, keep going", "Tuesday productivity"],
-    3: ["Midweek magic", "Wednesday words", "Hump day hustle", "Halfway there", "Wednesday writing"],
-    4: ["Thursday thoughts", "Almost Friday focus", "Thursday momentum", "Thursday thunder"],
-    5: ["Friday finale energy", "Friday flow state", "Friday focus", "End the week strong"],
-    6: ["Saturday sprint", "Weekend creative mode", "Saturday scripting", "No deadlines, just passion"],
-  };
-
-  // Season-based greetings
-  const getSeason = (m: number) => m >= 2 && m <= 4 ? "spring" : m >= 5 && m <= 7 ? "summer" : m >= 8 && m <= 10 ? "fall" : "winter";
-  const seasonGreetings: Record<string, string[]> = {
-    spring: ["Spring into your story", "Fresh season, fresh pages", "Bloom where you write", "Spring creativity"],
-    summer: ["Summer blockbuster in the making", "Hot takes, hotter scripts", "Beach reads start here", "Summer screenplay season"],
-    fall: ["Fall into your narrative", "Sweater weather, screenplay weather", "Autumn acts", "Crisp air, crisp dialogue"],
-    winter: ["Cozy writing weather", "Winter drafts (the good kind)", "Hibernation mode: write", "Snowbound and story-bound", "Warm drink, warm story"],
-  };
-
-  // Activity-based greetings (tiered by screenplay count)
-  const getActivityGreetings = (count: number = 0): string[] => {
-    if (count === 0) return [
-      "Your blank page awaits",
-      "Every great writer started here",
-      "Chapter one begins now",
-      "The cursor blinks with possibility",
-      "Your first masterpiece awaits",
-    ];
-    if (count <= 4) return [
-      "Back for more",
-      "The plot thickens",
-      "Let's pick up where we left off",
-      "Time to add another page",
-      "Building momentum",
-    ];
-    if (count <= 9) return [
-      "The prolific writer returns",
-      "Another day, another scene",
-      "Your portfolio grows",
-      "Unstoppable",
-      "On a roll",
-    ];
-    return [
-      "The veteran returns",
-      "Master at work",
-      "Your empire of words",
-      "Legend status",
-      "The writing machine",
-    ];
-  };
-
-  // Generic fallbacks
-  const genericGreetings = [
-    "The blank page fears you",
-    "Write something brilliant",
-    "Every word counts",
-    "Make it memorable",
-    "The cursor is ready",
-    "Let the words flow",
-    "Create something great",
-    "Words await",
-    "Story time",
-    "Let's write",
-  ];
-
-  // Determine time period (fixed: 0-4 AM is night, not morning)
   const timePeriod =
     (hour >= 5 && hour < 12) ? "morning" :
     (hour >= 12 && hour < 17) ? "afternoon" :
-    (hour >= 17 && hour < 21) ? "evening" :
-    "night"; // 21-23 and 0-4
+    (hour >= 17 && hour < 21) ? "evening" : "night";
 
-  // Check for holiday greetings first (they get priority)
-  const holidayGreetings = getHolidayGreetings(month, dayOfMonth);
-
-  // Build pool of options
-  const pool = [
-    ...timeGreetings[timePeriod],
-    ...daySpecial[day],
-    ...seasonGreetings[getSeason(month)],
-    ...getActivityGreetings(screenplayCount),
-    ...genericGreetings,
-    ...(holidayGreetings || []),
-  ];
-
-  // Pick from pool (seeded by minute so it doesn't flicker on re-render)
-  const minuteSeed = Math.floor(Date.now() / 60000);
-  const greeting = pool[minuteSeed % pool.length];
+  const pool = timeGreetings[timePeriod];
+  const text = pool[minuteSeed % pool.length];
 
   return {
-    text: greeting,
-    showName: shouldShowName(greeting),
-    name: firstName || undefined,
+    text,
+    showName: shouldShowName(text),
+    name: firstName,
+    category: 'TIME_BASED',
   };
 }
+
 import { SettingsPanel } from '@/components/settings-panel';
 import { CommandPalette } from '@/components/command-palette';
 import { TemplateSelector } from '@/components/template-selector';
 import { NewProjectDialog } from '@/components/new-project-dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -273,44 +342,40 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Skeleton } from '@/components/ui/skeleton';
 import { ImportDropZoneCard, ImportResult } from '@/components/import-drop-zone';
-import {
-  Plus,
-  Search,
-  FileText,
-  Clock,
-  MoreHorizontal,
-  Trash2,
-  Download,
-  Edit3,
-  ChevronRight,
-  FolderOpen,
-  Film,
-  Folder,
-} from 'lucide-react';
+import { ListPageToolbar, FilterPill } from '@/components/ui/list-page-toolbar';
+import { Plus, Star } from 'lucide-react';
+import { PiFilmScript } from 'react-icons/pi';
+import { RiFolder6Line } from 'react-icons/ri';
 import { PendingInviteBanner } from '@/components/pending-invite-banner';
 import { PendingProjectRoleInviteBanner } from '@/components/pending-project-role-invite-banner';
-import { getPrimaryGradientStyle } from '@/lib/avatar-gradient';
 import { StatsCards } from '@/components/dashboard';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { PageLayout } from '@/components/layouts/page-layout';
+import { ScreenplayListCard, ScreenplayListCardSkeleton } from '@/components/screenplay-list-card';
+import { ProjectFolderCard, ProjectFolderCardSkeleton } from '@/components/project-folder-card';
 
 interface ScreenplayItem {
   id: string;
   title: string;
   content: string;
+  logline?: string | null;
+  synopsis?: string | null;
   updatedAt: string;
   wordCount: number;
+  genre?: string | null;
+  isFavorite?: boolean;
   projectId: string | null;
   project?: { id: string; name: string } | null;
+  author?: string | null;
+  user?: { id: string; name: string | null } | null;
+}
+
+interface ProjectRole {
+  id: string;
+  role: string;
+  name: string;
+  userId?: string | null;
 }
 
 interface ProjectItem {
@@ -320,6 +385,8 @@ interface ProjectItem {
   banner: string | null;
   logo: string | null;
   updatedAt: string;
+  roles?: ProjectRole[];
+  screenplays?: { id: string; title: string }[];
   _count: {
     screenplays: number;
     notes: number;
@@ -333,6 +400,9 @@ interface DashboardStats {
   projectCount: number;
   wordsThisWeek: number;
   currentStreak: number;
+  longestStreak: number;
+  dailyGoal: number;
+  lastWriteDate: string | null;
 }
 
 type TabValue = 'screenplays' | 'projects';
@@ -344,11 +414,19 @@ function WorkspacePageContent() {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
 
-  // Dynamic greeting based on time, day, season, and activity
+  // Contextual greeting based on user behavior, streaks, activity, and time
   const greeting = useMemo(
-    () => getGreeting(session?.user?.name, screenplays.length),
+    () => getContextualGreeting({
+      userName: session?.user?.name,
+      screenplayCount: screenplays.length,
+      wordsThisWeek: dashboardStats?.wordsThisWeek || 0,
+      currentStreak: dashboardStats?.currentStreak || 0,
+      longestStreak: dashboardStats?.longestStreak || 0,
+      dailyGoal: dashboardStats?.dailyGoal || 500,
+      lastWriteDate: dashboardStats?.lastWriteDate || null,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [session?.user?.name, screenplays.length, Math.floor(Date.now() / 60000)]
+    [session?.user?.name, screenplays.length, dashboardStats, Math.floor(Date.now() / 60000)]
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -358,6 +436,7 @@ function WorkspacePageContent() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: 'screenplay' | 'project' } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabValue>('screenplays');
+  const [showFavorites, setShowFavorites] = useState(false);
 
 
   useEffect(() => {
@@ -490,17 +569,21 @@ function WorkspacePageContent() {
     }
   };
 
-  const filteredScreenplays = screenplays.filter(screenplay =>
-    screenplay.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    screenplay.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredScreenplays = screenplays
+    .filter(screenplay => {
+      const matchesSearch = screenplay.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        screenplay.content.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesFavorites = !showFavorites || screenplay.isFavorite;
+      return matchesSearch && matchesFavorites;
+    })
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
-  const filteredProjects = projects.filter(project =>
-    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (project.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
-  );
-
-  const standaloneScreenplays = filteredScreenplays.filter(s => !s.projectId);
+  const filteredProjects = projects
+    .filter(project =>
+      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (project.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
+    )
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
   return (
     <>
@@ -546,8 +629,7 @@ function WorkspacePageContent() {
       </AlertDialog>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto bg-background pb-20 md:pb-0">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+      <PageLayout className="pb-20 md:pb-0">
           {/* Pending Invites */}
           <PendingInviteBanner />
           <PendingProjectRoleInviteBanner />
@@ -556,7 +638,7 @@ function WorkspacePageContent() {
           <div className="mb-4 sm:mb-6 md:mb-8 space-y-4 sm:space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
               <div className="flex-1 min-w-0">
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-1 sm:mb-2 truncate">
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-1 sm:mb-2 break-words">
                   {greeting.text}
                   {greeting.showName && greeting.name && <span className="italic font-normal">, {greeting.name}</span>}
                 </h2>
@@ -566,7 +648,7 @@ function WorkspacePageContent() {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Button onClick={createNewProject} variant="outline" size="sm" className="touch-manipulation">
-                  <Folder className="h-4 w-4 mr-1.5 sm:mr-2" />
+                  <RiFolder6Line className="h-4 w-4 mr-1.5 sm:mr-2" />
                   <span className="text-xs sm:text-sm">New Project</span>
                 </Button>
                 <Button onClick={createNewScreenplay} size="sm" className="touch-manipulation">
@@ -586,61 +668,50 @@ function WorkspacePageContent() {
               />
             )}
 
-            {/* Tabs and Search */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
-                <TabsList className="w-full sm:w-auto">
-                  <TabsTrigger value="screenplays" className="flex-1 sm:flex-none gap-2">
-                    <Film className="h-4 w-4" />
-                    <span className="hidden xs:inline">Screenplays</span>
-                    <span className="xs:hidden">Scripts</span>
-                    <Badge variant="secondary" className="ml-1 text-[10px] sm:text-xs px-1.5">{filteredScreenplays.length}</Badge>
-                  </TabsTrigger>
-                  <TabsTrigger value="projects" className="flex-1 sm:flex-none gap-2">
-                    <FolderOpen className="h-4 w-4" />
-                    <span className="hidden xs:inline">Projects</span>
-                    <span className="xs:hidden">Projects</span>
-                    <Badge variant="secondary" className="ml-1 text-[10px] sm:text-xs px-1.5">{filteredProjects.length}</Badge>
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder={`Search ${activeTab}...`}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 h-11 sm:h-10 md:h-9 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring text-foreground placeholder-muted-foreground transition-all touch-manipulation"
-                />
-              </div>
-            </div>
+            {/* Tabs, Search, and Filters */}
+            <ListPageToolbar
+              tabs={{
+                items: [
+                  { value: 'screenplays', label: 'Screenplays', icon: <PiFilmScript className="h-4 w-4" />, count: filteredScreenplays.length },
+                  { value: 'projects', label: 'Projects', icon: <RiFolder6Line className="h-4 w-4" />, count: filteredProjects.length },
+                ],
+                value: activeTab,
+                onChange: (v) => setActiveTab(v as TabValue),
+              }}
+              search={{
+                value: searchQuery,
+                onChange: setSearchQuery,
+                placeholder: `Search ${activeTab}...`,
+              }}
+              filters={
+                activeTab === 'screenplays' ? (
+                  <FilterPill
+                    active={showFavorites}
+                    onClick={() => setShowFavorites(!showFavorites)}
+                    icon={<Star className={`h-4 w-4 ${showFavorites ? 'fill-current' : ''}`} />}
+                    label="Favorites"
+                    activeColor="yellow"
+                  />
+                ) : undefined
+              }
+            />
           </div>
 
           {/* Content Grid - key prop triggers animation on tab change */}
           <div key={activeTab} className="animate-tab-content-in">
           {isLoading ? (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="min-h-[140px] sm:min-h-[180px] bg-card rounded-xl border border-border/60 p-3 sm:p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <Skeleton className="h-5 w-3/4 mb-2" />
-                      <Skeleton className="h-3 w-1/3" />
-                    </div>
-                  </div>
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-4 w-2/3 mb-4" />
-                  <Skeleton className="h-5 w-20" />
-                </div>
-              ))}
+              {activeTab === 'screenplays' ? (
+                [1, 2, 3].map((i) => <ScreenplayListCardSkeleton key={i} />)
+              ) : (
+                [1, 2, 3].map((i) => <ProjectFolderCardSkeleton key={i} />)
+              )}
             </div>
           ) : activeTab === 'screenplays' ? (
             // Screenplays Grid
             filteredScreenplays.length === 0 ? (
               <EmptyState
-                icon={<FileText className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />}
+                icon={<PiFilmScript className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />}
                 title={searchQuery ? 'No screenplays found' : 'No screenplays yet'}
                 description={searchQuery ? 'Try a different search term' : 'Create your first screenplay and bring your stories to life'}
                 action={!searchQuery ? {
@@ -660,71 +731,30 @@ function WorkspacePageContent() {
                   />
                 </div>
                 {filteredScreenplays.map((screenplay) => (
-                  <div
+                  <ScreenplayListCard
                     key={screenplay.id}
-                    className="group relative min-h-[140px] sm:min-h-[180px] flex flex-col bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200 touch-manipulation active:scale-[0.98]"
-                  >
-                    <Link href={`/editor/${screenplay.id}`}>
-                      <div className="p-3 sm:p-6 cursor-pointer flex-1 flex flex-col">
-                        <div className="flex items-start justify-between mb-2 sm:mb-3">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-sm sm:text-lg font-semibold text-foreground mb-1 sm:mb-1.5 line-clamp-2 sm:line-clamp-1 group-hover:text-primary transition-colors">
-                              {screenplay.title}
-                            </h3>
-                            <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-muted-foreground">
-                              <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                              <span className="truncate">{formatDistanceToNow(new Date(screenplay.updatedAt), { addSuffix: true })}</span>
-                            </div>
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }}
-                                className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                              >
-                                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => router.push(`/editor/${screenplay.id}`)}>
-                                <Edit3 className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => exportScreenplay(screenplay)}>
-                                <Download className="mr-2 h-4 w-4" />
-                                Export
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => deleteItem(screenplay.id, 'screenplay')}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-
-                        <div className="flex items-center justify-between mt-auto pt-2 sm:pt-4">
-                          <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-                            <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2">
-                              {screenplay.wordCount.toLocaleString()} words
-                            </Badge>
-                            {screenplay.project ? (
-                              <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 sm:px-2 hidden sm:inline-flex">
-                                {screenplay.project.name}
-                              </Badge>
-                            ) : null}
-                          </div>
-                          <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
+                    screenplay={{
+                      id: screenplay.id,
+                      title: screenplay.title,
+                      logline: screenplay.logline,
+                      synopsis: screenplay.synopsis,
+                      updatedAt: screenplay.updatedAt,
+                      wordCount: screenplay.wordCount,
+                      genre: screenplay.genre,
+                      isFavorite: screenplay.isFavorite,
+                      project: screenplay.project,
+                      author: screenplay.author,
+                      user: screenplay.user,
+                    }}
+                    href={`/editor/${screenplay.id}`}
+                    showFavorite={true}
+                    showGenre={true}
+                    showProject={true}
+                    showWordCount={true}
+                    onEdit={() => router.push(`/editor/${screenplay.id}`)}
+                    onExport={() => exportScreenplay(screenplay)}
+                    onDelete={() => deleteItem(screenplay.id, 'screenplay')}
+                  />
                 ))}
               </div>
             )
@@ -732,7 +762,7 @@ function WorkspacePageContent() {
             // Projects Grid
             filteredProjects.length === 0 ? (
               <EmptyState
-                icon={<FolderOpen className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />}
+                icon={<RiFolder6Line className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />}
                 title={searchQuery ? 'No projects found' : 'No projects yet'}
                 description={searchQuery ? 'Try a different search term' : 'Create a project to organize your screenplays, notes, schedules, and budgets'}
                 action={!searchQuery ? {
@@ -744,93 +774,20 @@ function WorkspacePageContent() {
             ) : (
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
                 {filteredProjects.map((project) => (
-                  <div
+                  <ProjectFolderCard
                     key={project.id}
-                    className="group relative min-h-[180px] sm:min-h-[220px] flex flex-col bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200 overflow-hidden touch-manipulation active:scale-[0.98]"
-                  >
-                    <Link href={`/project/${project.id}`}>
-                      {/* Banner */}
-                      <div className="h-14 sm:h-20 relative">
-                        {project.banner ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={project.banner}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div
-                            className="w-full h-full"
-                            style={getPrimaryGradientStyle(project.id)}
-                          />
-                        )}
-                        {/* Logo overlay */}
-                        {project.logo && (
-                          <div className="absolute -bottom-3 sm:-bottom-4 left-3 sm:left-4">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={project.logo}
-                              alt=""
-                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg border-2 border-card object-cover shadow-sm"
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <div className={`p-3 sm:p-6 cursor-pointer flex-1 flex flex-col ${project.logo ? 'pt-5 sm:pt-7' : ''}`}>
-                        <div className="flex items-start justify-between mb-2 sm:mb-3">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-sm sm:text-lg font-semibold text-foreground mb-1 sm:mb-1.5 line-clamp-2 sm:line-clamp-1 group-hover:text-primary transition-colors">
-                              {project.name}
-                            </h3>
-                            <div className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-muted-foreground">
-                              <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                              <span className="truncate">{formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}</span>
-                            </div>
-                          </div>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }}
-                                className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                              >
-                                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => router.push(`/project/${project.id}`)}>
-                                <FolderOpen className="mr-2 h-4 w-4" />
-                                Open
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => deleteItem(project.id, 'project')}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-
-                        <p className="text-xs sm:text-sm text-muted-foreground mb-auto pb-2 sm:pb-4 line-clamp-2 leading-relaxed hidden sm:block">
-                          {project.description || 'No description'}
-                        </p>
-
-                        <div className="flex items-center justify-between mt-auto">
-                          <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
-                            <span>{project._count.screenplays} script{project._count.screenplays !== 1 ? 's' : ''}</span>
-                            <span className="hidden sm:inline">&middot;</span>
-                            <span className="hidden sm:inline">{project._count.notes} note{project._count.notes !== 1 ? 's' : ''}</span>
-                          </div>
-                          <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all flex-shrink-0" />
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
+                    project={{
+                      id: project.id,
+                      name: project.name,
+                      description: project.description,
+                      updatedAt: project.updatedAt,
+                      roles: project.roles,
+                      screenplays: project.screenplays,
+                      _count: project._count,
+                    }}
+                    onDelete={() => deleteItem(project.id, 'project')}
+                    onOpen={() => router.push(`/project/${project.id}`)}
+                  />
                 ))}
               </div>
             )
@@ -857,8 +814,7 @@ function WorkspacePageContent() {
                 </ul>
             </div>
           </div>
-        </div>
-      </main>
+      </PageLayout>
     </>
   );
 }

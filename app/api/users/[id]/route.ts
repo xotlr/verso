@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
+import { validateUsername, normalizeUsername } from '@/lib/username'
 
 const updateProfileSchema = z.object({
   name: z.string().max(100).optional(),
+  username: z.string().max(20).nullable().optional(),
   image: z.string().url().nullable().optional(),
   banner: z.string().url().nullable().optional(),
   bio: z.string().max(500).nullable().optional(),
@@ -36,6 +38,7 @@ export async function GET(
       select: {
         id: true,
         name: true,
+        username: true,
         email: isOwnProfile, // Only show email for own profile
         image: true,
         banner: true,
@@ -129,13 +132,47 @@ export async function PATCH(
     const body = await request.json()
     const validatedData = updateProfileSchema.parse(body)
 
-    // Clean up empty strings to null
+    // Handle username separately - needs validation
+    let usernameToSet: string | null | undefined = undefined
+    if ('username' in validatedData) {
+      const usernameValue = validatedData.username
+      if (usernameValue === null || usernameValue === '' || usernameValue === undefined) {
+        usernameToSet = null
+      } else {
+        const validation = validateUsername(usernameValue)
+        if (!validation.valid) {
+          return NextResponse.json({ error: validation.error }, { status: 400 })
+        }
+        const normalized = normalizeUsername(usernameValue)
+
+        // Check if taken by someone else
+        const existing = await prisma.user.findFirst({
+          where: {
+            username: normalized,
+            NOT: { id },
+          },
+          select: { id: true },
+        })
+        if (existing) {
+          return NextResponse.json({ error: 'Username is already taken' }, { status: 400 })
+        }
+        usernameToSet = normalized
+      }
+    }
+
+    // Clean up empty strings to null (excluding username which we handle separately)
+    const { username: _, ...restData } = validatedData
     const cleanedData = Object.fromEntries(
-      Object.entries(validatedData).map(([key, value]) => [
+      Object.entries(restData).map(([key, value]) => [
         key,
         value === '' ? null : value,
       ])
     )
+
+    // Add username if it was processed
+    if (usernameToSet !== undefined) {
+      ;(cleanedData as Record<string, unknown>).username = usernameToSet
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id },
@@ -143,6 +180,7 @@ export async function PATCH(
       select: {
         id: true,
         name: true,
+        username: true,
         email: true,
         image: true,
         banner: true,

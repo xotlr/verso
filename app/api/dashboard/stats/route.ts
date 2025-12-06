@@ -15,9 +15,17 @@ export async function GET() {
 
     const userId = session.user.id
 
-    // Calculate dates
+    // Calculate dates with proper timezone handling
     const now = new Date()
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    const today = new Date(now)
+    today.setHours(0, 0, 0, 0)
+
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    // Rolling 7 days: start from beginning of day 7 days ago
+    const weekAgo = new Date(today)
+    weekAgo.setDate(weekAgo.getDate() - 7)
 
     // Get all stats in parallel
     const [
@@ -51,6 +59,7 @@ export async function GET() {
           currentStreak: true,
           longestStreak: true,
           dailyGoal: true,
+          lastWriteDate: true,
         },
       }),
       // Words this week
@@ -71,13 +80,26 @@ export async function GET() {
       0
     )
 
+    // Calculate actual current streak (check if it's stale)
+    let currentStreak = userStats?.currentStreak || 0
+    if (userStats?.lastWriteDate) {
+      const lastWrite = new Date(userStats.lastWriteDate)
+      lastWrite.setHours(0, 0, 0, 0)
+
+      // If last write was before yesterday, streak is broken
+      if (lastWrite.getTime() < yesterday.getTime()) {
+        currentStreak = 0
+      }
+    }
+
     return NextResponse.json({
       screenplayCount,
       projectCount,
       wordsThisWeek,
-      currentStreak: userStats?.currentStreak || 0,
+      currentStreak,
       longestStreak: userStats?.longestStreak || 0,
       dailyGoal: userStats?.dailyGoal || 500,
+      lastWriteDate: userStats?.lastWriteDate || null,
     })
   } catch (error) {
     console.error("Error fetching dashboard stats:", error)

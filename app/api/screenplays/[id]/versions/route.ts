@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { REVISION_COLORS } from "@/types/version"
 
 // Helper to check screenplay access
 async function checkScreenplayAccess(screenplayId: string, userId: string) {
@@ -161,6 +162,11 @@ export async function POST(
 
     const versionNumber = (lastVersion?.versionNumber ?? 0) + 1
 
+    // Assign revision color based on version number (cycles through industry-standard colors)
+    // Version 1 = white (original), Version 2 = blue (1st revision), etc.
+    const revisionColorIndex = (versionNumber - 1) % REVISION_COLORS.length
+    const revisionColor = REVISION_COLORS[revisionColorIndex]
+
     const version = await prisma.screenplayVersion.create({
       data: {
         screenplayId: id,
@@ -168,6 +174,7 @@ export async function POST(
         versionNumber,
         label,
         reason,
+        revisionColor,
         wordCount,
         sceneCount,
         createdBy: session.user.id,

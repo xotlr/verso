@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -19,32 +19,20 @@ const navLinks = [
 
 export function Navbar() {
   const { data: session } = useSession()
-  const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  // Track scroll position for navbar background
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10)
-    }
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
-
   return (
-    <header
-      className={cn(
-        "sticky top-0 z-50 w-full transition-all duration-300",
-        isScrolled
-          ? "border-b border-border/50 bg-background/80 backdrop-blur-xl backdrop-saturate-200 shadow-sm"
-          : "border-b border-transparent bg-transparent"
-      )}
-    >
-      <div className="container max-w-6xl mx-auto px-4 sm:px-6 flex h-16 items-center justify-between">
+    <header className="sticky top-0 z-50 w-full p-2">
+      <div
+        className={cn(
+          "relative max-w-6xl mx-auto px-2 flex h-14 items-center justify-between",
+          "rounded-md bg-card/80 backdrop-blur-xl border border-border/50 shadow-sm"
+        )}
+      >
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2.5 font-semibold text-lg group"
+          className="flex items-center gap-2.5 font-semibold text-lg group z-10"
         >
           <Logo size={36} className="transition-transform duration-300 group-hover:scale-105" />
           <span className="hidden sm:inline transition-colors duration-200 group-hover:text-primary">
@@ -52,8 +40,8 @@ export function Navbar() {
           </span>
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-1">
+        {/* Desktop Navigation - absolutely centered */}
+        <nav className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -73,7 +61,7 @@ export function Navbar() {
         </nav>
 
         {/* Desktop Auth Buttons */}
-        <div className="hidden md:flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-3 z-10">
           {session ? (
             <Button size="sm" asChild className="group h-9 pl-3 pr-4">
               <Link href="/home" className="flex items-center gap-2">

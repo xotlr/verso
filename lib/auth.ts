@@ -112,11 +112,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Fetch user data on initial sign-in and store in token
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-          select: { plan: true, image: true, name: true },
+          select: { plan: true, image: true, name: true, username: true },
         })
         token.plan = dbUser?.plan || "FREE"
         token.image = dbUser?.image
         token.name = dbUser?.name
+        token.username = dbUser?.username
       }
       // Refresh user data when session is updated (after profile changes)
       if (trigger === "update" && token.id) {
@@ -127,6 +128,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
           if (session.user.name !== undefined) {
             token.name = session.user.name
+          }
+          if (session.user.username !== undefined) {
+            token.username = session.user.username
           }
         }
         // Also verify/refresh plan from database
@@ -147,6 +151,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.plan = token.plan
         session.user.image = token.image as string | null | undefined
         session.user.name = token.name as string | null | undefined
+        session.user.username = token.username as string | null | undefined
       }
       return session
     },
