@@ -1,20 +1,26 @@
 use crate::types::{Element, PageConfig};
-use regex::Regex;
-use std::sync::LazyLock;
-
-/// Regex to strip HTML tags from content for accurate character counting.
-/// Matches JS: const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "");
-static HTML_TAG_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"<[^>]*>").expect("Invalid HTML tag regex")
-});
 
 /// Strip HTML tags from content to get raw text for measurement.
 /// This matches the JS implementation's stripHtml function.
+/// Uses a simple state machine instead of regex for smaller WASM binary.
 fn strip_html(html: &str) -> String {
     if html.is_empty() {
         return String::new();
     }
-    HTML_TAG_REGEX.replace_all(html, "").into_owned()
+
+    let mut result = String::with_capacity(html.len());
+    let mut in_tag = false;
+
+    for ch in html.chars() {
+        match ch {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => result.push(ch),
+            _ => {}
+        }
+    }
+
+    result
 }
 
 /// Result of calculating lines for an element

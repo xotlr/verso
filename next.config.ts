@@ -11,6 +11,17 @@ const nextConfig: NextConfig = {
   // Fix workspace root detection (multiple lockfiles issue)
   outputFileTracingRoot: __dirname,
 
+  // Allow Supabase storage images
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'akqcitwkiabfyyqukzus.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
+  },
+
   // Enable subdomain routing for local development
   // Access: localhost:3000 (landing) and app.localhost:3000 (app)
   // Note: Add "127.0.0.1 app.localhost" to /etc/hosts for local subdomain testing

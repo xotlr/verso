@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { useMounted } from "@/hooks/use-mobile";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
@@ -19,6 +20,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
+  const mounted = useMounted();
   const [focusMode, setFocusMode] = useState(false);
   const [backdropActive, setBackdropActive] = useState(false);
   const isEditorRoute = pathname.includes('/screenplay/');
@@ -115,8 +117,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
           "flex flex-col h-screen transition-all duration-500 ease-out overflow-x-hidden",
           focusMode && "!ml-0"
         )}>
-          {/* Header - hidden in focus mode */}
-          {!focusMode && <AppHeader />}
+          {/* Header - hidden in focus mode, always rendered during SSR to prevent hydration mismatch */}
+          {(!mounted || !focusMode) && <AppHeader />}
 
           {/* Focus mode exit button - centered at top */}
           <div className={cn(
@@ -164,8 +166,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </div>
           )}
 
-          {/* Bottom Navigation - mobile only, hidden in focus mode */}
-          {!focusMode && <BottomNav />}
+          {/* Bottom Navigation - mobile only, hidden in focus mode, always rendered during SSR */}
+          {(!mounted || !focusMode) && <BottomNav />}
         </SidebarInset>
 
         {/* Focus mode backdrop overlay */}

@@ -31,7 +31,6 @@
 use wasm_bindgen::prelude::*;
 
 pub mod layout;
-pub mod shaping;
 pub mod types;
 pub mod utils;
 

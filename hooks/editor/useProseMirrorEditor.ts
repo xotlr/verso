@@ -58,6 +58,9 @@ export interface UseProseMirrorEditorReturn {
   canRedo: boolean;
   isWasmReady: boolean;
 
+  // Pagination result for discrete page rendering
+  paginationResult: import('@/lib/verso').PaginationResult | null;
+
   // Autocomplete
   autocompleteState: AutocompleteState | null;
   applyAutocompleteSuggestion: (suggestion: AutocompleteSuggestion) => void;
@@ -451,6 +454,9 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     canUndo,
     canRedo,
     isWasmReady: pagination.isWasmReady,
+
+    // Pagination result for discrete page rendering
+    paginationResult: pagination.result,
 
     // Autocomplete
     autocompleteState,

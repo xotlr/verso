@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
+import { useMounted } from '@/hooks/use-mobile';
 import {
   Settings,
   Plus,
@@ -106,6 +107,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   const { state } = useSidebar();
   const { data: session } = useSession();
   const isCollapsed = state === "collapsed";
+  const mounted = useMounted();
 
   const user = session?.user;
 
@@ -282,7 +284,8 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
         </SidebarGroup>
 
         {/* Current Screenplay Navigation - only shows on screenplay pages */}
-        {screenplayId && (
+        {/* Wrapped in mounted guard to prevent hydration mismatch */}
+        {mounted && screenplayId && (
           <SidebarGroup>
             <SidebarGroupLabel className="font-semibold">
               {isCollapsed ? (
@@ -310,7 +313,8 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
         )}
 
         {/* Resources Section */}
-        {!isCollapsed ? (
+        {/* Use consistent structure during hydration, show expanded after mount */}
+        {mounted && !isCollapsed ? (
           <SidebarGroup>
             <SidebarGroupLabel>Resources</SidebarGroupLabel>
             <SidebarGroupContent>

@@ -937,3 +937,137 @@
     min-height: 44px;
   }
 }
+
+/* ============================================
+   Discrete Page Mode - Page Frames
+   ============================================ */
+
+/**
+ * Page frames render visual page cards as overlays.
+ * This creates the "discrete page" appearance while keeping
+ * ProseMirror as a continuous document for collaboration.
+ */
+
+/* Container for all page frames - positioned behind content */
+.pm-page-frames-container {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform-origin: top center;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Individual page frame - the white card */
+.pm-page-frame {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 816px;
+  height: 1056px;
+  background: white;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border-radius: 2px;
+}
+
+.dark .pm-page-frame {
+  background: hsl(0 0% 12%);
+  box-shadow:
+    0 0 0 1px hsl(0 0% 100% / 0.05),
+    0 4px 8px hsl(0 0% 0% / 0.2),
+    0 16px 32px hsl(0 0% 0% / 0.25);
+}
+
+/* Page number - industry standard top-right position */
+.pm-page-frame-number {
+  position: absolute;
+  top: 48px;
+  right: 96px;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  font-size: 16px;
+  line-height: 16px;
+  color: hsl(0 0% 15%);
+  user-select: none;
+}
+
+.dark .pm-page-frame-number {
+  color: hsl(0 0% 85%);
+}
+
+/* Gap overlay between pages */
+.pm-page-gap-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: hsl(var(--background));
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Discrete mode: Content layer sits above page frames */
+.pm-discrete-mode .pm-content-layer {
+  position: relative;
+  z-index: 2;
+}
+
+/* Discrete mode: Hide the old page break decorations */
+.pm-discrete-mode .pm-page-break-container {
+  display: none !important;
+}
+
+/* Discrete mode: Editor pages container needs relative positioning */
+.pm-discrete-mode .pm-editor-pages {
+  position: relative;
+}
+
+/* Discrete mode: Remove gap between pages (handled by page frames) */
+.pm-discrete-mode .pm-editor-pages {
+  gap: 0;
+}
+
+/* Discrete mode: Page styling adjustments */
+.pm-discrete-mode .pm-editor-page {
+  /* Remove default shadow - page frames provide it */
+  box-shadow: none;
+  background: transparent;
+  /* Content flows through, page frames show behind */
+}
+
+/* MORE/CONT'D indicators for dialogue continuation */
+.pm-page-frame .pm-more-indicator {
+  position: absolute;
+  bottom: 96px;
+  left: 144px;
+  right: 96px;
+  text-align: center;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  font-size: 16px;
+  line-height: 16px;
+  color: hsl(0 0% 15%);
+}
+
+.pm-page-frame .pm-contd-indicator {
+  position: absolute;
+  top: 96px;
+  left: 355px;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  font-size: 16px;
+  line-height: 16px;
+  color: hsl(0 0% 15%);
+}
+
+.dark .pm-page-frame .pm-more-indicator,
+.dark .pm-page-frame .pm-contd-indicator {
+  color: hsl(0 0% 85%);
+}
+
+/* Print: Hide page frames (browser handles page breaks) */
+@media print {
+  .pm-page-frames-container {
+    display: none;
+  }
+
+  .pm-page-gap-overlay {
+    display: none;
+  }
+}

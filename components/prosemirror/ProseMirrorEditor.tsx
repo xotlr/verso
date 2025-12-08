@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, Loader2, ChevronLeft, ChevronRight, Maximize2, BookOpen, FileText, Scroll } from 'lucide-react';
+import { Check, Loader2, ChevronLeft, ChevronRight, Maximize2, BookOpen, FileText, Scroll, LayoutGrid } from 'lucide-react';
 import {
   useProseMirrorEditor,
   SceneInfo,
@@ -10,11 +10,13 @@ import {
 } from '@/hooks/editor/useProseMirrorEditor';
 import { useResponsiveScale } from '@/hooks/editor/useResponsiveScale';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { PAGE_WIDTH_PX } from '@/lib/constants';
+import { PAGE_WIDTH_PX, PAGE_HEIGHT_PX } from '@/lib/constants';
 import { FloatingToolbar } from './FloatingToolbar';
 import { AutocompleteDropdown } from './AutocompleteDropdown';
 import { ElementToolbar } from './ElementToolbar';
 import { EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
+import { PageFrameRenderer, PageGapRenderer } from './PageFrameRenderer';
+import { createPageFramesFromWasm, PAGE_GAP_PX } from '@/lib/prosemirror/plugins/page-frames';
 import { Button } from '@/components/ui/button';
 import { MobileEditorToolbar } from '@/components/mobile-editor-toolbar';
 import { MobileSceneCharacterSheet } from '@/components/editor/MobileSceneCharacterSheet';
@@ -23,7 +25,7 @@ import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
 import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plugins/keymap';
 import '@/styles/editor/prosemirror.css';
 
-export type ViewMode = 'single' | 'dual' | 'continuous';
+export type ViewMode = 'single' | 'dual' | 'continuous' | 'discrete';
 
 export interface ProseMirrorEditorProps {
   content: string | null;
@@ -196,12 +198,28 @@ export function ProseMirrorEditor({
     canRedo,
     undo: handleUndo,
     redo: handleRedo,
+    paginationResult,
   } = useProseMirrorEditor({
     initialContent: content,
     onUpdate: onContentChange,
     onScenesChange,
     editable,
   });
+
+  // Create page frames from WASM pagination result
+  const pageFrames = useMemo(() => {
+    if (!paginationResult) return [];
+    return createPageFramesFromWasm(paginationResult);
+  }, [paginationResult]);
+
+  // Check if in discrete mode
+  const isDiscreteMode = viewMode === 'discrete';
+
+  // Calculate total height for discrete mode (pages + gaps)
+  const discreteTotalHeight = useMemo(() => {
+    if (!isDiscreteMode || pageFrames.length === 0) return 0;
+    return pageFrames.length * PAGE_HEIGHT_PX + (pageFrames.length - 1) * PAGE_GAP_PX;
+  }, [isDiscreteMode, pageFrames]);
 
   // Mobile toolbar callbacks
   const handleInsertElement = useCallback((elementType: string) => {
@@ -301,6 +319,7 @@ export function ProseMirrorEditor({
       className={cn(
         'pm-editor-wrapper',
         viewMode === 'dual' && 'pm-dual-mode',
+        viewMode === 'discrete' && 'pm-discrete-mode',
         isInFocusMode && 'pm-focus-mode',
         className
       )}
@@ -308,6 +327,14 @@ export function ProseMirrorEditor({
       {/* View mode switcher - hidden in focus mode and on mobile */}
       {isReady && !isInFocusMode && !isMobile && (
         <div className="pm-view-switcher hover:opacity-90 transition-opacity duration-200">
+          <Button
+            variant={viewMode === 'discrete' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('discrete')}
+            title="Discrete page view (Final Draft style)"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
           <Button
             variant={viewMode === 'single' ? 'secondary' : 'ghost'}
             size="sm"
@@ -361,10 +388,29 @@ export function ProseMirrorEditor({
           viewMode === 'continuous' && 'pm-continuous-mode'
         )}
       >
+        {/* Page frames layer (discrete mode only) - rendered behind content */}
+        {isDiscreteMode && isReady && (
+          <PageFrameRenderer
+            frames={pageFrames}
+            scale={scale}
+            discreteMode={isDiscreteMode}
+          />
+        )}
+
+        {/* Gap overlays between pages (discrete mode only) */}
+        {isDiscreteMode && isReady && (
+          <PageGapRenderer
+            frames={pageFrames}
+            scale={scale}
+            discreteMode={isDiscreteMode}
+          />
+        )}
+
         <div
           className={cn(
             'pm-editor-pages',
-            viewMode === 'dual' && 'pm-dual-view'
+            viewMode === 'dual' && 'pm-dual-view',
+            isDiscreteMode && 'pm-content-layer'
           )}
           style={{
             transform: viewMode === 'dual'
@@ -372,6 +418,10 @@ export function ProseMirrorEditor({
               : `scale(${scale})`,
             transformOrigin: 'top center',
             width: `${PAGE_WIDTH_PX}px`,
+            // In discrete mode, set min-height to match total page frames height
+            minHeight: isDiscreteMode && discreteTotalHeight > 0
+              ? `${discreteTotalHeight}px`
+              : undefined,
           }}
         >
           {/* ProseMirror mounts here */}

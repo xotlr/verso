@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { useMounted } from '@/hooks/use-mobile';
 import {
   PenTool,
   BarChart3,
@@ -32,6 +33,7 @@ export function BottomNav() {
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
+  const mounted = useMounted();
   const [lastScreenplayId, setLastScreenplayId] = useState<string | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -55,8 +57,8 @@ export function BottomNav() {
     return null;
   })();
 
-  // Use current screenplay or last opened
-  const screenplayId = currentScreenplayId || lastScreenplayId;
+  // Use current screenplay or last opened (only after mount to prevent hydration mismatch)
+  const screenplayId = currentScreenplayId || (mounted ? lastScreenplayId : null);
 
   const handleCreateAction = (action: 'screenplay' | 'project' | 'continue') => {
     setCreateOpen(false);

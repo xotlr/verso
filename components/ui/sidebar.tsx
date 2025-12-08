@@ -5,7 +5,7 @@ import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import { PanelLeft } from "lucide-react"
 
-import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsMobile, useMounted } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -182,6 +182,7 @@ const Sidebar = React.forwardRef<
     ref
   ) => {
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+    const mounted = useMounted()
 
     if (collapsible === "none") {
       return (
@@ -198,7 +199,9 @@ const Sidebar = React.forwardRef<
       )
     }
 
-    if (isMobile) {
+    // Only render mobile Sheet after hydration to prevent hydration mismatch.
+    // During SSR and initial hydration, always render desktop version.
+    if (mounted && isMobile) {
       return (
         <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
           <SheetContent
@@ -658,12 +661,13 @@ const SidebarMenuSkeleton = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
     showIcon?: boolean
+    /** Index for deterministic width calculation (0-based) */
+    index?: number
   }
->(({ className, showIcon = false, ...props }, ref) => {
-  // Random width between 50 to 90%.
-  const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
-  }, [])
+>(({ className, showIcon = false, index = 0, ...props }, ref) => {
+  // Deterministic width between 50 to 90% based on index
+  // Using prime multiplier for varied distribution without Math.random()
+  const width = `${50 + ((index * 17) % 41)}%`
 
   return (
     <div
