@@ -24,13 +24,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { useShortcutMatcher } from "@/lib/shortcuts/use-shortcut"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
-const SIDEBAR_KEYBOARD_SHORTCUT = "\\"
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed"
@@ -102,13 +103,13 @@ const SidebarProvider = React.forwardRef<
         : setOpen((open) => !open)
     }, [isMobile, setOpen, setOpenMobile])
 
+    // Shortcut matcher for customizable shortcuts
+    const matchesShortcut = useShortcutMatcher()
+
     // Adds a keyboard shortcut to toggle the sidebar.
     React.useEffect(() => {
       const handleKeyDown = (event: KeyboardEvent) => {
-        if (
-          event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-          (event.metaKey || event.ctrlKey)
-        ) {
+        if (matchesShortcut(event, 'toggleSidebar')) {
           event.preventDefault()
           toggleSidebar()
         }
@@ -116,7 +117,7 @@ const SidebarProvider = React.forwardRef<
 
       window.addEventListener("keydown", handleKeyDown)
       return () => window.removeEventListener("keydown", handleKeyDown)
-    }, [toggleSidebar])
+    }, [toggleSidebar, matchesShortcut])
 
     // We add a state so that we can do data-state="expanded" or "collapsed".
     // This makes it easier to style the sidebar with Tailwind classes.
@@ -411,17 +412,23 @@ SidebarSeparator.displayName = "SidebarSeparator"
 const SidebarContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div">
->(({ className, ...props }, ref) => {
+>(({ className, children, ...props }, ref) => {
   return (
-    <div
-      ref={ref}
-      data-sidebar="content"
+    <ScrollArea
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+        "min-h-0 flex-1 group-data-[collapsible=icon]:overflow-hidden",
         className
       )}
-      {...props}
-    />
+    >
+      <div
+        ref={ref}
+        data-sidebar="content"
+        className="flex flex-col gap-2"
+        {...props}
+      >
+        {children}
+      </div>
+    </ScrollArea>
   )
 })
 SidebarContent.displayName = "SidebarContent"

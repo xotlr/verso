@@ -13,6 +13,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Loader2,
   Check,
@@ -113,7 +114,7 @@ export function ConnectionRequestsPanel({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-lg flex flex-col">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
@@ -124,7 +125,8 @@ export function ConnectionRequestsPanel({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-6 space-y-4">
+        <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="mt-6 space-y-4">
           {loading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
@@ -152,7 +154,8 @@ export function ConnectionRequestsPanel({
               ))}
             </div>
           )}
-        </div>
+          </div>
+        </ScrollArea>
       </SheetContent>
     </Sheet>
   )

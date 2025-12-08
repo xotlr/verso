@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ProductionPanelProps {
   isOpen: boolean;
@@ -63,7 +64,8 @@ export function ProductionPanel({
         </DialogHeader>
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(85vh-180px)]">
+        <ScrollArea className="max-h-[calc(85vh-180px)]">
+        <div>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full justify-start border-b border-border rounded-none bg-transparent px-6 sticky top-0 z-10 bg-card/80 backdrop-blur-xl">
               <TabsTrigger value="numbering" className="gap-2">
@@ -299,6 +301,7 @@ export function ProductionPanel({
             </TabsContent>
           </Tabs>
         </div>
+        </ScrollArea>
 
         {/* Footer */}
         <DialogFooter className="p-6 border-t border-border bg-card/50">

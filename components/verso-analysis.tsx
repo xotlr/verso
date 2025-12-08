@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface VersoAnalysisProps {
   isOpen: boolean;
@@ -95,7 +96,8 @@ export function VersoAnalysis({ isOpen, screenplay, onClose }: VersoAnalysisProp
         </DialogHeader>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 max-h-[calc(90vh-140px)]">
+        <ScrollArea className="flex-1 max-h-[calc(90vh-140px)]">
+        <div className="p-6">
           {!analysis && (
             <div className="space-y-6">
               {/* Analysis Type Selection */}
@@ -216,6 +218,7 @@ export function VersoAnalysis({ isOpen, screenplay, onClose }: VersoAnalysisProp
             </div>
           )}
         </div>
+        </ScrollArea>
 
         {/* Footer */}
         {analysis && (

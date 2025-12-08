@@ -17,6 +17,7 @@ import {
   Mic,
 } from 'lucide-react';
 import { useSettings } from '@/contexts/settings-context';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface AutocompleteDropdownProps {
   view: EditorView | null;
@@ -174,11 +175,10 @@ export function AutocompleteDropdown({
   }
 
   return (
-    <div
+    <ScrollArea
       ref={dropdownRef}
       className={cn(
         'fixed z-50 w-[200px] max-h-[220px]',
-        'overflow-y-auto overscroll-contain',
         'bg-popover/85 backdrop-blur-sm',
         'border border-border/50 rounded-lg shadow-md',
         showDropdown
@@ -229,7 +229,7 @@ export function AutocompleteDropdown({
           )}
         </button>
       ))}
-    </div>
+    </ScrollArea>
   );
 }
 

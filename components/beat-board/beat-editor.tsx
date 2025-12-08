@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Check, X } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface BeatEditorProps {
   beat: Beat | null;
@@ -115,7 +116,7 @@ export function BeatEditor({
 
           <div>
             <label className="text-sm font-medium text-muted-foreground">Link Scenes</label>
-            <div className="mt-1 max-h-32 overflow-y-auto border rounded-md p-2 space-y-1">
+            <ScrollArea className="mt-1 max-h-32 border rounded-md p-2">
               {scenes.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No scenes available</p>
               ) : (
@@ -134,7 +135,7 @@ export function BeatEditor({
                   </button>
                 ))
               )}
-            </div>
+            </ScrollArea>
           </div>
         </div>
 

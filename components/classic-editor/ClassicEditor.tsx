@@ -21,6 +21,7 @@ import {
   RevisionColor,
 } from '@/lib/classic-editor/types';
 import { useHistory } from '@/hooks/classic-editor/useHistory';
+import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
 
 interface ClassicEditorProps {
   initialBlocks: ScriptBlock[];
@@ -284,30 +285,35 @@ export function ClassicEditor({
     }
   }, [setHistoryState]);
 
+  // Shortcut matcher for customizable shortcuts
+  const matchesShortcut = useShortcutMatcher();
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent, id: string) => {
+    const nativeEvent = e.nativeEvent;
+
     // Save shortcut
-    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    if (matchesShortcut(nativeEvent, 'save')) {
       e.preventDefault();
       onSave?.();
       return;
     }
 
     // Undo
-    if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+    if (matchesShortcut(nativeEvent, 'undo')) {
       e.preventDefault();
       undo();
       return;
     }
 
-    // Redo (Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y)
-    if ((e.metaKey || e.ctrlKey) && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
+    // Redo
+    if (matchesShortcut(nativeEvent, 'redo')) {
       e.preventDefault();
       redo();
       return;
     }
 
     // Select All - select all text across all blocks
-    if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+    if (matchesShortcut(nativeEvent, 'selectAll')) {
       e.preventDefault();
       // Find the ScrollArea viewport (Radix component)
       const scrollViewport = document.querySelector('[data-radix-scroll-area-viewport]');
@@ -325,10 +331,20 @@ export function ClassicEditor({
       return;
     }
 
-    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    // Move block up/down
+    if (matchesShortcut(nativeEvent, 'moveBlockUp')) {
       e.preventDefault();
-      moveBlock(id, e.key === 'ArrowUp' ? 'UP' : 'DOWN');
-    } else if (e.key === 'Enter' && !e.shiftKey) {
+      moveBlock(id, 'UP');
+      return;
+    }
+    if (matchesShortcut(nativeEvent, 'moveBlockDown')) {
+      e.preventDefault();
+      moveBlock(id, 'DOWN');
+      return;
+    }
+
+    // Enter for new element (core editor behavior - not customizable)
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       const current = blocksRef.current.find(b => b.id === id);
       const map: Record<BlockType, BlockType> = {
@@ -357,7 +373,7 @@ export function ClassicEditor({
         changeBlockType(types[newIdx]);
       }
     }
-  }, [addBlock, deleteBlock, moveBlock, changeBlockType, onSave, undo, redo]);
+  }, [addBlock, deleteBlock, moveBlock, changeBlockType, onSave, undo, redo, matchesShortcut]);
 
   // Handle multi-line paste - parse screenplay text and insert blocks
   const handlePasteMultiline = useCallback((blockId: string, text: string) => {

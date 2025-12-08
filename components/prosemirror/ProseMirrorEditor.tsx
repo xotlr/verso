@@ -23,6 +23,7 @@ import { MobileSceneCharacterSheet } from '@/components/editor/MobileSceneCharac
 import { ScreenplayStatsMobile } from '@/components/screenplay-stats-mobile';
 import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
 import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plugins/keymap';
+import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
 import '@/styles/editor/prosemirror.css';
 
 export type ViewMode = 'single' | 'dual' | 'continuous' | 'discrete';
@@ -266,18 +267,21 @@ export function ProseMirrorEditor({
     setCurrentSpread((prev) => Math.min(totalSpreads - 1, prev + 1));
   }, [totalSpreads]);
 
+  // Shortcut matcher for customizable shortcuts
+  const matchesShortcut = useShortcutMatcher();
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl+S for save
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      // Save shortcut
+      if (matchesShortcut(e, 'save')) {
         e.preventDefault();
         onSave?.();
         return;
       }
 
-      // Shift+Ctrl+E - Center current line
-      if (e.shiftKey && e.ctrlKey && e.key === 'e') {
+      // Center current line
+      if (matchesShortcut(e, 'centerLine')) {
         e.preventDefault();
         const viewport = document.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
         if (view && viewport) {
@@ -298,12 +302,12 @@ export function ProseMirrorEditor({
         return;
       }
 
-      // Arrow keys for spread navigation in dual view
-      if (viewMode === 'dual' && !e.metaKey && !e.ctrlKey) {
-        if (e.key === 'ArrowLeft' && e.altKey) {
+      // Spread navigation in dual view
+      if (viewMode === 'dual') {
+        if (matchesShortcut(e, 'prevSpread')) {
           e.preventDefault();
           goToPrevSpread();
-        } else if (e.key === 'ArrowRight' && e.altKey) {
+        } else if (matchesShortcut(e, 'nextSpread')) {
           e.preventDefault();
           goToNextSpread();
         }
@@ -312,7 +316,7 @@ export function ProseMirrorEditor({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onSave, viewMode, view, goToPrevSpread, goToNextSpread]);
+  }, [onSave, viewMode, view, goToPrevSpread, goToNextSpread, matchesShortcut]);
 
   return (
     <div

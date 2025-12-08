@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Minus, Plus } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ShotEditorProps {
   open: boolean;
@@ -122,11 +123,12 @@ export function ShotEditor({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>{shot ? "Edit Shot" : "New Shot"}</DialogTitle>
         </DialogHeader>
 
+        <ScrollArea className="flex-1 -mx-6 px-6">
         <Tabs defaultValue="basic" className="mt-4">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="basic">Basic</TabsTrigger>
@@ -328,6 +330,7 @@ export function ShotEditor({
             </div>
           </TabsContent>
         </Tabs>
+        </ScrollArea>
 
         <DialogFooter className="mt-6">
           <Button variant="outline" onClick={() => onOpenChange(false)}>

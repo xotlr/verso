@@ -15,6 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Scene } from '@/types/screenplay';
 import { SceneNumbering, RevisionColor } from '@/types/production';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   exportToFountain,
   exportToFDX,
@@ -164,7 +165,8 @@ export function ExportDialog({
         </DialogHeader>
 
         {/* Content */}
-        <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
+        <ScrollArea className="max-h-[60vh]">
+        <div className="p-6 space-y-6">
           {/* Format Selection */}
           <div>
             <h3 className="text-sm font-semibold mb-3">Choose Format</h3>
@@ -290,6 +292,7 @@ export function ExportDialog({
             </p>
           </div>
         </div>
+        </ScrollArea>
 
         {/* Footer */}
         <DialogFooter className="flex items-center justify-between gap-3 p-6 border-t border-border bg-card/50">

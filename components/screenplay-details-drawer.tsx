@@ -1,6 +1,7 @@
 'use client';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -49,7 +50,7 @@ export function ScreenplayDetailsDrawer({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="right" className="w-[400px] sm:w-[500px] overflow-y-auto">
+      <SheetContent side="right" className="w-[400px] sm:w-[500px] flex flex-col">
         <SheetHeader>
           <SheetTitle>Screenplay Details</SheetTitle>
           <SheetDescription>
@@ -57,7 +58,8 @@ export function ScreenplayDetailsDrawer({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-6 space-y-6">
+        <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="mt-6 space-y-6">
           {/* Primary Info Section */}
           <section className="space-y-4">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -165,6 +167,7 @@ export function ScreenplayDetailsDrawer({
             </div>
           </section>
         </div>
+        </ScrollArea>
       </SheetContent>
     </Sheet>
   );

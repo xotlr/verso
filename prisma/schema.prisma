@@ -77,6 +77,9 @@ model User {
   // Profile visibility
   isPublic Boolean @default(true)
 
+  // User preferences
+  shortcuts Json? // Custom keyboard shortcuts
+
   // Subscription
   plan                   Plan      @default(FREE)
   stripeCustomerId       String?   @unique

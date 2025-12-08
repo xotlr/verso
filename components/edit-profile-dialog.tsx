@@ -21,6 +21,7 @@ import { Loader2, Image as ImageIcon, User, Link as LinkIcon, Eye, Sparkles, X, 
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface UserProfile {
   id: string
@@ -206,7 +207,7 @@ export function EditProfileDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
           <DialogDescription>
@@ -214,6 +215,7 @@ export function EditProfileDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <ScrollArea className="flex-1 -mx-6 px-6">
         <Tabs defaultValue="images" className="mt-4">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="images" className="gap-2">
@@ -577,6 +579,7 @@ export function EditProfileDialog({
             </div>
           </TabsContent>
         </Tabs>
+        </ScrollArea>
 
         <DialogFooter className="mt-6">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>

@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface PageLayoutProps {
   children: React.ReactNode;
@@ -30,7 +31,7 @@ export function PageLayout({
   const hasHeader = title || description || actions;
 
   return (
-    <main className="flex-1 overflow-auto overflow-x-hidden bg-background">
+    <ScrollArea className="flex-1 bg-background">
       <div
         className={cn(
           'mx-auto',
@@ -66,6 +67,6 @@ export function PageLayout({
         )}
         {children}
       </div>
-    </main>
+    </ScrollArea>
   );
 }

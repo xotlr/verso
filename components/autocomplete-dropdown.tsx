@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface AutocompleteSuggestion {
   value: string;
@@ -76,10 +77,11 @@ export function AutocompleteDropdown({
 
   return (
     <div
-      className="fixed z-50 min-w-[200px] max-w-[400px] max-h-[300px] overflow-y-auto bg-popover border border-border rounded-lg shadow-lg"
+      className="fixed z-50 min-w-[200px] max-w-[400px] bg-popover border border-border rounded-lg shadow-lg"
       style={{ top: position.top, left: position.left }}
     >
-      <div ref={listRef} className="py-1">
+      <ScrollArea className="max-h-[300px]">
+        <div ref={listRef} className="py-1">
         {suggestions.map((suggestion, index) => (
           <button
             key={suggestion.value}
@@ -98,7 +100,8 @@ export function AutocompleteDropdown({
             )}
           </button>
         ))}
-      </div>
+        </div>
+      </ScrollArea>
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
 import { Settings, Trash2, Loader2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { ImageUpload } from '@/components/image-upload'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface ProjectData {
   id: string
@@ -116,11 +117,12 @@ export function ProjectSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Project Settings</DialogTitle>
         </DialogHeader>
 
+        <ScrollArea className="flex-1 -mx-6 px-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="general" className="gap-2">
@@ -243,6 +245,7 @@ export function ProjectSettingsDialog({
             </div>
           </TabsContent>
         </Tabs>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   )

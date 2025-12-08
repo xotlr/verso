@@ -38,6 +38,7 @@ import {
   ZoomOut,
   List,
 } from 'lucide-react'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface MobileEditorToolbarProps {
   // Undo/Redo
@@ -336,7 +337,7 @@ export function MobileEditorToolbar({
 
       {/* More Options Sheet */}
       <Sheet open={moreSheetOpen} onOpenChange={setMoreSheetOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl max-h-[80vh] overflow-auto">
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[80vh] flex flex-col overflow-hidden">
           <SheetHeader className="pb-4">
             <SheetTitle>More Options</SheetTitle>
             <SheetDescription>
@@ -352,6 +353,7 @@ export function MobileEditorToolbar({
             </SheetDescription>
           </SheetHeader>
 
+          <ScrollArea className="flex-1 -mx-6 px-6">
           {/* Save & Export */}
           <div className="space-y-2 mb-6">
             <p className="text-sm font-medium text-muted-foreground">
@@ -512,6 +514,7 @@ export function MobileEditorToolbar({
               </Button>
             </div>
           </div>
+          </ScrollArea>
         </SheetContent>
       </Sheet>
     </>

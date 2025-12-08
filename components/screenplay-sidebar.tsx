@@ -112,7 +112,7 @@ export function ScreenplaySidebar({
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="flex-1 overflow-y-auto">
+      <SidebarContent className="flex-1">
         <SidebarGroup className="h-full">
           <SidebarGroupContent className="h-full">
             {activeSection === 'scenes' && (

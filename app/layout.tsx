@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunce
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SettingsProvider } from "@/contexts/settings-context";
+import { ShortcutsProvider } from "@/lib/shortcuts/shortcuts-context";
 import { TeamProvider } from "@/contexts/team-context";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -102,10 +103,12 @@ export default function RootLayout({
             defaultTheme="system"
           >
             <SettingsProvider>
-              <TeamProvider>
-                {children}
-                <Toaster richColors position="bottom-right" />
-              </TeamProvider>
+              <ShortcutsProvider>
+                <TeamProvider>
+                  {children}
+                  <Toaster richColors position="bottom-right" />
+                </TeamProvider>
+              </ShortcutsProvider>
             </SettingsProvider>
           </ThemeProvider>
         </AuthProvider>

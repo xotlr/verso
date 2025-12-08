@@ -30,6 +30,7 @@ import {
   Clock,
   MapPin,
 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 // Card status colors
 const STATUS_COLORS: Record<string, { bg: string; border: string; label: string }> = {
@@ -328,7 +329,8 @@ export function IndexCards({
       </div>
 
       {/* Cards Grid */}
-      <div className="flex-1 overflow-auto p-6">
+      <ScrollArea className="flex-1">
+      <div className="p-6">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -370,6 +372,7 @@ export function IndexCards({
           </div>
         )}
       </div>
+      </ScrollArea>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { downloadFile } from '@/lib/dom-utils';
 
 interface ProductionReportsProps {
@@ -181,7 +182,8 @@ export function ProductionReports({
         </DialogHeader>
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-140px)]">
+        <ScrollArea className="max-h-[calc(90vh-140px)]">
+        <div>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full justify-start border-b border-border rounded-none bg-transparent px-6 sticky top-0 z-10 bg-card/80 backdrop-blur-xl">
               <TabsTrigger value="scene-breakdown" className="gap-2">
@@ -758,6 +760,7 @@ export function ProductionReports({
             </TabsContent>
           </Tabs>
         </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

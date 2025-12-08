@@ -38,6 +38,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface ProjectRole {
   id: string;
@@ -439,7 +440,7 @@ export function ProjectRolesManager({
 
               {/* User search dropdown */}
               {showDropdown && searchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 max-h-[200px] overflow-auto">
+                <ScrollArea className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 max-h-[200px]">
                   {searchResults.map((user) => (
                     <button
                       key={user.id}
@@ -461,7 +462,7 @@ export function ProjectRolesManager({
                       </div>
                     </button>
                   ))}
-                </div>
+                </ScrollArea>
               )}
             </div>
 

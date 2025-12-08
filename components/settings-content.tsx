@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { Download, Upload, RotateCcw, Palette, Type, Layout, CreditCard, Loader2, ChevronRight, Globe, Lock, Eye, AtSign, Check, AlertCircle } from 'lucide-react';
+import { Download, Upload, RotateCcw, Palette, Type, Layout, CreditCard, Loader2, ChevronRight, Globe, Lock, Eye, AtSign, Check, AlertCircle, Keyboard } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -26,6 +26,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ImageUpload } from '@/components/image-upload';
 import { ThemePreset, UIFont, ScreenplayFont, themeMetadata } from '@/types/settings';
 import { downloadFile, createFileInput, readFileAsText } from '@/lib/dom-utils';
+import { KeyboardShortcutsList } from '@/components/keyboard-shortcuts-dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -244,6 +245,7 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
     { value: 'appearance', icon: Palette, label: 'Appearance' },
     { value: 'editor', icon: Type, label: 'Editor' },
     { value: 'layout', icon: Layout, label: 'Layout' },
+    { value: 'shortcuts', icon: Keyboard, label: 'Shortcuts' },
   ];
 
   return (
@@ -910,6 +912,19 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                     </div>
                   </button>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Shortcuts Settings */}
+          <TabsContent value="shortcuts" className="space-y-6 m-0">
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base">Keyboard Shortcuts</CardTitle>
+                <CardDescription>Customize your keyboard shortcuts. Click on any shortcut to change it.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <KeyboardShortcutsList editable />
               </CardContent>
             </Card>
           </TabsContent>

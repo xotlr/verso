@@ -524,6 +524,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
       <KeyboardShortcutsDialog
         open={shortcutsOpen}
         onOpenChange={setShortcutsOpen}
+        editable
       />
       <FormattingGuideDialog
         open={formattingGuideOpen}
