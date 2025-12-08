@@ -161,7 +161,8 @@ export async function PATCH(
     }
 
     // Clean up empty strings to null (excluding username which we handle separately)
-    const { username: _, ...restData } = validatedData
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { username: _username, ...restData } = validatedData
     const cleanedData = Object.fromEntries(
       Object.entries(restData).map(([key, value]) => [
         key,

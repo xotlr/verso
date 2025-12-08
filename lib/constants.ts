@@ -5,7 +5,7 @@ export const MAX_HISTORY_ENTRIES = 100;
 export const TYPING_FEEDBACK_DELAY_MS = 150;
 
 // Screenplay Formatting
-export const LINES_PER_PAGE = 52;
+export const LINES_PER_PAGE = 55;  // Final Draft standard: 9" × 6 LPI
 export const WORDS_PER_PAGE_ESTIMATE = 250;
 export const SCREENPLAY_LINE_HEIGHT = 1.5;
 export const MAX_TEXT_WIDTH = 60;

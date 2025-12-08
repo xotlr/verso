@@ -15,7 +15,7 @@ export function createSmartClickPlugin() {
     key: smartClickPluginKey,
 
     props: {
-      handleClick(view: EditorView, pos: number, event: MouseEvent) {
+      handleClick(view: EditorView, pos: number, _event: MouseEvent) {
         const { state } = view;
         const { doc } = state;
 

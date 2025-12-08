@@ -104,7 +104,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     const { id: projectId, needId } = await params
 
     // Rate limiting
-    const rateLimitResult = rateLimit(
+    const rateLimitResult = await rateLimit(
       `role-application:${session.user.id}`,
       RATE_LIMITS.API
     )

@@ -109,7 +109,7 @@ export async function GET(request: Request) {
         select: {
           id: true,
           title: true,
-          content: true, // Include content to calculate wordCount
+          wordCount: true, // Use stored wordCount (computed on save)
           synopsis: true,
           logline: true,
           createdAt: true,
@@ -134,18 +134,8 @@ export async function GET(request: Request) {
       prisma.screenplay.count({ where }),
     ])
 
-    // Calculate word count for each screenplay and exclude content from response
-    const screenplaysWithWordCount = screenplays.map(screenplay => {
-      const wordCount = screenplay.content
-        ? screenplay.content.split(/\s+/).filter(Boolean).length
-        : 0
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { content: _, ...rest } = screenplay
-      return { ...rest, wordCount }
-    })
-
     const response = NextResponse.json({
-      screenplays: screenplaysWithWordCount,
+      screenplays,
       total,
       hasMore: offset + screenplays.length < total,
     })
@@ -190,7 +180,7 @@ export async function POST(request: Request) {
     }
 
     // Rate limiting
-    const rateLimitResult = rateLimit(
+    const rateLimitResult = await rateLimit(
       `screenplay-create:${session.user.id}`,
       RATE_LIMITS.PROJECT_CREATE
     )
@@ -330,10 +320,14 @@ export async function POST(request: Request) {
       )
     }
 
+    // Compute wordCount for the new screenplay
+    const wordCount = content ? content.split(/\s+/).filter(Boolean).length : 0
+
     const screenplay = await prisma.screenplay.create({
       data: {
         title,
         content,
+        wordCount,
         synopsis: logline || synopsis || null, // logline maps to synopsis
         userId: session.user.id,
         projectId: projectId || null,

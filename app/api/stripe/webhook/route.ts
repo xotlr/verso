@@ -8,22 +8,29 @@ import { updateTeamSubscription, cancelTeamSubscription } from "@/lib/stripe-hel
 
 export const dynamic = "force-dynamic"
 
-// Simple in-memory cache for processed events (prevents duplicate processing within same instance)
-// For production, consider using Redis or database-based idempotency
-const processedEvents = new Set<string>()
-const MAX_CACHED_EVENTS = 1000
+// Valid plan types for validation
+const VALID_PLANS = ["FREE", "PLUS", "PRO", "MAX"] as const
 
-function markEventProcessed(eventId: string) {
-  if (processedEvents.size >= MAX_CACHED_EVENTS) {
-    // Clear oldest entries (simple LRU approximation)
-    const entries = Array.from(processedEvents)
-    entries.slice(0, 100).forEach((id) => processedEvents.delete(id))
-  }
-  processedEvents.add(eventId)
+/**
+ * Check if a webhook event has already been processed (database-backed idempotency)
+ */
+async function isEventProcessed(eventId: string): Promise<boolean> {
+  const existing = await prisma.processedWebhookEvent.findUnique({
+    where: { id: eventId },
+  })
+  return existing !== null
 }
 
-function isEventProcessed(eventId: string): boolean {
-  return processedEvents.has(eventId)
+/**
+ * Mark a webhook event as processed in the database
+ */
+async function markEventProcessed(eventId: string, eventType: string): Promise<void> {
+  await prisma.processedWebhookEvent.create({
+    data: {
+      id: eventId,
+      eventType,
+    },
+  })
 }
 
 export async function POST(request: Request) {
@@ -58,8 +65,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
     }
 
-    // Check for duplicate event processing (simple idempotency)
-    if (isEventProcessed(event.id)) {
+    // Check for duplicate event processing (database-backed idempotency)
+    if (await isEventProcessed(event.id)) {
       console.log(`Webhook event already processed, skipping: ${event.id}`)
       return NextResponse.json({ received: true, duplicate: true })
     }
@@ -114,8 +121,8 @@ export async function POST(request: Request) {
           console.log(`Unhandled webhook event type: ${event.type}`)
       }
 
-      // Mark as processed
-      markEventProcessed(event.id)
+      // Mark as processed in database
+      await markEventProcessed(event.id, event.type)
 
       const processingTime = Date.now() - startTime
       console.log(
@@ -181,7 +188,9 @@ async function handleCheckoutCompleted(
   // Fetch subscription details
   const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId)
   const subscription = subscriptionResponse as unknown as Stripe.Subscription & { current_period_end: number }
-  const plan = (planName?.toUpperCase() || "PRO") as Plan
+  const plan = (planName && VALID_PLANS.includes(planName.toUpperCase() as Plan))
+    ? (planName.toUpperCase() as Plan)
+    : "PRO"
 
   // Update user with subscription info
   await prisma.user.update({
@@ -230,7 +239,9 @@ async function handleSubscriptionUpdate(subscriptionData: Stripe.Subscription) {
     // Update by customer ID
     const plan =
       subscription.status === "active" || subscription.status === "trialing"
-        ? ((planName?.toUpperCase() || "PRO") as Plan)
+        ? (planName && VALID_PLANS.includes(planName.toUpperCase() as Plan))
+          ? (planName.toUpperCase() as Plan)
+          : "PRO"
         : "FREE"
 
     await prisma.user.update({
@@ -256,7 +267,9 @@ async function handleSubscriptionUpdate(subscriptionData: Stripe.Subscription) {
   // Update by user ID from metadata
   const plan =
     subscription.status === "active" || subscription.status === "trialing"
-      ? ((planName?.toUpperCase() || "PRO") as Plan)
+      ? (planName && VALID_PLANS.includes(planName.toUpperCase() as Plan))
+        ? (planName.toUpperCase() as Plan)
+        : "PRO"
       : "FREE"
 
   await prisma.user.update({
@@ -337,7 +350,10 @@ async function handlePaymentSucceeded(invoiceData: Stripe.Invoice) {
   if (user && user.plan === "FREE") {
     // User was downgraded due to payment failure, reactivate
     const subscriptionMeta = invoice.subscription_details?.metadata
-    const plan = (subscriptionMeta?.plan?.toUpperCase() || "PRO") as Plan
+    const planName = subscriptionMeta?.plan
+    const plan = (planName && VALID_PLANS.includes(planName.toUpperCase() as Plan))
+      ? (planName.toUpperCase() as Plan)
+      : "PRO"
 
     await prisma.user.update({
       where: { id: user.id },

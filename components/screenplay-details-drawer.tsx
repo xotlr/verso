@@ -34,6 +34,7 @@ export function ScreenplayDetailsDrawer({
 }: ScreenplayDetailsDrawerProps) {
   const [localType, setLocalType] = useState(type || 'FEATURE');
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateField = async (field: string, value: any) => {
     try {
       await fetch(`/api/screenplays/${screenplayId}`, {
@@ -111,6 +112,7 @@ export function ScreenplayDetailsDrawer({
                 <Select
                   value={localType}
                   onValueChange={(val) => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     setLocalType(val as any);
                     updateField('type', val);
                   }}

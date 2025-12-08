@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -220,7 +220,7 @@ export default function HelpPage() {
 
       // Reset after 3 seconds
       setTimeout(() => setSubmitted(false), 3000);
-    } catch (error) {
+    } catch {
       toast.error('Failed to submit feedback. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -248,7 +248,7 @@ export default function HelpPage() {
         {filteredContent && (
           <div className="mb-8">
             <h2 className="text-lg font-semibold mb-4">
-              {filteredContent.length} result{filteredContent.length !== 1 ? 's' : ''} for "{searchQuery}"
+              {filteredContent.length} result{filteredContent.length !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
             </h2>
             {filteredContent.length > 0 ? (
               <div className="space-y-3">

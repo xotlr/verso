@@ -49,6 +49,7 @@ function getCategoryIcon(category: AutocompleteSuggestion['category']) {
 /**
  * Get category label color.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getCategoryColor(category: AutocompleteSuggestion['category']) {
   switch (category) {
     case 'character':

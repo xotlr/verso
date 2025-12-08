@@ -12,7 +12,6 @@ import type {
   RemoteUser,
   BroadcastChangePayload,
   PresencePayload,
-  getUserColor,
 } from '@/types/collaboration';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -195,6 +194,7 @@ export class CollaborationService {
   /**
    * Update remote users list from presence state
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private updatePresence(presenceState: Record<string, any[]>) {
     this.remoteUsers.clear();
 
@@ -226,7 +226,7 @@ export class CollaborationService {
    * Persist operation to database for conflict resolution
    * NOTE: This is optional - we can work without it since we're using Broadcast
    */
-  private async persistOperation(operation: CollaborationOperation) {
+  private async persistOperation(_operation: CollaborationOperation) {
     // We're using Broadcast channels for real-time sync, so database persistence
     // is optional for now. Can be enabled later for conflict resolution.
     // Commenting out to avoid requiring database replication.

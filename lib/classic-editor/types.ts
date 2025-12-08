@@ -119,10 +119,10 @@ export const LINE_HEIGHT_PX = 16; // Standard screenplay is single spaced (12pt 
 export const CHAR_WIDTH_PX = 9.6; // 10 pitch (10 chars per inch)
 
 // Pagination Limits
-// 11 inches height - 1 inch top - 1 inch bottom = 9 inches printable
-// 9 inches * 6 lines/inch = 54 lines
-// Reducing to 52 for safety buffer against browser rendering differences
-export const LINES_PER_PAGE = 52;
+// 11 inches height - 1 inch top - 0.5 inch bottom = 9.5 inches printable
+// 9.5 inches * 6 lines/inch = 57 lines (theoretical max)
+// Final Draft standard uses 55 lines per page for US Letter
+export const LINES_PER_PAGE = 55;
 
 export interface BlockFormat {
   label: string;
@@ -151,7 +151,7 @@ export const FORMATTING_RULES: Record<BlockType, BlockFormat> = {
     label: 'Scene Heading',
     shortcut: 'INT.',
     uppercase: true,
-    maxCharsPerLine: 58,
+    maxCharsPerLine: 60,  // Final Draft standard: 6" × 10 CPI
     marginTopLines: 2, // 1 blank line before (technically 2 lines of height cost)
     marginLeftPx: 0,
     widthPx: PRINTABLE_WIDTH_PX,
@@ -162,7 +162,7 @@ export const FORMATTING_RULES: Record<BlockType, BlockFormat> = {
     label: 'Action',
     shortcut: '!',
     uppercase: false,
-    maxCharsPerLine: 58,
+    maxCharsPerLine: 60,  // Final Draft standard: 6" × 10 CPI
     marginTopLines: 1,
     marginLeftPx: 0,
     widthPx: PRINTABLE_WIDTH_PX,

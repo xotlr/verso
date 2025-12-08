@@ -271,6 +271,7 @@ export default function ExplorePage() {
     } else if (activeTab === 'roles') {
       if (roleNeeds.length === 0) fetchRoleNeeds(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   // Refetch on search/filter change
@@ -284,6 +285,7 @@ export default function ExplorePage() {
     } else if (activeTab === 'roles') {
       fetchRoleNeeds(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, genre, roleFilter]);
 
   const handleLoadMore = () => {

@@ -194,7 +194,7 @@ export function Aurora({
   const getThemeColors = useCallback((): string[] => {
     if (colorStops) return colorStops;
     return getPrimaryScale();
-  }, [colorStops, resolvedTheme]);
+  }, [colorStops]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -281,6 +281,7 @@ export function Aurora({
       rendererRef.current = null;
       programRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

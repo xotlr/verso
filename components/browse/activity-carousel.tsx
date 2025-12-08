@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { FileText, Sparkles } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface ActivityUser {
@@ -98,7 +97,6 @@ export function ActivityCarousel({ className }: ActivityCarouselProps) {
 
 function ActivityCard({ activity }: { activity: Activity }) {
   const screenplayId = activity.screenplay?.id || activity.entityId;
-  const title = activity.screenplay?.title || activity.entityTitle || 'Untitled';
 
   return (
     <Link

@@ -7,7 +7,6 @@
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { EditorView } from 'prosemirror-view';
-import type { Transaction } from 'prosemirror-state';
 import type { CollaborationOperation, RemoteUser } from '@/types/collaboration';
 
 export const collaborationPluginKey = new PluginKey('collaboration');
@@ -80,7 +79,7 @@ export function createCollaborationPlugin(
       },
     },
 
-    view(editorView) {
+    view(_editorView) {
       let updateTimeout: NodeJS.Timeout | null = null;
 
       return {
@@ -110,6 +109,7 @@ export function createCollaborationPlugin(
 /**
  * Create decorations for remote cursors
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createRemoteCursorDecorations(doc: any, remoteUsers: RemoteUser[]): DecorationSet {
   const decorations: Decoration[] = [];
 

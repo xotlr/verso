@@ -164,11 +164,19 @@ export function AddExistingScreenplayDialog({
           ) : (
             <div className="p-2 space-y-1">
               {filteredScreenplays.map((screenplay) => (
-                <button
+                <div
                   key={screenplay.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => toggleSelection(screenplay.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleSelection(screenplay.id);
+                    }
+                  }}
                   className={cn(
-                    'w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors',
+                    'w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors cursor-pointer',
                     selectedIds.has(screenplay.id)
                       ? 'bg-primary/10 border border-primary/30'
                       : 'hover:bg-muted border border-transparent'
@@ -177,7 +185,6 @@ export function AddExistingScreenplayDialog({
                   <Checkbox
                     checked={selectedIds.has(screenplay.id)}
                     onCheckedChange={() => toggleSelection(screenplay.id)}
-                    onClick={(e) => e.stopPropagation()}
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{screenplay.title}</p>
@@ -187,7 +194,7 @@ export function AddExistingScreenplayDialog({
                       </p>
                     )}
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}

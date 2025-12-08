@@ -134,36 +134,39 @@ export async function POST(
 
     const data = result.data;
 
-    // Get the next shot number for this scene
-    const lastShot = await prisma.shot.findFirst({
-      where: {
-        screenplayId,
-        sceneId: data.sceneId,
-      },
-      orderBy: { shotNumber: "desc" },
-      select: { shotNumber: true },
-    });
+    // Use transaction to prevent race condition on shot number assignment
+    const shot = await prisma.$transaction(async (tx) => {
+      // Get the next shot number for this scene (within transaction for atomicity)
+      const lastShot = await tx.shot.findFirst({
+        where: {
+          screenplayId,
+          sceneId: data.sceneId,
+        },
+        orderBy: { shotNumber: "desc" },
+        select: { shotNumber: true },
+      });
 
-    const shotNumber = (lastShot?.shotNumber ?? 0) + 1;
+      const shotNumber = (lastShot?.shotNumber ?? 0) + 1;
 
-    // Create the shot
-    const shot = await prisma.shot.create({
-      data: {
-        screenplayId,
-        sceneId: data.sceneId,
-        shotNumber,
-        description: data.description,
-        shotType: data.shotType ?? null,
-        cameraAngle: data.cameraAngle ?? null,
-        movement: data.movement ?? null,
-        duration: data.duration ?? null,
-        lens: data.lens ?? null,
-        equipment: data.equipment ?? null,
-        lighting: data.lighting ?? null,
-        audio: data.audio ?? null,
-        notes: data.notes ?? null,
-        status: data.status,
-      },
+      // Create the shot within the same transaction
+      return tx.shot.create({
+        data: {
+          screenplayId,
+          sceneId: data.sceneId,
+          shotNumber,
+          description: data.description,
+          shotType: data.shotType ?? null,
+          cameraAngle: data.cameraAngle ?? null,
+          movement: data.movement ?? null,
+          duration: data.duration ?? null,
+          lens: data.lens ?? null,
+          equipment: data.equipment ?? null,
+          lighting: data.lighting ?? null,
+          audio: data.audio ?? null,
+          notes: data.notes ?? null,
+          status: data.status,
+        },
+      });
     });
 
     return NextResponse.json(shot, { status: 201 });

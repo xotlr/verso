@@ -213,7 +213,7 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
       description: 'Analyze screenplay with AI',
       icon: <Sparkles className="h-4 w-4" />,
       category: 'actions',
-      keywords: ['ai', 'claude', 'analyze', 'feedback', 'review'],
+      keywords: ['ai', 'verso', 'analyze', 'feedback', 'review'],
       action: () => {
         // TODO: Open AI analysis panel
         onClose();

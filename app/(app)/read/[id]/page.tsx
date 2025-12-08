@@ -76,7 +76,7 @@ export default function ReadPage() {
           text: screenplay?.synopsis || `Read ${screenplay?.title}`,
           url,
         });
-      } catch (err) {
+      } catch {
         // User cancelled or share failed
       }
     } else {

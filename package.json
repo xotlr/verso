@@ -3,13 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "prisma generate && next build",
-    "build:wasm": "cd pagination-engine && wasm-pack build --target web --out-dir ../public/wasm",
-    "build:wasm:release": "cd pagination-engine && wasm-pack build --target web --release --out-dir ../public/wasm",
+    "dev": "next dev --turbopack",
+    "build": "bun run build:wasm:release && prisma generate && next build",
+    "build:wasm": "cd verso-engine && wasm-pack build --target web --out-dir ../public/wasm",
+    "build:wasm:release": "cd verso-engine && wasm-pack build --target web --release --out-dir ../public/wasm",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "lint:fix": "next lint --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
@@ -48,6 +55,9 @@
     "@stripe/stripe-js": "^8.5.3",
     "@supabase/supabase-js": "^2.86.0",
     "@types/d3": "^7.4.3",
+    "@types/dompurify": "^3.0.5",
+    "@upstash/ratelimit": "^2.0.7",
+    "@upstash/redis": "^1.35.7",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.1.2",
     "class-variance-authority": "^0.7.1",
@@ -56,6 +66,7 @@
     "d3": "^7.9.0",
     "date-fns": "^4.1.0",
     "diff-match-patch": "^1.0.5",
+    "dompurify": "^3.3.0",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.24",
     "idb": "^8.0.3",
@@ -95,6 +106,9 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/d3-force": "^3.0.10",
     "@types/d3-zoom": "^3.0.8",
@@ -102,10 +116,14 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^5.1.1",
+    "@vitest/coverage-v8": "^4.0.15",
     "eslint": "^9",
     "eslint-config-next": "^15.5.7",
+    "jsdom": "^27.2.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.15"
   }
 }

@@ -98,7 +98,7 @@ export function FeaturesEnhancedSection() {
       icon: <Brain className="h-6 w-6" />,
       title: "AI Analysis",
       description:
-        "Claude-powered screenplay analysis. Get intelligent feedback on pacing, dialogue, and structure.",
+        "Verso-powered screenplay analysis. Get intelligent feedback on pacing, dialogue, and structure.",
     },
     {
       icon: <Smartphone className="h-6 w-6" />,

@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   try {
     // Rate limiting - prevent brute force signup attempts
     const clientIp = getClientIp(request)
-    const rateLimitResult = rateLimit(`signup:${clientIp}`, RATE_LIMITS.AUTH)
+    const rateLimitResult = await rateLimit(`signup:${clientIp}`, RATE_LIMITS.AUTH)
 
     if (!rateLimitResult.success) {
       return NextResponse.json(

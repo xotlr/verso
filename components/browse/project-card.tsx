@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Folder } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ProjectCardUser {
@@ -66,6 +66,7 @@ export function ProjectCard({ project, className }: ProjectCardProps) {
         gradient
       )}>
         {project.banner && (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={project.banner}
             alt=""
@@ -75,6 +76,7 @@ export function ProjectCard({ project, className }: ProjectCardProps) {
         {/* Logo overlay */}
         {project.logo && (
           <div className="absolute bottom-2 left-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={project.logo}
               alt=""

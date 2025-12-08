@@ -13,7 +13,6 @@ import { CollaborationAvatars } from "./collaboration/CollaborationAvatars";
 import { Scene, Character, Location } from "@/types/screenplay";
 import { ScreenplayVersion } from "@/types/version";
 import { parseScreenplayText } from "@/lib/screenplay-utils";
-import { proseMirrorToPlainText, isProseMirrorContent } from "@/lib/prosemirror";
 import { useSettings } from "@/contexts/settings-context";
 import { useOfflineSave } from "@/hooks/use-offline-save";
 import { useCollaboration } from "@/hooks/use-collaboration";
@@ -47,7 +46,8 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [sceneInfos, setSceneInfos] = useState<SceneInfo[]>([]);
   const [charInfos, setCharInfos] = useState<CharacterInfo[]>([]);
-  const [currentScene, setCurrentScene] = useState<SceneInfo | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_currentScene, setCurrentScene] = useState<SceneInfo | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const versionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastVersionContentRef = useRef<string>("");
@@ -57,10 +57,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   const {
     save: offlineSave,
     syncStatus,
-    isOnline,
     isSyncing,
-    pendingCount,
-    forceSync,
   } = useOfflineSave({
     screenplayId,
   });
@@ -149,6 +146,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     };
 
     loadScreenplay();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screenplayId]);
 
   // Create a version snapshot
@@ -308,7 +306,8 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   }, [saveScreenplay]);
 
   // Handle TV/Episode field updates
-  const handleEpisodeInfoChange = useCallback(async (updates: {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _handleEpisodeInfoChange = useCallback(async (updates: {
     type?: ScreenplayType;
     season?: number | null;
     episode?: number | null;

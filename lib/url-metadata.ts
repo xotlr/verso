@@ -55,7 +55,7 @@ async function fetchYouTubeMetadata(url: string, embedInfo: EmbedInfo): Promise<
 /**
  * Fetch Vimeo metadata using oEmbed
  */
-async function fetchVimeoMetadata(url: string, embedInfo: EmbedInfo): Promise<Partial<UrlMetadata>> {
+async function fetchVimeoMetadata(url: string, _embedInfo: EmbedInfo): Promise<Partial<UrlMetadata>> {
   try {
     const oembedUrl = `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(url)}`;
     const controller = new AbortController();

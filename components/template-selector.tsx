@@ -8,7 +8,6 @@ import {
   ScreenplayFormData,
   genreOptions,
   tvFormatOptions,
-  TVFormat,
   Template,
 } from '@/types/templates';
 import { useCreateScreenplay } from '@/hooks/useCreateScreenplay';
@@ -66,7 +65,7 @@ const slideVariants = {
   }),
 };
 
-export function TemplateSelector({ isOpen, onClose, onSelect, projectId }: TemplateSelectorProps) {
+export function TemplateSelector({ isOpen, onClose, onSelect: _onSelect, projectId }: TemplateSelectorProps) {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(0);
   const [selectedType, setSelectedType] = useState<ScreenplayTypeId | null>(null);

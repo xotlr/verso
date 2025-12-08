@@ -155,6 +155,7 @@ function YouTubeThumbnail({
       }}
       className="relative aspect-video w-full overflow-hidden group/thumb cursor-pointer"
     >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={thumbnailUrl}
         alt={title}
@@ -391,6 +392,7 @@ export function ExternalLinkCard({
     if ((embedType === 'pinterest' || embedType === 'shotdeck' || embedType === 'canva') && displayImage && !imageError) {
       return (
         <div className="relative h-32 sm:h-40 bg-muted overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={displayImage}
             alt=""
@@ -413,6 +415,7 @@ export function ExternalLinkCard({
     if (displayImage && !imageError) {
       return (
         <div className="relative h-28 sm:h-32 bg-muted overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={displayImage}
             alt=""
@@ -451,6 +454,7 @@ export function ExternalLinkCard({
             {/* Header with favicon and site name */}
             <div className="flex items-center gap-2 mb-2">
               {link.favicon && !faviconError ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={link.favicon}
                   alt=""

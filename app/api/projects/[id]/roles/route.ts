@@ -29,23 +29,6 @@ async function hasProjectAccess(projectId: string, userId: string): Promise<bool
   return false
 }
 
-// Standard role types
-const ROLE_TYPES = [
-  'director',
-  'writer',
-  'producer',
-  'executive_producer',
-  'cinematographer',
-  'editor',
-  'composer',
-  'production_designer',
-  'costume_designer',
-  'casting_director',
-  'first_ad',
-  'line_producer',
-  'other',
-] as const
-
 // GET /api/projects/[id]/roles - List all roles for a project
 export async function GET(request: Request, { params }: RouteParams) {
   try {

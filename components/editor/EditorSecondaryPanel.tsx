@@ -51,7 +51,8 @@ export function EditorSecondaryPanel({
   const [characterRoles, setCharacterRoles] = useState<Map<string, CharacterRole>>(new Map());
   const [characterFilter, setCharacterFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState<CharacterRole | 'all'>('all');
-  const [isLoadingRoles, setIsLoadingRoles] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_isLoadingRoles, setIsLoadingRoles] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
 

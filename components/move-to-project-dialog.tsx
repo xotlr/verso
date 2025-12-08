@@ -53,6 +53,7 @@ export function MoveToProjectDialog({
       setSelectedProjectId(null);
       setSearch('');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const loadProjects = async () => {

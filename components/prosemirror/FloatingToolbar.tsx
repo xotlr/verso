@@ -156,11 +156,6 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
   useEffect(() => {
     if (!view) return;
 
-    // Create a transaction listener
-    const handleTransaction = () => {
-      requestAnimationFrame(updatePosition);
-    };
-
     // Listen to selection changes
     const domHandler = () => {
       requestAnimationFrame(updatePosition);

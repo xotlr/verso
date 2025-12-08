@@ -12,6 +12,21 @@ export function calculate_element_lines(element_json: string, config_json: strin
 export function get_feature_film_config(): string;
 
 /**
+ * Get the TV Half-Hour Comedy configuration as JSON
+ */
+export function get_tv_half_hour_config(): string;
+
+/**
+ * Get the TV Multi-Camera Sitcom configuration as JSON
+ */
+export function get_tv_multi_cam_config(): string;
+
+/**
+ * Get the TV One-Hour Drama configuration as JSON
+ */
+export function get_tv_one_hour_config(): string;
+
+/**
  * Initialize panic hook for better error messages in WASM
  */
 export function init(): void;
@@ -41,9 +56,12 @@ export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly calculate_element_lines: (a: number, b: number, c: number, d: number) => [number, number, number];
   readonly get_feature_film_config: () => [number, number, number, number];
+  readonly get_tv_half_hour_config: () => [number, number, number, number];
+  readonly get_tv_multi_cam_config: () => [number, number, number, number];
   readonly paginate_document: (a: number, b: number, c: number, d: number) => [number, number, number, number];
   readonly version: () => [number, number];
   readonly init: () => void;
+  readonly get_tv_one_hour_config: () => [number, number, number, number];
   readonly BrotliDecoderCreateInstance: (a: number, b: number, c: number) => number;
   readonly BrotliDecoderDecompress: (a: number, b: number, c: number, d: number) => number;
   readonly BrotliDecoderDecompressPrealloc: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number) => void;

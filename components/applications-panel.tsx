@@ -70,6 +70,7 @@ export function ApplicationsPanel({
     if (open && roleNeed) {
       fetchApplications();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, roleNeed]);
 
   const fetchApplications = async () => {

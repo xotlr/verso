@@ -146,12 +146,35 @@ async function updateScreenplay(
       }
     }
 
-    // Last-write-wins model - no conflict detection
+    // Optimistic locking - check if screenplay was modified since client loaded it
+    if (expectedUpdatedAt !== undefined) {
+      const current = await prisma.screenplay.findUnique({
+        where: { id },
+        select: { updatedAt: true },
+      })
+
+      if (current && current.updatedAt.getTime() !== expectedUpdatedAt) {
+        return NextResponse.json(
+          {
+            error: "Conflict: screenplay was modified by another user",
+            currentUpdatedAt: current.updatedAt.getTime(),
+          },
+          { status: 409 }
+        )
+      }
+    }
+
+    // Compute wordCount if content is being updated
+    const wordCount = content !== undefined
+      ? content.split(/\s+/).filter(Boolean).length
+      : undefined
+
     const screenplay = await prisma.screenplay.update({
       where: { id },
       data: {
         ...(title !== undefined && { title }),
         ...(content !== undefined && { content }),
+        ...(wordCount !== undefined && { wordCount }),
         ...(synopsis !== undefined && { synopsis }),
         ...(logline !== undefined && { logline }),
         ...(genre !== undefined && { genre }),

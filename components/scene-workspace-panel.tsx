@@ -385,6 +385,7 @@ export function SceneWorkspacePanel({
                         key={attachment.id}
                         className="relative group rounded-lg overflow-hidden border bg-muted aspect-video"
                       >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={getOptimizedImageUrl(attachment.url, { width: 300 })}
                           alt={attachment.caption || 'Scene reference'}

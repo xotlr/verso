@@ -146,7 +146,7 @@ export async function POST(request: Request) {
     }
 
     // Rate limiting
-    const rateLimitResult = rateLimit(
+    const rateLimitResult = await rateLimit(
       `project-create:${session.user.id}`,
       RATE_LIMITS.PROJECT_CREATE
     )

@@ -30,6 +30,7 @@ const BLOCK_TO_PM_TYPE: Record<BlockType, string> = {
 /**
  * Extract text content from ProseMirror node, preserving marks as HTML
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractTextWithMarks(node: any): string {
   if (!node.content) return '';
 
@@ -58,6 +59,7 @@ function extractTextWithMarks(node: any): string {
 /**
  * Convert ProseMirror JSON document to Classic Editor ScriptBlocks
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function proseMirrorToBlocks(pmDoc: any): ScriptBlock[] {
   const blocks: ScriptBlock[] = [];
 
@@ -197,6 +199,7 @@ export function plainTextToBlocks(text: string): ScriptBlock[] {
 /**
  * Convert Classic Editor ScriptBlocks to ProseMirror JSON document
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function blocksToProseMirror(blocks: ScriptBlock[]): any {
   const content = blocks.map(block => {
     const pmType = BLOCK_TO_PM_TYPE[block.type] || 'action';
@@ -220,6 +223,7 @@ export function blocksToProseMirror(blocks: ScriptBlock[]): any {
 /**
  * Parse HTML content (with <b>, <i>, <u>) to ProseMirror text nodes with marks
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseHtmlToMarkedText(html: string): any[] {
   if (!html) return [];
 

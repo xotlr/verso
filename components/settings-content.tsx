@@ -54,7 +54,6 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
     updateVisualSettings,
     updateEditorSettings,
     updateLayoutSettings,
-    updateExportSettings,
     setThemePreset,
     resetSettings,
     exportSettings,
@@ -87,6 +86,7 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
     if (session?.user?.id) {
       fetchProfile();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id]);
 
   const fetchProfile = async () => {

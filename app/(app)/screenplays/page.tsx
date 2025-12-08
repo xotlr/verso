@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { TemplateSelector } from '@/components/template-selector';
 import { MoveToProjectDialog } from '@/components/move-to-project-dialog';
 import { PageLayout } from '@/components/layouts/page-layout';
-import { ListPageToolbar, FilterPill, SORT_OPTIONS } from '@/components/ui/list-page-toolbar';
+import { ListPageToolbar, FilterPill } from '@/components/ui/list-page-toolbar';
 import { ScreenplayListCard, ScreenplayListCardSkeleton } from '@/components/screenplay-list-card';
 import {
   AlertDialog,

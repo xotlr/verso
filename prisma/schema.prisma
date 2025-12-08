@@ -120,6 +120,9 @@ model User {
   connectionsSent     Connection[] @relation("ConnectionRequester")
   connectionsReceived Connection[] @relation("ConnectionAddressee")
 
+  // Greeting history (for smart greeting algorithm)
+  greetingHistory GreetingHistory[]
+
   @@index([plan]) // Used in limit checks
   @@index([username])
 }
@@ -321,6 +324,7 @@ model Screenplay {
 
   // Screenplay type
   type         ScreenplayType @default(FEATURE)
+  format       String         @default("feature-film") // 'feature-film' | 'tv-one-hour' | 'tv-half-hour' | 'tv-multi-cam'
   season       Int? // For TV shows
   episode      Int? // For TV shows
   episodeTitle String? // For TV shows
@@ -336,6 +340,9 @@ model Screenplay {
   genre       String?
   logline     String?   @db.Text
   author      String?
+
+  // Cached stats (computed on save for performance)
+  wordCount   Int       @default(0)
 
   // Relations
   user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -737,4 +744,28 @@ enum ConnectionStatus {
   PENDING
   ACCEPTED
   DECLINED
+}
+
+// Processed webhook events for idempotency
+model ProcessedWebhookEvent {
+  id          String   @id // Stripe event ID
+  eventType   String   @map("event_type")
+  processedAt DateTime @default(now()) @map("processed_at")
+
+  @@index([processedAt])
+  @@map("processed_webhook_events")
+}
+
+// Greeting history for smart greeting algorithm (avoids repetition)
+model GreetingHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  category  String   // GreetingCategory enum value (e.g., "LEGENDARY", "ON_FIRE")
+  text      String   // The actual greeting shown
+  shownAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, shownAt])
+  @@index([userId, category])
 }

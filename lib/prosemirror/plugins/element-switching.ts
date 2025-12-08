@@ -1,6 +1,5 @@
 import { Plugin, PluginKey, Command, TextSelection } from 'prosemirror-state';
 import { keymap } from 'prosemirror-keymap';
-import { EditorView } from 'prosemirror-view';
 import { screenplaySchema, ElementType, getNextElementType, getPreviousElementType } from '../schema';
 
 export const elementSwitchingPluginKey = new PluginKey('elementSwitching');

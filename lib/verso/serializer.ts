@@ -99,12 +99,12 @@ function convertDualDialogue(node: ProseMirrorNode, baseId: string, baseOffset: 
   let columnIndex = 0;
   let childOffset = 1; // Start after the dual_dialogue node opening
 
-  node.forEach((column, columnNodeOffset) => {
+  node.forEach((column, _columnNodeOffset) => {
     if (column.type.name === 'dual_dialogue_column') {
       const position = columnIndex === 0 ? 'left' : 'right';
       let innerOffset = 1; // Start after column node opening
 
-      column.forEach((child, childNodeOffset) => {
+      column.forEach((child, _childNodeOffset) => {
         // Create ID using the absolute position within the dual dialogue
         const childId = `${baseId}_${childOffset + innerOffset}`;
         const converted = convertNode(child, childId, baseOffset + childOffset + innerOffset);

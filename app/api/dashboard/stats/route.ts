@@ -33,6 +33,10 @@ export async function GET() {
       projectCount,
       userStats,
       weekWritingSessions,
+      todayWritingSessions,
+      allTimeWritingSessions,
+      lastEditedScreenplay,
+      recentGreetingHistory,
     ] = await Promise.all([
       // Total screenplays
       prisma.screenplay.count({
@@ -72,6 +76,39 @@ export async function GET() {
           wordCount: true,
         },
       }),
+      // Words today
+      prisma.writingSession.findMany({
+        where: {
+          userId,
+          date: { gte: today },
+        },
+        select: {
+          wordCount: true,
+        },
+      }),
+      // Total words all time
+      prisma.writingSession.aggregate({
+        where: { userId },
+        _sum: { wordCount: true },
+      }),
+      // Last edited screenplay (for genre)
+      prisma.screenplay.findFirst({
+        where: {
+          OR: [
+            { userId },
+            { team: { members: { some: { userId } } } },
+          ],
+        },
+        orderBy: { updatedAt: 'desc' },
+        select: { genre: true },
+      }),
+      // Recent greetings (for smart greeting selection - avoid repetition)
+      prisma.greetingHistory.findMany({
+        where: { userId },
+        orderBy: { shownAt: 'desc' },
+        take: 7,
+        select: { text: true },
+      }),
     ])
 
     // Calculate words this week
@@ -79,6 +116,15 @@ export async function GET() {
       (sum, s) => sum + s.wordCount,
       0
     )
+
+    // Calculate words today
+    const wordsToday = todayWritingSessions.reduce(
+      (sum, s) => sum + s.wordCount,
+      0
+    )
+
+    // Calculate total words all time
+    const totalWordsAllTime = allTimeWritingSessions._sum.wordCount || 0
 
     // Calculate actual current streak (check if it's stale)
     let currentStreak = userStats?.currentStreak || 0
@@ -92,14 +138,21 @@ export async function GET() {
       }
     }
 
+    // Extract recent greeting texts for smart selection
+    const recentGreetings = recentGreetingHistory.map(g => g.text)
+
     return NextResponse.json({
       screenplayCount,
       projectCount,
       wordsThisWeek,
+      wordsToday,
+      totalWordsAllTime,
+      lastEditedGenre: lastEditedScreenplay?.genre || null,
       currentStreak,
       longestStreak: userStats?.longestStreak || 0,
       dailyGoal: userStats?.dailyGoal || 500,
       lastWriteDate: userStats?.lastWriteDate || null,
+      recentGreetings,
     })
   } catch (error) {
     console.error("Error fetching dashboard stats:", error)

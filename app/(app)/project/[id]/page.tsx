@@ -40,7 +40,7 @@ import {
   Edit3,
   Link as LinkIcon,
   Video,
-  Image,
+  Image as ImageIcon,
   Grid3X3,
   Users,
   Clapperboard,
@@ -149,6 +149,7 @@ export default function ProjectPage() {
       loadProject();
       loadLinks();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   // Dispatch project name to header breadcrumb
@@ -683,7 +684,7 @@ export default function ProjectPage() {
                       onClick={() => setResourceFilter('visual')}
                       className="gap-1.5"
                     >
-                      <Image className="h-3.5 w-3.5" />
+                      <ImageIcon className="h-3.5 w-3.5" />
                       <span className="hidden xs:inline">Visual</span>
                       <Badge variant="secondary" className="ml-1 text-xs">
                         {externalLinks.filter(l => l.embedType === 'pinterest' || l.embedType === 'shotdeck' || l.embedType === 'canva').length}

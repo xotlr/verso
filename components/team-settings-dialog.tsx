@@ -152,6 +152,7 @@ export function TeamSettingsDialog({
     if (open && isAdmin) {
       fetchInvites()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, isAdmin])
 
   const fetchInvites = async () => {

@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
@@ -29,7 +28,6 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
 import { getSimpleGradientStyle } from '@/lib/avatar-gradient'
 
 interface ConnectedUser {
@@ -46,7 +44,7 @@ interface ConnectedUser {
 }
 
 export default function ConnectionsPage() {
-  const { data: session } = useSession()
+  useSession() // Auth check
   const router = useRouter()
   const [connections, setConnections] = useState<ConnectedUser[]>([])
   const [filteredConnections, setFilteredConnections] = useState<ConnectedUser[]>([])

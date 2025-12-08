@@ -72,6 +72,7 @@ export function PublishDialog({
     if (open && screenplayId) {
       fetchStatus();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, screenplayId]);
 
   const fetchStatus = async () => {

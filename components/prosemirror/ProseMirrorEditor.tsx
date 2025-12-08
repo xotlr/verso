@@ -206,6 +206,7 @@ export function ProseMirrorEditor({
   // Mobile toolbar callbacks
   const handleInsertElement = useCallback((elementType: string) => {
     if (!view) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setElementType(elementType as any)(view.state, view.dispatch);
     view.focus();
   }, [view]);
