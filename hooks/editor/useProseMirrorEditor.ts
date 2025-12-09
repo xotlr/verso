@@ -57,6 +57,8 @@ export interface UseProseMirrorEditorReturn {
   canUndo: boolean;
   canRedo: boolean;
   isWasmReady: boolean;
+  paginationTiming: number | null;
+  paginationError: Error | null;
 
   // Pagination result for discrete page rendering
   paginationResult: import('@/lib/verso').PaginationResult | null;
@@ -454,6 +456,8 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     canUndo,
     canRedo,
     isWasmReady: pagination.isWasmReady,
+    paginationTiming: pagination.timing?.lastDurationMs ?? null,
+    paginationError: pagination.error,
 
     // Pagination result for discrete page rendering
     paginationResult: pagination.result,

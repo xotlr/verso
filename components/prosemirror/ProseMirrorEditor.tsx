@@ -53,23 +53,59 @@ export interface ProseMirrorEditorProps {
 }
 
 /**
- * Stats bar showing word count, page count, and save status.
+ * Stats bar showing word count, page count, save status, and WASM engine status.
  */
 function StatsBar({
   wordCount,
   pageCount,
   isSaving,
   isWasmReady,
+  paginationTiming,
+  paginationError,
   className,
 }: {
   wordCount: number;
   pageCount: number;
   isSaving?: boolean;
   isWasmReady?: boolean;
+  paginationTiming?: number | null;
+  paginationError?: Error | null;
   className?: string;
 }) {
-  const isDev = process.env.NODE_ENV === 'development';
-  const [showWasmDebug, setShowWasmDebug] = useState(false);
+  // Determine engine status
+  const engineStatus = paginationError
+    ? 'error'
+    : isWasmReady
+      ? 'ready'
+      : 'loading';
+
+  const statusConfig = {
+    ready: {
+      bgClass: 'bg-green-500/20',
+      textClass: 'text-green-400',
+      dotClass: 'bg-green-400',
+      label: 'Engine',
+      tooltip: paginationTiming
+        ? `Pagination: ${paginationTiming.toFixed(0)}ms`
+        : 'WASM engine ready',
+    },
+    loading: {
+      bgClass: 'bg-yellow-500/20',
+      textClass: 'text-yellow-400',
+      dotClass: 'bg-yellow-400 animate-pulse',
+      label: 'Loading',
+      tooltip: 'Initializing WASM engine...',
+    },
+    error: {
+      bgClass: 'bg-red-500/20',
+      textClass: 'text-red-400',
+      dotClass: 'bg-red-400',
+      label: 'Error',
+      tooltip: paginationError?.message || 'WASM engine failed to load',
+    },
+  };
+
+  const config = statusConfig[engineStatus];
 
   return (
     <div
@@ -83,36 +119,19 @@ function StatsBar({
         className
       )}
     >
-      {/* WASM status - dev only, toggleable */}
-      {isDev && showWasmDebug && (
-        <>
-          <button
-            onClick={() => setShowWasmDebug(false)}
-            className={cn(
-              'flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium cursor-pointer',
-              isWasmReady
-                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                : 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
-            )}
-            title="Click to hide WASM status"
-          >
-            {isWasmReady ? 'WASM' : 'JS'}
-          </button>
-          <span className="text-border">|</span>
-        </>
-      )}
-      {isDev && !showWasmDebug && (
-        <>
-          <button
-            onClick={() => setShowWasmDebug(true)}
-            className="text-[10px] text-muted-foreground/50 hover:text-muted-foreground cursor-pointer"
-            title="Click to show WASM status"
-          >
-            ⚙
-          </button>
-          <span className="text-border">|</span>
-        </>
-      )}
+      {/* WASM Engine Status - always visible */}
+      <span
+        className={cn(
+          'flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium',
+          config.bgClass,
+          config.textClass
+        )}
+        title={config.tooltip}
+      >
+        <span className={cn('w-1.5 h-1.5 rounded-full', config.dotClass)} />
+        {config.label}
+      </span>
+      <span className="text-border">|</span>
       {/* Save status */}
       <span className="flex items-center gap-1.5">
         {isSaving ? (
@@ -192,6 +211,8 @@ export function ProseMirrorEditor({
     pageCount,
     isReady,
     isWasmReady,
+    paginationTiming,
+    paginationError,
     view,
     autocompleteState,
     applyAutocompleteSuggestion,
@@ -475,7 +496,7 @@ export function ProseMirrorEditor({
 
       {/* Stats bar - hidden on mobile */}
       {showStats && isReady && !isMobile && (
-        <StatsBar wordCount={wordCount} pageCount={pageCount} isSaving={isSaving} isWasmReady={isWasmReady} />
+        <StatsBar wordCount={wordCount} pageCount={pageCount} isSaving={isSaving} isWasmReady={isWasmReady} paginationTiming={paginationTiming} paginationError={paginationError} />
       )}
 
       {/* Floating toolbar on selection */}
