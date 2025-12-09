@@ -27,8 +27,8 @@ export function useResponsiveScale(showSidebar: boolean = true) {
       // Calculate scale to fit page in available width
       let newScale = 1;
       if (availableWidth < PAGE_WIDTH_PX) {
-        // Scale down to fit, minimum 0.35
-        newScale = Math.max(0.35, availableWidth / PAGE_WIDTH_PX);
+        // Scale down to fit, minimum 0.5 for readability on small phones
+        newScale = Math.max(0.5, availableWidth / PAGE_WIDTH_PX);
       } else {
         // Allow slight scale up on large screens, max 1.1
         newScale = Math.min(1.1, availableWidth / PAGE_WIDTH_PX);

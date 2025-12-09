@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, Loader2, ChevronLeft, ChevronRight, Maximize2, BookOpen, FileText, Scroll, LayoutGrid } from 'lucide-react';
+import { Check, Loader2, ChevronLeft, ChevronRight, Maximize2, BookOpen, FileText, Scroll, LayoutGrid, X } from 'lucide-react';
 import {
   useProseMirrorEditor,
   SceneInfo,
@@ -393,6 +393,19 @@ export function ProseMirrorEditor({
             <Maximize2 className="h-4 w-4" />
           </Button>
         </div>
+      )}
+
+      {/* Focus mode exit button - only on mobile when in focus mode */}
+      {isMobile && isInFocusMode && (
+        <Button
+          className="fixed top-4 right-4 z-50 opacity-60 hover:opacity-100 transition-opacity"
+          variant="secondary"
+          size="icon"
+          onClick={toggleFocusMode}
+          title="Exit focus mode"
+        >
+          <X className="h-4 w-4" />
+        </Button>
       )}
 
       {/* Mobile stats bar - only visible on mobile */}
