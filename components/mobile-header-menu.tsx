@@ -5,6 +5,7 @@ import { useTheme } from '@/components/theme-provider';
 import { useSession, signOut } from 'next-auth/react';
 import { Search, Bell, Sun, Moon, Settings, LogOut, User } from 'lucide-react';
 import { FriesIcon } from '@/components/icons/fries-icon';
+import { Logo } from '@/components/logo';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
 import {
@@ -23,29 +24,12 @@ interface MobileHeaderMenuProps {
   onOpenChange: (open: boolean) => void;
 }
 
-interface MenuItemProps {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  onClick: () => void;
-}
-
-function MenuItem({ icon: Icon, label, onClick }: MenuItemProps) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-4 w-full px-4 py-3.5',
-        'rounded-lg transition-all duration-200',
-        'hover:bg-accent active:scale-[0.98]',
-        'text-foreground/80 hover:text-foreground',
-        'min-h-[48px]'
-      )}
-    >
-      <Icon className="h-5 w-5 shrink-0" />
-      <span className="text-[15px] font-medium">{label}</span>
-    </button>
-  );
-}
+const menuItems = [
+  { id: 'profile', icon: User, label: 'View Profile', requiresAuth: true },
+  { id: 'search', icon: Search, label: 'Search' },
+  { id: 'notifications', icon: Bell, label: 'Notifications' },
+  { id: 'settings', icon: Settings, label: 'Settings' },
+];
 
 export function MobileHeaderMenu({ open, onOpenChange }: MobileHeaderMenuProps) {
   const router = useRouter();
@@ -63,6 +47,21 @@ export function MobileHeaderMenu({ open, onOpenChange }: MobileHeaderMenuProps) 
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('command-palette-open'));
     }, 150);
+  };
+
+  const handleMenuClick = (id: string) => {
+    switch (id) {
+      case 'profile':
+        if (session?.user?.id) handleNavigation(`/profile/${session.user.id}`);
+        break;
+      case 'search':
+        handleSearch();
+        break;
+      case 'notifications':
+      case 'settings':
+        handleNavigation('/settings');
+        break;
+    }
   };
 
   return (
@@ -83,125 +82,102 @@ export function MobileHeaderMenu({ open, onOpenChange }: MobileHeaderMenuProps) 
         </Button>
       </SheetTrigger>
 
-      <SheetContent
-        side="right"
-        className="w-full sm:w-full sm:max-w-full flex flex-col [&>button:last-of-type]:hidden pt-4 border-l-0"
-      >
-        <SheetHeader className="pb-4">
-          <SheetTitle className="sr-only">Menu</SheetTitle>
-          {user && (
-            <div className="flex items-center gap-3 p-3 rounded-sm bg-muted">
-              <Avatar className="h-10 w-10 rounded-sm" key={user?.image || 'no-avatar-header'}>
-                <AvatarImage src={user?.image || undefined} alt={user?.name || 'User'} className="rounded-sm" />
-                <AvatarFallback
-                  className="text-sm text-white font-medium rounded-sm"
-                  style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
-                >
-                  {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col text-left">
-                <span className="text-sm font-semibold truncate">{user?.name || 'User'}</span>
-                <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
-              </div>
-            </div>
-          )}
+      <SheetContent side="right" className="w-[300px] sm:w-[350px] flex flex-col">
+        {/* Header - Logo like landing page */}
+        <SheetHeader className="text-left">
+          <SheetTitle className="flex items-center gap-2">
+            <Logo size={28} />
+            <span>Verso</span>
+          </SheetTitle>
         </SheetHeader>
 
-        <nav className="flex-1 py-4 space-y-1">
-          {/* Profile */}
-          {session?.user?.id && (
-            <div
-              className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
-              style={{ animationDelay: '0ms', animationDuration: '300ms' }}
-            >
-              <MenuItem
-                icon={User}
-                label="View Profile"
-                onClick={() => handleNavigation(`/profile/${session.user.id}`)}
-              />
+        {/* User Profile Card */}
+        {user && (
+          <div className="mt-6 flex items-center gap-3 p-3 rounded-lg bg-accent/50">
+            <Avatar className="h-10 w-10" key={user?.image || 'no-avatar-header'}>
+              <AvatarImage src={user?.image || undefined} alt={user?.name || 'User'} />
+              <AvatarFallback
+                className="text-sm text-white font-medium"
+                style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
+              >
+                {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col text-left min-w-0">
+              <span className="text-sm font-semibold truncate">{user?.name || 'User'}</span>
+              <span className="text-xs text-muted-foreground truncate">{user?.email}</span>
             </div>
-          )}
-
-          {/* Search */}
-          <div
-            className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
-            style={{ animationDelay: '50ms', animationDuration: '300ms' }}
-          >
-            <MenuItem icon={Search} label="Search" onClick={handleSearch} />
           </div>
+        )}
 
-          {/* Notifications */}
-          <div
-            className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
-            style={{ animationDelay: '100ms', animationDuration: '300ms' }}
-          >
-            <MenuItem
-              icon={Bell}
-              label="Notifications"
-              onClick={() => handleNavigation('/settings')}
-            />
-          </div>
+        {/* Navigation Links */}
+        <nav className="mt-6 flex flex-col gap-1 flex-1">
+          {menuItems.map((item, index) => {
+            // Skip auth-required items if not logged in
+            if (item.requiresAuth && !session?.user?.id) return null;
 
-          {/* Theme Toggle - Inline with Switch */}
-          <div
-            className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
-            style={{ animationDelay: '150ms', animationDuration: '300ms' }}
-          >
-            <div className="flex items-center justify-between px-4 py-3.5 min-h-[48px] rounded-lg hover:bg-accent transition-colors">
-              <div className="flex items-center gap-4">
-                {theme === 'dark' ? (
-                  <Moon className="h-5 w-5 shrink-0" />
-                ) : (
-                  <Sun className="h-5 w-5 shrink-0" />
+            const Icon = item.icon;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleMenuClick(item.id)}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-3 rounded-lg text-base font-medium',
+                  'text-muted-foreground hover:text-foreground hover:bg-accent',
+                  'transition-all duration-200 active:scale-[0.98]'
                 )}
-                <span className="text-[15px] font-medium">Dark Mode</span>
-              </div>
-              <Switch
-                checked={theme === 'dark'}
-                onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-              />
-            </div>
-          </div>
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <Icon className="h-5 w-5" />
+                {item.label}
+              </button>
+            );
+          })}
 
-          {/* Settings */}
+          {/* Dark Mode Toggle */}
           <div
-            className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
-            style={{ animationDelay: '200ms', animationDuration: '300ms' }}
+            className={cn(
+              'flex items-center justify-between px-3 py-3 rounded-lg',
+              'text-muted-foreground hover:bg-accent',
+              'transition-all duration-200'
+            )}
           >
-            <MenuItem
-              icon={Settings}
-              label="Settings"
-              onClick={() => handleNavigation('/settings')}
-            />
-          </div>
-
-          {/* Log Out */}
-          <div
-            className="animate-in fade-in slide-in-from-right-4 fill-mode-both"
-            style={{ animationDelay: '250ms', animationDuration: '300ms' }}
-          >
-            <button
-              onClick={() => {
-                onOpenChange(false);
-                signOut({ callbackUrl: '/' });
-              }}
-              className={cn(
-                'flex items-center gap-4 w-full px-4 py-3.5',
-                'rounded-lg transition-all duration-200',
-                'hover:bg-destructive/10 active:scale-[0.98]',
-                'text-destructive',
-                'min-h-[48px]'
+            <div className="flex items-center gap-3">
+              {theme === 'dark' ? (
+                <Moon className="h-5 w-5" />
+              ) : (
+                <Sun className="h-5 w-5" />
               )}
-            >
-              <LogOut className="h-5 w-5 shrink-0" />
-              <span className="text-[15px] font-medium">Log Out</span>
-            </button>
+              <span className="text-base font-medium">Dark Mode</span>
+            </div>
+            <Switch
+              checked={theme === 'dark'}
+              onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+            />
           </div>
         </nav>
 
-        <div className="pt-4 pb-2">
-          <div className="px-4 text-xs text-muted-foreground">Verso v1.0.0</div>
+        {/* Bottom Section - Log Out */}
+        <div className="pt-6 border-t border-border space-y-3">
+          <button
+            onClick={() => {
+              onOpenChange(false);
+              signOut({ callbackUrl: '/' });
+            }}
+            className={cn(
+              'flex items-center gap-3 w-full px-3 py-3 rounded-lg text-base font-medium',
+              'text-destructive hover:bg-destructive/10',
+              'transition-all duration-200 active:scale-[0.98]'
+            )}
+          >
+            <LogOut className="h-5 w-5" />
+            Log Out
+          </button>
+
+          <div className="px-3 text-xs text-muted-foreground">
+            Verso v1.0.0
+          </div>
         </div>
       </SheetContent>
     </Sheet>
