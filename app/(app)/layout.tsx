@@ -9,7 +9,6 @@ import { AppHeader } from "@/components/app-header";
 import { BottomNav } from "@/components/bottom-nav";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductivityProvider } from "@/contexts/productivity-context";
@@ -149,14 +148,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
             aria-modal={focusMode ? "true" : undefined}
             aria-label={focusMode ? "Focus mode editor" : undefined}
           >
-            <ScrollArea className="h-full w-full">
-              <div className={cn(
-                "w-full min-h-full transition-all duration-400",
-                focusMode && "max-w-5xl max-h-[90vh] rounded-lg md:rounded-xl"
-              )}>
-                {children}
-              </div>
-            </ScrollArea>
+            <div className={cn(
+              "h-full w-full overflow-hidden",
+              focusMode && "max-w-5xl max-h-[90vh] rounded-lg md:rounded-xl"
+            )}>
+              {children}
+            </div>
           </main>
 
           {/* Screen reader announcement for focus mode */}

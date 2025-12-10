@@ -107,7 +107,7 @@ export function ProjectCard({ project, className }: ProjectCardProps) {
         {/* Footer: Owner + Date */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Avatar className="h-5 w-5">
+            <Avatar className="h-5 w-5 rounded-md">
               <AvatarImage src={project.user.image || ''} alt={project.user.name || ''} />
               <AvatarFallback className="text-[10px]">
                 {project.user.name?.charAt(0).toUpperCase() || '?'}

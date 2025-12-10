@@ -46,7 +46,6 @@ export function NavMenuItem({
 
   return (
     <SidebarMenuItem
-      className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center"
       style={{ '--stagger-delay': `${index * 50}ms` } as React.CSSProperties}
     >
       <TooltipProvider delayDuration={150}>
@@ -57,18 +56,16 @@ export function NavMenuItem({
                 <Link
                   href={url}
                   className={cn(
-                    "w-full px-3 py-1.5 transition-all duration-150 text-sm group/item rounded-md",
+                    "px-3 py-1.5 transition-all duration-150 text-sm group/item flex items-center rounded-md",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     "hover:bg-accent hover:text-accent-foreground active:scale-[0.98]",
                     isActive
                       ? "bg-accent text-accent-foreground font-medium"
-                      : "text-muted-foreground",
-                    "group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:rounded-lg",
-                    isActive && "group-data-[collapsible=icon]:bg-accent"
+                      : "text-muted-foreground"
                   )}
                   aria-current={isActive ? "page" : undefined}
                 >
-                  <div className="relative inline-block mr-2 group-data-[collapsible=icon]:mr-0">
+                  <div className="relative mr-2 group-data-[collapsible=icon]:mr-0 flex-shrink-0">
                     <CurrentIcon className={cn(
                       "h-4 w-4 transition-colors duration-150",
                       isActive ? "text-foreground" : "text-muted-foreground group-hover/item:text-foreground"
@@ -86,14 +83,13 @@ export function NavMenuItem({
                 <button
                   onClick={onClick}
                   className={cn(
-                    "w-full px-3 py-1.5 transition-all duration-150 text-sm group/item flex items-center rounded-md",
+                    "px-3 py-1.5 transition-all duration-150 text-sm group/item flex items-center rounded-md",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     "hover:bg-accent hover:text-accent-foreground active:scale-[0.98]",
-                    "text-muted-foreground",
-                    "group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:rounded-lg"
+                    "text-muted-foreground"
                   )}
                 >
-                  <div className="relative inline-block mr-2 group-data-[collapsible=icon]:mr-0">
+                  <div className="relative mr-2 group-data-[collapsible=icon]:mr-0 flex-shrink-0">
                     <CurrentIcon className="h-4 w-4 transition-colors duration-150 group-hover/item:text-foreground" />
                     {notification && (
                       <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-primary rounded-full" />

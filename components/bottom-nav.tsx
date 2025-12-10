@@ -141,188 +141,208 @@ export function BottomNav() {
         </Link>
 
         {/* Create - Central action button with quick actions drawer */}
-        <Drawer open={createOpen} onOpenChange={setCreateOpen}>
-          <DrawerTrigger asChild>
-            <button
-              className={cn(
-                "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
-                "transition-colors duration-200",
-                createOpen
-                  ? "text-primary font-medium"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Plus className={cn(
-                "h-5 w-5 transition-all duration-300",
-                createOpen
-                  ? "fill-primary stroke-primary scale-105 rotate-45"
-                  : "fill-none stroke-current",
-                "group-active:scale-90"
-              )} />
-              <span className="text-[10px] font-medium">Create</span>
-              {createOpen && (
-                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
-              )}
-            </button>
-          </DrawerTrigger>
-          <DrawerContent className="pb-safe">
-            <DrawerHeader className="pb-3 px-5">
-              <DrawerTitle className="text-base font-semibold text-left">Create New</DrawerTitle>
-            </DrawerHeader>
-
-            {/* 2-column grid */}
-            <div className="grid grid-cols-2 gap-3 px-4 pb-6">
-              {/* New Screenplay */}
+        {/* Render static button during SSR, Drawer only after mount to avoid hydration mismatch */}
+        {mounted ? (
+          <Drawer open={createOpen} onOpenChange={setCreateOpen}>
+            <DrawerTrigger asChild>
               <button
-                onClick={() => handleCreateAction('screenplay')}
-                className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-border/50 bg-card hover:bg-accent active:scale-95 transition-all duration-200 touch-manipulation min-h-[108px]"
+                className={cn(
+                  "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
+                  "transition-colors duration-200",
+                  createOpen
+                    ? "text-primary font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
               >
-                <div className="p-2.5 rounded-md bg-muted">
-                  <FileText className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
-                </div>
-                <span className="font-medium text-sm">New Screenplay</span>
+                <Plus className={cn(
+                  "h-5 w-5 transition-all duration-300",
+                  createOpen
+                    ? "fill-primary stroke-primary scale-105 rotate-45"
+                    : "fill-none stroke-current",
+                  "group-active:scale-90"
+                )} />
+                <span className="text-[10px] font-medium">Create</span>
+                {createOpen && (
+                  <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
+                )}
               </button>
+            </DrawerTrigger>
+            <DrawerContent className="pb-safe">
+              <DrawerHeader className="pb-3 px-5">
+                <DrawerTitle className="text-base font-semibold text-left">Create New</DrawerTitle>
+              </DrawerHeader>
 
-              {/* New Project */}
-              <button
-                onClick={() => handleCreateAction('project')}
-                className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-border/50 bg-card hover:bg-accent active:scale-95 transition-all duration-200 touch-manipulation min-h-[108px]"
-              >
-                <div className="p-2.5 rounded-md bg-muted">
-                  <FolderPlus className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
-                </div>
-                <span className="font-medium text-sm">New Project</span>
-              </button>
-
-              {/* Continue Writing - full width */}
-              {screenplayId && (
+              {/* 2-column grid */}
+              <div className="grid grid-cols-2 gap-3 px-4 pb-6">
+                {/* New Screenplay */}
                 <button
-                  onClick={() => handleCreateAction('continue')}
-                  className="group col-span-2 flex items-center gap-3 p-4 rounded-xl border border-border/50 bg-card hover:bg-accent active:scale-[0.98] transition-all duration-200 touch-manipulation"
+                  onClick={() => handleCreateAction('screenplay')}
+                  className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-border/50 bg-card hover:bg-accent active:scale-95 transition-all duration-200 touch-manipulation min-h-[108px]"
                 >
-                  <div className="p-2 rounded-md bg-muted flex-shrink-0">
-                    <PenTool className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
+                  <div className="p-2.5 rounded-md bg-muted">
+                    <FileText className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
                   </div>
-                  <span className="font-medium text-sm">Continue Writing</span>
+                  <span className="font-medium text-sm">New Screenplay</span>
                 </button>
-              )}
-            </div>
-          </DrawerContent>
-        </Drawer>
+
+                {/* New Project */}
+                <button
+                  onClick={() => handleCreateAction('project')}
+                  className="group flex flex-col items-center justify-center gap-2.5 p-4 rounded-xl border border-border/50 bg-card hover:bg-accent active:scale-95 transition-all duration-200 touch-manipulation min-h-[108px]"
+                >
+                  <div className="p-2.5 rounded-md bg-muted">
+                    <FolderPlus className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
+                  </div>
+                  <span className="font-medium text-sm">New Project</span>
+                </button>
+
+                {/* Continue Writing - full width */}
+                {screenplayId && (
+                  <button
+                    onClick={() => handleCreateAction('continue')}
+                    className="group col-span-2 flex items-center gap-3 p-4 rounded-xl border border-border/50 bg-card hover:bg-accent active:scale-[0.98] transition-all duration-200 touch-manipulation"
+                  >
+                    <div className="p-2 rounded-md bg-muted flex-shrink-0">
+                      <PenTool className="h-5 w-5 text-muted-foreground" strokeWidth={2} />
+                    </div>
+                    <span className="font-medium text-sm">Continue Writing</span>
+                  </button>
+                )}
+              </div>
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <button
+            className="group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative text-muted-foreground"
+          >
+            <Plus className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Create</span>
+          </button>
+        )}
 
         {/* Tools */}
-        <Drawer open={toolsOpen} onOpenChange={setToolsOpen}>
-          <DrawerTrigger asChild>
-            <button
-              className={cn(
-                "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
-                "transition-colors duration-200",
-                isToolsActive || toolsOpen
-                  ? "text-primary font-medium"
-                  : "text-muted-foreground hover:text-foreground"
+        {/* Render static button during SSR, Drawer only after mount to avoid hydration mismatch */}
+        {mounted ? (
+          <Drawer open={toolsOpen} onOpenChange={setToolsOpen}>
+            <DrawerTrigger asChild>
+              <button
+                className={cn(
+                  "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
+                  "transition-colors duration-200",
+                  isToolsActive || toolsOpen
+                    ? "text-primary font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <BarChart3 className={cn(
+                  "h-5 w-5 transition-all duration-300",
+                  (isToolsActive || toolsOpen)
+                    ? "fill-primary stroke-primary scale-105"
+                    : "fill-none stroke-current",
+                  "group-active:scale-90"
+                )} />
+                <span className="text-[10px] font-medium">Tools</span>
+                {(isToolsActive || toolsOpen) && (
+                  <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
+                )}
+              </button>
+            </DrawerTrigger>
+            <DrawerContent className="pb-safe">
+              <DrawerHeader className="pb-4 px-5">
+                <DrawerTitle className="text-left">Screenplay Tools</DrawerTitle>
+              </DrawerHeader>
+              <div className="grid grid-cols-2 gap-3 px-4 pb-6">
+                <button
+                  onClick={() => screenplayId && handleToolClick(`/board/${screenplayId}`)}
+                  disabled={!screenplayId}
+                  className={cn(
+                    "flex items-center gap-3 p-4 rounded-lg border transition-colors",
+                    screenplayId
+                      ? "hover:bg-accent cursor-pointer"
+                      : "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <div className="p-2 rounded-md bg-muted">
+                    <Rows3 className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium text-sm">Beat Board</p>
+                    <p className="text-xs text-muted-foreground">Story structure</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => screenplayId && handleToolClick(`/cards/${screenplayId}`)}
+                  disabled={!screenplayId}
+                  className={cn(
+                    "flex items-center gap-3 p-4 rounded-lg border transition-colors",
+                    screenplayId
+                      ? "hover:bg-accent cursor-pointer"
+                      : "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <div className="p-2 rounded-md bg-muted">
+                    <LayoutGrid className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium text-sm">Index Cards</p>
+                    <p className="text-xs text-muted-foreground">Scene overview</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => screenplayId && handleToolClick(`/graph/${screenplayId}`)}
+                  disabled={!screenplayId}
+                  className={cn(
+                    "flex items-center gap-3 p-4 rounded-lg border transition-colors",
+                    screenplayId
+                      ? "hover:bg-accent cursor-pointer"
+                      : "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <div className="p-2 rounded-md bg-muted">
+                    <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium text-sm">Story Graph</p>
+                    <p className="text-xs text-muted-foreground">Visual analysis</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => screenplayId && handleToolClick(`/visualization/${screenplayId}`)}
+                  disabled={!screenplayId}
+                  className={cn(
+                    "flex items-center gap-3 p-4 rounded-lg border transition-colors",
+                    screenplayId
+                      ? "hover:bg-accent cursor-pointer"
+                      : "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <div className="p-2 rounded-md bg-muted">
+                    <BarChart3 className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium text-sm">Reports</p>
+                    <p className="text-xs text-muted-foreground">Stats & insights</p>
+                  </div>
+                </button>
+              </div>
+              {!screenplayId && (
+                <p className="text-center text-sm text-muted-foreground pb-4">
+                  Open a screenplay to use these tools
+                </p>
               )}
-            >
-              <BarChart3 className={cn(
-                "h-5 w-5 transition-all duration-300",
-                (isToolsActive || toolsOpen)
-                  ? "fill-primary stroke-primary scale-105"
-                  : "fill-none stroke-current",
-                "group-active:scale-90"
-              )} />
-              <span className="text-[10px] font-medium">Tools</span>
-              {(isToolsActive || toolsOpen) && (
-                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
-              )}
-            </button>
-          </DrawerTrigger>
-          <DrawerContent className="pb-safe">
-            <DrawerHeader className="pb-4 px-5">
-              <DrawerTitle className="text-left">Screenplay Tools</DrawerTitle>
-            </DrawerHeader>
-            <div className="grid grid-cols-2 gap-3 px-4 pb-6">
-              <button
-                onClick={() => screenplayId && handleToolClick(`/board/${screenplayId}`)}
-                disabled={!screenplayId}
-                className={cn(
-                  "flex items-center gap-3 p-4 rounded-lg border transition-colors",
-                  screenplayId
-                    ? "hover:bg-accent cursor-pointer"
-                    : "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <div className="p-2 rounded-md bg-muted">
-                  <Rows3 className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium text-sm">Beat Board</p>
-                  <p className="text-xs text-muted-foreground">Story structure</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => screenplayId && handleToolClick(`/cards/${screenplayId}`)}
-                disabled={!screenplayId}
-                className={cn(
-                  "flex items-center gap-3 p-4 rounded-lg border transition-colors",
-                  screenplayId
-                    ? "hover:bg-accent cursor-pointer"
-                    : "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <div className="p-2 rounded-md bg-muted">
-                  <LayoutGrid className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium text-sm">Index Cards</p>
-                  <p className="text-xs text-muted-foreground">Scene overview</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => screenplayId && handleToolClick(`/graph/${screenplayId}`)}
-                disabled={!screenplayId}
-                className={cn(
-                  "flex items-center gap-3 p-4 rounded-lg border transition-colors",
-                  screenplayId
-                    ? "hover:bg-accent cursor-pointer"
-                    : "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <div className="p-2 rounded-md bg-muted">
-                  <TrendingUp className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium text-sm">Story Graph</p>
-                  <p className="text-xs text-muted-foreground">Visual analysis</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => screenplayId && handleToolClick(`/visualization/${screenplayId}`)}
-                disabled={!screenplayId}
-                className={cn(
-                  "flex items-center gap-3 p-4 rounded-lg border transition-colors",
-                  screenplayId
-                    ? "hover:bg-accent cursor-pointer"
-                    : "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <div className="p-2 rounded-md bg-muted">
-                  <BarChart3 className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium text-sm">Reports</p>
-                  <p className="text-xs text-muted-foreground">Stats & insights</p>
-                </div>
-              </button>
-            </div>
-            {!screenplayId && (
-              <p className="text-center text-sm text-muted-foreground pb-4">
-                Open a screenplay to use these tools
-              </p>
-            )}
-          </DrawerContent>
-        </Drawer>
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <button
+            className="group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative text-muted-foreground"
+          >
+            <BarChart3 className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Tools</span>
+          </button>
+        )}
 
         {/* Profile */}
         <Link

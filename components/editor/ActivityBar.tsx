@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { Film, Users } from 'lucide-react';
+import { Film, Users, Clapperboard, StickyNote } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -10,25 +10,88 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-export type ActivityBarPanel = 'scenes' | 'characters' | null;
+export type ActivityBarPanel = 'scenes' | 'characters' | 'shotlist' | 'notes' | null;
 
 interface ActivityBarProps {
   activePanel: ActivityBarPanel;
   onPanelChange: (panel: ActivityBarPanel) => void;
   scenesCount?: number;
   charactersCount?: number;
+  shotlistCount?: number;
+  notesCount?: number;
   className?: string;
 }
 
+interface ActivityBarButtonProps {
+  panel: ActivityBarPanel;
+  activePanel: ActivityBarPanel;
+  onClick: (panel: ActivityBarPanel) => void;
+  icon: React.ReactNode;
+  label: string;
+  count?: number;
+  showIndicator?: 'left' | 'right';
+}
+
+function ActivityBarButton({
+  panel,
+  activePanel,
+  onClick,
+  icon,
+  label,
+  count = 0,
+  showIndicator = 'right',
+}: ActivityBarButtonProps) {
+  const isActive = activePanel === panel;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={() => onClick(panel)}
+          className={cn(
+            'relative flex items-center justify-center',
+            'w-10 h-10 rounded-lg',
+            'transition-colors',
+            isActive
+              ? 'bg-accent text-accent-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+          )}
+        >
+          {icon}
+          {count > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground px-1">
+              {count > 99 ? '99+' : count}
+            </span>
+          )}
+          {/* Active indicator bar */}
+          {isActive && (
+            <span
+              className={cn(
+                "absolute top-1/2 -translate-y-1/2 w-0.5 h-6 bg-primary",
+                showIndicator === 'left' ? 'left-0 rounded-r' : 'right-0 rounded-l'
+              )}
+            />
+          )}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side={showIndicator === 'left' ? 'right' : 'left'}>
+        <p>{label} {count > 0 && `(${count})`}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 /**
- * VS Code-style activity bar with icons for Scenes and Characters.
- * Sits between the main sidebar and the content area.
+ * VS Code-style activity bar with icons for Scenes, Characters, Shotlist, and Notes.
+ * Sits on the right edge of the editor content area.
  */
 export function ActivityBar({
   activePanel,
   onPanelChange,
   scenesCount = 0,
   charactersCount = 0,
+  shotlistCount = 0,
+  notesCount = 0,
   className,
 }: ActivityBarProps) {
   const handleClick = (panel: ActivityBarPanel) => {
@@ -45,72 +108,50 @@ export function ActivityBar({
       <div
         className={cn(
           'flex flex-col items-center py-2 gap-1',
-          'w-12 bg-card border-r border-border',
+          'w-12 bg-card border-l border-border',
           'shrink-0',
           className
         )}
       >
-        {/* Scenes Icon */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => handleClick('scenes')}
-              className={cn(
-                'relative flex items-center justify-center',
-                'w-10 h-10 rounded-lg',
-                'transition-colors',
-                activePanel === 'scenes'
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-              )}
-            >
-              <Film className="h-5 w-5" />
-              {scenesCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground px-1">
-                  {scenesCount > 99 ? '99+' : scenesCount}
-                </span>
-              )}
-              {/* Active indicator bar */}
-              {activePanel === 'scenes' && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-primary rounded-r" />
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>Scenes ({scenesCount})</p>
-          </TooltipContent>
-        </Tooltip>
+        <ActivityBarButton
+          panel="scenes"
+          activePanel={activePanel}
+          onClick={handleClick}
+          icon={<Film className="h-5 w-5" />}
+          label="Scenes"
+          count={scenesCount}
+          showIndicator="right"
+        />
 
-        {/* Characters Icon */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => handleClick('characters')}
-              className={cn(
-                'relative flex items-center justify-center',
-                'w-10 h-10 rounded-lg',
-                'transition-colors',
-                activePanel === 'characters'
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-              )}
-            >
-              <Users className="h-5 w-5" />
-              {charactersCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground px-1">
-                  {charactersCount > 99 ? '99+' : charactersCount}
-                </span>
-              )}
-              {/* Active indicator bar */}
-              {activePanel === 'characters' && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-primary rounded-r" />
-              )}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>Characters ({charactersCount})</p>
-          </TooltipContent>
-        </Tooltip>
+        <ActivityBarButton
+          panel="characters"
+          activePanel={activePanel}
+          onClick={handleClick}
+          icon={<Users className="h-5 w-5" />}
+          label="Characters"
+          count={charactersCount}
+          showIndicator="right"
+        />
+
+        <ActivityBarButton
+          panel="shotlist"
+          activePanel={activePanel}
+          onClick={handleClick}
+          icon={<Clapperboard className="h-5 w-5" />}
+          label="Shotlist"
+          count={shotlistCount}
+          showIndicator="right"
+        />
+
+        <ActivityBarButton
+          panel="notes"
+          activePanel={activePanel}
+          onClick={handleClick}
+          icon={<StickyNote className="h-5 w-5" />}
+          label="Notes"
+          count={notesCount}
+          showIndicator="right"
+        />
       </div>
     </TooltipProvider>
   );

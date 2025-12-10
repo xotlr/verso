@@ -3,6 +3,7 @@
 import React from 'react';
 import { Search, X, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useMounted } from '@/hooks/use-mobile';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -60,6 +61,7 @@ export function ListPageToolbar({
   sort,
   className,
 }: ListPageToolbarProps) {
+  const mounted = useMounted();
   const hasSearchBar = search || filters || sort;
 
   return (
@@ -69,23 +71,28 @@ export function ListPageToolbar({
         className
       )}
     >
-      {/* Tabs */}
+      {/* Tabs - render placeholder during SSR, actual Tabs after mount to avoid hydration mismatch */}
       {tabs && (
-        <Tabs value={tabs.value} onValueChange={tabs.onChange}>
-          <TabsList className="w-full sm:w-auto grid sm:inline-flex" style={{ gridTemplateColumns: `repeat(${tabs.items.length}, 1fr)` }}>
-            {tabs.items.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
-                {tab.icon}
-                <span className="hidden sm:inline">{tab.label}</span>
-                {tab.count !== undefined && (
-                  <Badge variant="secondary" className="text-xs">
-                    {tab.count}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+        mounted ? (
+          <Tabs value={tabs.value} onValueChange={tabs.onChange}>
+            <TabsList className="w-full sm:w-auto grid sm:inline-flex" style={{ gridTemplateColumns: `repeat(${tabs.items.length}, 1fr)` }}>
+              {tabs.items.map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
+                  {tab.icon}
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  {tab.count !== undefined && (
+                    <Badge variant="secondary" className="text-xs">
+                      {tab.count}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        ) : (
+          // Static placeholder during SSR to prevent hydration mismatch
+          <div className="w-full sm:w-auto h-10 bg-muted/50 rounded-lg animate-pulse" />
+        )
       )}
 
       {/* Unified Search Bar: Search + Filters + Sort in one container */}

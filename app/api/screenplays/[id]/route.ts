@@ -94,6 +94,11 @@ const updateScreenplaySchema = z.object({
   logline: z.string().optional().nullable(),
   genre: z.string().optional().nullable(),
   author: z.string().optional().nullable(),
+  // Type and TV-specific fields
+  type: z.enum(["FILM", "TV"]).optional(),
+  season: z.number().int().positive().nullable().optional(),
+  episode: z.number().int().positive().nullable().optional(),
+  episodeTitle: z.string().max(255).nullable().optional(),
   // For optimistic locking - client sends expected timestamp
   expectedUpdatedAt: z.number().optional(),
 })
@@ -132,7 +137,7 @@ async function updateScreenplay(
       )
     }
 
-    const { title, content, synopsis, logline, genre, author, expectedUpdatedAt } = result.data
+    const { title, content, synopsis, logline, genre, author, type, season, episode, episodeTitle, expectedUpdatedAt } = result.data
 
     // Validate content size if provided
     if (content !== undefined) {
@@ -179,6 +184,10 @@ async function updateScreenplay(
         ...(logline !== undefined && { logline }),
         ...(genre !== undefined && { genre }),
         ...(author !== undefined && { author }),
+        ...(type !== undefined && { type }),
+        ...(season !== undefined && { season }),
+        ...(episode !== undefined && { episode }),
+        ...(episodeTitle !== undefined && { episodeTitle }),
       },
     })
 

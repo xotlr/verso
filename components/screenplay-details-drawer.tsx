@@ -3,10 +3,11 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ScreenplayDetailsDrawerProps {
   isOpen: boolean;
@@ -15,7 +16,7 @@ interface ScreenplayDetailsDrawerProps {
   logline?: string | null;
   genre?: string | null;
   author?: string | null;
-  type?: 'FEATURE' | 'TV' | 'SHORT';
+  type?: 'FILM' | 'TV';
   season?: number | null;
   episode?: number | null;
   episodeTitle?: string | null;
@@ -33,7 +34,15 @@ export function ScreenplayDetailsDrawer({
   episode,
   episodeTitle,
 }: ScreenplayDetailsDrawerProps) {
-  const [localType, setLocalType] = useState(type || 'FEATURE');
+  const [localType, setLocalType] = useState(type || 'FILM');
+  const [localSeason, setLocalSeason] = useState(season || 1);
+  const [localEpisode, setLocalEpisode] = useState(episode || 1);
+
+  // Sync local state when props change
+  useEffect(() => {
+    setLocalSeason(season || 1);
+    setLocalEpisode(episode || 1);
+  }, [season, episode]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateField = async (field: string, value: any) => {
@@ -123,9 +132,8 @@ export function ScreenplayDetailsDrawer({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="FEATURE">Feature Film</SelectItem>
-                    <SelectItem value="TV">TV Episode</SelectItem>
-                    <SelectItem value="SHORT">Short Film</SelectItem>
+                    <SelectItem value="FILM">Film</SelectItem>
+                    <SelectItem value="TV">TV Series</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -135,21 +143,29 @@ export function ScreenplayDetailsDrawer({
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor="season">Season</Label>
-                      <Input
-                        type="number"
+                      <NumberInput
                         id="season"
-                        defaultValue={season || ''}
-                        onBlur={(e) => updateField('season', parseInt(e.target.value) || null)}
+                        value={localSeason}
+                        onChange={(value) => {
+                          setLocalSeason(value);
+                          updateField('season', value);
+                        }}
+                        min={1}
+                        max={99}
                       />
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="episode">Episode</Label>
-                      <Input
-                        type="number"
+                      <NumberInput
                         id="episode"
-                        defaultValue={episode || ''}
-                        onBlur={(e) => updateField('episode', parseInt(e.target.value) || null)}
+                        value={localEpisode}
+                        onChange={(value) => {
+                          setLocalEpisode(value);
+                          updateField('episode', value);
+                        }}
+                        min={1}
+                        max={999}
                       />
                     </div>
                   </div>

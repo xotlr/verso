@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/components/theme-provider';
 import { useSession, signOut } from 'next-auth/react';
+import { useMounted } from '@/hooks/use-mobile';
 import { Search, Bell, Sun, Moon, Settings, LogOut, User } from 'lucide-react';
 import { FriesIcon } from '@/components/icons/fries-icon';
 import { Logo } from '@/components/logo';
@@ -35,6 +36,7 @@ export function MobileHeaderMenu({ open, onOpenChange }: MobileHeaderMenuProps) 
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
+  const mounted = useMounted();
   const user = session?.user;
 
   const handleNavigation = (path: string) => {
@@ -63,6 +65,20 @@ export function MobileHeaderMenu({ open, onOpenChange }: MobileHeaderMenuProps) 
         break;
     }
   };
+
+  // Render static button during SSR, Sheet only after mount to avoid hydration mismatch
+  if (!mounted) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8"
+        aria-label="Open menu"
+      >
+        <FriesIcon size={20} />
+      </Button>
+    );
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

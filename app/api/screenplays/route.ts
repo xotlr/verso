@@ -120,6 +120,11 @@ export async function GET(request: Request) {
           lastOpenedAt: true,
           genre: true,
           author: true,
+          // Type and TV-specific fields
+          type: true,
+          season: true,
+          episode: true,
+          episodeTitle: true,
           project: {
             select: { id: true, name: true },
           },
@@ -159,8 +164,8 @@ const createScreenplaySchema = z.object({
   synopsis: z.string().optional(),
   projectId: z.string().optional(),
   teamId: z.string().optional(),
-  // New fields for screenplay type and TV episodes
-  type: z.enum(["FEATURE", "TV", "SHORT"]).optional(),
+  // Simplified screenplay types: FILM or TV
+  type: z.enum(["FILM", "TV"]).optional(),
   season: z.number().int().positive().nullable().optional(),
   episode: z.number().int().positive().nullable().optional(),
   episodeTitle: z.string().max(255).nullable().optional(),
@@ -332,8 +337,8 @@ export async function POST(request: Request) {
         userId: session.user.id,
         projectId: projectId || null,
         teamId: teamId || null,
-        // New fields for screenplay type and TV episodes
-        type: type || "FEATURE",
+        // Screenplay type (FILM or TV)
+        type: type || "FILM",
         season: season ?? null,
         episode: episode ?? null,
         episodeTitle: episodeTitle ?? null,

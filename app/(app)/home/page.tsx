@@ -225,7 +225,7 @@ function WorkspacePageContent() {
       </AlertDialog>
 
       {/* Main Content */}
-      <PageLayout className="pb-20 md:pb-0">
+      <PageLayout>
         {/* Pending Invites */}
         <PendingInviteBanner />
         <PendingProjectRoleInviteBanner />

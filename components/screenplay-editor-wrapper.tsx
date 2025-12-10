@@ -28,7 +28,7 @@ interface ScreenplayEditorWrapperProps {
   onTitleChange?: (title: string) => void;
 }
 
-type ScreenplayType = 'FEATURE' | 'TV' | 'SHORT';
+type ScreenplayType = 'FILM' | 'TV';
 
 export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange }: ScreenplayEditorWrapperProps) {
   const [screenplayText, setScreenplayText] = useState("");
@@ -65,7 +65,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   const isSaving = isSyncing || syncStatus === 'syncing';
 
   // TV/Episode fields
-  const [screenplayType, setScreenplayType] = useState<ScreenplayType>('FEATURE');
+  const [screenplayType, setScreenplayType] = useState<ScreenplayType>('FILM');
   const [season, setSeason] = useState<number | null>(null);
   const [episode, setEpisode] = useState<number | null>(null);
   const [episodeTitle, setEpisodeTitle] = useState<string | null>(null);
@@ -128,7 +128,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           setLocations(parsed.locations || []);
 
           // Load TV/Episode fields
-          setScreenplayType(screenplay.type || 'FEATURE');
+          setScreenplayType(screenplay.type || 'FILM');
           setSeason(screenplay.season || null);
           setEpisode(screenplay.episode || null);
           setEpisodeTitle(screenplay.episodeTitle || null);

@@ -31,14 +31,14 @@ export function PageLayout({
   const hasHeader = title || description || actions;
 
   return (
-    <ScrollArea className="flex-1 bg-background">
+    <ScrollArea className="h-full bg-background">
       <div
         className={cn(
           'mx-auto',
           narrow ? 'max-w-4xl' : 'max-w-7xl',
           !noPadding && 'px-3 sm:px-4 md:px-6 lg:px-8 pt-4 sm:pt-6 md:pt-8',
-          // Bottom padding: extra on mobile for bottom nav, normal on desktop
-          !noPadding && 'pb-24 md:pb-8',
+          // Bottom padding: extra on mobile for bottom nav, more on desktop
+          !noPadding && 'pb-24 md:pb-16',
           className
         )}
       >

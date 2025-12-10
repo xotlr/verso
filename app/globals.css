@@ -144,6 +144,12 @@
     font-size: var(--font-size, 14px);
   }
 
+  /* Global text selection highlight using primary color */
+  ::selection {
+    background: hsl(var(--primary) / 0.5);
+    color: hsl(var(--foreground));
+  }
+
   /* ===== FONT FAMILIES ===== */
   /* Default font - Inter matches defaultSettings.uiFont */
   /* Actual font is controlled via [data-ui-font] attribute on html */

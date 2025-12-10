@@ -1,9 +1,12 @@
 // Simplified template types for screenplay creation wizard
 
-export type ScreenplayTypeId = 'feature' | 'tv-series' | 'short' | 'stage' | 'blank';
+export type ScreenplayTypeId = 'film' | 'tv-series' | 'blank';
 
 // Maps to Prisma's ScreenplayType enum
-export type DatabaseScreenplayType = 'FEATURE' | 'TV' | 'SHORT';
+export type DatabaseScreenplayType = 'FILM' | 'TV';
+
+// Display type for cards (excludes blank since it's only for creation)
+export type DisplayScreenplayType = 'FILM' | 'TV';
 
 export type TVFormat = 'drama' | 'sitcom' | 'pilot';
 
@@ -15,61 +18,52 @@ export interface ScreenplayTypeConfig {
   gradient: string;
   gradientSelected: string;
   color: string;
-  iconName: 'Film' | 'Tv' | 'Sparkles' | 'Theater' | 'FileText';
+  iconName: 'Film' | 'Tv' | 'FileText';
+  // Accent color for card variations
+  accentColor: string;
 }
 
 export const screenplayTypes: Record<ScreenplayTypeId, ScreenplayTypeConfig> = {
-  'feature': {
-    id: 'feature',
-    name: 'Feature Film',
-    description: 'Full-length theatrical screenplay (90-120 pages)',
-    dbType: 'FEATURE',
-    gradient: 'from-violet-500/10 to-purple-500/10',
-    gradientSelected: 'from-violet-500 to-purple-600',
-    color: 'violet',
+  'film': {
+    id: 'film',
+    name: 'Film',
+    description: 'Feature or short film screenplay',
+    dbType: 'FILM',
+    gradient: 'from-amber-500/10 to-yellow-500/10',
+    gradientSelected: 'from-amber-500 to-yellow-600',
+    color: 'amber',
     iconName: 'Film',
+    accentColor: 'amber',
   },
   'tv-series': {
     id: 'tv-series',
-    name: 'TV Series',
-    description: 'Television episode with series structure',
+    name: 'Series',
+    description: 'Episode with series structure',
     dbType: 'TV',
-    gradient: 'from-blue-500/10 to-cyan-500/10',
-    gradientSelected: 'from-blue-500 to-cyan-600',
+    gradient: 'from-blue-500/10 to-sky-500/10',
+    gradientSelected: 'from-blue-500 to-sky-600',
     color: 'blue',
     iconName: 'Tv',
-  },
-  'short': {
-    id: 'short',
-    name: 'Short Film',
-    description: 'Short-form film (5-30 pages)',
-    dbType: 'SHORT',
-    gradient: 'from-amber-500/10 to-orange-500/10',
-    gradientSelected: 'from-amber-500 to-orange-600',
-    color: 'amber',
-    iconName: 'Sparkles',
-  },
-  'stage': {
-    id: 'stage',
-    name: 'Stage Play',
-    description: 'Traditional theatrical format',
-    dbType: 'FEATURE', // Stage plays use FEATURE as fallback
-    gradient: 'from-rose-500/10 to-pink-500/10',
-    gradientSelected: 'from-rose-500 to-pink-600',
-    color: 'rose',
-    iconName: 'Theater',
+    accentColor: 'blue',
   },
   'blank': {
     id: 'blank',
     name: 'Blank',
     description: 'Start fresh with no template',
-    dbType: 'FEATURE',
+    dbType: 'FILM',
     gradient: 'from-gray-500/10 to-slate-500/10',
     gradientSelected: 'from-gray-500 to-slate-600',
     color: 'gray',
     iconName: 'FileText',
+    accentColor: 'gray',
   },
 };
+
+// Helper to get config from database type
+export function getTypeConfigFromDbType(dbType: DatabaseScreenplayType): ScreenplayTypeConfig {
+  if (dbType === 'TV') return screenplayTypes['tv-series'];
+  return screenplayTypes['film'];
+}
 
 // Genre options for feature films
 export const genreOptions = [
@@ -108,13 +102,11 @@ export interface ScreenplayFormData {
   episode?: number;
   episodeTitle?: string;
   tvFormat?: TVFormat;
-  // Short-specific
-  targetRuntime?: number;
 }
 
 // Default content templates
 export const templateContent: Record<ScreenplayTypeId, string> = {
-  'feature': `FADE IN:
+  'film': `FADE IN:
 
 INT. LOCATION - DAY
 
@@ -190,68 +182,6 @@ Story develops.
                                     END
 `,
 
-  'short': `FADE IN:
-
-INT. LOCATION - DAY
-
-Action description. Short films require economy - every line matters.
-
-                         CHARACTER NAME
-         Dialogue should be minimal and impactful.
-
-EXT. LOCATION - LATER
-
-Visual storytelling is especially important in shorts.
-
-FADE OUT.
-
-                                  THE END
-`,
-
-  'stage': `                              PLAY TITLE
-
-                                      by
-
-                                  Playwright Name
-
-
-                            CHARACTERS
-                            (in order of appearance)
-
-CHARACTER ONE - Brief description
-CHARACTER TWO - Brief description
-
-
-                            TIME AND PLACE
-
-Time: Present day
-Place: Location description
-
-
-                                  ACT ONE
-
-                                 SCENE 1
-
-                    (Setting description)
-
-                    (AT RISE: What's happening as curtain opens)
-
-CHARACTER ONE
-         (stage direction)
-Dialogue begins here.
-
-CHARACTER TWO
-         (entering)
-Response dialogue.
-
-                                                      (CURTAIN)
-
-                             END OF ACT ONE
-
-
-                                    END
-`,
-
   'blank': `FADE IN:
 
 INT. LOCATION - DAY
@@ -262,8 +192,8 @@ FADE OUT.
 `,
 };
 
-// Keep old Template type for backwards compatibility during migration
-export type TemplateType = 'feature' | 'tv-sitcom' | 'tv-drama' | 'pilot' | 'stage' | 'short' | 'blank';
+// Legacy Template type (kept for backwards compatibility)
+export type TemplateType = 'feature' | 'tv-sitcom' | 'tv-drama' | 'pilot' | 'blank';
 
 export interface Template {
   id: string;
@@ -280,7 +210,7 @@ export interface Template {
   thumbnail?: string;
 }
 
-// Legacy template mapping for existing code
+// Legacy template mapping (maps old types to new content)
 export const screenplayTemplates: Record<TemplateType, Template> = {
   'feature': {
     id: 'feature',
@@ -293,7 +223,7 @@ export const screenplayTemplates: Record<TemplateType, Template> = {
       actStructure: '3-Act',
       features: ['Title page', 'Three-act structure', 'Scene headings'],
     },
-    content: templateContent['feature'],
+    content: templateContent['film'],
   },
   'tv-sitcom': {
     id: 'tv-sitcom',
@@ -333,31 +263,6 @@ export const screenplayTemplates: Record<TemplateType, Template> = {
       features: ['World building', 'Character introductions'],
     },
     content: templateContent['tv-series'],
-  },
-  'stage': {
-    id: 'stage',
-    name: 'Stage Play',
-    description: 'Traditional stage play format',
-    type: 'stage',
-    metadata: {
-      format: 'Stage Play',
-      actStructure: '1-3 Act',
-      features: ['Scene descriptions', 'Stage directions'],
-    },
-    content: templateContent['stage'],
-  },
-  'short': {
-    id: 'short',
-    name: 'Short Film',
-    description: 'Short film format (5-30 minutes)',
-    type: 'short',
-    metadata: {
-      format: 'Short Film',
-      pageCount: 15,
-      actStructure: 'Simple 3-Act',
-      features: ['Concise storytelling'],
-    },
-    content: templateContent['short'],
   },
   'blank': {
     id: 'blank',

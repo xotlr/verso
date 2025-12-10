@@ -30,6 +30,7 @@ export function ImageUpload({
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [cacheBuster, setCacheBuster] = useState(Date.now())
   const inputRef = useRef<HTMLInputElement>(null)
 
   const aspectClasses = {
@@ -45,6 +46,7 @@ export function ImageUpload({
 
       try {
         const url = await uploadImage(file, bucket, userId)
+        setCacheBuster(Date.now()) // Force image refresh
         onChange(url)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Upload failed')
@@ -113,7 +115,7 @@ export function ImageUpload({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={value}
+            src={`${value}?t=${cacheBuster}`}
             alt="Uploaded"
             className="w-full h-full object-cover"
           />

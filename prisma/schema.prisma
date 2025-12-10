@@ -126,6 +126,9 @@ model User {
   // Greeting history (for smart greeting algorithm)
   greetingHistory GreetingHistory[]
 
+  // Series owned by this user
+  series Series[]
+
   @@index([plan]) // Used in limit checks
   @@index([username])
 }
@@ -228,6 +231,34 @@ model Project {
   @@index([userId])
   @@index([teamId])
   @@index([isPublic, publishedAt])
+
+  // Series that belong to this project
+  series Series[]
+}
+
+// Series = TV Series container (holds episodes)
+model Series {
+  id        String   @id @default(cuid())
+  title     String
+  logline   String?  @db.Text
+  genre     String?
+  format    String?  // "one-hour", "half-hour", "multi-cam"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Ownership
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Optional: Series can belong to a Project
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  // Episodes (screenplays that belong to this series)
+  episodes Screenplay[]
+
+  @@index([userId])
+  @@index([projectId])
 }
 
 // Project roles (Director, Writer, Producer, etc.)
@@ -320,17 +351,18 @@ model Screenplay {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Can be standalone (userId only) OR in a project
+  // Can be standalone (userId only) OR in a project OR in a series
   userId    String
   projectId String?
   teamId    String?
+  seriesId  String?  // For TV episodes - links to parent Series
 
   // Screenplay type
-  type         ScreenplayType @default(FEATURE)
+  type         ScreenplayType @default(FILM)
   format       String         @default("feature-film") // 'feature-film' | 'tv-one-hour' | 'tv-half-hour' | 'tv-multi-cam'
-  season       Int? // For TV shows
-  episode      Int? // For TV shows
-  episodeTitle String? // For TV shows
+  season       Int? // For TV episodes
+  episode      Int? // For TV episodes
+  episodeTitle String? // For TV episodes
 
   // Quick Access fields
   isFavorite   Boolean   @default(false)
@@ -351,6 +383,7 @@ model Screenplay {
   user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   project          Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
   team             Team?               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  series           Series?             @relation(fields: [seriesId], references: [id], onDelete: SetNull)
   versions         ScreenplayVersion[]
   sceneMetas       SceneMeta[]
   characterMetas   CharacterMeta[]
@@ -365,6 +398,7 @@ model Screenplay {
   @@index([userId])
   @@index([projectId])
   @@index([teamId])
+  @@index([seriesId])
   @@index([isPublic, publishedAt])
   @@index([userId, lastOpenedAt])
 }
@@ -575,9 +609,8 @@ enum TeamRole {
 }
 
 enum ScreenplayType {
-  FEATURE
+  FILM
   TV
-  SHORT
 }
 
 // User writing statistics

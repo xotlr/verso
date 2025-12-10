@@ -22,6 +22,7 @@ import {
 } from '@/lib/classic-editor/types';
 import { useHistory } from '@/hooks/classic-editor/useHistory';
 import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
+import { EditorScrollArea } from '@/components/prosemirror/EditorScrollArea';
 
 interface ClassicEditorProps {
   initialBlocks: ScriptBlock[];
@@ -445,8 +446,8 @@ export function ClassicEditor({
 
   return (
     <div className="relative flex h-full bg-background text-foreground overflow-hidden font-sans">
-      {/* WORKSPACE */}
-      <div className="flex-1 h-full">
+      {/* WORKSPACE with scroll */}
+      <EditorScrollArea className="flex-1 h-full">
         <div className="p-2 sm:p-4 md:p-8 flex flex-col items-center gap-4 sm:gap-8">
           <div
             style={{
@@ -478,7 +479,7 @@ export function ClassicEditor({
           </div>
           <div className="h-64" />
         </div>
-      </div>
+      </EditorScrollArea>
 
       {/* Toolbar - centered within editor content area */}
       <div className="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none z-50">

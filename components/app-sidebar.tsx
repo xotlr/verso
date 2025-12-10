@@ -26,6 +26,7 @@ import {
   Clapperboard,
   Mail,
   Users,
+  Layers,
 } from "lucide-react";
 import { TbHome, TbHomeFilled } from 'react-icons/tb';
 import { PiFilmScript, PiFilmScriptFill } from 'react-icons/pi';
@@ -176,6 +177,11 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
       activeIcon: RiFolder6Fill,
     },
     {
+      title: "Series",
+      url: "/series",
+      icon: Layers,
+    },
+    {
       title: "Explore",
       url: "/explore",
       icon: MdOutlineExplore,
@@ -236,12 +242,11 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                 <SidebarMenuButton
                   className={cn(
                     "w-full justify-center rounded-md bg-primary text-primary-foreground shadow-sm",
-                    "hover:bg-primary/90 active:scale-[0.98] transition-all",
-                    isCollapsed && "px-0"
+                    "hover:bg-primary/90 active:scale-[0.98] transition-all"
                   )}
                 >
                   <Plus className="h-4 w-4" />
-                  {!isCollapsed && <span className="ml-2">Create</span>}
+                  <span className="ml-2 group-data-[collapsible=icon]:sr-only">Create</span>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="right" align="start" className="w-48">
@@ -354,12 +359,10 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
           /* Collapsed Resources - Dropdown menu */
           <SidebarGroup>
             <SidebarMenu>
-              <SidebarMenuItem className="flex justify-center">
+              <SidebarMenuItem>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <SidebarMenuButton
-                      className="w-10 h-10 p-0 justify-center rounded-lg hover:bg-accent"
-                    >
+                    <SidebarMenuButton>
                       <HelpCircle className="h-4 w-4 text-muted-foreground" />
                     </SidebarMenuButton>
                   </DropdownMenuTrigger>
@@ -403,16 +406,13 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuButton
                     size="lg"
-                    className={cn(
-                      "bg-muted/50 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
-                      isCollapsed && "justify-center"
-                    )}
+                    className="bg-muted/50 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                   >
                     <div className="relative">
-                      <Avatar className="h-8 w-8 rounded-lg">
-                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} />
+                      <Avatar className="h-8 w-8 rounded-md">
+                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="rounded-md" />
                         <AvatarFallback
-                          className="rounded-lg text-white font-medium"
+                          className="rounded-md text-white font-medium"
                           style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
                         >
                           {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U"}
@@ -443,10 +443,10 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                 >
                   <DropdownMenuLabel className="p-0 font-normal">
                     <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                      <Avatar className="h-8 w-8 rounded-lg">
-                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} />
+                      <Avatar className="h-8 w-8 rounded-md">
+                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="rounded-md" />
                         <AvatarFallback
-                          className="rounded-lg text-white font-medium"
+                          className="rounded-md text-white font-medium"
                           style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
                         >
                           {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U"}

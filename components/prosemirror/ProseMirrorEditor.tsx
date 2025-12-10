@@ -14,7 +14,7 @@ import { PAGE_WIDTH_PX, PAGE_HEIGHT_PX } from '@/lib/constants';
 import { FloatingToolbar } from './FloatingToolbar';
 import { AutocompleteDropdown } from './AutocompleteDropdown';
 import { ElementToolbar } from './ElementToolbar';
-import { EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
+import { EditorScrollArea, EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { PageFrameRenderer, PageGapRenderer } from './PageFrameRenderer';
 import { createPageFramesFromWasm, PAGE_GAP_PX } from '@/lib/prosemirror/plugins/page-frames';
 import { Button } from '@/components/ui/button';
@@ -420,7 +420,7 @@ export function ProseMirrorEditor({
       )}
 
       {/* Editor container with page styling */}
-      <div
+      <EditorScrollArea
         className={cn(
           'pm-editor-scroll-area h-full',
           viewMode === 'continuous' && 'pm-continuous-mode'
@@ -472,7 +472,7 @@ export function ProseMirrorEditor({
             )}
           />
         </div>
-      </div>
+      </EditorScrollArea>
 
       {/* Dual view page navigation */}
       {viewMode === 'dual' && isReady && totalSpreads > 1 && (
