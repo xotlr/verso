@@ -8,6 +8,8 @@ import { SettingsPanel } from '@/components/settings-panel';
 import { CommandPalette } from '@/components/command-palette';
 import { TemplateSelector } from '@/components/template-selector';
 import { NewProjectDialog } from '@/components/new-project-dialog';
+import { MoveToProjectDialog } from '@/components/move-to-project-dialog';
+import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +33,7 @@ import { ImportResult } from '@/components/import-drop-zone';
 import { useGreeting } from '@/hooks/use-greeting';
 import { useWorkspaceData, type ProjectItem, type ScreenplayItem } from '@/hooks/use-workspace-data';
 import { WorkspaceHeader, WorkspaceContentGrid, type TabValue } from '@/components/workspace';
+import { useViewMode } from '@/hooks/use-view-mode';
 
 function WorkspacePageContent() {
   const router = useRouter();
@@ -73,6 +76,8 @@ function WorkspacePageContent() {
   } | null>(null);
   const [activeTab, setActiveTab] = useState<TabValue>('screenplays');
   const [showFavorites, setShowFavorites] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<ScreenplayItem | null>(null);
+  const [viewMode, setViewMode] = useViewMode('home');
 
   // Command palette keyboard shortcut
   useEffect(() => {
@@ -136,6 +141,42 @@ function WorkspacePageContent() {
     a.download = `${screenplay.title}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const createProjectFromScreenplay = async (screenplay: ScreenplayItem) => {
+    try {
+      const projectResponse = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: screenplay.title,
+          description: screenplay.synopsis || screenplay.logline || null,
+        }),
+      });
+
+      if (!projectResponse.ok) {
+        const data = await projectResponse.json();
+        throw new Error(data.error || 'Failed to create project');
+      }
+
+      const project = await projectResponse.json();
+
+      const moveResponse = await fetch(`/api/screenplays/${screenplay.id}/move`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project.id }),
+      });
+
+      if (!moveResponse.ok) {
+        throw new Error('Failed to add screenplay to project');
+      }
+
+      toast.success('Project created');
+      router.push(`/project/${project.id}`);
+    } catch (error) {
+      console.error('Error creating project:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create project');
+    }
   };
 
   const handleImportComplete = async (result: ImportResult) => {
@@ -224,6 +265,18 @@ function WorkspacePageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Move to Project Dialog */}
+      {moveTarget && (
+        <MoveToProjectDialog
+          open={!!moveTarget}
+          onOpenChange={(open) => !open && setMoveTarget(null)}
+          screenplayId={moveTarget.id}
+          screenplayTitle={moveTarget.title}
+          currentProjectId={moveTarget.project?.id}
+          onSuccess={loadData}
+        />
+      )}
+
       {/* Main Content */}
       <PageLayout>
         {/* Pending Invites */}
@@ -290,6 +343,10 @@ function WorkspacePageContent() {
                 />
               ) : undefined
             }
+            viewMode={{
+              value: viewMode,
+              onChange: setViewMode,
+            }}
           />
         </div>
 
@@ -302,11 +359,14 @@ function WorkspacePageContent() {
             projects={projects}
             searchQuery={searchQuery}
             showFavorites={showFavorites}
+            viewMode={viewMode}
             onDelete={handleDelete}
             onExport={exportScreenplay}
             onImportComplete={handleImportComplete}
             onCreateScreenplay={createNewScreenplay}
             onCreateProject={createNewProject}
+            onMoveToProject={(screenplay) => setMoveTarget(screenplay)}
+            onCreateProjectFromScreenplay={createProjectFromScreenplay}
           />
         </div>
 

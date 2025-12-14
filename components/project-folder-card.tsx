@@ -331,11 +331,11 @@ export function ProjectFolderCard({
                   {uniquePeople.slice(0, 3).map((person, i) => (
                     <Avatar
                       key={person.id || i}
-                      className="w-6 h-6 rounded-lg border-2 border-background ring-1 ring-border/40 transition-all duration-300 hover:scale-110 hover:z-10"
+                      className="w-6 h-6 rounded-md border-2 border-background ring-1 ring-border/40 transition-all duration-300 hover:scale-110 hover:z-10"
                     >
                       <AvatarImage src={person.user?.image || undefined} alt={person.name || "User"} />
                       <AvatarFallback
-                        className="rounded-lg text-white font-medium text-[10px]"
+                        className="rounded-md text-white font-medium text-[10px]"
                         style={person.userId ? getSimpleGradientStyle(person.userId) : undefined}
                       >
                         {person.name?.[0]?.toUpperCase() || '?'}
@@ -343,7 +343,7 @@ export function ProjectFolderCard({
                     </Avatar>
                   ))}
                   {uniquePeople.length > 3 && (
-                    <div className="flex items-center justify-center w-6 h-6 rounded-lg bg-muted border-2 border-background text-[10px] font-semibold text-muted-foreground/90 ring-1 ring-border/40">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-md bg-muted border-2 border-background text-[10px] font-semibold text-muted-foreground/90 ring-1 ring-border/40">
                       +{uniquePeople.length - 3}
                     </div>
                   )}

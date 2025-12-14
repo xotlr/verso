@@ -152,6 +152,27 @@ const handleEnter: Command = (state, dispatch) => {
 };
 
 /**
+ * Shift+Enter command: Always create a new action line.
+ * Unlike Enter, this ignores context and always creates an action block.
+ */
+const handleShiftEnter: Command = (state, dispatch) => {
+  const { $head } = state.selection;
+
+  if (!dispatch) return true;
+
+  // Create new action paragraph at end of current block
+  const endPos = $head.end();
+  const nodeType = screenplaySchema.nodes['action'];
+
+  const tr = state.tr.insert(endPos, nodeType.create());
+  const newPos = tr.doc.resolve(endPos + 2);
+  tr.setSelection(TextSelection.near(newPos)).scrollIntoView();
+
+  dispatch(tr);
+  return true;
+};
+
+/**
  * Create the element switching keymap plugin.
  */
 export function createElementSwitchingPlugin(): Plugin {
@@ -159,6 +180,7 @@ export function createElementSwitchingPlugin(): Plugin {
     Tab: handleTab,
     'Shift-Tab': handleShiftTab,
     Enter: handleEnter,
+    'Shift-Enter': handleShiftEnter,
   });
 }
 
@@ -174,4 +196,4 @@ export const elementCommands = {
   setTransition: setElementType('transition'),
 };
 
-export { handleTab, handleShiftTab, handleEnter, setElementType };
+export { handleTab, handleShiftTab, handleEnter, handleShiftEnter, setElementType };

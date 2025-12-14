@@ -83,7 +83,7 @@ export default function EditorPage() {
       <SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {/* Editor */}
-      <div className="flex-1 overflow-hidden h-full">
+      <div className="flex-1 h-full">
         <ScreenplayEditorWrapper
           projectId={id}
           onTitleChange={handleTitleChange}

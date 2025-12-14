@@ -14,7 +14,7 @@
   --pm-page-height: 1056px;
   --pm-page-min-height: 1056px;
   --pm-page-padding-top: 96px;
-  --pm-page-padding-bottom: 96px;
+  --pm-page-padding-bottom: 48px;  /* 0.5" - matches WASM engine */
   --pm-page-padding-left: 144px;
   --pm-page-padding-right: 96px;
 
@@ -32,8 +32,8 @@
   --pm-margin-character: 211px;  /* 2.2in * 96 */
   --pm-margin-dialogue-left: 96px;  /* 1.0in * 96 */
   --pm-margin-dialogue-right: 144px;  /* 1.5in * 96 */
-  --pm-margin-parenthetical-left: 144px;  /* 1.5in * 96 */
-  --pm-margin-parenthetical-right: 192px;  /* 2.0in * 96 */
+  --pm-margin-parenthetical-left: 154px;  /* 1.6in * 96 = 3.1in from page edge */
+  --pm-margin-parenthetical-right: 182px;  /* ~1.9in * 96 for 2.5in width */
   --pm-margin-transition: 384px;  /* 4.0in * 96 */
 
   /* Colors */
@@ -98,7 +98,6 @@
   position: relative;
   width: 100%;
   height: 100%;
-  overflow: hidden;
   background: hsl(var(--background));
   /* Apply theme temperature filter (warm/cool/neutral) */
   filter: var(--theme-temperature-filter, none);
@@ -133,16 +132,43 @@
   background: hsl(var(--muted-foreground) / 0.3);
 }
 
-/* Scroll area (Radix ScrollArea) - centers the scaled content */
+/* Scroll area - simple scrollable div with centered content */
 .pm-editor-scroll-area {
   background: hsl(var(--background));
+  scroll-behavior: smooth;
+
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
 }
 
-/* Radix ScrollArea viewport - needs flexbox to center the scaled pages */
+.pm-editor-scroll-area::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pm-editor-scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pm-editor-scroll-area::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+.pm-editor-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.3);
+}
+
+/* Radix ScrollArea viewport - enable scrolling */
 .pm-editor-scroll-area [data-radix-scroll-area-viewport] {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  overflow-y: scroll !important;
+}
+
+/* Override Radix's table wrapper that breaks scroll */
+.pm-editor-scroll-area [data-radix-scroll-area-viewport] > div[style*="display:table"],
+.pm-editor-scroll-area [data-radix-scroll-area-viewport] > div[style*="display: table"] {
+  display: block !important;
+  height: auto !important;
 }
 
 /* ============================================
@@ -154,34 +180,35 @@
   align-items: center;
   padding: 32px 0 120px;
   gap: 32px; /* Match wasm-inspired gap-8 */
-  min-height: 100%;
+  /* No min-height - content dictates height for proper scrolling */
   background: hsl(var(--background));
   /* Container is centered, pages are fixed-size and scaled */
   margin: 0 auto;
 }
 
-/* Each page - matches wasm-inspired editor styling */
+/* Each page - container for ProseMirror content */
+/* Height is NOT fixed - content flows freely, WASM determines page breaks */
 .pm-editor-page {
-  /* Fixed dimensions matching wasm-inspired editor */
+  /* Fixed WIDTH only - height is auto to allow content flow */
   width: 816px;
-  height: 1056px;
-  min-height: 1056px;
+  /* NO height constraint - WASM pagination is the source of truth */
+  /* min-height set by JS based on WASM page count when needed */
 
-  /* Padding matches wasm-inspired: top right bottom left */
-  padding: 96px 96px 96px 144px;
+  /* Padding matches WASM engine: top right bottom left */
+  padding: 96px 96px 48px 144px;
 
   position: relative;
   overflow: visible;
 
-  /* White background with shadow-2xl */
-  background: white;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  /* Page background with shadow */
+  background: hsl(var(--page));
+  box-shadow: 0 25px 50px -12px hsl(0 0% 0% / 0.25);
 
   /* Typography - matches wasm-inspired BlockComponent */
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
   font-size: 16px;
   line-height: 16px;
-  color: hsl(0 0% 15%);  /* Softer than pure black for better readability */
+  color: hsl(var(--card-foreground));
   white-space: pre-wrap;
 
   /* Font rendering optimization */
@@ -190,10 +217,7 @@
   text-rendering: optimizeLegibility;
 }
 
-.dark .pm-editor-page {
-  background: hsl(0 0% 12%);
-  color: hsl(0 0% 90%);
-}
+/* Dark mode handled by CSS variables (--card, --card-foreground) */
 
 /* Remove the complex ::before pseudo-element - not needed with direct styling */
 .pm-editor-page::before {
@@ -250,8 +274,8 @@
   will-change: margin-left, margin-right, width;
 }
 
-/* Scene Heading */
-.pm-scene-heading {
+/* Scene Heading - .ProseMirror prefix for higher specificity than reset */
+.ProseMirror .pm-scene-heading {
   position: relative;
   /* Use padding-top instead of margin-top to match Google reference (prevents margin collapse) */
   padding-top: 32px; /* 2 lines * 16px - matches Google marginTopLines: 2 */
@@ -287,8 +311,8 @@
   color: hsl(var(--foreground) / 0.7);
 }
 
-/* Action */
-.pm-action {
+/* Action - .ProseMirror prefix for higher specificity than reset */
+.ProseMirror .pm-action {
   /* Use padding-top instead of margin-top to match Google reference */
   padding-top: 16px; /* 1 line * 16px - matches Google marginTopLines: 1 */
   margin-top: 0;
@@ -298,57 +322,57 @@
   width: 576px; /* Full printable width */
 }
 
-/* Character */
-.pm-character {
+/* Character - .ProseMirror prefix for higher specificity than reset */
+.ProseMirror .pm-character {
   /* Use padding-top instead of margin-top to match Google reference */
   padding-top: 16px; /* 1 line * 16px - matches Google marginTopLines: 1 */
   margin-top: 0;
   margin-bottom: 0;
-  margin-left: 211px; /* 2.2in * 96 - matches Google */
+  margin-left: 211px; /* 2.2in * 96 = 3.7in from page edge */
   margin-right: 0;
-  width: 336px; /* 3.5in * 96 - matches Google */
+  width: 336px; /* 3.5in * 96 - matches Final Draft */
 
   text-transform: uppercase;
   font-weight: 400;
 }
 
-/* Dialogue */
-.pm-dialogue {
-  margin-top: 0; /* marginTopLines: 0 - matches wasm-inspired */
+/* Dialogue - .ProseMirror prefix for higher specificity than reset */
+.ProseMirror .pm-dialogue {
+  margin-top: 0;
   margin-bottom: 0;
-  margin-left: 96px; /* 1.0in * 96 - matches wasm-inspired */
+  margin-left: 96px; /* 1.0in * 96 = 2.5in from page edge (Final Draft) */
   margin-right: 0;
-  width: 336px; /* 3.5in * 96 - matches wasm-inspired */
+  width: 336px; /* 3.5in * 96 - matches Final Draft */
 }
 
-/* Parenthetical */
-.pm-parenthetical {
-  margin-top: 0; /* marginTopLines: 0 - matches wasm-inspired */
+/* Parenthetical - .ProseMirror prefix for higher specificity than reset */
+.ProseMirror .pm-parenthetical {
+  margin-top: 0;
   margin-bottom: 0;
-  margin-left: 144px; /* 1.5in * 96 - matches wasm-inspired */
+  margin-left: 154px; /* 1.6in * 96 = 3.1in from page edge */
   margin-right: 0;
-  width: 250px; /* 2.6in * 96 ≈ 250px - matches wasm-inspired */
+  width: 240px; /* 2.5in * 96 = 240px */
 
   font-style: italic;
   color: var(--pm-color-parenthetical);
 }
 
-/* Transition */
-.pm-transition {
+/* Transition - .ProseMirror prefix for higher specificity than reset */
+.ProseMirror .pm-transition {
   /* Use padding-top instead of margin-top to match Google reference */
-  padding-top: 32px; /* 2 lines * 16px - matches Google marginTopLines: 2 */
+  padding-top: 32px; /* 2 lines * 16px - matches Final Draft marginTopLines: 2 */
   margin-top: 0;
   margin-bottom: 0;
-  margin-left: 384px; /* 4.0in * 96 - matches Google */
+  margin-left: 384px; /* 4.0in * 96 = 5.5in from page edge */
   margin-right: 0;
-  width: 192px; /* 2.0in * 96 - matches Google */
+  width: 192px; /* 2.0in * 96 - matches Final Draft */
 
   text-transform: uppercase;
   text-align: right;
 }
 
-/* Dual Dialogue */
-.pm-dual-dialogue {
+/* Dual Dialogue - .ProseMirror prefix for higher specificity than reset */
+.ProseMirror .pm-dual-dialogue {
   display: flex;
   gap: 48px; /* 0.5in * 96 */
   /* Use padding-top instead of margin-top to match Google reference */
@@ -356,21 +380,21 @@
   margin-top: 0;
 }
 
-.pm-dual-dialogue-column {
+.ProseMirror .pm-dual-dialogue-column {
   flex: 1;
   min-width: 0;
 }
 
-.pm-dual-dialogue .pm-character {
+.ProseMirror .pm-dual-dialogue .pm-character {
   margin-left: 48px; /* 0.5in * 96 */
 }
 
-.pm-dual-dialogue .pm-dialogue {
+.ProseMirror .pm-dual-dialogue .pm-dialogue {
   margin-left: 0;
   margin-right: 0;
 }
 
-.pm-dual-dialogue .pm-parenthetical {
+.ProseMirror .pm-dual-dialogue .pm-parenthetical {
   margin-left: 29px; /* 0.3in * 96 ≈ 29px */
 }
 
@@ -495,44 +519,48 @@
   background: transparent;
 }
 
-/* Zone 2: Gap between pages - shows theme background */
+/* Zone 2: Gap between pages - visible separator with page indicator */
 .pm-page-gap {
   position: relative;
   width: 100%;
-  height: 3em; /* em units scale with browser zoom (was 48px) */
+  height: 40px; /* Visible gap between pages */
 
-  /* Use theme background color for clean page separation */
-  background: hsl(var(--background));
+  /* Transparent - shows editor background through gap */
+  background: transparent;
 
   /* Center the page number badge */
   display: flex;
   align-items: center;
   justify-content: center;
+
+  /* Prevent any cursor/input artifacts from showing through */
+  pointer-events: none;
+  user-select: none;
+  caret-color: transparent;
 }
 
-/* Page number badge in gap */
+/* Page number indicator in gap - subtle but visible */
 .pm-page-gap .pm-page-number {
   position: relative;
   z-index: 11;
-  padding: 0.4em 1em; /* em units scale with browser zoom */
-  background: hsl(var(--muted) / 0.95);
-  backdrop-filter: blur(8px);
-  border: 1px solid hsl(var(--border) / 0.4);
+  padding: 0.3em 0.8em;
+  background: hsl(var(--muted) / 0.6);
+  backdrop-filter: blur(4px);
+  border: 1px solid hsl(var(--border) / 0.3);
   border-radius: 9999px;
   font-family: var(--font-sans);
-  font-size: 0.7em; /* em-based for zoom scaling */
+  font-size: 0.65em;
   font-weight: 500;
-  color: hsl(var(--muted-foreground));
-  box-shadow: 0 2px 4px hsl(0 0% 0% / 0.08);
+  color: hsl(var(--muted-foreground) / 0.7);
+  box-shadow: 0 1px 2px hsl(0 0% 0% / 0.05);
   pointer-events: auto;
   cursor: pointer;
   transition: all 150ms ease;
 }
 
 .pm-page-gap .pm-page-number:hover {
-  background: hsl(var(--muted));
-  box-shadow: 0 4px 8px hsl(0 0% 0% / 0.12);
-  transform: scale(1.02);
+  background: hsl(var(--muted) / 0.8);
+  color: hsl(var(--muted-foreground));
 }
 
 /* Zone 3: Next page top edge - creates visual start */
@@ -564,23 +592,30 @@
 }
 
 /* MORE indicator styling (bottom of previous page) */
+/* Industry standard: centered on dialogue column */
 .pm-page-bottom .pm-more-indicator {
   font-family: var(--pm-font-family);
-  font-size: 12pt;
+  font-size: 16px;
+  line-height: 16px;
   text-transform: uppercase;
-  color: hsl(var(--muted-foreground));
+  color: var(--pm-text-color);
+  /* Center within the dialogue column width (starts at 96px/1", width 336px/3.5") */
+  margin-left: 96px;
+  width: 336px;
   text-align: center;
-  margin-top: 0.5rem;
+  padding-top: 16px; /* One line spacing before MORE */
 }
 
 /* CONT'D indicator styling (top of next page) */
+/* Industry standard: at character indent (2.2"), same as character name */
 .pm-page-top .pm-contd-indicator {
   font-family: var(--pm-font-family);
-  font-size: 12pt;
+  font-size: 16px;
+  line-height: 16px;
   text-transform: uppercase;
-  color: hsl(var(--foreground));
-  margin-left: var(--pm-margin-character);
-  margin-bottom: 0.5rem;
+  color: var(--pm-text-color);
+  margin-left: var(--pm-margin-character); /* 211px = 2.2" */
+  padding-bottom: 0; /* No space after - dialogue follows immediately */
 }
 
 /* Legacy class support - hide old elements */
@@ -614,10 +649,7 @@
   box-shadow: none;
 }
 
-.dark .pm-page-gap {
-  /* Uses same CSS variable - automatically picks up dark --background */
-  background: hsl(var(--background));
-}
+/* Dark mode: keep gap transparent (same as light mode) */
 
 .dark .pm-page-top {
   background: transparent;
@@ -659,39 +691,6 @@
   .pm-contd-indicator {
     display: block !important;
   }
-}
-
-/* ============================================
-   View Mode Switcher
-   ============================================ */
-.pm-view-switcher {
-  position: fixed;
-  top: 5rem;
-  right: 1rem;
-  z-index: 50;
-
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.25rem;
-
-  /* Full visibility */
-  background: hsl(var(--card));
-  backdrop-filter: blur(8px);
-  border: 1px solid hsl(var(--border));
-  border-radius: 0.5rem;
-
-  box-shadow:
-    0 2px 8px hsl(0 0% 0% / 0.08),
-    0 1px 2px hsl(0 0% 0% / 0.12);
-
-  transition: box-shadow 200ms ease, opacity 200ms ease;
-}
-
-.pm-view-switcher:hover {
-  opacity: 0.9;
-  box-shadow:
-    0 4px 12px hsl(0 0% 0% / 0.12),
-    0 2px 4px hsl(0 0% 0% / 0.16);
 }
 
 /* ============================================
@@ -824,22 +823,6 @@
   display: none;
 }
 
-/* ============================================
-   Single Page Mode - Word/Google Docs Style
-   ============================================ */
-
-/* Single mode - pages with visual gaps and shadows */
-.pm-editor-scroll-container:not(.pm-continuous-mode):not(.pm-dual-mode) .pm-editor-pages {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem; /* Visual gap between pages */
-}
-
-.pm-editor-scroll-container:not(.pm-continuous-mode):not(.pm-dual-mode) .pm-editor-page {
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--card));
-}
 
 /* ============================================
    Focus Mode Effects
@@ -916,11 +899,6 @@
     padding-bottom: 60px;
   }
 
-  /* Hide view switcher (already done in JS but CSS fallback) */
-  .pm-view-switcher {
-    display: none !important;
-  }
-
   /* Adjust page scaling origin for centered mobile pages */
   .pm-editor-pages {
     transform-origin: top center;
@@ -958,25 +936,19 @@
   z-index: 0;
 }
 
-/* Individual page frame - the white card */
+/* Individual page frame - background */
 .pm-page-frame {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   width: 816px;
   height: 1056px;
-  background: white;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  background: hsl(var(--page));
+  box-shadow: 0 25px 50px -12px hsl(0 0% 0% / 0.25);
   border-radius: 2px;
 }
 
-.dark .pm-page-frame {
-  background: hsl(0 0% 12%);
-  box-shadow:
-    0 0 0 1px hsl(0 0% 100% / 0.05),
-    0 4px 8px hsl(0 0% 0% / 0.2),
-    0 16px 32px hsl(0 0% 0% / 0.25);
-}
+/* Dark mode handled by CSS variables (--page) */
 
 /* Page number - industry standard top-right position */
 .pm-page-frame-number {
@@ -986,13 +958,11 @@
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
   font-size: 16px;
   line-height: 16px;
-  color: hsl(0 0% 15%);
+  color: hsl(var(--card-foreground));
   user-select: none;
 }
 
-.dark .pm-page-frame-number {
-  color: hsl(0 0% 85%);
-}
+/* Dark mode handled by CSS variables (--card-foreground) */
 
 /* Gap overlay between pages */
 .pm-page-gap-overlay {
@@ -1015,14 +985,11 @@
   display: none !important;
 }
 
-/* Discrete mode: Editor pages container needs relative positioning */
+/* Discrete mode: Editor pages container */
 .pm-discrete-mode .pm-editor-pages {
   position: relative;
-}
-
-/* Discrete mode: Remove gap between pages (handled by page frames) */
-.pm-discrete-mode .pm-editor-pages {
   gap: 0;
+  background: transparent;  /* Let page frames show through */
 }
 
 /* Discrete mode: Page styling adjustments */
@@ -1031,34 +998,43 @@
   box-shadow: none;
   background: transparent;
   /* Content flows through, page frames show behind */
+
+  /* Remove fixed height so content can flow beyond one page */
+  height: auto;
+  min-height: auto;
 }
 
-/* MORE/CONT'D indicators for dialogue continuation */
+/* MORE/CONT'D indicators for dialogue continuation (discrete page mode) */
+/* MORE: centered on dialogue column at bottom of page */
 .pm-page-frame .pm-more-indicator {
   position: absolute;
-  bottom: 96px;
-  left: 144px;
-  right: 96px;
+  bottom: 48px; /* 0.5" from bottom edge */
+  /* Dialogue column: page-padding-left (144px) + dialogue-margin (96px) = 240px start */
+  /* Dialogue width: 336px (3.5") */
+  left: 240px;
+  width: 336px;
   text-align: center;
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
   font-size: 16px;
   line-height: 16px;
-  color: hsl(0 0% 15%);
+  color: var(--pm-text-color);
 }
 
+/* CONT'D: at character indent (2.2" from content start = page-padding + char-margin) */
 .pm-page-frame .pm-contd-indicator {
   position: absolute;
-  top: 96px;
+  top: 96px; /* 1" from top edge */
+  /* Character indent: page-padding-left (144px) + character-margin (211px) = 355px */
   left: 355px;
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
   font-size: 16px;
   line-height: 16px;
-  color: hsl(0 0% 15%);
+  color: var(--pm-text-color);
 }
 
 .dark .pm-page-frame .pm-more-indicator,
 .dark .pm-page-frame .pm-contd-indicator {
-  color: hsl(0 0% 85%);
+  color: var(--pm-text-color-dark);
 }
 
 /* Print: Hide page frames (browser handles page breaks) */

@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Search, X, Clock } from 'lucide-react';
+import { Search, X, Clock, LayoutGrid, List } from 'lucide-react';
+import type { ViewMode } from '@/hooks/use-view-mode';
 import { cn } from '@/lib/utils';
 import { useMounted } from '@/hooks/use-mobile';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +47,11 @@ export interface ListPageToolbarProps {
     onChange: (value: string) => void;
     options: SortOption[];
   };
+  /** View mode toggle (grid/list) */
+  viewMode?: {
+    value: ViewMode;
+    onChange: (value: ViewMode) => void;
+  };
   /** Additional class names */
   className?: string;
 }
@@ -59,10 +65,11 @@ export function ListPageToolbar({
   search,
   filters,
   sort,
+  viewMode,
   className,
 }: ListPageToolbarProps) {
   const mounted = useMounted();
-  const hasSearchBar = search || filters || sort;
+  const hasSearchBar = search || filters || sort || viewMode;
 
   return (
     <div
@@ -149,6 +156,41 @@ export function ListPageToolbar({
                   label={option.label}
                 />
               ))}
+            </div>
+          )}
+
+          {/* Divider before view mode */}
+          {(sort || filters || search) && viewMode && (
+            <div className="w-px h-5 bg-border/60 mx-0.5" />
+          )}
+
+          {/* View Mode Toggle */}
+          {viewMode && (
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => viewMode.onChange('grid')}
+                className={cn(
+                  'p-1.5 rounded-md transition-colors',
+                  viewMode.value === 'grid'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                )}
+                title="Grid view"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => viewMode.onChange('list')}
+                className={cn(
+                  'p-1.5 rounded-md transition-colors',
+                  viewMode.value === 'list'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                )}
+                title="List view"
+              >
+                <List className="h-4 w-4" />
+              </button>
             </div>
           )}
         </div>

@@ -17,6 +17,7 @@ import {
   Download,
   Star,
   FolderInput,
+  FolderPlus,
   Film,
   Tv,
   Folder,
@@ -57,6 +58,7 @@ interface ScreenplayListCardProps {
   onDelete?: () => void;
   onToggleFavorite?: () => void;
   onMoveToProject?: () => void;
+  onCreateProject?: () => void;
 }
 
 // Helper to calculate stacked paper count based on word count
@@ -151,13 +153,14 @@ export function ScreenplayListCard({
   onDelete,
   onToggleFavorite,
   onMoveToProject,
+  onCreateProject,
 }: ScreenplayListCardProps) {
   const linkHref = href || `/screenplay/${screenplay.id}`;
   const displayText = screenplay.logline || screenplay.synopsis;
   const isCompact = variant === 'compact';
   const isSeries = screenplay.type === 'TV';
 
-  const hasActions = onEdit || onExport || onDelete || onToggleFavorite || onMoveToProject;
+  const hasActions = onEdit || onExport || onDelete || onToggleFavorite || onMoveToProject || onCreateProject;
 
   // Get author display name - prefer custom author field, then user name
   const authorName = screenplay.author || screenplay.user?.name;
@@ -251,7 +254,7 @@ export function ScreenplayListCard({
               <h3
                 className={cn(
                   'font-bold uppercase tracking-tight line-clamp-1',
-                  'text-foreground group-hover/stack:text-primary transition-colors',
+                  'text-foreground group-hover/stack:text-primary group-hover/stack:underline transition-colors',
                   isCompact ? 'text-sm' : 'text-sm sm:text-base'
                 )}
               >
@@ -326,6 +329,12 @@ export function ScreenplayListCard({
                     <DropdownMenuItem onClick={onMoveToProject}>
                       <FolderInput className="mr-2 h-4 w-4" />
                       Move to Project
+                    </DropdownMenuItem>
+                  )}
+                  {onCreateProject && (
+                    <DropdownMenuItem onClick={onCreateProject}>
+                      <FolderPlus className="mr-2 h-4 w-4" />
+                      Create Project
                     </DropdownMenuItem>
                   )}
                   {onDelete && (

@@ -44,6 +44,8 @@ export interface ColorScheme {
   foreground: string;
   card: string;
   cardForeground: string;
+  page: string;
+  pageForeground: string;
   primary: string;
   primaryForeground: string;
   secondary: string;
@@ -126,6 +128,8 @@ export const defaultSettings: AppSettings = {
       foreground: '0 0% 25%',             // Dark gray text
       card: '0 0% 100%',                  // Pure white cards
       cardForeground: '0 0% 15%',
+      page: '0 0% 96%',                   // Slightly darker than background
+      pageForeground: '0 0% 15%',
       primary: '0 0% 15%',                // Near black
       primaryForeground: '0 0% 100%',
       secondary: '0 0% 95%',
@@ -146,6 +150,8 @@ export const defaultSettings: AppSettings = {
       foreground: '0 0% 85%',             // Light gray text
       card: '0 0% 10%',
       cardForeground: '0 0% 92%',
+      page: '0 0% 10%',                   // Slightly lighter than background
+      pageForeground: '0 0% 92%',
       primary: '0 0% 90%',                // Light gray primary
       primaryForeground: '0 0% 10%',
       secondary: '0 0% 15%',
@@ -252,6 +258,8 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       foreground: '0 0% 32%',             // Neutral dark gray
       card: '0 0% 100%',
       cardForeground: '0 0% 32%',
+      page: '0 0% 97%',                   // Slightly darker than background
+      pageForeground: '0 0% 32%',
       primary: '0 0% 18%',                // Near black
       primaryForeground: '0 0% 100%',
       secondary: '0 0% 96%',              // Light gray
@@ -271,6 +279,8 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       foreground: '0 0% 72%',             // Soft gray
       card: '0 0% 9%',
       cardForeground: '0 0% 72%',
+      page: '0 0% 9%',                    // Slightly lighter than background
+      pageForeground: '0 0% 72%',
       primary: '0 0% 85%',                // Light gray primary
       primaryForeground: '0 0% 9%',
       secondary: '0 0% 13%',
@@ -297,6 +307,8 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       foreground: '45 8% 22%',              // Warm brown-gray (monochromatic)
       card: '45 12% 98%',                   // Slightly lighter cream
       cardForeground: '45 8% 22%',
+      page: '45 12% 92%',                   // Aged paper (matches muted)
+      pageForeground: '45 8% 22%',
       primary: '45 10% 20%',                // Warm dark brown
       primaryForeground: '45 15% 96%',
       secondary: '45 12% 92%',              // Soft cream
@@ -316,6 +328,8 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       foreground: '45 12% 80%',             // Cream text
       card: '45 6% 11%',
       cardForeground: '45 12% 80%',
+      page: '45 5% 14%',                    // Aged paper (matches muted)
+      pageForeground: '45 12% 80%',
       primary: '45 12% 85%',                // Light cream primary
       primaryForeground: '45 8% 8%',
       secondary: '45 5% 14%',
@@ -342,6 +356,8 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       foreground: '350 12% 35%',          // Soft mauve
       card: '350 20% 99%',
       cardForeground: '350 12% 35%',
+      page: '350 25% 96%',                // Slightly darker blush for paper
+      pageForeground: '350 12% 35%',
       primary: '350 50% 55%',             // Dusty rose
       primaryForeground: '0 0% 100%',
       secondary: '350 18% 95%',
@@ -361,6 +377,8 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       foreground: '350 15% 78%',          // Pink-cream
       card: '350 18% 12%',
       cardForeground: '350 15% 78%',
+      page: '350 20% 12%',                // Slightly lighter for paper
+      pageForeground: '350 15% 78%',
       primary: '350 45% 58%',             // Rose
       primaryForeground: '350 20% 10%',
       secondary: '350 15% 16%',
@@ -439,6 +457,8 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       foreground: '80 5% 32%',              // Soft gray-green text
       card: '80 6% 98%',                    // Nearly white cards
       cardForeground: '80 5% 32%',
+      page: '80 8% 94%',                    // Slightly darker sage for paper
+      pageForeground: '80 5% 32%',
       primary: '80 18% 45%',                // Muted sage green
       primaryForeground: '0 0% 100%',
       secondary: '80 6% 93%',               // Light stone gray
@@ -458,6 +478,8 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       foreground: '80 8% 75%',              // Soft sage-gray text
       card: '80 5% 12%',
       cardForeground: '80 8% 75%',
+      page: '80 6% 11%',                    // Slightly lighter sage for paper
+      pageForeground: '80 8% 75%',
       primary: '80 22% 52%',                // Brighter muted sage
       primaryForeground: '80 6% 9%',
       secondary: '80 5% 15%',
@@ -541,6 +563,8 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       foreground: '30 4% 30%',              // Muted charcoal text
       card: '30 5% 98%',                    // Nearly white cards
       cardForeground: '30 4% 30%',
+      page: '30 6% 94%',                    // Slightly darker warm gray for paper
+      pageForeground: '30 4% 30%',
       primary: '38 18% 50%',                // Soft antique gold
       primaryForeground: '0 0% 100%',
       secondary: '30 5% 92%',               // Light warm gray
@@ -560,6 +584,8 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       foreground: '30 6% 75%',              // Soft warm gray text
       card: '30 4% 12%',
       cardForeground: '30 6% 75%',
+      page: '30 5% 11%',                    // Slightly lighter warm gray for paper
+      pageForeground: '30 6% 75%',
       primary: '38 22% 55%',                // Brighter soft gold
       primaryForeground: '30 5% 9%',
       secondary: '30 4% 15%',
@@ -643,6 +669,8 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       foreground: '0 5% 20%',             // Dark desaturated
       card: '0 2% 96%',
       cardForeground: '0 5% 20%',
+      page: '0 3% 92%',                   // Slightly darker gray for paper
+      pageForeground: '0 5% 20%',
       primary: '0 65% 45%',               // Blood red
       primaryForeground: '0 0% 98%',
       secondary: '0 3% 90%',
@@ -662,6 +690,8 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       foreground: '0 5% 75%',             // Pale gray
       card: '0 4% 9%',
       cardForeground: '0 5% 75%',
+      page: '0 5% 8%',                    // Slightly lighter gray for paper
+      pageForeground: '0 5% 75%',
       primary: '0 70% 50%',               // Blood red
       primaryForeground: '0 0% 98%',
       secondary: '0 4% 12%',

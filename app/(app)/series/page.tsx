@@ -1,15 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
 import useSWR from 'swr';
-import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageLayout } from '@/components/layouts/page-layout';
+import { ListPageToolbar } from '@/components/ui/list-page-toolbar';
+import { ListWithPreview } from '@/components/ui/list-preview-panel';
+import { SeriesCard, SeriesCardSkeleton } from '@/components/series-card';
+import { SeriesListRow, SeriesListRowSkeleton } from '@/components/series-list-row';
+import { useViewMode } from '@/hooks/use-view-mode';
 import {
   Select,
   SelectContent,
@@ -26,8 +28,6 @@ import {
 import {
   Plus,
   Tv,
-  Clock,
-  FileText,
   Loader2,
 } from 'lucide-react';
 import { genreOptions } from '@/types/templates';
@@ -48,6 +48,9 @@ interface Series {
 export default function SeriesListPage() {
   const { data: seriesList, error, mutate } = useSWR<Series[]>('/api/series', fetcher);
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useViewMode('series');
+  const [hoveredSeries, setHoveredSeries] = useState<Series | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newGenre, setNewGenre] = useState('');
@@ -83,87 +86,29 @@ export default function SeriesListPage() {
     }
   };
 
+  // Filter series by search query
+  const filteredSeries = seriesList?.filter(series =>
+    series.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    series.logline?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    series.genre?.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || [];
+
+  const isLoading = !seriesList && !error;
+
   if (error) {
     return (
-      <div className="container max-w-4xl py-8">
+      <PageLayout>
         <EmptyState
           icon={<Tv className="h-6 w-6 text-muted-foreground" />}
           title="Failed to load series"
           description="There was an error loading your series. Please try again."
         />
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="container max-w-4xl py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Series</h1>
-          <p className="text-muted-foreground">Manage your TV series and episodes</p>
-        </div>
-        <Button onClick={() => setIsCreating(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Series
-        </Button>
-      </div>
-
-      {/* Loading State */}
-      {!seriesList ? (
-        <div className="space-y-4">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-      ) : seriesList.length === 0 ? (
-        <EmptyState
-          icon={<Tv className="h-6 w-6 text-muted-foreground" />}
-          title="No series yet"
-          description="Create your first TV series to get started."
-          action={{
-            label: 'Create Series',
-            onClick: () => setIsCreating(true),
-          }}
-        />
-      ) : (
-        <div className="space-y-3">
-          {seriesList.map(series => (
-            <Link
-              key={series.id}
-              href={`/series/${series.id}`}
-              className="group flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                  <Tv className="h-6 w-6 text-blue-500" />
-                </div>
-                <div>
-                  <h3 className="font-medium group-hover:underline">
-                    {series.title}
-                  </h3>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <FileText className="h-3 w-3" />
-                      {series._count.episodes} episodes
-                    </span>
-                    {series.genre && (
-                      <Badge variant="secondary" className="text-[10px]">
-                        {series.genre}
-                      </Badge>
-                    )}
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {formatDistanceToNow(new Date(series.updatedAt), { addSuffix: true })}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-
+    <>
       {/* Create Series Dialog */}
       <Dialog open={isCreating} onOpenChange={setIsCreating}>
         <DialogContent>
@@ -228,6 +173,117 @@ export default function SeriesListPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+
+      <PageLayout
+        title="Series"
+        description={`${filteredSeries.length} series${searchQuery ? ' (filtered)' : ''}`}
+        actions={
+          <Button onClick={() => setIsCreating(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New Series</span>
+            <span className="sm:hidden">New</span>
+          </Button>
+        }
+      >
+        {/* Search and View Toggle */}
+        <ListPageToolbar
+          search={{
+            value: searchQuery,
+            onChange: setSearchQuery,
+            placeholder: 'Search series...',
+          }}
+          viewMode={{
+            value: viewMode,
+            onChange: setViewMode,
+          }}
+          className="mb-6"
+        />
+
+        {/* Content Grid/List */}
+        {isLoading ? (
+          viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+              {[1, 2, 3].map((i) => (
+                <SeriesCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <SeriesListRowSkeleton key={i} />
+              ))}
+            </div>
+          )
+        ) : filteredSeries.length === 0 ? (
+          <EmptyState
+            icon={<Tv className="h-6 w-6 text-muted-foreground" />}
+            title={searchQuery ? 'No series found' : 'No series yet'}
+            description={searchQuery
+              ? 'Try a different search term'
+              : 'Create your first TV series to get started.'}
+            action={!searchQuery ? {
+              label: 'Create Series',
+              onClick: () => setIsCreating(true),
+              icon: <Plus className="h-5 w-5" />,
+            } : undefined}
+          />
+        ) : viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+            {filteredSeries.map((series) => (
+              <SeriesCard
+                key={series.id}
+                series={{
+                  id: series.id,
+                  title: series.title,
+                  logline: series.logline,
+                  genre: series.genre,
+                  format: series.format,
+                  updatedAt: series.updatedAt,
+                  _count: series._count,
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <ListWithPreview
+            preview={
+              hoveredSeries ? (
+                <SeriesCard
+                  series={{
+                    id: hoveredSeries.id,
+                    title: hoveredSeries.title,
+                    logline: hoveredSeries.logline,
+                    genre: hoveredSeries.genre,
+                    format: hoveredSeries.format,
+                    updatedAt: hoveredSeries.updatedAt,
+                    _count: hoveredSeries._count,
+                  }}
+                />
+              ) : null
+            }
+          >
+            <div className="space-y-2">
+              {filteredSeries.map((series) => (
+                <SeriesListRow
+                  key={series.id}
+                  series={{
+                    id: series.id,
+                    title: series.title,
+                    logline: series.logline,
+                    genre: series.genre,
+                    format: series.format,
+                    updatedAt: series.updatedAt,
+                    _count: series._count,
+                  }}
+                  isHovered={hoveredSeries?.id === series.id}
+                  onHover={() => setHoveredSeries(series)}
+                  onLeave={() => setHoveredSeries(null)}
+                />
+              ))}
+            </div>
+          </ListWithPreview>
+        )}
+      </PageLayout>
+    </>
   );
 }

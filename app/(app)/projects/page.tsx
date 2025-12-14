@@ -8,7 +8,10 @@ import { NewProjectDialog } from '@/components/new-project-dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { ListPageToolbar, SORT_OPTIONS } from '@/components/ui/list-page-toolbar';
+import { ListWithPreview } from '@/components/ui/list-preview-panel';
 import { ProjectFolderCard, ProjectFolderCardSkeleton } from '@/components/project-folder-card';
+import { ProjectListRow, ProjectListRowSkeleton } from '@/components/project-list-row';
+import { useViewMode } from '@/hooks/use-view-mode';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +63,8 @@ export default function ProjectsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [viewMode, setViewMode] = useViewMode('projects');
+  const [hoveredProject, setHoveredProject] = useState<ProjectItem | null>(null);
 
   useEffect(() => {
     loadProjects();
@@ -176,16 +181,28 @@ export default function ProjectsPage() {
             onChange: (v) => setSortBy(v as typeof sortBy),
             options: [SORT_OPTIONS.recent, SORT_OPTIONS.name],
           }}
+          viewMode={{
+            value: viewMode,
+            onChange: setViewMode,
+          }}
           className="mb-6"
         />
 
-        {/* Content Grid */}
+        {/* Content Grid/List */}
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
-            {[1, 2, 3].map((i) => (
-              <ProjectFolderCardSkeleton key={i} />
-            ))}
-          </div>
+          viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+              {[1, 2, 3].map((i) => (
+                <ProjectFolderCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <ProjectListRowSkeleton key={i} />
+              ))}
+            </div>
+          )
         ) : filteredProjects.length === 0 ? (
           <EmptyState
             icon={<RiFolder6Line className="h-8 w-8 text-muted-foreground" />}
@@ -199,7 +216,7 @@ export default function ProjectsPage() {
               icon: <Plus className="h-5 w-5" />,
             } : undefined}
           />
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
             {filteredProjects.map((project) => (
               <ProjectFolderCard
@@ -218,6 +235,44 @@ export default function ProjectsPage() {
               />
             ))}
           </div>
+        ) : (
+          <ListWithPreview
+            preview={
+              hoveredProject ? (
+                <ProjectFolderCard
+                  project={{
+                    id: hoveredProject.id,
+                    name: hoveredProject.name,
+                    description: hoveredProject.description,
+                    updatedAt: hoveredProject.updatedAt,
+                    roles: hoveredProject.roles,
+                    screenplays: hoveredProject.screenplays,
+                    _count: hoveredProject._count,
+                  }}
+                />
+              ) : null
+            }
+          >
+            <div className="space-y-2">
+              {filteredProjects.map((project) => (
+                <ProjectListRow
+                  key={project.id}
+                  project={{
+                    id: project.id,
+                    name: project.name,
+                    description: project.description,
+                    updatedAt: project.updatedAt,
+                    roles: project.roles,
+                    screenplays: project.screenplays,
+                    _count: project._count,
+                  }}
+                  isHovered={hoveredProject?.id === project.id}
+                  onHover={() => setHoveredProject(project)}
+                  onLeave={() => setHoveredProject(null)}
+                />
+              ))}
+            </div>
+          </ListWithPreview>
         )}
       </PageLayout>
     </>

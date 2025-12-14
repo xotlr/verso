@@ -22,7 +22,6 @@ import {
 } from '@/lib/classic-editor/types';
 import { useHistory } from '@/hooks/classic-editor/useHistory';
 import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
-import { EditorScrollArea } from '@/components/prosemirror/EditorScrollArea';
 
 interface ClassicEditorProps {
   initialBlocks: ScriptBlock[];
@@ -197,6 +196,26 @@ export function ClassicEditor({
   const activeBlockType = useMemo(() => {
     return blocks.find(b => b.id === activeBlockId)?.type || BlockType.ACTION;
   }, [blocks, activeBlockId]);
+
+  // Debug scroll dimensions
+  useEffect(() => {
+    const logScrollDimensions = () => {
+      const scrollContainer = document.querySelector('.classic-editor-scroll');
+      if (scrollContainer) {
+        console.log('SCROLL DEBUG:', {
+          scrollHeight: scrollContainer.scrollHeight,
+          clientHeight: scrollContainer.clientHeight,
+          scrollTop: scrollContainer.scrollTop,
+          offsetHeight: (scrollContainer as HTMLElement).offsetHeight,
+          pages: pages.length,
+          scale,
+        });
+      }
+    };
+    logScrollDimensions();
+    window.addEventListener('resize', logScrollDimensions);
+    return () => window.removeEventListener('resize', logScrollDimensions);
+  }, [pages.length, scale]);
 
   // --- HANDLERS ---
   const updateBlock = useCallback((id: string, content: string) => {
@@ -445,18 +464,17 @@ export function ClassicEditor({
   }
 
   return (
-    <div className="relative flex h-full bg-background text-foreground overflow-hidden font-sans">
-      {/* WORKSPACE with scroll */}
-      <EditorScrollArea className="flex-1 h-full">
-        <div className="p-2 sm:p-4 md:p-8 flex flex-col items-center gap-4 sm:gap-8">
-          <div
-            style={{
-              transform: `scale(${scale})`,
-              transformOrigin: 'top center',
-              willChange: 'transform',
-            }}
-            className="flex flex-col gap-8"
-          >
+    <div className="absolute inset-0 bg-background text-foreground font-sans overflow-y-auto overflow-x-hidden classic-editor-scroll">
+      {/* WORKSPACE - native scroll */}
+      <div className="p-2 sm:p-4 md:p-8 flex flex-col items-center gap-4 sm:gap-8">
+        <div
+          style={{
+            transform: `scale(${scale})`,
+            transformOrigin: 'top center',
+            willChange: 'transform',
+          }}
+          className="flex flex-col gap-8"
+        >
             {/* TITLE PAGE */}
             <TitlePage
               metadata={metadata.titlePage}
@@ -476,13 +494,12 @@ export function ClassicEditor({
                 onPasteMultiline={handlePasteMultiline}
               />
             ))}
-          </div>
-          <div className="h-64" />
         </div>
-      </EditorScrollArea>
+        <div className="h-64" />
+      </div>
 
-      {/* Toolbar - centered within editor content area */}
-      <div className="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none z-50">
+      {/* Toolbar - fixed position since parent scrolls */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
         <div className="pointer-events-auto">
           <Toolbar currentType={activeBlockType} onTypeChange={changeBlockType} />
         </div>

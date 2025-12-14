@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { EditorView } from 'prosemirror-view';
 import { cn } from '@/lib/utils';
 import {
@@ -10,10 +10,8 @@ import {
   MessageSquare,
   Parentheses,
   ArrowRight,
-  ChevronUp,
-  ChevronDown
 } from 'lucide-react';
-import { ELEMENT_DISPLAY_NAMES, ElementType, ELEMENT_CYCLE_ORDER } from '@/lib/prosemirror';
+import { ElementType, ELEMENT_CYCLE_ORDER } from '@/lib/prosemirror';
 import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
 import { useSidebar } from '@/components/ui/sidebar';
 
@@ -45,54 +43,67 @@ const SHORT_LABELS: Record<ElementType, string> = {
   dual_dialogue: 'Dual',
 };
 
-// Color classes by element type
-const COLOR_CLASSES: Record<ElementType, { active: string; inactive: string }> = {
-  scene_heading: {
-    active: 'bg-blue-500 text-white',
-    inactive: 'text-blue-500 hover:bg-blue-500/10'
-  },
-  action: {
-    active: 'bg-zinc-600 text-white',
-    inactive: 'text-zinc-400 hover:bg-zinc-500/10'
-  },
-  character: {
-    active: 'bg-purple-500 text-white',
-    inactive: 'text-purple-500 hover:bg-purple-500/10'
-  },
-  dialogue: {
-    active: 'bg-zinc-700 text-white',
-    inactive: 'text-zinc-300 hover:bg-zinc-500/10'
-  },
-  parenthetical: {
-    active: 'bg-zinc-600 text-white',
-    inactive: 'text-zinc-400 hover:bg-zinc-500/10'
-  },
-  transition: {
-    active: 'bg-orange-500 text-white',
-    inactive: 'text-orange-500 hover:bg-orange-500/10'
-  },
-  dual_dialogue: {
-    active: 'bg-violet-500 text-white',
-    inactive: 'text-violet-500 hover:bg-violet-500/10'
-  },
-};
+// Auto-hide timeout in milliseconds
+const AUTO_HIDE_DELAY = 3000;
 
 /**
- * Expandable element type toolbar.
- *
- * Compact: Shows current element type as a clickable pill
- * Expanded: Shows all element type buttons for quick switching
+ * Element type toolbar - classic style with contextual visibility.
+ * Shows all element types in a horizontal pill, auto-hides after inactivity.
  */
 export function ElementToolbar({ view, currentElementType, className }: ElementToolbarProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { state: sidebarState, isMobile } = useSidebar();
 
   // Calculate sidebar offset: half the sidebar width to center in content area
-  // Sidebar is 16rem expanded, 3rem collapsed (icon mode)
   const sidebarOffset = useMemo(() => {
     if (isMobile) return '0rem';
     return sidebarState === 'expanded' ? '8rem' : '1.5rem';
   }, [sidebarState, isMobile]);
+
+  // Show toolbar and reset auto-hide timer
+  const showToolbar = useCallback(() => {
+    setIsVisible(true);
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      setIsVisible(false);
+    }, AUTO_HIDE_DELAY);
+  }, []);
+
+  // Show toolbar on editor activity
+  useEffect(() => {
+    if (!view) return;
+
+    // Show on focus
+    const handleFocus = () => showToolbar();
+
+    // Show on transaction (typing, selection change, etc.)
+    const originalDispatch = view.dispatch.bind(view);
+    view.dispatch = (tr) => {
+      showToolbar();
+      return originalDispatch(tr);
+    };
+
+    // Initial show
+    showToolbar();
+
+    // Listen for editor DOM events
+    const editorDOM = view.dom;
+    editorDOM.addEventListener('focus', handleFocus);
+    editorDOM.addEventListener('click', showToolbar);
+    editorDOM.addEventListener('keydown', showToolbar);
+
+    return () => {
+      editorDOM.removeEventListener('focus', handleFocus);
+      editorDOM.removeEventListener('click', showToolbar);
+      editorDOM.removeEventListener('keydown', showToolbar);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [view, showToolbar]);
 
   const handleElementChange = useCallback((type: ElementType) => {
     if (!view) return;
@@ -104,13 +115,9 @@ export function ElementToolbar({ view, currentElementType, className }: ElementT
     const command = setElementType(type);
     command(view.state, view.dispatch);
 
-    // Collapse the toolbar after selection
-    setIsExpanded(false);
-  }, [view]);
-
-  const toggleExpand = useCallback(() => {
-    setIsExpanded(prev => !prev);
-  }, []);
+    // Reset visibility timer
+    showToolbar();
+  }, [view, showToolbar]);
 
   // Elements to show in toolbar (exclude dual_dialogue from main cycling)
   const toolbarElements: ElementType[] = [...ELEMENT_CYCLE_ORDER];
@@ -120,75 +127,44 @@ export function ElementToolbar({ view, currentElementType, className }: ElementT
       className={cn(
         'fixed bottom-6 z-40',
         // Hide on mobile - MobileEditorToolbar handles element selection
-        'hidden md:block',
+        'hidden md:flex',
         // Desktop: use CSS variable for dynamic sidebar offset
         'left-[calc(50%_+_var(--sidebar-offset))] -translate-x-1/2',
-        'transition-[left] duration-200 ease-linear',
+        // Horizontal layout like classic editor
+        'items-center gap-0.5 p-1',
+        'bg-popover/95 backdrop-blur-md rounded-full border border-border shadow-lg',
+        // Contextual visibility
+        'transition-opacity duration-300',
+        isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none',
         className
       )}
       style={{
         '--sidebar-offset': sidebarOffset,
       } as React.CSSProperties}
+      onMouseEnter={showToolbar}
     >
-      {/* Expanded toolbar */}
-      {isExpanded && (
-        <div
-          className={cn(
-            'absolute bottom-full left-1/2 -translate-x-1/2 mb-2',
-            'flex items-center gap-1 p-1.5',
-            'bg-zinc-900/95 backdrop-blur-md',
-            'border border-zinc-800 rounded-full',
-            'shadow-2xl',
-            'animate-in fade-in slide-in-from-bottom-2 duration-150'
-          )}
-        >
-          {toolbarElements.map((type) => {
-            const isActive = type === currentElementType;
-            const colors = COLOR_CLASSES[type];
+      {toolbarElements.map((type) => {
+        const isActive = type === currentElementType;
 
-            return (
-              <button
-                key={type}
-                onClick={() => handleElementChange(type)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full',
-                  'text-xs font-medium uppercase tracking-wide',
-                  'transition-all duration-150',
-                  isActive ? colors.active : colors.inactive
-                )}
-                title={`${ELEMENT_DISPLAY_NAMES[type]} (Tab to cycle)`}
-              >
-                {ELEMENT_ICONS[type]}
-                <span className="hidden sm:inline">{SHORT_LABELS[type]}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Compact pill (always visible) */}
-      <button
-        onClick={toggleExpand}
-        className={cn(
-          'flex items-center gap-2 px-4 py-1.5 rounded-full',
-          'bg-card/95 backdrop-blur-sm border',
-          'text-xs font-medium uppercase tracking-wider',
-          'shadow-md hover:shadow-lg',
-          'transition-all duration-200 ease-out',
-          'cursor-pointer',
-          COLOR_CLASSES[currentElementType].inactive,
-          'border-current/30'
-        )}
-        title="Click to change element type"
-      >
-        {ELEMENT_ICONS[currentElementType]}
-        <span>{ELEMENT_DISPLAY_NAMES[currentElementType]}</span>
-        {isExpanded ? (
-          <ChevronDown size={12} className="opacity-50" />
-        ) : (
-          <ChevronUp size={12} className="opacity-50" />
-        )}
-      </button>
+        return (
+          <button
+            key={type}
+            onClick={() => handleElementChange(type)}
+            className={cn(
+              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full',
+              'text-[11px] font-medium uppercase tracking-wide',
+              'transition-all duration-150',
+              isActive
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+            )}
+            title={`${type.replace('_', ' ')} (Tab to cycle)`}
+          >
+            {ELEMENT_ICONS[type]}
+            <span className="hidden sm:inline">{SHORT_LABELS[type]}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

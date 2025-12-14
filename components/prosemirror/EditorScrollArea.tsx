@@ -22,10 +22,10 @@ export const EditorScrollArea = React.forwardRef<
   HTMLDivElement,
   EditorScrollAreaProps
 >(({ children, className }, ref) => (
-  <ScrollAreaPrimitive.Root className={cn('relative overflow-hidden', className)}>
+  <ScrollAreaPrimitive.Root className={cn('relative overflow-hidden h-full', className)}>
     <ScrollAreaPrimitive.Viewport
       ref={ref}
-      className="h-full w-full rounded-[inherit]"
+      className="relative h-full w-full rounded-[inherit]"
     >
       {children}
     </ScrollAreaPrimitive.Viewport>

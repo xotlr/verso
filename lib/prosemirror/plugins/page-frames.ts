@@ -11,8 +11,8 @@ import { PAGE_HEIGHT_PX } from '@/lib/constants';
 
 export const pageFramesPluginKey = new PluginKey<PageFramesState>('pageFrames');
 
-/** Gap between pages in pixels */
-export const PAGE_GAP_PX = 32;
+/** Gap between pages in pixels - must match CSS .pm-page-gap height */
+export const PAGE_GAP_PX = 40;
 
 /**
  * Represents a single page frame for rendering

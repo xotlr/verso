@@ -7,8 +7,7 @@ import { VersionHistorySidebar } from "./version-history-sidebar";
 import { VersionCompareDialog } from "./version-compare-dialog";
 import { SceneWorkspacePanel } from "./scene-workspace-panel";
 import { ScreenplayDetailsDrawer } from "./screenplay-details-drawer";
-import { EditorSecondaryPanel } from "./editor/EditorSecondaryPanel";
-import { ClassicEditorWrapper, ClassicSceneInfo, ClassicCharacterInfo } from "./classic-editor/ClassicEditorWrapper";
+import { EditorPanel, EditorPanelProvider } from "./editor/EditorPanel";
 import { CollaborationAvatars } from "./collaboration/CollaborationAvatars";
 import { Scene, Character, Location } from "@/types/screenplay";
 import { ScreenplayVersion } from "@/types/version";
@@ -28,7 +27,7 @@ interface ScreenplayEditorWrapperProps {
   onTitleChange?: (title: string) => void;
 }
 
-type ScreenplayType = 'FILM' | 'TV';
+type ScreenplayType = 'FEATURE' | 'TV' | 'SHORT';
 
 export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange }: ScreenplayEditorWrapperProps) {
   const [screenplayText, setScreenplayText] = useState("");
@@ -65,7 +64,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   const isSaving = isSyncing || syncStatus === 'syncing';
 
   // TV/Episode fields
-  const [screenplayType, setScreenplayType] = useState<ScreenplayType>('FILM');
+  const [screenplayType, setScreenplayType] = useState<ScreenplayType>('FEATURE');
   const [season, setSeason] = useState<number | null>(null);
   const [episode, setEpisode] = useState<number | null>(null);
   const [episodeTitle, setEpisodeTitle] = useState<string | null>(null);
@@ -128,7 +127,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           setLocations(parsed.locations || []);
 
           // Load TV/Episode fields
-          setScreenplayType(screenplay.type || 'FILM');
+          setScreenplayType(screenplay.type || 'FEATURE');
           setSeason(screenplay.season || null);
           setEpisode(screenplay.episode || null);
           setEpisodeTitle(screenplay.episodeTitle || null);
@@ -331,13 +330,6 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     }
   }, [screenplayId]);
 
-  // Handle scene/character extraction from Classic editor
-  const handleClassicScenesChange = useCallback((newSceneInfos: ClassicSceneInfo[], newCharInfos: ClassicCharacterInfo[]) => {
-    // Classic types are compatible with SceneInfo/CharacterInfo
-    setSceneInfos(newSceneInfos as SceneInfo[]);
-    setCharInfos(newCharInfos as CharacterInfo[]);
-  }, []);
-
   // Handle scene/character extraction from ProseMirror
   // Must be declared before early return to follow React hooks rules
   const handleScenesChange = useCallback((newSceneInfos: SceneInfo[], newCharInfos: CharacterInfo[]) => {
@@ -426,43 +418,24 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     );
   }
 
-  // Classic Mode: Use the Google-style WYSIWYG page editor
-  if (layoutMode === 'classic') {
-    return (
-      <div className={cn("h-full flex", `layout-${layoutMode}`)}>
-        {/* Activity Bar + Secondary Panel - Scenes & Characters */}
-        <EditorSecondaryPanel
-          scenes={sceneInfos}
-          characters={charInfos}
-          view={null}  // Classic mode doesn't use ProseMirror EditorView
-          screenplayId={screenplayId}
-        />
-
-        {/* Main content area - classic editor */}
-        <div className="flex-1 overflow-hidden relative">
-          <ClassicEditorWrapper
-            screenplayId={screenplayId}
-            onTitleChange={onTitleChange}
-            onScenesChange={handleClassicScenesChange}
-          />
-        </div>
-      </div>
-    );
-  }
+  // Classic Mode: DISABLED - scroll issues unresolved
+  // Always use modern ProseMirror editor instead
+  // if (layoutMode === 'classic') { ... }
 
   // Modern Mode: Use the ProseMirror-based editor
   return (
-    <div className={cn("h-full flex", `layout-${layoutMode}`)}>
-      {/* Activity Bar + Secondary Panel - Scenes & Characters */}
-      <EditorSecondaryPanel
-        scenes={sceneInfos}
-        characters={charInfos}
-        view={editorView}
-        screenplayId={screenplayId}
-      />
+    <EditorPanelProvider>
+      <div className={cn("h-full flex", `layout-${layoutMode}`)}>
+        {/* Activity Bar + Secondary Panel - Scenes & Characters */}
+        <EditorPanel
+          scenes={sceneInfos}
+          characters={charInfos}
+          view={editorView}
+          screenplayId={screenplayId}
+        />
 
       {/* Main content area - editor */}
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 relative h-full">
         {/* Collaboration Avatars - floating in top right */}
         <div className="fixed top-4 right-4 z-50">
           <CollaborationAvatars
@@ -527,11 +500,12 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         logline={logline}
         genre={genre}
         author={author}
-        type={screenplayType}
+        type={screenplayType === 'FEATURE' || screenplayType === 'SHORT' ? 'FILM' : screenplayType === 'TV' ? 'TV' : undefined}
         season={season}
         episode={episode}
         episodeTitle={episodeTitle}
       />
-    </div>
+      </div>
+    </EditorPanelProvider>
   );
 }

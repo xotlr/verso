@@ -23,16 +23,32 @@ const NODE_TYPE_MAP: Record<string, ElementType> = {
 /**
  * Convert a ProseMirror document to Verso Element array.
  * Uses document positions as element IDs for reliable mapping back.
+ * Tracks character names to pass to dialogue/parenthetical elements for CONT'D markers.
  */
 export function serializeDocument(doc: ProseMirrorNode): Element[] {
   const elements: Element[] = [];
+  let lastCharacterName: string | null = null;
 
   doc.forEach((node, offset) => {
+    const nodeType = node.type.name;
+
+    // Update lastCharacterName when we encounter a CHARACTER node
+    // Strip any extension like (V.O.) or (O.S.) from the character name
+    if (nodeType === 'character') {
+      lastCharacterName = node.textContent.replace(/\s*\([^)]+\)\s*$/g, '').trim();
+    }
+
     // Use document position as ID - this guarantees stable, unique IDs
     // that can be mapped back to document positions trivially
-    const converted = convertNode(node, offset.toString(), offset);
+    const converted = convertNode(node, offset.toString(), offset, lastCharacterName);
     if (converted) {
       elements.push(...converted);
+    }
+
+    // Reset character tracking when we move to a non-dialogue-related element
+    // (Keep tracking through dialogue and parenthetical)
+    if (nodeType !== 'dialogue' && nodeType !== 'parenthetical' && nodeType !== 'character') {
+      lastCharacterName = null;
     }
   });
 
@@ -44,8 +60,14 @@ export function serializeDocument(doc: ProseMirrorNode): Element[] {
  * @param node - The ProseMirror node
  * @param id - The element ID (based on document position)
  * @param baseOffset - The document offset for this node (used for dual dialogue children)
+ * @param characterName - The character name from the preceding CHARACTER node (for CONT'D markers)
  */
-function convertNode(node: ProseMirrorNode, id: string, baseOffset: number): Element[] | null {
+function convertNode(
+  node: ProseMirrorNode,
+  id: string,
+  baseOffset: number,
+  characterName: string | null
+): Element[] | null {
   const nodeType = node.type.name;
 
   // Skip non-element nodes
@@ -79,11 +101,17 @@ function convertNode(node: ProseMirrorNode, id: string, baseOffset: number): Ele
     content,
   };
 
-  // Add character name for dialogue/parenthetical
+  // Add character name for dialogue/parenthetical (needed for CONT'D markers)
   if (elementType === 'dialogue' || elementType === 'parenthetical') {
-    const characterName = findCharacterName(node);
+    // Use the tracked character name from the preceding CHARACTER node
     if (characterName) {
       element.character_name = characterName;
+    } else {
+      // Fallback: check node attribute (may be set by editor)
+      const attrCharacterName = findCharacterName(node);
+      if (attrCharacterName) {
+        element.character_name = attrCharacterName;
+      }
     }
   }
 
@@ -93,6 +121,7 @@ function convertNode(node: ProseMirrorNode, id: string, baseOffset: number): Ele
 /**
  * Convert dual dialogue container to two separate element streams.
  * Uses position-based IDs for child elements.
+ * Each column tracks its own character name for CONT'D markers.
  */
 function convertDualDialogue(node: ProseMirrorNode, baseId: string, baseOffset: number): Element[] {
   const elements: Element[] = [];
@@ -103,11 +132,19 @@ function convertDualDialogue(node: ProseMirrorNode, baseId: string, baseOffset: 
     if (column.type.name === 'dual_dialogue_column') {
       const position = columnIndex === 0 ? 'left' : 'right';
       let innerOffset = 1; // Start after column node opening
+      let columnCharacterName: string | null = null; // Track character name per column
 
       column.forEach((child, _childNodeOffset) => {
+        const childType = child.type.name;
+
+        // Track character name within this column
+        if (childType === 'character') {
+          columnCharacterName = child.textContent.replace(/\s*\([^)]+\)\s*$/g, '').trim();
+        }
+
         // Create ID using the absolute position within the dual dialogue
         const childId = `${baseId}_${childOffset + innerOffset}`;
-        const converted = convertNode(child, childId, baseOffset + childOffset + innerOffset);
+        const converted = convertNode(child, childId, baseOffset + childOffset + innerOffset, columnCharacterName);
 
         if (converted) {
           converted.forEach((el) => {
@@ -115,6 +152,12 @@ function convertDualDialogue(node: ProseMirrorNode, baseId: string, baseOffset: 
           });
           elements.push(...converted);
         }
+
+        // Reset character tracking after non-dialogue elements
+        if (childType !== 'dialogue' && childType !== 'parenthetical' && childType !== 'character') {
+          columnCharacterName = null;
+        }
+
         innerOffset += child.nodeSize;
       });
 

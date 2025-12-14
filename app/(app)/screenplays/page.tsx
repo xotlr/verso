@@ -10,7 +10,10 @@ import { TemplateSelector } from '@/components/template-selector';
 import { MoveToProjectDialog } from '@/components/move-to-project-dialog';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { ListPageToolbar, FilterPill } from '@/components/ui/list-page-toolbar';
+import { ListWithPreview } from '@/components/ui/list-preview-panel';
 import { ScreenplayListCard, ScreenplayListCardSkeleton } from '@/components/screenplay-list-card';
+import { ScreenplayListRow, ScreenplayListRowSkeleton } from '@/components/screenplay-list-row';
+import { useViewMode } from '@/hooks/use-view-mode';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,6 +75,8 @@ function ScreenplaysContent() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [moveTarget, setMoveTarget] = useState<Screenplay | null>(null);
+  const [viewMode, setViewMode] = useViewMode('screenplays');
+  const [hoveredScreenplay, setHoveredScreenplay] = useState<Screenplay | null>(null);
 
 
   // Initialize filters from URL params
@@ -156,6 +161,44 @@ function ScreenplaysContent() {
     } catch (error) {
       console.error('Error exporting screenplay:', error);
       toast.error('Failed to export screenplay');
+    }
+  };
+
+  const createProjectFromScreenplay = async (screenplay: Screenplay) => {
+    try {
+      // Create a new project with the screenplay title
+      const projectResponse = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: screenplay.title,
+          description: screenplay.synopsis || screenplay.logline || null,
+        }),
+      });
+
+      if (!projectResponse.ok) {
+        const data = await projectResponse.json();
+        throw new Error(data.error || 'Failed to create project');
+      }
+
+      const project = await projectResponse.json();
+
+      // Move the screenplay to the new project
+      const moveResponse = await fetch(`/api/screenplays/${screenplay.id}/move`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: project.id }),
+      });
+
+      if (!moveResponse.ok) {
+        throw new Error('Failed to add screenplay to project');
+      }
+
+      toast.success('Project created');
+      router.push(`/project/${project.id}`);
+    } catch (error) {
+      console.error('Error creating project:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create project');
     }
   };
 
@@ -393,25 +436,37 @@ function ScreenplaysContent() {
             </>
           }
           className="mb-6"
+          viewMode={{
+            value: viewMode,
+            onChange: setViewMode,
+          }}
         />
 
-        {/* Content Grid */}
+        {/* Content Grid/List */}
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="min-h-[140px] sm:min-h-[180px] bg-card rounded-xl border border-border/60 p-3 sm:p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <Skeleton className="h-5 w-3/4 mb-2" />
-                    <Skeleton className="h-3 w-1/3" />
+          viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="min-h-[140px] sm:min-h-[180px] bg-card rounded-xl border border-border/60 p-3 sm:p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <Skeleton className="h-5 w-3/4 mb-2" />
+                      <Skeleton className="h-3 w-1/3" />
+                    </div>
                   </div>
+                  <Skeleton className="h-4 w-full mb-2" />
+                  <Skeleton className="h-4 w-2/3 mb-4" />
+                  <Skeleton className="h-5 w-20" />
                 </div>
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-2/3 mb-4" />
-                <Skeleton className="h-5 w-20" />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <ScreenplayListRowSkeleton key={i} />
+              ))}
+            </div>
+          )
         ) : filteredScreenplays.length === 0 ? (
           <EmptyState
             icon={<PiFilmScript className="h-8 w-8 text-muted-foreground" />}
@@ -431,7 +486,7 @@ function ScreenplaysContent() {
                 : undefined
             }
           />
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
             {filteredScreenplays.map((screenplay) => (
               <ScreenplayListCard
@@ -458,10 +513,63 @@ function ScreenplaysContent() {
                 onToggleFavorite={() => toggleFavorite(screenplay.id, screenplay.isFavorite)}
                 onExport={() => exportScreenplay(screenplay)}
                 onMoveToProject={() => setMoveTarget(screenplay)}
+                onCreateProject={() => createProjectFromScreenplay(screenplay)}
                 onDelete={() => setDeleteTarget(screenplay.id)}
               />
             ))}
           </div>
+        ) : (
+          <ListWithPreview
+            preview={
+              hoveredScreenplay ? (
+                <ScreenplayListCard
+                  screenplay={{
+                    id: hoveredScreenplay.id,
+                    title: hoveredScreenplay.title,
+                    logline: hoveredScreenplay.logline,
+                    synopsis: hoveredScreenplay.synopsis,
+                    updatedAt: hoveredScreenplay.updatedAt,
+                    wordCount: hoveredScreenplay.wordCount,
+                    genre: hoveredScreenplay.genre,
+                    isFavorite: hoveredScreenplay.isFavorite,
+                    project: hoveredScreenplay.project,
+                    author: hoveredScreenplay.author,
+                    user: hoveredScreenplay.user,
+                  }}
+                  href={`/screenplay/${hoveredScreenplay.id}`}
+                  showFavorite={true}
+                  showGenre={true}
+                  showProject={true}
+                  showWordCount={true}
+                />
+              ) : null
+            }
+          >
+            <div className="space-y-2">
+              {filteredScreenplays.map((screenplay) => (
+                <ScreenplayListRow
+                  key={screenplay.id}
+                  screenplay={{
+                    id: screenplay.id,
+                    title: screenplay.title,
+                    logline: screenplay.logline,
+                    synopsis: screenplay.synopsis,
+                    updatedAt: screenplay.updatedAt,
+                    wordCount: screenplay.wordCount,
+                    genre: screenplay.genre,
+                    isFavorite: screenplay.isFavorite,
+                    project: screenplay.project,
+                    author: screenplay.author,
+                    user: screenplay.user,
+                  }}
+                  href={`/screenplay/${screenplay.id}`}
+                  isHovered={hoveredScreenplay?.id === screenplay.id}
+                  onHover={() => setHoveredScreenplay(screenplay)}
+                  onLeave={() => setHoveredScreenplay(null)}
+                />
+              ))}
+            </div>
+          </ListWithPreview>
         )}
       </PageLayout>
     </>

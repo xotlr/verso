@@ -64,8 +64,9 @@ export const PageFrameRenderer = memo(function PageFrameRenderer({
     <div
       className="pm-page-frames-container"
       style={{
-        height: `${totalHeight * scale}px`,
-        transform: `scale(${scale})`,
+        height: `${totalHeight}px`,
+        width: `${PAGE_WIDTH_PX}px`,
+        transform: `translateX(-50%) scale(${scale})`,
         transformOrigin: 'top center',
       }}
     >

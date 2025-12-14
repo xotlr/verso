@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, Loader2, ChevronLeft, ChevronRight, Maximize2, BookOpen, FileText, Scroll, LayoutGrid, X } from 'lucide-react';
+import { Check, Loader2, ChevronLeft, ChevronRight, Maximize2, BookOpen, Scroll, LayoutGrid, X } from 'lucide-react';
 import {
   useProseMirrorEditor,
   SceneInfo,
@@ -26,7 +26,7 @@ import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plu
 import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
 import '@/styles/editor/prosemirror.css';
 
-export type ViewMode = 'single' | 'dual' | 'continuous' | 'discrete';
+export type ViewMode = 'discrete' | 'continuous' | 'dual';
 
 export interface ProseMirrorEditorProps {
   content: string | null;
@@ -53,105 +53,57 @@ export interface ProseMirrorEditorProps {
 }
 
 /**
- * Stats bar showing word count, page count, save status, and WASM engine status.
+ * Minimal stats bar - shows save status + page count, expands on hover for more stats.
  */
 function StatsBar({
   wordCount,
   pageCount,
+  sceneCount,
+  characterCount,
   isSaving,
-  isWasmReady,
-  paginationTiming,
-  paginationError,
   className,
 }: {
   wordCount: number;
   pageCount: number;
+  sceneCount: number;
+  characterCount: number;
   isSaving?: boolean;
-  isWasmReady?: boolean;
-  paginationTiming?: number | null;
-  paginationError?: Error | null;
   className?: string;
 }) {
-  // Determine engine status
-  const engineStatus = paginationError
-    ? 'error'
-    : isWasmReady
-      ? 'ready'
-      : 'loading';
-
-  const statusConfig = {
-    ready: {
-      bgClass: 'bg-green-500/20',
-      textClass: 'text-green-400',
-      dotClass: 'bg-green-400',
-      label: 'Engine',
-      tooltip: paginationTiming
-        ? `Pagination: ${paginationTiming.toFixed(0)}ms`
-        : 'WASM engine ready',
-    },
-    loading: {
-      bgClass: 'bg-yellow-500/20',
-      textClass: 'text-yellow-400',
-      dotClass: 'bg-yellow-400 animate-pulse',
-      label: 'Loading',
-      tooltip: 'Initializing WASM engine...',
-    },
-    error: {
-      bgClass: 'bg-red-500/20',
-      textClass: 'text-red-400',
-      dotClass: 'bg-red-400',
-      label: 'Error',
-      tooltip: paginationError?.message || 'WASM engine failed to load',
-    },
-  };
-
-  const config = statusConfig[engineStatus];
+  const [isExpanded, setIsExpanded] = useState(false);
 
   return (
     <div
-      className={cn(
-        'fixed bottom-6 right-6 z-40',
-        'flex items-center gap-4',
-        'px-4 py-1.5 rounded-full',
-        'bg-card/70 backdrop-blur-sm border border-border/50',
-        'text-xs text-muted-foreground/80',
-        'shadow-md',
-        className
-      )}
+      className={cn('fixed bottom-4 right-4 z-40', className)}
+      onMouseEnter={() => setIsExpanded(true)}
+      onMouseLeave={() => setIsExpanded(false)}
     >
-      {/* WASM Engine Status - always visible */}
-      <span
-        className={cn(
-          'flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium',
-          config.bgClass,
-          config.textClass
-        )}
-        title={config.tooltip}
-      >
-        <span className={cn('w-1.5 h-1.5 rounded-full', config.dotClass)} />
-        {config.label}
-      </span>
-      <span className="text-border">|</span>
-      {/* Save status */}
-      <span className="flex items-center gap-1.5">
+      {/* Expanded stats - appears above on hover */}
+      {isExpanded && (
+        <div className="absolute bottom-full right-0 mb-2 px-3 py-1.5 rounded-lg bg-popover/95 backdrop-blur-sm border border-border/50 text-xs text-muted-foreground shadow-lg animate-in fade-in slide-in-from-bottom-1 duration-150">
+          <div className="flex items-center gap-3">
+            <span>{wordCount.toLocaleString()} words</span>
+            <span className="text-border">·</span>
+            <span>{sceneCount} scenes</span>
+            <span className="text-border">·</span>
+            <span>{characterCount} characters</span>
+          </div>
+        </div>
+      )}
+
+      {/* Collapsed stats - always visible */}
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card/50 backdrop-blur-sm border border-border/30 text-xs text-muted-foreground/70 hover:text-muted-foreground hover:bg-card/70 transition-colors cursor-default">
+        {/* Save status */}
         {isSaving ? (
-          <>
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>Saving...</span>
-          </>
+          <Loader2 className="h-3 w-3 animate-spin" />
         ) : (
-          <>
-            <Check className="h-3 w-3 text-green-500" />
-            <span>Saved</span>
-          </>
+          <Check className="h-3 w-3 text-green-500/70" />
         )}
-      </span>
-      <span className="text-border">|</span>
-      <span>{wordCount.toLocaleString()} words</span>
-      <span className="text-border">|</span>
-      <span>
-        {pageCount} {pageCount === 1 ? 'page' : 'pages'}
-      </span>
+        <span className="text-border/50">·</span>
+        <span>
+          {pageCount} {pageCount === 1 ? 'page' : 'pages'}
+        </span>
+      </div>
     </div>
   );
 }
@@ -170,7 +122,7 @@ export function ProseMirrorEditor({
   showElementIndicator = true,
   showStats = true,
   isSaving = false,
-  defaultViewMode = 'single',
+  defaultViewMode = 'discrete',
   scenes = [],
   characters = [],
   onExportPDF,
@@ -210,9 +162,6 @@ export function ProseMirrorEditor({
     wordCount,
     pageCount,
     isReady,
-    isWasmReady,
-    paginationTiming,
-    paginationError,
     view,
     autocompleteState,
     applyAutocompleteSuggestion,
@@ -349,46 +298,51 @@ export function ProseMirrorEditor({
         className
       )}
     >
-      {/* View mode switcher - hidden in focus mode and on mobile */}
+      {/* View mode switcher - ghost buttons, hidden in focus mode and on mobile */}
       {isReady && !isInFocusMode && !isMobile && (
-        <div className="pm-view-switcher hover:opacity-90 transition-opacity duration-200">
+        <div className="fixed top-20 right-4 z-40 flex items-center gap-0.5">
           <Button
-            variant={viewMode === 'discrete' ? 'secondary' : 'ghost'}
-            size="sm"
+            variant="ghost"
+            size="icon"
             onClick={() => setViewMode('discrete')}
-            title="Discrete page view (Final Draft style)"
+            title="Discrete page view"
+            className={cn(
+              'h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-accent/50',
+              viewMode === 'discrete' && 'text-foreground bg-accent/50'
+            )}
           >
             <LayoutGrid className="h-4 w-4" />
           </Button>
           <Button
-            variant={viewMode === 'single' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('single')}
-            title="Single page view"
-          >
-            <FileText className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'dual' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('dual')}
-            title="Dual page (book) view"
-          >
-            <BookOpen className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'continuous' ? 'secondary' : 'ghost'}
-            size="sm"
+            variant="ghost"
+            size="icon"
             onClick={() => setViewMode('continuous')}
             title="Continuous scroll view"
+            className={cn(
+              'h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-accent/50',
+              viewMode === 'continuous' && 'text-foreground bg-accent/50'
+            )}
           >
             <Scroll className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
+            onClick={() => setViewMode('dual')}
+            title="Book view"
+            className={cn(
+              'h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-accent/50',
+              viewMode === 'dual' && 'text-foreground bg-accent/50'
+            )}
+          >
+            <BookOpen className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={toggleFocusMode}
             title="Focus mode (Cmd+Shift+F)"
+            className="h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-accent/50"
           >
             <Maximize2 className="h-4 w-4" />
           </Button>
@@ -509,7 +463,13 @@ export function ProseMirrorEditor({
 
       {/* Stats bar - hidden on mobile */}
       {showStats && isReady && !isMobile && (
-        <StatsBar wordCount={wordCount} pageCount={pageCount} isSaving={isSaving} isWasmReady={isWasmReady} paginationTiming={paginationTiming} paginationError={paginationError} />
+        <StatsBar
+          wordCount={wordCount}
+          pageCount={pageCount}
+          sceneCount={scenes?.length ?? 0}
+          characterCount={characters?.length ?? 0}
+          isSaving={isSaving}
+        />
       )}
 
       {/* Floating toolbar on selection */}
