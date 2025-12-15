@@ -135,6 +135,11 @@ pub struct Page {
 
     /// Lines used on this page
     pub lines_used: u8,
+
+    /// Pixel offset from document start (at 96 DPI)
+    /// This is the exact Y position where this page starts in the rendered view
+    #[serde(default)]
+    pub pixel_y: f32,
 }
 
 impl Page {
@@ -144,6 +149,17 @@ impl Page {
             elements: Vec::new(),
             bottom_continuation: None,
             lines_used: 0,
+            pixel_y: 0.0,
+        }
+    }
+
+    pub fn new_at_offset(identifier: PageIdentifier, pixel_y: f32) -> Self {
+        Self {
+            identifier,
+            elements: Vec::new(),
+            bottom_continuation: None,
+            lines_used: 0,
+            pixel_y,
         }
     }
 

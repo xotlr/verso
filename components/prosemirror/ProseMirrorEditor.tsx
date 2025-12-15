@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, Loader2, ChevronLeft, ChevronRight, Maximize2, BookOpen, Scroll, LayoutGrid, X } from 'lucide-react';
+import { Check, Loader2, Maximize2, Scroll, FileText, X } from 'lucide-react';
 import {
   useProseMirrorEditor,
   SceneInfo,
@@ -17,6 +17,7 @@ import { ElementToolbar } from './ElementToolbar';
 import { EditorScrollArea, EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { PageFrameRenderer, PageGapRenderer } from './PageFrameRenderer';
 import { createPageFramesFromWasm, PAGE_GAP_PX } from '@/lib/prosemirror/plugins/page-frames';
+import { applyLayoutCSS, DEFAULT_FEATURE_FILM_CONFIG } from '@/lib/verso';
 import { Button } from '@/components/ui/button';
 import { MobileEditorToolbar } from '@/components/mobile-editor-toolbar';
 import { MobileSceneCharacterSheet } from '@/components/editor/MobileSceneCharacterSheet';
@@ -26,7 +27,7 @@ import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plu
 import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
 import '@/styles/editor/prosemirror.css';
 
-export type ViewMode = 'discrete' | 'continuous' | 'dual';
+export type ViewMode = 'discrete' | 'continuous';
 
 export interface ProseMirrorEditorProps {
   content: string | null;
@@ -134,7 +135,8 @@ export function ProseMirrorEditor({
   onTogglePageBreaks,
 }: ProseMirrorEditorProps) {
   const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
-  const [currentSpread, setCurrentSpread] = useState(0);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_currentSpread, setCurrentSpread] = useState(0);
   const [isInFocusMode, setIsInFocusMode] = useState(false);
   const [scenesSheetOpen, setScenesSheetOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -154,6 +156,12 @@ export function ProseMirrorEditor({
     };
     window.addEventListener('focus-mode-toggle', handleFocusModeChange);
     return () => window.removeEventListener('focus-mode-toggle', handleFocusModeChange);
+  }, []);
+
+  // Apply layout CSS from WASM config on mount
+  // This ensures CSS variables match WASM pagination calculations
+  useEffect(() => {
+    applyLayoutCSS(DEFAULT_FEATURE_FILM_CONFIG);
   }, []);
 
   const {
@@ -334,16 +342,6 @@ export function ProseMirrorEditor({
         return;
       }
 
-      // Spread navigation in dual view
-      if (viewMode === 'dual') {
-        if (matchesShortcut(e, 'prevSpread')) {
-          e.preventDefault();
-          goToPrevSpread();
-        } else if (matchesShortcut(e, 'nextSpread')) {
-          e.preventDefault();
-          goToNextSpread();
-        }
-      }
     };
 
     document.addEventListener('keydown', handleKeyDown);
@@ -354,7 +352,6 @@ export function ProseMirrorEditor({
     <div
       className={cn(
         'pm-editor-wrapper',
-        viewMode === 'dual' && 'pm-dual-mode',
         viewMode === 'discrete' && 'pm-discrete-mode',
         isInFocusMode && 'pm-focus-mode',
         className
@@ -373,7 +370,7 @@ export function ProseMirrorEditor({
               viewMode === 'discrete' && 'text-foreground bg-accent/50'
             )}
           >
-            <LayoutGrid className="h-4 w-4" />
+            <FileText className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
@@ -386,18 +383,6 @@ export function ProseMirrorEditor({
             )}
           >
             <Scroll className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setViewMode('dual')}
-            title="Book view"
-            className={cn(
-              'h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-accent/50',
-              viewMode === 'dual' && 'text-foreground bg-accent/50'
-            )}
-          >
-            <BookOpen className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
@@ -463,13 +448,10 @@ export function ProseMirrorEditor({
         <div
           className={cn(
             'pm-editor-pages',
-            viewMode === 'dual' && 'pm-dual-view',
             isDiscreteMode && 'pm-content-layer'
           )}
           style={{
-            transform: viewMode === 'dual'
-              ? `translateX(-${currentSpread * 100}%) scale(${scale})`
-              : `scale(${scale})`,
+            transform: `scale(${scale})`,
             transformOrigin: 'top center',
             width: `${PAGE_WIDTH_PX}px`,
             // In discrete mode, set min-height to match total page frames height
@@ -489,31 +471,6 @@ export function ProseMirrorEditor({
           />
         </div>
       </EditorScrollArea>
-
-      {/* Dual view page navigation */}
-      {viewMode === 'dual' && isReady && totalSpreads > 1 && (
-        <div className="pm-page-nav">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={goToPrevSpread}
-            disabled={currentSpread === 0}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm text-muted-foreground tabular-nums">
-            {currentSpread * 2 + 1}-{Math.min(currentSpread * 2 + 2, pageCount)} / {pageCount}
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={goToNextSpread}
-            disabled={currentSpread >= totalSpreads - 1}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
 
       {/* Element type toolbar (expandable indicator) */}
       {showElementIndicator && isReady && (

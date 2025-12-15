@@ -40,6 +40,13 @@ const panelVariants = {
   },
 };
 
+// Content crossfade variants
+const contentVariants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8 },
+};
+
 export function EditorPanelDesktop({
   scenes,
   characters,
@@ -110,8 +117,8 @@ export function EditorPanelDesktop({
             <div
               className={cn(
                 'overflow-hidden',
-                'bg-card/95 backdrop-blur-md',
-                'rounded-2xl border border-border/50',
+                'bg-background',
+                'rounded-[var(--radius)] border border-border',
                 'shadow-lg shadow-black/10'
               )}
               style={{
@@ -120,43 +127,85 @@ export function EditorPanelDesktop({
               }}
             >
               <div
-                className="h-full overflow-y-auto"
+                className="h-full overflow-hidden"
                 style={{ width: `${EDITOR_PANEL_WIDTH}px`, maxHeight: 'calc(100vh - 8rem)' }}
               >
-                {activePanel === 'scenes' && (
-                  <ScenesPanel
-                    scenes={scenes}
-                    view={view}
-                    className="h-full"
-                  />
-                )}
+                <AnimatePresence mode="wait">
+                  {activePanel === 'scenes' && (
+                    <motion.div
+                      key="scenes"
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      transition={{ duration: 0.15 }}
+                      className="h-full"
+                    >
+                      <ScenesPanel
+                        scenes={scenes}
+                        view={view}
+                        className="h-full"
+                      />
+                    </motion.div>
+                  )}
 
-                {activePanel === 'characters' && (
-                  <CharactersPanel
-                    characters={characters}
-                    screenplayId={screenplayId}
-                    className="h-full"
-                  />
-                )}
+                  {activePanel === 'characters' && (
+                    <motion.div
+                      key="characters"
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      transition={{ duration: 0.15 }}
+                      className="h-full"
+                    >
+                      <CharactersPanel
+                        characters={characters}
+                        screenplayId={screenplayId}
+                        className="h-full"
+                      />
+                    </motion.div>
+                  )}
 
-                {activePanel === 'shotlist' && screenplayId && (
-                  <ShotlistPanel
-                    screenplayId={screenplayId}
-                    scenesWithShots={scenesWithShots}
-                    onShotsChange={onShotsChange}
-                    onEditShot={onEditShot}
-                    onAddShot={onAddShot}
-                    className="h-full"
-                  />
-                )}
+                  {activePanel === 'shotlist' && screenplayId && (
+                    <motion.div
+                      key="shotlist"
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      transition={{ duration: 0.15 }}
+                      className="h-full"
+                    >
+                      <ShotlistPanel
+                        screenplayId={screenplayId}
+                        scenesWithShots={scenesWithShots}
+                        onShotsChange={onShotsChange}
+                        onEditShot={onEditShot}
+                        onAddShot={onAddShot}
+                        className="h-full"
+                      />
+                    </motion.div>
+                  )}
 
-                {activePanel === 'notes' && screenplayId && (
-                  <NotesPanel
-                    screenplayId={screenplayId}
-                    currentSceneId={currentSceneId}
-                    className="h-full"
-                  />
-                )}
+                  {activePanel === 'notes' && screenplayId && (
+                    <motion.div
+                      key="notes"
+                      variants={contentVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      transition={{ duration: 0.15 }}
+                      className="h-full"
+                    >
+                      <NotesPanel
+                        screenplayId={screenplayId}
+                        currentSceneId={currentSceneId}
+                        className="h-full"
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </motion.div>

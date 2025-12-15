@@ -3,6 +3,7 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { PaginationResult, PageIdentifier } from '@/lib/verso/types';
 import type { PositionMap } from '@/lib/verso/serializer';
+import { getLayoutConstants, DEFAULT_FEATURE_FILM_CONFIG } from '@/lib/verso';
 
 export const paginationPluginKey = new PluginKey<PaginationState>('pagination');
 
@@ -44,6 +45,17 @@ export interface PageBreak {
   moreMarker?: string;        // MORE marker text
   contdMarker?: string;       // CONT'D marker text
   linesUsedOnPrevPage: number; // Lines used on previous page (for gap calculation)
+  /** Pixel Y position from WASM - exact position for this page */
+  pixelY: number;
+}
+
+/**
+ * Layout stats from WASM (single source of truth for CSS positioning).
+ */
+export interface WasmLayoutStats {
+  lineHeightPx: number;
+  pageHeightPx: number;
+  pageGapPx: number;
 }
 
 /**
@@ -55,6 +67,8 @@ export interface PaginationState {
   currentPage: number;
   // Store the full WASM result for advanced queries
   wasmResult: PaginationResult | null;
+  // Layout stats from WASM for CSS positioning
+  layoutStats: WasmLayoutStats | null;
   // Track if we're using WASM or fallback calculation
   // 'stale' means we're keeping old page breaks while waiting for WASM
   source: 'wasm' | 'fallback' | 'stale';
@@ -156,6 +170,7 @@ function convertWasmResultToPageBreaks(
       moreMarker,
       contdMarker,
       linesUsedOnPrevPage: prevPage.lines_used,
+      pixelY: page.pixel_y,
     });
   }
 
@@ -266,6 +281,7 @@ function calculateFallbackPageBreaks(doc: ProseMirrorNode): PageBreak[] {
               pageIdentifier: { type: 'Sequential', value: currentPage + 1 },
               type: 'normal',
               linesUsedOnPrevPage: currentLineCount,
+              pixelY: 0, // Fallback - WASM will provide accurate value
             });
             currentPage++;
             currentLineCount = nodeLines + 2; // Character + dialogue
@@ -286,6 +302,7 @@ function calculateFallbackPageBreaks(doc: ProseMirrorNode): PageBreak[] {
           pageIdentifier: { type: 'Sequential', value: currentPage + 1 },
           type: 'normal',
           linesUsedOnPrevPage: currentLineCount,
+          pixelY: 0, // Fallback - WASM will provide accurate value
         });
         currentPage++;
         currentLineCount = nodeLines;
@@ -300,6 +317,7 @@ function calculateFallbackPageBreaks(doc: ProseMirrorNode): PageBreak[] {
         type: breakType,
         characterName,
         linesUsedOnPrevPage: currentLineCount,
+        pixelY: 0, // Fallback - WASM will provide accurate value
       });
       currentPage++;
       currentLineCount = nodeLines;
@@ -330,12 +348,13 @@ function calculateFallbackPageBreaks(doc: ProseMirrorNode): PageBreak[] {
  * @returns Padding in pixels to add before the gap
  */
 function calculatePageBottomPadding(linesUsed: number): number {
-  // Match WASM engine constants exactly
-  // WASM uses: line_height_pt: 12.0 (12pt = 16px at 96 DPI)
-  const LINE_HEIGHT_PX = 16;      // 12pt at 96 DPI = 16px
-  const PAGE_TOP_MARGIN = 96;     // 1" at 96 DPI
-  const PAGE_BOTTOM_MARGIN = 48;  // 0.5" at 96 DPI
-  const CONTENT_AREA_HEIGHT = 912; // 1056 - 96 - 48
+  // Get layout constants from WASM config - single source of truth
+  const layout = getLayoutConstants(DEFAULT_FEATURE_FILM_CONFIG);
+
+  const LINE_HEIGHT_PX = layout.lineHeightPx;
+  const PAGE_TOP_MARGIN = layout.pageMarginTopPx;
+  const PAGE_BOTTOM_MARGIN = layout.pageMarginBottomPx;
+  const CONTENT_AREA_HEIGHT = layout.pageHeightPx - PAGE_TOP_MARGIN - PAGE_BOTTOM_MARGIN;
 
   // Content used = lines × line height (using WASM's exact line height)
   const contentUsed = linesUsed * LINE_HEIGHT_PX;
@@ -343,9 +362,9 @@ function calculatePageBottomPadding(linesUsed: number): number {
   // Remaining space on this page
   const remainingContentArea = Math.max(0, CONTENT_AREA_HEIGHT - contentUsed);
 
-  // Total padding = remaining content + bottom margin + next page top margin
-  // This ensures page 2 content starts at the top of page 2's content area
-  return remainingContentArea + PAGE_BOTTOM_MARGIN + PAGE_TOP_MARGIN;
+  // Total padding = remaining content + bottom margin only
+  // Note: PAGE_TOP_MARGIN is provided by pm-page-top, not here
+  return remainingContentArea + PAGE_BOTTOM_MARGIN;
 }
 
 /**
@@ -378,6 +397,43 @@ function createPageBreakDecorations(
       { side: -1 } // Render before content at this position
     );
     decorations.push(firstPageMargin);
+  } else {
+    // When there's a title page, add page 2 margin and number after it
+    // Title page = UI page 1 (no number), first content = UI page 2 (needs "2.")
+    const posAfterTitlePage = firstNode.nodeSize;
+    const page2Decoration = Decoration.widget(
+      posAfterTitlePage,
+      () => {
+        const container = document.createElement('div');
+        container.className = 'pm-page-break-container pm-page-2-break';
+        container.contentEditable = 'false';
+        container.setAttribute('data-pm-ignore', 'true');
+
+        // Page bottom (title page bottom) - fills remaining space
+        const pageBottom = document.createElement('div');
+        pageBottom.className = 'pm-page-bottom';
+        pageBottom.style.setProperty('--page-bottom-padding', '0px');
+        container.appendChild(pageBottom);
+
+        // Gap between pages
+        const gap = document.createElement('div');
+        gap.className = 'pm-page-gap';
+        container.appendChild(gap);
+
+        // Page top with "2." page number
+        const pageTop = document.createElement('div');
+        pageTop.className = 'pm-page-top';
+        const pageNum = document.createElement('span');
+        pageNum.className = 'pm-page-number';
+        pageNum.textContent = '2.';
+        pageTop.appendChild(pageNum);
+        container.appendChild(pageTop);
+
+        return container;
+      },
+      { side: 1 } // Render after title page content
+    );
+    decorations.push(page2Decoration);
   }
 
   pageBreaks.forEach((pageBreak) => {
@@ -402,6 +458,8 @@ function createPageBreakDecorations(
         container.setAttribute('data-break-type', pageBreak.type);
         // Store lines used for CSS calculations
         container.setAttribute('data-lines-used', String(pageBreak.linesUsedOnPrevPage));
+        // Store WASM pixel position for CSS positioning (single source of truth)
+        container.style.setProperty('--wasm-pixel-y', `${pageBreak.pixelY}px`);
 
         // ---- ZONE 1: PREVIOUS PAGE BOTTOM ----
         // This zone fills the remaining space on the page to ensure alignment
@@ -426,9 +484,21 @@ function createPageBreakDecorations(
         container.appendChild(gap);
 
         // ---- ZONE 3: NEXT PAGE TOP ----
-        // Page number is handled by PageFrameRenderer, not decoration
+        // Page number positioned inside the page-top zone (not in frame overlay)
         const pageTop = document.createElement('div');
         pageTop.className = 'pm-page-top';
+
+        // Calculate UI page number (WASM doesn't know about title page)
+        // If title page exists, add 1 to WASM page number
+        const uiPageNumber = hasTitlePage ? pageBreak.pageNumber + 1 : pageBreak.pageNumber;
+
+        // Add page number for UI page 2+ (page 1 = title page or first content page, no number)
+        if (uiPageNumber >= 2) {
+          const pageNum = document.createElement('span');
+          pageNum.className = 'pm-page-number';
+          pageNum.textContent = `${uiPageNumber}.`;
+          pageTop.appendChild(pageNum);
+        }
 
         // CONT'D indicator (at top of next page)
         if (pageBreak.type === 'dialogue-split' && pageBreak.contdMarker) {
@@ -532,6 +602,7 @@ export function createPaginationPlugin(): Plugin {
           pageCount: pageBreaks.length + 1,
           currentPage: 1,
           wasmResult: null,
+          layoutStats: null,
           source: 'fallback',
         };
       },
@@ -544,11 +615,20 @@ export function createPaginationPlugin(): Plugin {
           // Use WASM result with position map from serialization
           const { result: wasmResult, positionMap } = wasmPayload;
           const pageBreaks = convertWasmResultToPageBreaks(newState.doc, wasmResult, positionMap);
+
+          // Extract layout stats from WASM (single source of truth)
+          const layoutStats: WasmLayoutStats | null = wasmResult.stats.line_height_px != null ? {
+            lineHeightPx: wasmResult.stats.line_height_px,
+            pageHeightPx: wasmResult.stats.page_height_px ?? 1056,
+            pageGapPx: wasmResult.stats.page_gap_px ?? 40,
+          } : null;
+
           return {
             pageBreaks,
             pageCount: wasmResult.stats.page_count,
             currentPage: getCurrentPage(newState, pageBreaks),
             wasmResult,
+            layoutStats,
             source: 'wasm',
           };
         }
@@ -565,6 +645,7 @@ export function createPaginationPlugin(): Plugin {
               pageCount: pageBreaks.length + 1,
               currentPage: getCurrentPage(newState, pageBreaks),
               wasmResult: null,
+              layoutStats: null,
               source: 'fallback',
             };
           }

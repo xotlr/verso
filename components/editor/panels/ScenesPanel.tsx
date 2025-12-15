@@ -17,6 +17,15 @@ import {
   Trash2,
   Copy,
   GripVertical,
+  Building,
+  TreePine,
+  Building2,
+  Sun,
+  Moon,
+  Sunrise,
+  Sunset,
+  RotateCw,
+  Camera,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -44,6 +53,8 @@ import { CSS } from '@dnd-kit/utilities';
 import type { SceneInfo } from '@/hooks/editor/useProseMirrorEditor';
 import type { EditorView } from 'prosemirror-view';
 import { TextSelection } from 'prosemirror-state';
+import { FilterPill } from '@/components/ui/list-page-toolbar';
+import { Badge } from '@/components/ui/badge';
 
 interface Act {
   id: string;
@@ -55,6 +66,7 @@ interface ScenesPanelProps {
   scenes: SceneInfo[];
   view: EditorView | null;
   onAddScene?: () => void;
+  onAddShotToScene?: (sceneId: string) => void;
   className?: string;
 }
 
@@ -64,6 +76,7 @@ interface SortableSceneItemProps {
   sceneIndex: number;
   navigateToScene: (scene: SceneInfo) => void;
   formatSceneHeading: (scene: SceneInfo) => string;
+  onAddShot?: (sceneId: string) => void;
 }
 
 function SortableSceneItem({
@@ -71,6 +84,7 @@ function SortableSceneItem({
   sceneIndex,
   navigateToScene,
   formatSceneHeading,
+  onAddShot,
 }: SortableSceneItemProps) {
   const {
     attributes,
@@ -94,13 +108,13 @@ function SortableSceneItem({
       style={style}
       className={cn(
         'group rounded-lg',
-        'hover:bg-accent/50',
-        'transition-colors',
+        'hover:bg-accent/50 hover:-translate-y-0.5 hover:shadow-sm',
+        'transition-all duration-150',
         isDragging && 'bg-accent shadow-lg'
       )}
     >
       <div
-        className="w-full flex items-start gap-2 px-3 py-2.5 text-left cursor-pointer"
+        className="w-full flex items-start gap-1.5 px-2.5 py-2 text-left cursor-pointer"
         onClick={() => navigateToScene(scene)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -118,53 +132,71 @@ function SortableSceneItem({
           className="shrink-0 pt-0.5 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors"
           onClick={(e) => e.stopPropagation()}
         >
-          <GripVertical className="h-4 w-4" />
+          <GripVertical className="h-3.5 w-3.5" />
         </div>
 
         {/* Scene number */}
-        <span className="w-7 font-mono text-xs font-medium text-muted-foreground shrink-0 pt-0.5 tabular-nums">
+        <span className="w-6 font-mono text-[10px] font-medium text-muted-foreground shrink-0 pt-0.5 tabular-nums">
           {scene.sceneNumber || `${sceneIndex + 1}`}
         </span>
 
         {/* Content - stacked, wrapping enabled */}
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-sm break-words">
+          <div className="font-medium text-xs break-words">
             {formatSceneHeading(scene)}
           </div>
           {scene.timeOfDay && (
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {scene.timeOfDay}
+            <div className="flex items-center gap-1 mt-0.5">
+              <span className="text-[10px] text-muted-foreground">
+                {scene.timeOfDay}
+              </span>
+              {scene.autoDetectedTimeOfDay && (
+                <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 font-normal text-muted-foreground">
+                  Auto
+                </Badge>
+              )}
             </div>
           )}
         </div>
 
         {/* Actions - stop propagation to prevent navigation */}
         <div
-          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5"
           onClick={(e) => e.stopPropagation()}
         >
+          {onAddShot && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => onAddShot(scene.id)}
+              title="Add shot to this scene"
+            >
+              <Camera className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-6 w-6"
               >
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreHorizontal className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuItem onClick={() => navigateToScene(scene)}>
-                <Film className="h-4 w-4 mr-2" />
+                <Film className="h-3.5 w-3.5 mr-2" />
                 Go to scene
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <Copy className="h-4 w-4 mr-2" />
+                <Copy className="h-3.5 w-3.5 mr-2" />
                 Duplicate
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive">
-                <Trash2 className="h-4 w-4 mr-2" />
+                <Trash2 className="h-3.5 w-3.5 mr-2" />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -177,15 +209,45 @@ function SortableSceneItem({
 
 /**
  * Scenes panel showing hierarchical act/scene structure with navigation.
+ * Supports filtering by scene type (INT/EXT) and time of day.
  */
 export function ScenesPanel({
   scenes,
   view,
   onAddScene,
+  onAddShotToScene,
   className,
 }: ScenesPanelProps) {
   const [expandedActs, setExpandedActs] = useState<Set<string>>(new Set(['act-1']));
   const [searchQuery, setSearchQuery] = useState('');
+  const [sceneTypeFilters, setSceneTypeFilters] = useState<Set<string>>(new Set());
+  const [timeOfDayFilters, setTimeOfDayFilters] = useState<Set<string>>(new Set());
+
+  // Toggle filter helper
+  const toggleFilter = useCallback((
+    filter: string,
+    setFilters: React.Dispatch<React.SetStateAction<Set<string>>>
+  ) => {
+    setFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(filter)) {
+        next.delete(filter);
+      } else {
+        next.add(filter);
+      }
+      return next;
+    });
+  }, []);
+
+  // Clear all filters
+  const clearFilters = useCallback(() => {
+    setSearchQuery('');
+    setSceneTypeFilters(new Set());
+    setTimeOfDayFilters(new Set());
+  }, []);
+
+  // Active filter count
+  const activeFilterCount = sceneTypeFilters.size + timeOfDayFilters.size + (searchQuery ? 1 : 0);
 
   // Sensors for drag & drop
   const sensors = useSensors(
@@ -226,18 +288,31 @@ export function ScenesPanel({
     return actsData;
   }, [scenes]);
 
-  // Filter scenes by search query
+  // Filter scenes by search query and filters
   const filteredActs = useMemo(() => {
-    if (!searchQuery) return acts;
+    const hasFilters = searchQuery || sceneTypeFilters.size > 0 || timeOfDayFilters.size > 0;
+    if (!hasFilters) return acts;
 
     return acts.map(act => ({
       ...act,
-      scenes: act.scenes.filter(scene =>
-        scene.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        scene.type.toLowerCase().includes(searchQuery.toLowerCase())
-      ),
+      scenes: act.scenes.filter(scene => {
+        // Search filter
+        const matchesSearch = !searchQuery ||
+          scene.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          scene.type.toLowerCase().includes(searchQuery.toLowerCase());
+
+        // Scene type filter
+        const matchesType = sceneTypeFilters.size === 0 ||
+          sceneTypeFilters.has(scene.type.toUpperCase());
+
+        // Time of day filter
+        const matchesToD = timeOfDayFilters.size === 0 ||
+          timeOfDayFilters.has(scene.timeOfDay?.toUpperCase() || 'DAY');
+
+        return matchesSearch && matchesType && matchesToD;
+      }),
     })).filter(act => act.scenes.length > 0);
-  }, [acts, searchQuery]);
+  }, [acts, searchQuery, sceneTypeFilters, timeOfDayFilters]);
 
   const toggleAct = useCallback((actId: string) => {
     setExpandedActs(prev => {
@@ -301,60 +376,154 @@ export function ScenesPanel({
   return (
     <div className={cn('flex flex-col h-full', className)}>
       {/* Header */}
-      <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-        <Film className="h-4 w-4 text-primary" />
-        <h2 className="font-semibold text-base">Scenes</h2>
-        <span className="text-xs text-muted-foreground ml-auto">
+      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+        <Film className="h-3.5 w-3.5 text-primary" />
+        <h2 className="font-semibold text-sm">Scenes</h2>
+        <span className="text-[10px] text-muted-foreground ml-auto">
           {scenes.length}
         </span>
         {onAddScene && (
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onAddScene}>
-            <Plus className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddScene}>
+            <Plus className="h-3.5 w-3.5" />
           </Button>
         )}
       </div>
 
-      {/* Search */}
+      {/* Search & Filters */}
       {scenes.length > 5 && (
-        <div className="px-4 py-3 border-b border-border">
+        <div className="px-3 py-2 border-b border-border space-y-2 shrink-0">
+          {/* Search input */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Search scenes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 pl-9 pr-9 text-sm"
+              className="h-8 pl-8 pr-8 text-xs"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
+
+          {/* Scene Type Filters - Compact */}
+          <div className="flex flex-wrap gap-1">
+            <FilterPill
+              compact
+              active={sceneTypeFilters.has('INT')}
+              onClick={() => toggleFilter('INT', setSceneTypeFilters)}
+              icon={<Building className="h-3 w-3" />}
+              label="INT"
+              activeColor="blue"
+            />
+            <FilterPill
+              compact
+              active={sceneTypeFilters.has('EXT')}
+              onClick={() => toggleFilter('EXT', setSceneTypeFilters)}
+              icon={<TreePine className="h-3 w-3" />}
+              label="EXT"
+              activeColor="green"
+            />
+            <FilterPill
+              compact
+              active={sceneTypeFilters.has('INT/EXT')}
+              onClick={() => toggleFilter('INT/EXT', setSceneTypeFilters)}
+              icon={<Building2 className="h-3 w-3" />}
+              label="INT/EXT"
+              activeColor="purple"
+            />
+            <span className="w-px h-4 bg-border/60 mx-0.5" />
+            <FilterPill
+              compact
+              active={timeOfDayFilters.has('DAY')}
+              onClick={() => toggleFilter('DAY', setTimeOfDayFilters)}
+              icon={<Sun className="h-3 w-3" />}
+              label="DAY"
+              activeColor="yellow"
+            />
+            <FilterPill
+              compact
+              active={timeOfDayFilters.has('NIGHT')}
+              onClick={() => toggleFilter('NIGHT', setTimeOfDayFilters)}
+              icon={<Moon className="h-3 w-3" />}
+              label="NIGHT"
+              activeColor="blue"
+            />
+            <FilterPill
+              compact
+              active={timeOfDayFilters.has('DAWN')}
+              onClick={() => toggleFilter('DAWN', setTimeOfDayFilters)}
+              icon={<Sunrise className="h-3 w-3" />}
+              label="DAWN"
+              activeColor="yellow"
+            />
+            <FilterPill
+              compact
+              active={timeOfDayFilters.has('DUSK')}
+              onClick={() => toggleFilter('DUSK', setTimeOfDayFilters)}
+              icon={<Sunset className="h-3 w-3" />}
+              label="DUSK"
+              activeColor="purple"
+            />
+            <FilterPill
+              compact
+              active={timeOfDayFilters.has('CONTINUOUS')}
+              onClick={() => toggleFilter('CONTINUOUS', setTimeOfDayFilters)}
+              icon={<RotateCw className="h-3 w-3" />}
+              label="CONTINUOUS"
+              activeColor="primary"
+            />
+          </div>
+
+          {/* Active filter count & clear */}
+          {activeFilterCount > 0 && (
+            <div className="flex items-center justify-between">
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                {activeFilterCount} active
+              </Badge>
+              <button
+                onClick={clearFilters}
+                className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5"
+              >
+                <X className="h-2.5 w-2.5" />
+                Clear
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {/* Content */}
       <ScrollArea className="flex-1">
-        <div className="p-4">
+        <div className="p-3">
           {filteredActs.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Film className="h-10 w-10 mx-auto mb-3 opacity-50" />
-              <p className="font-medium text-sm">
-                {searchQuery ? 'No matching scenes' : 'No scenes yet'}
+            <div className="text-center py-8 text-muted-foreground">
+              <Film className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="font-medium text-xs">
+                {activeFilterCount > 0 ? 'No matching scenes' : 'No scenes yet'}
               </p>
-              <p className="text-xs mt-1.5">
-                {searchQuery
-                  ? 'Try a different search term'
+              <p className="text-[10px] mt-1">
+                {activeFilterCount > 0
+                  ? 'Try adjusting your filters or search term'
                   : 'Start writing to see your story structure.'}
               </p>
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={clearFilters}
+                  className="mt-2 text-[10px] text-primary hover:underline"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {filteredActs.map((act) => (
                 <div key={act.id}>
                   {/* Act header */}
@@ -362,23 +531,23 @@ export function ScenesPanel({
                     onClick={() => toggleAct(act.id)}
                     className={cn(
                       'w-full flex items-center justify-between',
-                      'px-3 py-2.5 rounded-lg',
-                      'text-sm font-medium',
+                      'px-2.5 py-2 rounded-lg',
+                      'text-xs font-medium',
                       'hover:bg-accent/50',
                       'transition-colors'
                     )}
                   >
-                    <span className="flex items-center gap-2">
-                      <Clapperboard className="h-4 w-4 text-muted-foreground" />
+                    <span className="flex items-center gap-1.5">
+                      <Clapperboard className="h-3.5 w-3.5 text-muted-foreground" />
                       {act.name}
-                      <span className="text-xs text-muted-foreground font-normal">
+                      <span className="text-[10px] text-muted-foreground font-normal">
                         ({act.scenes.length})
                       </span>
                     </span>
                     {expandedActs.has(act.id) ? (
-                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
                     ) : (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                     )}
                   </button>
 
@@ -393,7 +562,7 @@ export function ScenesPanel({
                         items={act.scenes.map(s => s.id)}
                         strategy={verticalListSortingStrategy}
                       >
-                        <div className="mt-1 space-y-1">
+                        <div className="mt-0.5 space-y-0.5">
                           {act.scenes.map((scene) => (
                             <SortableSceneItem
                               key={scene.id}
@@ -401,6 +570,7 @@ export function ScenesPanel({
                               sceneIndex={scenes.indexOf(scene)}
                               navigateToScene={navigateToScene}
                               formatSceneHeading={formatSceneHeading}
+                              onAddShot={onAddShotToScene}
                             />
                           ))}
                         </div>

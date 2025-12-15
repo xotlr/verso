@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
-import { useTheme } from 'next-themes';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Renderer, Program, Mesh, Triangle } from 'ogl';
 
 const VERT = `#version 300 es
@@ -183,7 +182,18 @@ export function Aurora({
   const programRef = useRef<Program | null>(null);
   const animationRef = useRef<number>(0);
   const speedRef = useRef(speed);
-  const { resolvedTheme } = useTheme();
+  // Watch for theme changes by observing the html class
+  const [themeKey, setThemeKey] = useState(0);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const observer = new MutationObserver(() => {
+      // Trigger re-render when class changes (theme toggle)
+      setThemeKey(k => k + 1);
+    });
+    observer.observe(html, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   // Keep speedRef in sync with prop
   useEffect(() => {
@@ -298,7 +308,7 @@ export function Aurora({
 
     const colors = getThemeColors();
     program.uniforms.uColorStops.value = colors.map(hexToRgb);
-  }, [resolvedTheme, getThemeColors]);
+  }, [themeKey, getThemeColors]);
 
   return (
     <div

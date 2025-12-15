@@ -209,6 +209,8 @@ interface FilterPillProps {
   icon: React.ReactNode;
   label: string;
   activeColor?: 'yellow' | 'blue' | 'green' | 'purple' | 'primary';
+  /** Compact mode: icon-only with tooltip */
+  compact?: boolean;
   className?: string;
 }
 
@@ -226,13 +228,16 @@ export function FilterPill({
   icon,
   label,
   activeColor = 'primary',
+  compact = false,
   className,
 }: FilterPillProps) {
   return (
     <button
       onClick={onClick}
+      title={compact ? label : undefined}
       className={cn(
-        'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap',
+        'inline-flex items-center rounded-md font-medium transition-colors whitespace-nowrap',
+        compact ? 'gap-0 px-1.5 py-1 text-xs' : 'gap-1.5 px-2.5 py-1.5 text-sm',
         active
           ? colorClasses[activeColor]
           : 'bg-background/50 hover:bg-background/80 text-muted-foreground border border-border/40',
@@ -240,7 +245,7 @@ export function FilterPill({
       )}
     >
       {icon}
-      <span className="hidden sm:inline">{label}</span>
+      {!compact && <span className="hidden sm:inline">{label}</span>}
     </button>
   );
 }

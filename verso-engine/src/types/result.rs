@@ -67,6 +67,18 @@ pub struct PaginationStats {
     /// Debug: average lines per element (for diagnostics)
     #[serde(default)]
     pub avg_lines_per_element: f32,
+
+    /// Layout: line height in pixels (at 96 DPI)
+    #[serde(default)]
+    pub line_height_px: f32,
+
+    /// Layout: page height in pixels (at 96 DPI)
+    #[serde(default)]
+    pub page_height_px: f32,
+
+    /// Layout: gap between pages in pixels
+    #[serde(default)]
+    pub page_gap_px: f32,
 }
 
 /// Complete result of pagination
@@ -99,6 +111,9 @@ impl PaginationResult {
                 timing_us: 0,
                 total_lines: 0,
                 avg_lines_per_element: 0.0,
+                line_height_px: 16.0,    // Default: 12pt at 96 DPI
+                page_height_px: 1056.0,  // Default: 11" at 96 DPI
+                page_gap_px: 40.0,       // Default gap between pages
             },
         }
     }

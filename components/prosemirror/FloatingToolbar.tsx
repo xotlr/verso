@@ -218,7 +218,7 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
         'fixed z-50',
         'flex items-center gap-0.5 p-1',
         'bg-popover/98 backdrop-blur-lg',
-        'border border-border rounded-lg shadow-lg',
+        'border border-border rounded-[calc(var(--radius)-0.25rem)] shadow-lg',
         'animate-in fade-in-0 zoom-in-95 duration-150',
         className
       )}

@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Character, Location, Scene } from '@/types/screenplay';
 import {
   LayoutGrid,
@@ -116,8 +115,7 @@ export function ScreenplaySidebar({
         <SidebarGroup className="h-full">
           <SidebarGroupContent className="h-full">
             {activeSection === 'scenes' && (
-              <ScrollArea className="h-full">
-                <div className="p-2 space-y-1">
+              <div className="p-2 space-y-1">
                   {scenes.length === 0 ? (
                     <p className="text-sm text-sidebar-foreground/70 text-center py-4">
                       No scenes yet
@@ -171,13 +169,11 @@ export function ScreenplaySidebar({
                       );
                     })
                   )}
-                </div>
-              </ScrollArea>
+              </div>
             )}
 
             {activeSection === 'overview' && (
-              <div className="space-y-3 p-2">
-                <div className="space-y-2">
+              <div className="p-2 space-y-1.5">
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-sidebar-foreground/70">Total Scenes</span>
                     <span className="font-semibold text-sidebar-foreground">{scenes.length}</span>
@@ -194,102 +190,101 @@ export function ScreenplaySidebar({
                     <span className="text-sidebar-foreground/70">Dialogue Lines</span>
                     <span className="font-semibold text-sidebar-foreground">{totalDialogueLines}</span>
                   </div>
-                </div>
               </div>
             )}
 
             {activeSection === 'characters' && (
-              <div className="p-2 space-y-3">
-                {characterStats.length === 0 ? (
-                  <p className="text-sm text-sidebar-foreground/70 text-center py-4">
-                    No characters yet
-                  </p>
-                ) : (
-                  characterStats.map((char) => (
-                    <div key={char.id} className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm text-sidebar-foreground">
-                          {char.name}
-                        </span>
-                        <Badge variant="secondary" className="text-xs rounded-lg">
-                          {char.dialoguePercentage}%
-                        </Badge>
+              <div className="p-2 space-y-2">
+                  {characterStats.length === 0 ? (
+                    <p className="text-sm text-sidebar-foreground/70 text-center py-4">
+                      No characters yet
+                    </p>
+                  ) : (
+                    characterStats.map((char) => (
+                      <div key={char.id} className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-xs text-sidebar-foreground">
+                            {char.name}
+                          </span>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 rounded-lg">
+                            {char.dialoguePercentage}%
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between text-[10px] text-sidebar-foreground/70">
+                          <span>{char.appearances} scenes</span>
+                          <span>{char.dialogueLines} lines</span>
+                        </div>
+                        <div className="w-full bg-sidebar-accent rounded-full h-1">
+                          <div
+                            className="h-1 rounded-full transition-all bg-sidebar-primary"
+                            style={{ width: `${char.dialoguePercentage}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="flex justify-between text-xs text-sidebar-foreground/70">
-                        <span>{char.appearances} scenes</span>
-                        <span>{char.dialogueLines} lines</span>
-                      </div>
-                      <div className="w-full bg-sidebar-accent rounded-full h-1.5">
-                        <div
-                          className="h-1.5 rounded-full transition-all bg-sidebar-primary"
-                          style={{ width: `${char.dialoguePercentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))
-                )}
+                    ))
+                  )}
               </div>
             )}
 
             {activeSection === 'locations' && (
-              <div className="p-2 space-y-3">
-                {locationStats.length === 0 ? (
-                  <p className="text-sm text-sidebar-foreground/70 text-center py-4">
-                    No locations yet
-                  </p>
-                ) : (
-                  locationStats.map((loc) => (
-                    <div key={loc.id} className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full bg-sidebar-primary/50" />
-                          <span className="font-medium text-sm text-sidebar-foreground">{loc.name}</span>
+              <div className="p-2 space-y-2">
+                  {locationStats.length === 0 ? (
+                    <p className="text-sm text-sidebar-foreground/70 text-center py-4">
+                      No locations yet
+                    </p>
+                  ) : (
+                    locationStats.map((loc) => (
+                      <div key={loc.id} className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full bg-sidebar-primary/50" />
+                            <span className="font-medium text-xs text-sidebar-foreground">{loc.name}</span>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 rounded-lg">
+                            {loc.type}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className="text-xs rounded-lg">
-                          {loc.type}
-                        </Badge>
+                        <div className="flex justify-between text-[10px] text-sidebar-foreground/70 pl-3.5">
+                          <span>{loc.sceneCount} scenes</span>
+                          <span>{loc.percentage}%</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-xs text-sidebar-foreground/70 pl-4">
-                        <span>{loc.sceneCount} scenes</span>
-                        <span>{loc.percentage}%</span>
-                      </div>
-                    </div>
-                  ))
-                )}
+                    ))
+                  )}
               </div>
             )}
 
             {activeSection === 'scene' && (
               <div className="p-2">
-                {selectedScene ? (
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-sm font-medium text-sidebar-foreground">Scene {selectedScene.number}</span>
+                  {selectedScene ? (
+                    <div className="space-y-2">
+                      <div>
+                        <span className="text-xs font-medium text-sidebar-foreground">Scene {selectedScene.number}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-sidebar-foreground/70">Location: </span>
+                        <span className="text-[10px] text-sidebar-foreground">{selectedScene.location.name}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {selectedScene.characters.map(charId => {
+                          const character = characters.find(c => c.id === charId);
+                          return character ? (
+                            <Badge
+                              key={charId}
+                              variant="outline"
+                              className="text-[10px] px-1.5 py-0 h-4 rounded-lg"
+                            >
+                              {character.name}
+                            </Badge>
+                          ) : null;
+                        })}
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-xs text-sidebar-foreground/70">Location: </span>
-                      <span className="text-xs text-sidebar-foreground">{selectedScene.location.name}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {selectedScene.characters.map(charId => {
-                        const character = characters.find(c => c.id === charId);
-                        return character ? (
-                          <Badge
-                            key={charId}
-                            variant="outline"
-                            className="text-xs rounded-lg"
-                          >
-                            {character.name}
-                          </Badge>
-                        ) : null;
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-sidebar-foreground/70 text-center py-4">
-                    No scene selected
-                  </p>
-                )}
+                  ) : (
+                    <p className="text-sm text-sidebar-foreground/70 text-center py-4">
+                      No scene selected
+                    </p>
+                  )}
               </div>
             )}
           </SidebarGroupContent>

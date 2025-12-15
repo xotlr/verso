@@ -673,6 +673,39 @@
     }
   }
 
+  @keyframes badge-pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes focus-underline {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+
+  /* Input focus underline animation */
+  .input-focus-underline {
+    position: relative;
+  }
+
+  .input-focus-underline::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: hsl(var(--primary));
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 200ms var(--ease-out);
+  }
+
+  .input-focus-underline:focus-within::after {
+    transform: scaleX(1);
+  }
+
   .animate-fade-in {
     animation: fade-in var(--duration-normal) var(--ease-out);
   }

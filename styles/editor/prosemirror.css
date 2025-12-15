@@ -6,35 +6,56 @@
  */
 
 /* ============================================
-   CSS Variables
+   CSS Variables - DERIVED FROM WASM CONFIG
+   ============================================
+   These values are FALLBACKS. At runtime, applyLayoutCSS() in
+   lib/verso/layout-css.ts overwrites them with values from the
+   WASM pagination config. This ensures CSS matches WASM calculations.
+
+   WASM config is the single source of truth for all layout.
+   DO NOT change these values without updating lib/verso/index.ts
    ============================================ */
 :root {
-  /* Page dimensions (US Letter at 96 DPI - fixed pixels) */
+  /* Page dimensions (US Letter at 96 DPI) - overwritten by JS */
   --pm-page-width: 816px;
   --pm-page-height: 1056px;
   --pm-page-min-height: 1056px;
   --pm-page-padding-top: 96px;
-  --pm-page-padding-bottom: 48px;  /* 0.5" - matches WASM engine */
+  --pm-page-padding-bottom: 48px;
   --pm-page-padding-left: 144px;
   --pm-page-padding-right: 96px;
 
-  /* Content width after margins (6 inches = 576px) */
+  /* Content width (page - margins) - overwritten by JS */
   --pm-content-width: 576px;
 
-  /* Typography (12pt Courier = 16px at 96 DPI) */
+  /* Typography (12pt Courier = 16px at 96 DPI) - overwritten by JS */
   --pm-font-family: 'Courier Prime', 'Courier New', Courier, monospace;
   --pm-font-size: 16px;
-  --pm-line-height: 16px; /* Single-spaced for proper pagination */
+  --pm-line-height: 16px;
 
-  /* Element margins (in pixels, converted from inches at 96 DPI) */
+  /* Element margins - overwritten by JS from WASM element_styles */
   --pm-margin-scene-heading: 0;
   --pm-margin-action: 0;
-  --pm-margin-character: 211px;  /* 2.2in * 96 */
-  --pm-margin-dialogue-left: 96px;  /* 1.0in * 96 */
-  --pm-margin-dialogue-right: 144px;  /* 1.5in * 96 */
-  --pm-margin-parenthetical-left: 154px;  /* 1.6in * 96 = 3.1in from page edge */
-  --pm-margin-parenthetical-right: 182px;  /* ~1.9in * 96 for 2.5in width */
-  --pm-margin-transition: 384px;  /* 4.0in * 96 */
+  --pm-margin-character: 211px;
+  --pm-margin-dialogue-left: 96px;
+  --pm-margin-dialogue-right: 144px;
+  --pm-margin-parenthetical-left: 144px;
+  --pm-margin-parenthetical-right: 221px;
+  --pm-margin-transition: 384px;
+
+  /* Element widths - overwritten by JS from WASM max_chars_per_line */
+  --pm-width-scene-heading: 576px;
+  --pm-width-action: 576px;
+  --pm-width-character: 355px;
+  --pm-width-dialogue: 336px;
+  --pm-width-parenthetical: 240px;
+  --pm-width-transition: 154px;
+
+  /* Element spacing (space_before) - overwritten by JS */
+  --pm-space-scene-heading: 32px;
+  --pm-space-action: 16px;
+  --pm-space-character: 16px;
+  --pm-space-transition: 32px;
 
   /* Colors */
   --pm-page-bg: hsl(var(--background));  /* Use theme background, was 100% */
@@ -194,8 +215,8 @@
   /* NO height constraint - WASM pagination is the source of truth */
   /* min-height set by JS based on WASM page count when needed */
 
-  /* Padding matches WASM engine: top right bottom left */
-  padding: 96px 96px 48px 144px;
+  /* Padding from WASM config via CSS variables */
+  padding: var(--pm-page-padding-top) var(--pm-page-padding-right) var(--pm-page-padding-bottom) var(--pm-page-padding-left);
 
   position: relative;
   overflow: visible;
@@ -204,10 +225,10 @@
   background: hsl(var(--page));
   box-shadow: 0 25px 50px -12px hsl(0 0% 0% / 0.25);
 
-  /* Typography - matches wasm-inspired BlockComponent */
-  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
-  font-size: 16px;
-  line-height: 16px;
+  /* Typography - uses WASM-derived values */
+  font-family: var(--pm-font-family);
+  font-size: var(--pm-font-size);
+  line-height: var(--pm-line-height);
   color: hsl(var(--card-foreground));
   white-space: pre-wrap;
 
@@ -282,8 +303,8 @@
 /* Scene Heading - .ProseMirror prefix for higher specificity than reset */
 .ProseMirror .pm-scene-heading {
   position: relative;
-  /* Use padding-top instead of margin-top to match Google reference (prevents margin collapse) */
-  padding-top: 32px; /* 2 lines * 16px - matches Google marginTopLines: 2 */
+  /* Use padding-top from WASM config (space_before * line_height) */
+  padding-top: var(--pm-space-scene-heading);
   margin-top: 0;
   margin-bottom: 0;
   margin-left: 0;
@@ -303,8 +324,8 @@
   text-align: right;
   top: 0;
   color: hsl(var(--foreground) / 0.4);  /* Softer, less intrusive */
-  font-size: 16px;
-  line-height: 16px;
+  font-size: var(--pm-font-size);
+  line-height: var(--pm-line-height);
   font-weight: 400;
   user-select: none;
   pointer-events: none;
@@ -318,8 +339,8 @@
 
 /* Action - .ProseMirror prefix for higher specificity than reset */
 .ProseMirror .pm-action {
-  /* Use padding-top instead of margin-top to match Google reference */
-  padding-top: 16px; /* 1 line * 16px - matches Google marginTopLines: 1 */
+  /* Use padding-top from WASM config (space_before * line_height) */
+  padding-top: var(--pm-space-action);
   margin-top: 0;
   margin-bottom: 0;
   margin-left: 0;
@@ -329,8 +350,8 @@
 
 /* Character - .ProseMirror prefix for higher specificity than reset */
 .ProseMirror .pm-character {
-  /* Use padding-top instead of margin-top to match Google reference */
-  padding-top: 16px; /* 1 line * 16px - matches Google marginTopLines: 1 */
+  /* Use padding-top from WASM config (space_before * line_height) */
+  padding-top: var(--pm-space-character);
   margin-top: 0;
   margin-bottom: 0;
   margin-left: 211px; /* 2.2in * 96 = 3.7in from page edge */
@@ -364,8 +385,8 @@
 
 /* Transition - .ProseMirror prefix for higher specificity than reset */
 .ProseMirror .pm-transition {
-  /* Use padding-top instead of margin-top to match Google reference */
-  padding-top: 32px; /* 2 lines * 16px - matches Final Draft marginTopLines: 2 */
+  /* Use padding-top from WASM config (space_before * line_height) */
+  padding-top: var(--pm-space-transition);
   margin-top: 0;
   margin-bottom: 0;
   margin-left: 384px; /* 4.0in * 96 = 5.5in from page edge */
@@ -380,8 +401,8 @@
 .ProseMirror .pm-dual-dialogue {
   display: flex;
   gap: 48px; /* 0.5in * 96 */
-  /* Use padding-top instead of margin-top to match Google reference */
-  padding-top: 16px; /* 1 line * 16px */
+  /* Use character spacing from WASM config (dual dialogue follows character spacing) */
+  padding-top: var(--pm-space-character);
   margin-top: 0;
 }
 
@@ -552,7 +573,9 @@
 .pm-page-bottom {
   position: relative;
   width: 100%;
-  padding: 0.75em 0 1.25em; /* em units scale with browser zoom */
+  /* Use calculated height to fill remaining page space (matches WASM calculation) */
+  height: var(--page-bottom-padding, 32px);
+  padding: 0;
 
   /* No shadow on divider - clean separation */
   box-shadow: none;
@@ -606,39 +629,47 @@
 }
 
 /* Zone 3: Next page top edge - creates visual start */
+/* This zone represents the top margin area of the new page */
 .pm-page-top {
   position: relative;
   width: 100%;
-  padding: 1.25em 0 0.75em; /* em units scale with browser zoom */
+  min-height: var(--pm-page-padding-top, 96px);  /* 1" top margin from WASM */
+  padding: 0;
 
   /* No shadow on divider - clean separation */
   box-shadow: none;
 
-  /* Transparent - shows editor background through gap */
-  background: transparent;
+  /* Same background as page - this IS part of the page */
+  background: hsl(var(--page));
 }
 
 /* Industry-standard page number - top-right of each page */
+/* Positioned 0.5" from top within the page-top zone, at right edge */
+/* Plain text only - no badge/background styling */
 .pm-page-top .pm-page-number {
   position: absolute;
-  top: 0.5rem;
-  right: 0;
+  top: 48px;  /* 0.5" from top of page content area */
+  right: 0;   /* Right edge of content area (at 1" page margin) */
   font-family: var(--pm-font-family);
-  font-size: 12pt;
+  font-size: var(--pm-font-size);
+  line-height: var(--pm-line-height);
   color: var(--pm-text-color);
   pointer-events: none;
+  /* Override any badge styling from base .pm-page-number rule */
   background: none;
   border: none;
+  border-radius: 0;
   padding: 0;
   box-shadow: none;
+  backdrop-filter: none;
 }
 
 /* MORE indicator styling (bottom of previous page) */
 /* Industry standard: centered on dialogue column */
 .pm-page-bottom .pm-more-indicator {
   font-family: var(--pm-font-family);
-  font-size: 16px;
-  line-height: 16px;
+  font-size: var(--pm-font-size);
+  line-height: var(--pm-line-height);
   text-transform: uppercase;
   color: var(--pm-text-color);
   /* Center within the dialogue column width (starts at 96px/1", width 336px/3.5") */
@@ -652,8 +683,8 @@
 /* Industry standard: at character indent (2.2"), same as character name */
 .pm-page-top .pm-contd-indicator {
   font-family: var(--pm-font-family);
-  font-size: 16px;
-  line-height: 16px;
+  font-size: var(--pm-font-size);
+  line-height: var(--pm-line-height);
   text-transform: uppercase;
   color: var(--pm-text-color);
   margin-left: var(--pm-margin-character); /* 211px = 2.2" */
@@ -998,9 +1029,9 @@
   top: 48px;
   right: 96px;
   left: auto; /* Explicitly prevent left positioning */
-  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
-  font-size: 16px;
-  line-height: 16px;
+  font-family: var(--pm-font-family);
+  font-size: var(--pm-font-size);
+  line-height: var(--pm-line-height);
   color: hsl(var(--card-foreground));
   user-select: none;
 }
@@ -1048,10 +1079,15 @@
   height: var(--page-bottom-padding, 0px);
 }
 
-/* Discrete mode: Page top has no extra padding - page frames handle margins */
+/* Discrete mode: Page top provides top margin for page 2+ content */
 .pm-discrete-mode .pm-page-top {
   padding: 0;
-  height: 0;
+  height: var(--pm-page-padding-top, 96px);  /* 1" top margin from WASM */
+}
+
+/* Make page numbers visible in discrete mode despite hidden container */
+.pm-discrete-mode .pm-page-top .pm-page-number {
+  visibility: visible;
 }
 
 /* Discrete mode: Gap creates spacing between pages but is invisible.
@@ -1067,9 +1103,9 @@
 .pm-discrete-mode .pm-editor-pages {
   position: relative;
   gap: 0;
-  /* Remove top/bottom padding so content aligns with page frames */
+  /* Remove bottom padding so content aligns with page frames */
   /* Page frames start at yOffset=0, so content must too */
-  padding-top: 0;
+  /* Note: padding-top kept from base rule for fallback */
   padding-bottom: 0;
   background: transparent;  /* Let page frames show through */
 }
@@ -1085,8 +1121,10 @@
   height: auto;
   min-height: auto;
 
-  /* Remove top/bottom padding - page break decorations handle margins for pages 2+ */
-  /* Keep left/right padding for horizontal content positioning */
+  /* Remove top/bottom padding - decorations handle all margins:
+     - pm-first-page-margin provides top margin for page 1
+     - pm-page-top provides top margin for pages 2+
+     - pm-page-bottom fills remaining space on each page */
   padding-top: 0;
   padding-bottom: 0;
 }
@@ -1095,7 +1133,7 @@
    Note: CSS ::before pseudo-elements don't work with ProseMirror's contentEditable */
 .pm-first-page-margin {
   display: block;
-  height: 96px; /* 1" top margin - matches PAGE_TOP_MARGIN */
+  height: var(--pm-page-padding-top, 96px); /* 1" top margin from WASM */
   pointer-events: none;
 }
 
@@ -1114,9 +1152,9 @@
   left: 240px;
   width: 336px;
   text-align: center;
-  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
-  font-size: 16px;
-  line-height: 16px;
+  font-family: var(--pm-font-family);
+  font-size: var(--pm-font-size);
+  line-height: var(--pm-line-height);
   color: var(--pm-text-color);
 }
 
@@ -1126,9 +1164,9 @@
   top: 96px; /* 1" from top edge */
   /* Character indent: page-padding-left (144px) + character-margin (211px) = 355px */
   left: 355px;
-  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
-  font-size: 16px;
-  line-height: 16px;
+  font-family: var(--pm-font-family);
+  font-size: var(--pm-font-size);
+  line-height: var(--pm-line-height);
   color: var(--pm-text-color);
 }
 
@@ -1141,18 +1179,20 @@
    Title Page (Cover Page) Styles
    ============================================ */
 
-/* Title page container - takes full page height and centers child nodes */
+/* Title page container - WGA standard layout */
 .pm-title-page {
   height: 1056px; /* Full page height - PAGE_HEIGHT_PX */
   width: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
   text-align: center;
-  gap: 24px;
   box-sizing: border-box;
   position: relative;
+
+  /* WGA standard: title at ~40% down (4.4" on 11" page) */
+  padding-top: 422px;  /* 4.4" × 96 DPI ≈ 422px */
+  padding-bottom: 96px; /* 1" bottom margin */
 }
 
 /* All title page child elements - editable */
@@ -1215,6 +1255,13 @@
 .pm-discrete-mode .pm-title-page {
   height: 1056px;
   margin-top: 0 !important; /* Override first-child margin for title page */
+}
+
+/* Ensure no numbers appear on/within title page */
+/* This is a CSS fallback in case any decorations render unexpectedly */
+.pm-title-page .pm-scene-number-left,
+.pm-title-page .pm-page-number {
+  display: none !important;
 }
 
 /* Print: Hide page frames (browser handles page breaks) */

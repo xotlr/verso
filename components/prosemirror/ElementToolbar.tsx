@@ -135,7 +135,7 @@ export function ElementToolbar({ view, currentElementType, className }: ElementT
         'left-[calc(50%_+_var(--sidebar-offset))] -translate-x-1/2',
         // Horizontal layout like classic editor
         'items-center gap-0.5 p-1',
-        'bg-popover/95 backdrop-blur-md rounded-full border border-border shadow-lg',
+        'bg-background rounded-[var(--radius)] border border-border shadow-lg',
         // Contextual visibility
         'transition-opacity duration-300',
         isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none',
@@ -154,9 +154,10 @@ export function ElementToolbar({ view, currentElementType, className }: ElementT
             key={type}
             onClick={() => handleElementChange(type)}
             className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full',
+              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md',
               'text-[11px] font-medium uppercase tracking-wide',
               'transition-all duration-150',
+              'hover:-translate-y-0.5 active:scale-95',
               isActive
                 ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'

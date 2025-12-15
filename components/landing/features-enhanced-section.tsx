@@ -54,14 +54,14 @@ function FeatureCard({ icon, title, description, index = 0 }: FeatureCardProps) 
     <div
       ref={ref}
       className={cn(
-        "p-4 sm:p-6 rounded-xl border bg-card card-interactive scroll-fade-in",
+        "p-3 sm:p-6 rounded-xl border bg-card card-interactive scroll-fade-in",
         isVisible && "in-view"
       )}
       style={{ transitionDelay: `${index * 50}ms` }}
     >
-      <div className="mb-3 sm:mb-4 text-primary icon-float inline-block">{icon}</div>
-      <h3 className="text-sm sm:text-base font-medium mb-1.5 sm:mb-2">{title}</h3>
-      <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+      <div className="mb-2 sm:mb-4 text-primary icon-float inline-block [&>svg]:h-5 [&>svg]:w-5 sm:[&>svg]:h-6 sm:[&>svg]:w-6">{icon}</div>
+      <h3 className="text-xs sm:text-base font-medium mb-1 sm:mb-2 line-clamp-2">{title}</h3>
+      <p className="text-[10px] sm:text-sm text-muted-foreground leading-relaxed line-clamp-3 sm:line-clamp-none">
         {description}
       </p>
     </div>
@@ -194,7 +194,7 @@ export function FeaturesEnhancedSection() {
           </TabsList>
 
           <TabsContent value="writing" className="mt-6 sm:mt-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
               {writingFeatures.map((feature, index) => (
                 <FeatureCard key={index} {...feature} index={index} />
               ))}
@@ -202,7 +202,7 @@ export function FeaturesEnhancedSection() {
           </TabsContent>
 
           <TabsContent value="production" className="mt-6 sm:mt-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
               {productionFeatures.map((feature, index) => (
                 <FeatureCard key={index} {...feature} index={index} />
               ))}
@@ -210,7 +210,7 @@ export function FeaturesEnhancedSection() {
           </TabsContent>
 
           <TabsContent value="collaboration" className="mt-6 sm:mt-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6">
               {collaborationFeatures.map((feature, index) => (
                 <FeatureCard key={index} {...feature} index={index} />
               ))}

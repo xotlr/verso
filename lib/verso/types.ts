@@ -121,6 +121,8 @@ export interface Page {
   elements: PageElement[];
   bottom_continuation?: string;
   lines_used: number;
+  /** Pixel offset from document start (at 96 DPI) */
+  pixel_y: number;
 }
 
 // ============================================================================
@@ -155,6 +157,10 @@ export interface PaginationStats {
   // Debug stats
   total_lines?: number;
   avg_lines_per_element?: number;
+  // Layout constants (for CSS positioning, at 96 DPI)
+  line_height_px?: number;
+  page_height_px?: number;
+  page_gap_px?: number;
 }
 
 export interface PaginationResult {

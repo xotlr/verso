@@ -199,15 +199,15 @@
   transform: scale(1);
 }
 
-/* Tooltip animations */
+/* Tooltip animations - spring entrance */
 [data-radix-tooltip-content] {
-  animation: tooltipFadeIn 200ms var(--ease-out-expo);
+  animation: tooltipFadeIn 200ms var(--ease-out-back);
 }
 
 @keyframes tooltipFadeIn {
   from {
     opacity: 0;
-    transform: scale(0.95) translateY(-2px);
+    transform: scale(0.92) translateY(-4px);
   }
   to {
     opacity: 1;

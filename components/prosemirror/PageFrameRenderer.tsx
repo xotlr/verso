@@ -2,7 +2,7 @@
 
 import React, { memo } from 'react';
 import { PAGE_WIDTH_PX, PAGE_HEIGHT_PX } from '@/lib/constants';
-import { PageFrame, PAGE_GAP_PX, displayPageIdentifier } from '@/lib/prosemirror/plugins/page-frames';
+import { PageFrame, PAGE_GAP_PX } from '@/lib/prosemirror/plugins/page-frames';
 
 interface PageFrameRendererProps {
   /** Page frames to render */
@@ -21,17 +21,8 @@ const PageFrameCard = memo(function PageFrameCard({
 }: {
   frame: PageFrame;
 }) {
-  // Only show page number if: not the first page AND has valid identifier
-  const showPageNumber = !frame.isFirstPage && frame.pageIdentifier;
-
-  // DEBUG: Log frame data to understand what's being rendered
-  console.log('[PageFrameCard]', {
-    pageNumber: frame.pageNumber,
-    isFirstPage: frame.isFirstPage,
-    showPageNumber,
-    identifier: frame.pageIdentifier,
-  });
-
+  // Page numbers are now rendered inside pm-page-top decoration (pagination.ts)
+  // This ensures they're positioned relative to actual content flow
   return (
     <div
       className="pm-page-frame"
@@ -41,14 +32,7 @@ const PageFrameCard = memo(function PageFrameCard({
         height: `${PAGE_HEIGHT_PX}px`,
       }}
       data-page={frame.pageNumber}
-    >
-      {/* Page number - industry standard top-right position (first page has no number) */}
-      {showPageNumber && (
-        <div className="pm-page-frame-number">
-          {displayPageIdentifier(frame.pageIdentifier)}.
-        </div>
-      )}
-    </div>
+    />
   );
 });
 

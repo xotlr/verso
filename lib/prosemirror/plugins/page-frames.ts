@@ -64,8 +64,8 @@ export function createPageFramesFromWasm(
     const page = result.pages[i];
     const prevPage = i > 0 ? result.pages[i - 1] : null;
 
-    // Calculate Y offset: page height + gap for each previous page
-    const yOffset = i * (PAGE_HEIGHT_PX + PAGE_GAP_PX);
+    // Use WASM's calculated pixel_y position (single source of truth)
+    const yOffset = page.pixel_y;
 
     // Check for MORE/CONT'D markers
     const hasMoreMarker = !!prevPage?.bottom_continuation;

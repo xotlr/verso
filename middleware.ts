@@ -154,6 +154,12 @@ export default authEdge((req) => {
     return addSecurityHeaders(NextResponse.redirect(appUrl))
   }
 
+  // Redirect logged-in users from main domain root to app subdomain (production only)
+  if (useSubdomainRouting && isLoggedIn && pathname === "/") {
+    const appUrl = getAppUrl(host, "/home", protocol)
+    return addSecurityHeaders(NextResponse.redirect(appUrl))
+  }
+
   // In development OR production fallback: protect app routes
   if (isAppRoute(pathname) && !isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin)

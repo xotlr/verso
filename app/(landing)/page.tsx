@@ -114,7 +114,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 items-start">
             <PricingCard
               name="Free"
               price="$0"
@@ -238,37 +238,37 @@ function PricingCard({
 }) {
   return (
     <div
-      className={`p-6 rounded-xl border transition-all duration-300 ${
+      className={`p-4 sm:p-6 rounded-xl border transition-all duration-300 ${
         highlighted
           ? "border-primary bg-primary/5 shadow-lg lg:scale-[1.02] ring-2 ring-primary/20"
           : "bg-card hover:border-border/80 hover:shadow-md"
       }`}
     >
       {highlighted && (
-        <Badge className="mb-4 font-normal bg-primary text-primary-foreground">Most Popular</Badge>
+        <Badge className="mb-2 sm:mb-4 font-normal text-xs bg-primary text-primary-foreground">Most Popular</Badge>
       )}
-      <h3 className="text-lg font-medium">{name}</h3>
-      <div className="mt-2 mb-4">
-        <span className="text-4xl font-medium">{price}</span>
-        {period && <span className="text-muted-foreground/60">{period}</span>}
+      <h3 className="text-base sm:text-lg font-medium">{name}</h3>
+      <div className="mt-1 sm:mt-2 mb-2 sm:mb-4">
+        <span className="text-2xl sm:text-4xl font-medium">{price}</span>
+        {period && <span className="text-xs sm:text-sm text-muted-foreground/60">{period}</span>}
       </div>
-      <p className="text-sm text-muted-foreground/80 mb-6">{description}</p>
-      <ul className="space-y-3 mb-6">
+      <p className="text-xs sm:text-sm text-muted-foreground/80 mb-3 sm:mb-6 line-clamp-2 sm:line-clamp-none">{description}</p>
+      <ul className="space-y-2 sm:space-y-3 mb-3 sm:mb-6">
         {features.map((feature, i) => (
-          <li key={i} className="flex items-center gap-3 text-sm font-light">
-            <Check className="h-4 w-4 text-primary flex-shrink-0" />
-            {feature}
+          <li key={i} className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm font-light">
+            <Check className="h-3 w-3 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
+            <span className="line-clamp-1 sm:line-clamp-none">{feature}</span>
           </li>
         ))}
       </ul>
       <Button
-        className="w-full h-11 group"
+        className="w-full h-9 sm:h-11 text-xs sm:text-sm group"
         variant={highlighted ? "default" : "outline"}
         asChild
       >
-        <Link href={ctaHref} className="flex items-center justify-center gap-2">
+        <Link href={ctaHref} className="flex items-center justify-center gap-1 sm:gap-2">
           {cta}
-          <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+          <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
         </Link>
       </Button>
     </div>

@@ -7,6 +7,18 @@ use crate::types::{
 };
 use super::{ContinuationManager, LineCalculation, LineCalculator};
 
+/// Standard screen DPI for pixel calculations
+const DPI: f64 = 96.0;
+/// Points to pixels conversion factor (96 DPI / 72 points per inch)
+const PT_TO_PX: f64 = DPI / 72.0;
+/// Gap between pages in pixels (must match CSS PAGE_GAP_PX)
+const PAGE_GAP_PX: f32 = 40.0;
+
+/// Convert points to pixels at 96 DPI
+fn points_to_pixels(pt: f64) -> f32 {
+    (pt * PT_TO_PX) as f32
+}
+
 /// Check if two elements form a "glue pair" that must stay together.
 /// Matches JS implementation:
 /// ```javascript
@@ -102,18 +114,43 @@ struct PaginationState {
     warnings: Vec<PaginationWarning>,
     break_count: usize,
     continuation_count: usize,
+    /// Layout constants (calculated from config, in pixels)
+    line_height_px: f32,
+    page_height_px: f32,
+    /// Page margins in pixels
+    top_margin_px: f32,
+    bottom_margin_px: f32,
+    /// Content area = page_height - top_margin - bottom_margin
+    content_area_px: f32,
+    /// Cumulative pixel offset for page positioning (accounts for decoration height)
+    cumulative_pixel_y: f32,
 }
 
 impl PaginationState {
-    fn new() -> Self {
+    fn new(config: &PageConfig) -> Self {
+        // Calculate layout constants from config
+        let line_height_px = points_to_pixels(config.line_height_pt);
+        let page_height_px = points_to_pixels(config.paper_size.height_pt());
+        let top_margin_px = points_to_pixels(config.margins.top_pt());
+        let bottom_margin_px = points_to_pixels(config.margins.bottom_pt());
+        let content_area_px = page_height_px - top_margin_px - bottom_margin_px;
+
         Self {
             pages: Vec::new(),
-            current_page: Page::new(PageIdentifier::Sequential(1)),
+            // First page starts at document top (pixel_y = 0)
+            current_page: Page::new_at_offset(PageIdentifier::Sequential(1), 0.0),
             page_number: 1,
             element_positions: HashMap::new(),
             warnings: Vec::new(),
             break_count: 0,
             continuation_count: 0,
+            line_height_px,
+            page_height_px,
+            top_margin_px,
+            bottom_margin_px,
+            content_area_px,
+            // Start cumulative offset after first page top margin
+            cumulative_pixel_y: top_margin_px,
         }
     }
 
@@ -126,9 +163,26 @@ impl PaginationState {
     }
 
     fn end_page(&mut self, _reason: PageBreakReason) {
+        // Calculate content used on current page (in pixels)
+        let content_used_px = self.current_page.lines_used as f32 * self.line_height_px;
+
+        // Decoration height = remaining content area + bottom margin + gap + top margin
+        // This accounts for:
+        // - pm-page-bottom: fills remaining space (content_area - content_used) + bottom_margin
+        // - pm-page-gap: PAGE_GAP_PX
+        // - pm-page-top: top_margin (for next page)
+        let remaining_content = self.content_area_px - content_used_px;
+        let decoration_height = remaining_content
+            + self.bottom_margin_px
+            + PAGE_GAP_PX
+            + self.top_margin_px;
+
+        // Update cumulative offset: content used + decoration height
+        self.cumulative_pixel_y += content_used_px + decoration_height;
+
         let finished_page = std::mem::replace(
             &mut self.current_page,
-            Page::new(PageIdentifier::Sequential(self.page_number + 1)),
+            Page::new_at_offset(PageIdentifier::Sequential(self.page_number + 1), self.cumulative_pixel_y),
         );
         self.pages.push(finished_page);
         self.page_number += 1;
@@ -274,6 +328,10 @@ impl PaginationState {
                 timing_us,
                 total_lines,
                 avg_lines_per_element: avg_lines,
+                // Layout constants (for CSS positioning)
+                line_height_px: self.line_height_px,
+                page_height_px: self.page_height_px,
+                page_gap_px: PAGE_GAP_PX,
             },
         }
     }
@@ -284,7 +342,7 @@ pub fn paginate(elements: &[Element], config: &PageConfig) -> PaginationResult {
     let line_calc = LineCalculator::new(config);
     let continuation_mgr = ContinuationManager::new(config);
 
-    let mut state = PaginationState::new();
+    let mut state = PaginationState::new(config);
     let element_count = elements.len();
 
     for (idx, element) in elements.iter().enumerate() {

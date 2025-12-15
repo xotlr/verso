@@ -38,6 +38,9 @@ export { serializeDocument, createPositionMap, hasTitlePage, type PositionMap } 
 // Worker
 export { getPaginationWorker, runPagination } from './worker';
 
+// Layout CSS - derive CSS from WASM config
+export { configToCSS, applyLayoutCSS, getLayoutConstants, type LayoutCSS } from './layout-css';
+
 // Default configuration
 export const DEFAULT_FEATURE_FILM_CONFIG: import('./types').PageConfig = {
   paper_size: 'us_letter',

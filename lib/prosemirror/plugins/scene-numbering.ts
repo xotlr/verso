@@ -38,6 +38,16 @@ function createSceneNumberDecorations(state: EditorState): DecorationSet {
   const decorations: Decoration[] = [];
   let sceneCount = 0;
 
+  // Check if document starts with title page
+  const firstNode = state.doc.firstChild;
+  const hasTitlePage = firstNode?.type.name === 'title_page';
+
+  // If document has title page, skip all scene numbers
+  // (Spec scripts with title pages typically don't show scene numbers)
+  if (hasTitlePage) {
+    return DecorationSet.empty;
+  }
+
   state.doc.forEach((node: ProseMirrorNode, offset: number) => {
     if (node.type.name === 'scene_heading') {
       sceneCount++;

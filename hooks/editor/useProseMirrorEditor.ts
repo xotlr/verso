@@ -22,6 +22,7 @@ import {
 } from '@/lib/prosemirror/plugins';
 import type { AutocompleteState, AutocompleteSuggestion } from '@/lib/prosemirror/plugins';
 import { usePagination } from './usePagination';
+import { detectTimeOfDay, type TimeOfDay } from '@/lib/prosemirror/utils/time-detection';
 
 export interface UseProseMirrorEditorOptions {
   initialContent: string | null;
@@ -37,6 +38,8 @@ export interface SceneInfo {
   timeOfDay: string;
   sceneNumber: string | null;
   position: number;
+  /** True if timeOfDay was inferred from keywords in the location, not explicitly stated */
+  autoDetectedTimeOfDay?: boolean;
 }
 
 export interface CharacterInfo {
@@ -121,10 +124,12 @@ function calculatePageCount(doc: ProseMirrorNode): number {
 
 /**
  * Extract scene information from document.
+ * Also runs time-of-day detection to mark auto-detected times.
  */
 function extractScenes(doc: ProseMirrorNode): SceneInfo[] {
   const scenes: SceneInfo[] = [];
   let sceneIndex = 0;
+  let previousTimeOfDay: TimeOfDay | undefined;
 
   doc.forEach((node, offset) => {
     if (node.type.name === 'scene_heading') {
@@ -136,13 +141,22 @@ function extractScenes(doc: ProseMirrorNode): SceneInfo[] {
         .toLowerCase();
       const id = node.attrs.id || `scene-${sceneIndex}-${offset}-${contentHash || 'empty'}`;
 
+      // Run time detection to check if time was auto-detected from keywords
+      const location = node.attrs.location || '';
+      const explicitTime = node.attrs.timeOfDay;
+      const detection = detectTimeOfDay(location, explicitTime, previousTimeOfDay);
+
+      // Update previous time for next scene (for CONTINUOUS inheritance)
+      previousTimeOfDay = detection.timeOfDay;
+
       scenes.push({
         id,
         type: node.attrs.type,
         location: node.attrs.location,
-        timeOfDay: node.attrs.timeOfDay,
+        timeOfDay: node.attrs.timeOfDay || detection.timeOfDay,
         sceneNumber: node.attrs.sceneNumber,
         position: offset,
+        autoDetectedTimeOfDay: detection.autoDetected,
       });
     }
   });

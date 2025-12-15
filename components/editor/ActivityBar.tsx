@@ -53,7 +53,8 @@ function ActivityBarButton({
           className={cn(
             'relative flex items-center justify-center',
             'w-9 h-9 rounded-full',
-            'transition-all duration-200',
+            'transition-all duration-150',
+            'hover:scale-110 active:scale-95',
             isActive
               ? 'bg-primary/10 text-primary'
               : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
@@ -61,13 +62,12 @@ function ActivityBarButton({
         >
           {icon}
           {count > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground px-1">
+            <span
+              key={count}
+              className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground px-1 animate-[badge-pop_300ms_ease-out]"
+            >
               {count > 99 ? '99+' : count}
             </span>
-          )}
-          {/* Active indicator dot */}
-          {isActive && (
-            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
           )}
         </button>
       </TooltipTrigger>
@@ -113,7 +113,7 @@ export function ActivityBar({
       <div
         className={cn(
           'flex flex-col items-center py-2 gap-1',
-          'w-11 bg-card/95 backdrop-blur-md',
+          'w-12 bg-background',
           'rounded-full border border-border/50',
           'shadow-lg shadow-black/10',
           'shrink-0',

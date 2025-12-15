@@ -107,7 +107,7 @@ function SortableNoteItem({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'p-2.5 rounded-lg border transition-colors group',
+        'p-2 rounded-lg border transition-colors group',
         note.isPinned
           ? 'bg-primary/5 border-primary/20'
           : 'hover:bg-accent/30',
@@ -458,9 +458,9 @@ export function NotesPanel({
     <div className={cn('flex flex-col h-full', className)}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-        <StickyNote className="h-4 w-4 text-primary" />
+        <StickyNote className="h-3.5 w-3.5 text-primary" />
         <h2 className="font-semibold text-sm">Notes</h2>
-        <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
+        <span className="text-[10px] text-muted-foreground ml-auto flex items-center gap-1">
           {isSaving && <Loader2 className="h-3 w-3 animate-spin" />}
           {notes.length}
         </span>
@@ -476,8 +476,10 @@ export function NotesPanel({
 
       {/* Content */}
       {isLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="p-4 space-y-3 animate-pulse">
+          <div className="h-4 w-32 rounded bg-muted" />
+          <div className="h-20 w-full rounded-md bg-muted" />
+          <div className="h-4 w-48 rounded bg-muted" />
         </div>
       ) : notes.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground text-sm p-3">
@@ -524,7 +526,7 @@ export function NotesPanel({
 
           {/* Notes list with Drag & Drop */}
           <ScrollArea className="flex-1">
-            <div className="p-3 space-y-2">
+            <div className="p-3 space-y-1.5">
               {filteredNotes.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground text-xs">
                   No notes match your search.
