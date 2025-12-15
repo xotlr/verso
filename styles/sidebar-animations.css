@@ -1,0 +1,352 @@
+/* Sidebar Animations CSS for Verso - 10/10 Premium Edition */
+
+/* Premium easing curves */
+:root {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out-circ: cubic-bezier(0.85, 0, 0.15, 1);
+}
+
+/* Main sidebar container animations */
+.sidebar-animated {
+  transition: width 300ms var(--ease-out-expo);
+}
+
+/* Header animations */
+.sidebar-header-animated {
+  transition: all 250ms var(--ease-out-expo);
+}
+
+/* Logo animations */
+.sidebar-logo-animated {
+  position: relative;
+  transform-origin: center;
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-logo-animated:hover .sidebar-icon-container svg:first-child {
+  transform: rotate(30deg) scale(1.1);
+}
+
+.sidebar-logo-animated:hover .sidebar-icon-container svg:last-child {
+  transform: scale(1.2);
+}
+
+.sidebar-logo-animated:active {
+  transform: scale(0.95);
+}
+
+/* Text fade animations for collapse/expand */
+.sidebar-text-animated {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 250ms var(--ease-out-expo),
+              transform 250ms var(--ease-out-expo);
+}
+
+.group-data-[collapsible="icon"] .sidebar-text-animated {
+  opacity: 0;
+  transform: translateX(-10px);
+  transition-delay: 0ms;
+}
+
+/* Label animations */
+.sidebar-label-animated {
+  opacity: 1;
+  transform: translateX(0);
+  transition: all 250ms var(--ease-out-expo);
+}
+
+.group-data-[collapsible="icon"] .sidebar-label-animated {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+/* Menu item stagger animations */
+.sidebar-menu-item {
+  animation: slideInFromLeft 250ms var(--ease-out-expo) both;
+  animation-delay: var(--stagger-delay, 0ms);
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Menu button hover effects - ENHANCED */
+.sidebar-menu-button {
+  position: relative;
+  overflow: hidden;
+  transform: translateZ(0);
+  transition: all 200ms var(--ease-out-back);
+}
+
+.sidebar-menu-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 8%), transparent);
+  transform: translateX(-100%);
+  transition: transform 600ms ease;
+  pointer-events: none;
+}
+
+.sidebar-menu-button:hover::before {
+  transform: translateX(100%);
+}
+
+.sidebar-menu-button:hover {
+  transform: translateX(4px);
+}
+
+.sidebar-menu-button:active {
+  transform: scale(0.97) translateX(2px);
+  transition-duration: 80ms;
+}
+
+/* Icon animations */
+.sidebar-menu-icon {
+  transition: transform 200ms var(--ease-out-expo);
+}
+
+/* Collapsed state icon animations - ENHANCED */
+.group-data-[collapsible="icon"] .sidebar-menu-button {
+  transform: scale(1);
+  transition: all 250ms var(--ease-out-back);
+}
+
+.group-data-[collapsible="icon"] .sidebar-menu-button:hover {
+  transform: scale(1.15) translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+}
+
+.group-data-[collapsible="icon"] .sidebar-menu-button:active {
+  transform: scale(0.95);
+  transition-duration: 100ms;
+}
+
+/* Icon rotation on hover in collapsed state */
+.group-data-[collapsible="icon"] .sidebar-menu-button:hover .sidebar-menu-icon {
+  transform: rotate(12deg);
+}
+
+/* User button animations - PREMIUM */
+.sidebar-user-button {
+  position: relative;
+  transform: translateZ(0);
+  transition: all 200ms var(--ease-out-expo);
+}
+
+.sidebar-user-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 12%);
+}
+
+.sidebar-user-button:active {
+  transform: translateY(-1px) scale(0.98);
+  transition-duration: 100ms;
+}
+
+/* Chevron animation - ENHANCED */
+.sidebar-chevron-animated {
+  transition: transform 200ms var(--ease-out-back);
+}
+
+.sidebar-user-button:hover .sidebar-chevron-animated {
+  transform: translateY(4px);
+}
+
+/* Avatar animations - scale on hover */
+.sidebar-avatar-animated {
+  transition: transform 250ms var(--ease-out-back);
+}
+
+.sidebar-user-button:hover .sidebar-avatar-animated {
+  transform: scale(1.15);
+}
+
+/* Avatar ring glow effect on hover - ENHANCED with blur */
+.sidebar-avatar-ring {
+  position: relative;
+}
+
+.sidebar-avatar-ring::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: linear-gradient(135deg,
+    hsl(var(--primary) / 0.5),
+    hsl(var(--primary) / 0.2));
+  opacity: 0;
+  transition: opacity 250ms ease, transform 250ms ease;
+  transform: scale(0.9);
+  z-index: -1;
+  filter: blur(4px);
+}
+
+.sidebar-user-button:hover .sidebar-avatar-ring::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Tooltip animations */
+[data-radix-tooltip-content] {
+  animation: tooltipFadeIn 200ms var(--ease-out-expo);
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Rail animations */
+.sidebar-animated [data-sidebar-rail] {
+  transition: all 250ms var(--ease-out-expo);
+}
+
+/* Performance optimizations - only on interactive elements */
+.sidebar-menu-button,
+.sidebar-user-button {
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Only promote to GPU layer on hover */
+.sidebar-menu-button:hover,
+.sidebar-user-button:hover {
+  will-change: transform;
+}
+
+/* Remove will-change after interaction to free GPU memory */
+.sidebar-menu-button:not(:hover),
+.sidebar-user-button:not(:hover) {
+  will-change: auto;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Notification badge pulse */
+.sidebar-notification-badge {
+  animation: notificationPulse 2s ease-in-out infinite;
+}
+
+@keyframes notificationPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+/* Dropdown content animations */
+[data-radix-dropdown-menu-content] {
+  animation: dropdownSlideIn 200ms var(--ease-out-expo);
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Collapsible content animations */
+.collapsible-content {
+  overflow: hidden;
+}
+
+.collapsible-content[data-state="open"] {
+  animation: collapsibleSlideDown 250ms var(--ease-out-expo);
+}
+
+.collapsible-content[data-state="closed"] {
+  animation: collapsibleSlideUp 200ms var(--ease-out-expo);
+}
+
+@keyframes collapsibleSlideDown {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes collapsibleSlideUp {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+/* Enhanced indentation line glow on hover */
+[data-sidebar="menu-sub"]:hover {
+  border-color: hsl(var(--primary) / 0.5);
+  transition: border-color 200ms ease-out;
+}
+
+/* Subitem shimmer effect - ensure pointer events pass through */
+[data-sidebar="menu-sub-button"]::before {
+  pointer-events: none;
+}
+
+/* Ripple effect for create button and interactive elements */
+.animate-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.6);
+  width: 0;
+  height: 0;
+  transform: translate(-50%, -50%);
+  animation: ripple 600ms ease-out;
+  pointer-events: none;
+}
+
+@keyframes ripple {
+  from {
+    width: 0;
+    height: 0;
+    opacity: 1;
+  }
+  to {
+    width: 200px;
+    height: 200px;
+    opacity: 0;
+  }
+}

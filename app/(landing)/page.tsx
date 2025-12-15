@@ -240,22 +240,22 @@ function PricingCard({
     <div
       className={`p-6 rounded-xl border transition-all duration-300 ${
         highlighted
-          ? "border-primary bg-primary/5 shadow-lg lg:scale-105"
+          ? "border-primary bg-primary/5 shadow-lg lg:scale-[1.02] ring-2 ring-primary/20"
           : "bg-card hover:border-border/80 hover:shadow-md"
       }`}
     >
       {highlighted && (
-        <Badge className="mb-4 font-normal">Most Popular</Badge>
+        <Badge className="mb-4 font-normal bg-primary text-primary-foreground">Most Popular</Badge>
       )}
       <h3 className="text-lg font-medium">{name}</h3>
       <div className="mt-2 mb-4">
         <span className="text-4xl font-medium">{price}</span>
-        {period && <span className="text-muted-foreground">{period}</span>}
+        {period && <span className="text-muted-foreground/60">{period}</span>}
       </div>
-      <p className="text-sm text-muted-foreground mb-6">{description}</p>
+      <p className="text-sm text-muted-foreground/80 mb-6">{description}</p>
       <ul className="space-y-3 mb-6">
         {features.map((feature, i) => (
-          <li key={i} className="flex items-center gap-3 text-sm">
+          <li key={i} className="flex items-center gap-3 text-sm font-light">
             <Check className="h-4 w-4 text-primary flex-shrink-0" />
             {feature}
           </li>

@@ -82,13 +82,78 @@ function parseSceneHeading(line: string): {
 }
 
 /**
+ * Extract cover page data (title, author, logline) from lines before first scene heading.
+ */
+function extractCoverPageFromLines(lines: string[]): {
+  title?: string;
+  author?: string;
+  logline?: string;
+} {
+  const coverPage: { title?: string; author?: string; logline?: string } = {};
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Check for explicit key: value patterns
+    if (/^title:\s*/i.test(trimmed)) {
+      coverPage.title = trimmed.replace(/^title:\s*/i, '').trim();
+    } else if (/^(written by|by|author:?)\s*/i.test(trimmed)) {
+      coverPage.author = trimmed.replace(/^(written by|by|author:?)\s*/i, '').trim();
+    } else if (/^logline:\s*/i.test(trimmed)) {
+      coverPage.logline = trimmed.replace(/^logline:\s*/i, '').trim();
+    } else if (!coverPage.title && trimmed.length > 1 && !trimmed.includes(':')) {
+      // First substantial line without a colon = likely title
+      coverPage.title = trimmed;
+    }
+  }
+
+  return coverPage;
+}
+
+/**
  * Convert plain text screenplay to ProseMirror document.
  */
 export function plainTextToProseMirror(text: string): ProseMirrorNode {
   const lines = text.split('\n');
   const content: ProseMirrorJSON[] = [];
 
-  let i = 0;
+  // First, find the first scene heading to identify cover page content
+  // Scene headings can be numbered (e.g., "1.  INT. LOCATION") or plain
+  const firstSceneIndex = lines.findIndex((line) => {
+    const trimmed = line.trim();
+    return isSceneHeading(trimmed) || /^\d+\.\s*(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i.test(trimmed);
+  });
+
+  // Extract cover page if content exists before first scene heading
+  if (firstSceneIndex > 0) {
+    const headerLines = lines.slice(0, firstSceneIndex);
+    const coverPage = extractCoverPageFromLines(headerLines);
+
+    // Create title_page node if we found any cover page data
+    if (coverPage.title || coverPage.author || coverPage.logline) {
+      content.push({
+        type: 'title_page',
+        content: [
+          {
+            type: 'title_page_title',
+            content: coverPage.title ? [{ type: 'text', text: coverPage.title }] : undefined,
+          },
+          {
+            type: 'title_page_author',
+            content: coverPage.author ? [{ type: 'text', text: coverPage.author }] : undefined,
+          },
+          {
+            type: 'title_page_logline',
+            content: coverPage.logline ? [{ type: 'text', text: coverPage.logline }] : undefined,
+          },
+        ],
+      });
+    }
+  }
+
+  // Start parsing from first scene heading (or beginning if no cover page found)
+  let i = firstSceneIndex > 0 ? firstSceneIndex : 0;
   let sceneCount = 0;
   let lastCharacterId: string | null = null;
 
@@ -104,9 +169,12 @@ export function plainTextToProseMirror(text: string): ProseMirrorNode {
       continue;
     }
 
-    // Scene heading
-    if (isSceneHeading(trimmed)) {
-      const { type, location, timeOfDay } = parseSceneHeading(trimmed);
+    // Scene heading (handle numbered scene headings too, e.g., "1.  INT. LOCATION")
+    const isNumberedSceneHeading = /^\d+\.\s*(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i.test(trimmed);
+    if (isSceneHeading(trimmed) || isNumberedSceneHeading) {
+      // Strip scene number prefix if present for parsing
+      const cleanedHeading = trimmed.replace(/^\d+\.\s*/, '');
+      const { type, location, timeOfDay } = parseSceneHeading(cleanedHeading);
       sceneCount++;
       // Generate unique ID using scene count + line number to ensure uniqueness
       const contentHash = trimmed.slice(0, 20).replace(/[^a-z0-9]/gi, '').toLowerCase();
@@ -240,6 +308,34 @@ export function proseMirrorToPlainText(doc: ProseMirrorNode): string {
     const text = node.textContent;
 
     switch (node.type.name) {
+      case 'title_page':
+        // Title page outputs centered cover page format from child nodes
+        node.forEach((child) => {
+          const childText = child.textContent.trim();
+          if (!childText) return;
+
+          switch (child.type.name) {
+            case 'title_page_title':
+              lines.push('');
+              lines.push(childText.toUpperCase());
+              lines.push('');
+              break;
+            case 'title_page_author':
+              lines.push('');
+              lines.push('Written by');
+              lines.push(childText);
+              lines.push('');
+              break;
+            case 'title_page_logline':
+              lines.push('');
+              lines.push(`Logline: ${childText}`);
+              lines.push('');
+              break;
+          }
+        });
+        lines.push('');
+        break;
+
       case 'scene_heading':
         lines.push('');
         lines.push(text);
@@ -311,11 +407,8 @@ export function serializeForStorage(doc: ProseMirrorNode): string {
  */
 export function deserializeFromStorage(content: string | null | undefined): ProseMirrorNode {
   if (!content || !content.trim()) {
-    // Return empty document with single action paragraph
-    return screenplaySchema.nodeFromJSON({
-      type: 'doc',
-      content: [{ type: 'action' }],
-    });
+    // Return starter document with title page for new documents
+    return createStarterDocument();
   }
 
   // Try to parse as ProseMirror JSON
@@ -343,12 +436,21 @@ export function createEmptyDocument(): ProseMirrorNode {
 }
 
 /**
- * Create a document with a scene heading starter.
+ * Create a document with title page and scene heading starter.
+ * Uses empty nodes - CSS placeholders show ghost text.
  */
 export function createStarterDocument(): ProseMirrorNode {
   return screenplaySchema.nodeFromJSON({
     type: 'doc',
     content: [
+      {
+        type: 'title_page',
+        content: [
+          { type: 'title_page_title' },    // Empty - CSS shows "UNTITLED"
+          { type: 'title_page_author' },   // Empty - CSS shows "Written by..."
+          { type: 'title_page_logline' },  // Empty - CSS shows "Logline (optional)"
+        ],
+      },
       {
         type: 'scene_heading',
         attrs: {
@@ -358,10 +460,11 @@ export function createStarterDocument(): ProseMirrorNode {
           timeOfDay: 'DAY',
           sceneNumber: null,
         },
-        content: [{ type: 'text', text: 'INT. LOCATION - DAY' }],
+        // Empty - CSS placeholder shows "INT./EXT. LOCATION - TIME"
       },
       {
         type: 'action',
+        // Empty - CSS placeholder shows "Describe what happens..."
       },
     ],
   });

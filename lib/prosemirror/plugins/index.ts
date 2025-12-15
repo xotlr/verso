@@ -11,6 +11,7 @@ import { createSceneNumberingPlugin } from './scene-numbering';
 import { createSmartClickPlugin } from './smart-click';
 import { createAutocompletePlugin, AutocompletePluginOptions } from './autocomplete';
 import { createCollaborationPlugin, CollaborationPluginOptions } from './collaboration';
+import { createPastePlugin, CoverPageData } from './paste-handler';
 
 export interface CreatePluginsOptions {
   // Enable input rules for auto-formatting
@@ -37,6 +38,8 @@ export interface CreatePluginsOptions {
   collaboration?: boolean;
   // Collaboration options
   collaborationOptions?: CollaborationPluginOptions;
+  // Callback when cover page is detected in pasted content
+  onCoverPageDetected?: (coverPage: CoverPageData) => void;
 }
 
 const defaultOptions: CreatePluginsOptions = {
@@ -115,6 +118,11 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
     plugins.push(gapCursor());
   }
 
+  // Paste handler (cover page detection)
+  plugins.push(createPastePlugin({
+    onCoverPageDetected: opts.onCoverPageDetected,
+  }));
+
   return plugins;
 }
 
@@ -138,3 +146,7 @@ export {
   PAGINATION_UPDATE_META,
 } from './pagination';
 export type { PaginationState, PageBreak } from './pagination';
+
+// Paste handler plugin exports
+export { createPastePlugin, pastePluginKey, extractCoverPage } from './paste-handler';
+export type { CoverPageData, PastePluginOptions } from './paste-handler';

@@ -46,6 +46,8 @@ export interface UsePaginationReturn {
   timing: { lastDurationMs: number } | null;
   /** Whether WASM engine is loaded and working */
   isWasmReady: boolean;
+  /** Get the position map that was created during serialization (for decoration mapping) */
+  getPositionMap: () => PositionMap | null;
 }
 
 /**
@@ -222,6 +224,14 @@ export function usePagination(
     runPaginationOnDoc();
   }, [runPaginationOnDoc]);
 
+  /**
+   * Get the position map that was created during serialization.
+   * This map corresponds to the document that was used for the current result.
+   */
+  const getPositionMap = useCallback(() => {
+    return positionMapRef.current;
+  }, []);
+
   // WASM is ready if we've successfully gotten a result at least once
   const isWasmReady = result !== null && error === null;
 
@@ -235,6 +245,7 @@ export function usePagination(
     error,
     timing,
     isWasmReady,
+    getPositionMap,
   };
 }
 

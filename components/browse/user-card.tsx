@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
 import { Folder, FileText, MapPin } from 'lucide-react';
 
 interface UserCardUser {
@@ -39,9 +40,12 @@ export function UserCard({ user, className }: UserCardProps) {
       <div className="p-4">
         {/* Header: Avatar + Name */}
         <div className="flex items-start gap-3 mb-3">
-          <Avatar className="h-12 w-12 flex-shrink-0">
-            <AvatarImage src={user.image || ''} alt={user.name || ''} />
-            <AvatarFallback className="bg-primary/10 text-primary text-lg font-medium">
+          <Avatar className="h-12 w-12 flex-shrink-0 rounded-md">
+            <AvatarImage src={user.image || ''} alt={user.name || ''} className="rounded-md" />
+            <AvatarFallback
+              className="text-lg font-medium text-white rounded-md"
+              style={getSimpleGradientStyle(user.id)}
+            >
               {user.name?.charAt(0).toUpperCase() || '?'}
             </AvatarFallback>
           </Avatar>

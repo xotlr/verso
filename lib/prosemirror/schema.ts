@@ -13,6 +13,47 @@ import { Schema, NodeSpec, MarkSpec, DOMOutputSpec } from 'prosemirror-model';
  * - dual_dialogue: Container for simultaneous dialogue
  */
 
+// Title page (cover page) container - holds editable child nodes
+const title_page: NodeSpec = {
+  content: 'title_page_title title_page_author title_page_logline?',
+  group: 'block',
+  defining: true,
+  parseDOM: [{ tag: 'div.pm-title-page' }],
+  toDOM(): DOMOutputSpec {
+    return ['div', { class: 'pm-title-page' }, 0];
+  },
+};
+
+// Editable title field within title page
+const title_page_title: NodeSpec = {
+  content: 'text*',
+  defining: true,
+  parseDOM: [{ tag: 'div.pm-title-page-title' }],
+  toDOM(): DOMOutputSpec {
+    return ['div', { class: 'pm-title-page-title' }, 0];
+  },
+};
+
+// Editable author field within title page
+const title_page_author: NodeSpec = {
+  content: 'text*',
+  defining: true,
+  parseDOM: [{ tag: 'div.pm-title-page-author' }],
+  toDOM(): DOMOutputSpec {
+    return ['div', { class: 'pm-title-page-author' }, 0];
+  },
+};
+
+// Optional editable logline field within title page
+const title_page_logline: NodeSpec = {
+  content: 'text*',
+  defining: true,
+  parseDOM: [{ tag: 'div.pm-title-page-logline' }],
+  toDOM(): DOMOutputSpec {
+    return ['div', { class: 'pm-title-page-logline' }, 0];
+  },
+};
+
 // Scene heading node
 const scene_heading: NodeSpec = {
   content: 'text*',
@@ -183,10 +224,16 @@ const hard_break: NodeSpec = {
 
 // All node specifications
 const nodes: Record<string, NodeSpec> = {
-  // Document root
+  // Document root - optional title page followed by screenplay content
   doc: {
-    content: 'block+',
+    content: 'title_page? block+',
   },
+
+  // Title page (cover page) - must be first if present
+  title_page,
+  title_page_title,
+  title_page_author,
+  title_page_logline,
 
   // Block-level screenplay elements
   scene_heading,
@@ -247,6 +294,7 @@ export const screenplaySchema = new Schema({ nodes, marks });
  * Element type names for the schema.
  */
 export type ElementType =
+  | 'title_page'
   | 'scene_heading'
   | 'action'
   | 'character'
@@ -289,6 +337,7 @@ export function getPreviousElementType(current: ElementType): ElementType {
  * Element type display names for UI.
  */
 export const ELEMENT_DISPLAY_NAMES: Record<ElementType, string> = {
+  title_page: 'Title Page',
   scene_heading: 'Scene Heading',
   action: 'Action',
   character: 'Character',
@@ -314,6 +363,7 @@ export const ELEMENT_SHORTCUTS: Record<string, ElementType> = {
  * Default content for each element type when created empty.
  */
 export const ELEMENT_PLACEHOLDERS: Record<ElementType, string> = {
+  title_page: '',
   scene_heading: 'INT. LOCATION - DAY',
   action: '',
   character: '',

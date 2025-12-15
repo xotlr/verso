@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Menu, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getSimpleGradientStyle } from "@/lib/avatar-gradient"
 
 const navLinks = [
   { href: "/#features", label: "Features" },
@@ -65,9 +66,12 @@ export function Navbar() {
           {session ? (
             <Button size="sm" asChild className="group h-9 pl-3 pr-4">
               <Link href="/home" className="flex items-center gap-2">
-                <Avatar className="h-5 w-5">
-                  <AvatarImage src={session.user?.image || undefined} />
-                  <AvatarFallback className="text-[10px]">
+                <Avatar className="h-6 w-6 rounded-md">
+                  <AvatarImage src={session.user?.image || undefined} className="rounded-md" />
+                  <AvatarFallback
+                    className="text-xs text-white font-medium rounded-md"
+                    style={getSimpleGradientStyle(session.user?.id || session.user?.email || 'user')}
+                  >
                     {session.user?.name?.charAt(0) || "U"}
                   </AvatarFallback>
                 </Avatar>
@@ -141,9 +145,12 @@ export function Navbar() {
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center justify-center gap-2"
                   >
-                    <Avatar className="h-5 w-5">
-                      <AvatarImage src={session.user?.image || undefined} />
-                      <AvatarFallback className="text-[10px]">
+                    <Avatar className="h-6 w-6 rounded-md">
+                      <AvatarImage src={session.user?.image || undefined} className="rounded-md" />
+                      <AvatarFallback
+                        className="text-xs text-white font-medium rounded-md"
+                        style={getSimpleGradientStyle(session.user?.id || session.user?.email || 'user')}
+                      >
                         {session.user?.name?.charAt(0) || "U"}
                       </AvatarFallback>
                     </Avatar>

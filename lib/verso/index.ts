@@ -33,7 +33,7 @@ export type {
 export { displayPageIdentifier, comparePageIdentifiers } from './types';
 
 // Serialization
-export { serializeDocument, createPositionMap, type PositionMap } from './serializer';
+export { serializeDocument, createPositionMap, hasTitlePage, type PositionMap } from './serializer';
 
 // Worker
 export { getPaginationWorker, runPagination } from './worker';

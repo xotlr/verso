@@ -14,6 +14,8 @@ import {
   Edit2,
   Trash2,
   UserCircle,
+  GripVertical,
+  Copy,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -22,6 +24,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { CharacterInfo } from '@/hooks/editor/useProseMirrorEditor';
 
 export type CharacterRole = 'Protagonist' | 'Antagonist' | 'Supporting' | 'Minor';
@@ -31,6 +49,156 @@ interface CharactersPanelProps {
   screenplayId?: string;
   onAddCharacter?: () => void;
   className?: string;
+}
+
+// Sortable character item component
+interface SortableCharacterItemProps {
+  char: CharacterInfo;
+  index: number;
+  role: CharacterRole;
+  isProtagonist: boolean;
+  cycleRole: (charId: string) => void;
+  getRoleLabel: (role: CharacterRole) => string;
+}
+
+function SortableCharacterItem({
+  char,
+  index,
+  role,
+  isProtagonist,
+  cycleRole,
+  getRoleLabel,
+}: SortableCharacterItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: char.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'px-3 py-3 rounded-lg transition-colors group',
+        isProtagonist
+          ? 'bg-primary text-primary-foreground'
+          : 'hover:bg-accent/50',
+        isDragging && 'bg-accent shadow-lg'
+      )}
+    >
+      <div className="flex items-center gap-2">
+        {/* Drag handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="h-4 w-4" />
+        </div>
+
+        <div className="relative shrink-0">
+          <div className={cn(
+            'h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold',
+            isProtagonist
+              ? 'bg-primary-foreground text-primary'
+              : 'bg-foreground/10 text-foreground'
+          )}>
+            {char.name.charAt(0)}
+          </div>
+          {/* Rank indicator for top 3 */}
+          {index < 3 && (
+            <div className={cn(
+              'absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full flex items-center justify-center text-[10px] font-bold border',
+              isProtagonist
+                ? 'bg-primary-foreground text-primary border-primary'
+                : index === 0
+                  ? 'bg-primary text-primary-foreground border-card'
+                  : 'bg-muted text-muted-foreground border-card'
+            )}>
+              {index + 1}
+            </div>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className={cn(
+            'font-medium text-sm break-words',
+            isProtagonist && 'text-primary-foreground'
+          )}>
+            {char.name}
+          </h4>
+          <span className={cn(
+            'text-xs',
+            isProtagonist ? 'text-primary-foreground/70' : 'text-muted-foreground'
+          )}>
+            {char.dialogueCount} lines
+          </span>
+        </div>
+        <button
+          onClick={() => cycleRole(char.id)}
+          className={cn(
+            'text-[10px] px-2 py-1 rounded-full font-medium transition-all hover:opacity-80 shrink-0',
+            isProtagonist
+              ? 'bg-primary-foreground text-primary'
+              : role === 'Antagonist'
+                ? 'bg-destructive/15 text-destructive'
+                : 'bg-muted text-muted-foreground'
+          )}
+          title="Click to cycle role"
+        >
+          {getRoleLabel(role)}
+        </button>
+
+        {/* Character actions */}
+        <div onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  'h-7 w-7 opacity-0 group-hover:opacity-100',
+                  isProtagonist && 'text-primary-foreground hover:bg-primary-foreground/20'
+                )}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem>
+                <UserCircle className="h-4 w-4 mr-2" />
+                View details
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Edit2 className="h-4 w-4 mr-2" />
+                Edit name
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Copy className="h-4 w-4 mr-2" />
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Remove
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -200,60 +368,87 @@ export function CharactersPanel({
     }
   };
 
+  // Sensors for drag & drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end - log reorder for now
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = filteredCharacters.findIndex(c => c.id === active.id);
+      const newIndex = filteredCharacters.findIndex(c => c.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        // TODO: Implement actual character reordering persistence
+        console.log('Character reorder requested:', { from: oldIndex, to: newIndex });
+      }
+    }
+  }, [filteredCharacters]);
+
   return (
     <div className={cn('flex flex-col h-full', className)}>
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+      <div className="px-5 py-4 border-b border-border flex items-center gap-2">
         <Users className="h-4 w-4 text-primary" />
-        <h2 className="font-semibold text-sm">Characters</h2>
+        <h2 className="font-semibold text-base">Characters</h2>
         <span className="text-xs text-muted-foreground ml-auto">
           {characters.length}
         </span>
         {onAddCharacter && (
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddCharacter}>
-            <Plus className="h-3.5 w-3.5" />
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onAddCharacter}>
+            <Plus className="h-4 w-4" />
           </Button>
         )}
       </div>
 
       {/* Content */}
       {characters.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground text-sm p-3">
-          <Users className="h-8 w-8 mx-auto mb-3 opacity-50" />
-          <p className="font-medium">No characters yet</p>
-          <p className="text-xs mt-1">
+        <div className="text-center py-12 text-muted-foreground p-4">
+          <Users className="h-10 w-10 mx-auto mb-3 opacity-50" />
+          <p className="font-medium text-sm">No characters yet</p>
+          <p className="text-xs mt-1.5">
             Characters appear as you add dialogue.
           </p>
         </div>
       ) : (
         <>
           {/* Search and Filter - Fixed at top */}
-          <div className="p-3 space-y-2 border-b border-border shrink-0">
+          <div className="p-4 space-y-3 border-b border-border shrink-0">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Search characters..."
                 value={characterFilter}
                 onChange={(e) => setCharacterFilter(e.target.value)}
-                className="h-8 pl-8 pr-8 text-xs"
+                className="h-9 pl-9 pr-9 text-sm"
               />
               {characterFilter && (
                 <button
                   onClick={() => setCharacterFilter('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-4 w-4" />
                 </button>
               )}
             </div>
-            <div className="flex gap-1 flex-wrap">
+            <div className="flex gap-1.5 flex-wrap">
               {(['all', 'Protagonist', 'Antagonist', 'Supporting', 'Minor'] as const).map((role) => (
                 <button
                   key={role}
                   onClick={() => setRoleFilter(role)}
                   className={cn(
-                    'px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors',
+                    'px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
                     roleFilter === role
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-accent text-muted-foreground hover:text-foreground'
@@ -265,120 +460,46 @@ export function CharactersPanel({
             </div>
           </div>
 
-          {/* Character List - Scrollable */}
+          {/* Character List - Scrollable with Drag & Drop */}
           <ScrollArea className="flex-1">
-            <div className="p-3 space-y-1.5">
+            <div className="p-4 space-y-2">
               {isLoadingRoles && (
-                <div className="text-center py-4 text-muted-foreground text-xs">
+                <div className="text-center py-6 text-muted-foreground text-sm">
                   Loading...
                 </div>
               )}
               {!isLoadingRoles && filteredCharacters.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground text-xs">
+                <div className="text-center py-8 text-muted-foreground text-sm">
                   No characters match your filter.
                 </div>
               ) : (
-                filteredCharacters.map((char, index) => {
-                  const role = characterRoles.get(char.id) || 'Supporting';
-                  const isProtagonist = role === 'Protagonist';
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={filteredCharacters.map(c => c.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {filteredCharacters.map((char, index) => {
+                      const role = characterRoles.get(char.id) || 'Supporting';
+                      const isProtagonist = role === 'Protagonist';
 
-                  return (
-                    <div
-                      key={char.id}
-                      className={cn(
-                        'p-2 rounded-lg transition-colors group',
-                        isProtagonist
-                          ? 'bg-primary text-primary-foreground'
-                          : 'hover:bg-accent/30'
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="relative shrink-0">
-                          <div className={cn(
-                            'h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold',
-                            isProtagonist
-                              ? 'bg-primary-foreground text-primary'
-                              : 'bg-foreground/10 text-foreground'
-                          )}>
-                            {char.name.charAt(0)}
-                          </div>
-                          {/* Rank indicator for top 3 */}
-                          {index < 3 && (
-                            <div className={cn(
-                              'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full flex items-center justify-center text-[8px] font-bold border',
-                              isProtagonist
-                                ? 'bg-primary-foreground text-primary border-primary'
-                                : index === 0
-                                  ? 'bg-primary text-primary-foreground border-card'
-                                  : 'bg-muted text-muted-foreground border-card'
-                            )}>
-                              {index + 1}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className={cn(
-                            'font-medium text-xs truncate',
-                            isProtagonist && 'text-primary-foreground'
-                          )}>
-                            {char.name}
-                          </h4>
-                          <span className={cn(
-                            'text-[10px]',
-                            isProtagonist ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                          )}>
-                            {char.dialogueCount} lines
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => cycleRole(char.id)}
-                          className={cn(
-                            'text-[9px] px-1.5 py-0.5 rounded-full font-medium transition-all hover:opacity-80 shrink-0',
-                            isProtagonist
-                              ? 'bg-primary-foreground text-primary'
-                              : role === 'Antagonist'
-                                ? 'bg-destructive/15 text-destructive'
-                                : 'bg-muted text-muted-foreground'
-                          )}
-                          title="Click to cycle role"
-                        >
-                          {getRoleLabel(role)}
-                        </button>
-
-                        {/* Character actions */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn(
-                                'h-6 w-6 opacity-0 group-hover:opacity-100',
-                                isProtagonist && 'text-primary-foreground hover:bg-primary-foreground/20'
-                              )}
-                            >
-                              <MoreHorizontal className="h-3.5 w-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem>
-                              <UserCircle className="h-3.5 w-3.5 mr-2" />
-                              View details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Edit2 className="h-3.5 w-3.5 mr-2" />
-                              Edit name
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
-                              <Trash2 className="h-3.5 w-3.5 mr-2" />
-                              Remove
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-                  );
-                })
+                      return (
+                        <SortableCharacterItem
+                          key={char.id}
+                          char={char}
+                          index={index}
+                          role={role}
+                          isProtagonist={isProtagonist}
+                          cycleRole={cycleRole}
+                          getRoleLabel={getRoleLabel}
+                        />
+                      );
+                    })}
+                  </SortableContext>
+                </DndContext>
               )}
             </div>
           </ScrollArea>

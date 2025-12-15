@@ -135,13 +135,13 @@ export default function PricingPage() {
   ]
 
   return (
-    <div className="py-20">
-      <div className="container">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+    <div className="py-24 sm:py-32">
+      <div className="container max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="text-center space-y-4 mb-16 sm:mb-20">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-medium">
             Simple, transparent pricing
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto">
             Choose the plan that works for you. Upgrade or downgrade at any time.
           </p>
         </div>
@@ -166,33 +166,33 @@ export default function PricingPage() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative p-6 rounded-2xl border ${
+              className={`relative p-6 rounded-2xl border transition-all ${
                 plan.highlighted
-                  ? "border-primary bg-primary/5 shadow-xl"
-                  : "bg-card"
+                  ? "border-primary bg-primary/5 shadow-xl ring-2 ring-primary/20 scale-[1.02]"
+                  : "bg-card hover:shadow-md"
               }`}
             >
               {plan.highlighted && (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground">
                   Most Popular
                 </Badge>
               )}
 
               <div className="mb-6">
-                <h2 className="text-2xl font-bold">{plan.name}</h2>
-                <p className="text-muted-foreground mt-1 text-sm">{plan.description}</p>
+                <h2 className="text-2xl font-medium">{plan.name}</h2>
+                <p className="text-muted-foreground/80 mt-1 text-sm">{plan.description}</p>
               </div>
 
               <div className="mb-6">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold">
+                  <span className="text-4xl font-medium">
                     ${isYearly ? plan.yearlyPrice : plan.monthlyPrice}
                   </span>
-                  <span className="text-muted-foreground text-sm">
+                  <span className="text-muted-foreground/60 text-sm">
                     /{isYearly ? "year" : "month"}
                     {plan.perUser && "/user"}
                   </span>
@@ -207,16 +207,16 @@ export default function PricingPage() {
               <ul className="space-y-3 mb-8">
                 {plan.features.map((feature, i) => (
                   <li key={i} className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                    <span className="text-sm">{feature}</span>
+                    <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                    <span className="text-sm font-light">{feature}</span>
                   </li>
                 ))}
                 {plan.limitations.map((limitation, i) => (
-                  <li key={i} className="flex items-start gap-3 text-muted-foreground">
-                    <span className="h-5 w-5 flex items-center justify-center flex-shrink-0">
+                  <li key={i} className="flex items-start gap-3 text-muted-foreground/60">
+                    <span className="h-4 w-4 flex items-center justify-center flex-shrink-0">
                       -
                     </span>
-                    <span className="text-sm">{limitation}</span>
+                    <span className="text-sm font-light">{limitation}</span>
                   </li>
                 ))}
               </ul>

@@ -21,6 +21,17 @@ const PageFrameCard = memo(function PageFrameCard({
 }: {
   frame: PageFrame;
 }) {
+  // Only show page number if: not the first page AND has valid identifier
+  const showPageNumber = !frame.isFirstPage && frame.pageIdentifier;
+
+  // DEBUG: Log frame data to understand what's being rendered
+  console.log('[PageFrameCard]', {
+    pageNumber: frame.pageNumber,
+    isFirstPage: frame.isFirstPage,
+    showPageNumber,
+    identifier: frame.pageIdentifier,
+  });
+
   return (
     <div
       className="pm-page-frame"
@@ -31,8 +42,8 @@ const PageFrameCard = memo(function PageFrameCard({
       }}
       data-page={frame.pageNumber}
     >
-      {/* Page number - industry standard top-right position */}
-      {frame.pageNumber > 1 && (
+      {/* Page number - industry standard top-right position (first page has no number) */}
+      {showPageNumber && (
         <div className="pm-page-frame-number">
           {displayPageIdentifier(frame.pageIdentifier)}.
         </div>

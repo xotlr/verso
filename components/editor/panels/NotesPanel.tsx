@@ -16,6 +16,8 @@ import {
   Pin,
   Check,
   Loader2,
+  GripVertical,
+  Copy,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -24,6 +26,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 export interface Note {
   id: string;
@@ -38,6 +56,170 @@ interface NotesPanelProps {
   screenplayId: string;
   currentSceneId?: string;
   className?: string;
+}
+
+// Sortable note item component
+interface SortableNoteItemProps {
+  note: Note;
+  editingNoteId: string | null;
+  editContent: string;
+  setEditContent: (content: string) => void;
+  setEditingNoteId: (id: string | null) => void;
+  startEditing: (note: Note) => void;
+  handleSaveEdit: () => void;
+  handleTogglePin: (noteId: string) => void;
+  handleDeleteNote: (noteId: string) => void;
+  handleDuplicateNote: (note: Note) => void;
+  formatDate: (date: Date) => string;
+}
+
+function SortableNoteItem({
+  note,
+  editingNoteId,
+  editContent,
+  setEditContent,
+  setEditingNoteId,
+  startEditing,
+  handleSaveEdit,
+  handleTogglePin,
+  handleDeleteNote,
+  handleDuplicateNote,
+  formatDate,
+}: SortableNoteItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: note.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'p-2.5 rounded-lg border transition-colors group',
+        note.isPinned
+          ? 'bg-primary/5 border-primary/20'
+          : 'hover:bg-accent/30',
+        isDragging && 'bg-accent shadow-lg'
+      )}
+    >
+      {editingNoteId === note.id ? (
+        <div className="space-y-2">
+          <Textarea
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            placeholder="Write your note..."
+            className="min-h-[80px] text-xs resize-none"
+            autoFocus
+          />
+          <div className="flex justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs"
+              onClick={() => {
+                setEditingNoteId(null);
+                setEditContent('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="h-6 text-xs"
+              onClick={handleSaveEdit}
+            >
+              <Check className="h-3 w-3 mr-1" />
+              Save
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start gap-2">
+            {/* Drag handle */}
+            <div
+              {...attributes}
+              {...listeners}
+              className="shrink-0 pt-0.5 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </div>
+
+            <button
+              onClick={() => startEditing(note)}
+              className="flex-1 text-left min-w-0"
+            >
+              <p className="text-xs whitespace-pre-wrap break-words">
+                {note.content || (
+                  <span className="text-muted-foreground italic">
+                    Empty note - click to edit
+                  </span>
+                )}
+              </p>
+            </button>
+
+            <div onClick={(e) => e.stopPropagation()}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 opacity-0 group-hover:opacity-100 shrink-0"
+                  >
+                    <MoreHorizontal className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-32">
+                  <DropdownMenuItem
+                    onClick={() => handleTogglePin(note.id)}
+                  >
+                    <Pin className="h-3.5 w-3.5 mr-2" />
+                    {note.isPinned ? 'Unpin' : 'Pin'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleDuplicateNote(note)}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-2" />
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => handleDeleteNote(note.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 mt-1.5 ml-5">
+            {note.isPinned && (
+              <Pin className="h-2.5 w-2.5 text-primary" />
+            )}
+            <span className="text-[10px] text-muted-foreground">
+              {formatDate(note.updatedAt)}
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -212,7 +394,7 @@ export function NotesPanel({
       return b.updatedAt.getTime() - a.updatedAt.getTime();
     });
 
-  const formatDate = (date: Date) => {
+  const formatDate = useCallback((date: Date) => {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
@@ -224,7 +406,53 @@ export function NotesPanel({
     if (hours < 24) return `${hours}h ago`;
     if (days < 7) return `${days}d ago`;
     return date.toLocaleDateString();
-  };
+  }, []);
+
+  // Duplicate note handler
+  const handleDuplicateNote = useCallback(
+    (note: Note) => {
+      const newNote: Note = {
+        id: `note-${Date.now()}`,
+        content: note.content,
+        sceneId: note.sceneId,
+        isPinned: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const updatedNotes = [newNote, ...notes];
+      setNotes(updatedNotes);
+      saveNotes(updatedNotes);
+    },
+    [notes, saveNotes]
+  );
+
+  // Sensors for drag & drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end - log reorder for now
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = filteredNotes.findIndex(n => n.id === active.id);
+      const newIndex = filteredNotes.findIndex(n => n.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        // TODO: Implement actual note reordering persistence
+        console.log('Note reorder requested:', { from: oldIndex, to: newIndex });
+      }
+    }
+  }, [filteredNotes]);
 
   return (
     <div className={cn('flex flex-col h-full', className)}>
@@ -294,7 +522,7 @@ export function NotesPanel({
             </div>
           )}
 
-          {/* Notes list */}
+          {/* Notes list with Drag & Drop */}
           <ScrollArea className="flex-1">
             <div className="p-3 space-y-2">
               {filteredNotes.length === 0 ? (
@@ -302,104 +530,33 @@ export function NotesPanel({
                   No notes match your search.
                 </div>
               ) : (
-                filteredNotes.map((note) => (
-                  <div
-                    key={note.id}
-                    className={cn(
-                      'p-2.5 rounded-lg border transition-colors group',
-                      note.isPinned
-                        ? 'bg-primary/5 border-primary/20'
-                        : 'hover:bg-accent/30'
-                    )}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={filteredNotes.map(n => n.id)}
+                    strategy={verticalListSortingStrategy}
                   >
-                    {editingNoteId === note.id ? (
-                      <div className="space-y-2">
-                        <Textarea
-                          value={editContent}
-                          onChange={(e) => setEditContent(e.target.value)}
-                          placeholder="Write your note..."
-                          className="min-h-[80px] text-xs resize-none"
-                          autoFocus
-                        />
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 text-xs"
-                            onClick={() => {
-                              setEditingNoteId(null);
-                              setEditContent('');
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="h-6 text-xs"
-                            onClick={handleSaveEdit}
-                          >
-                            <Check className="h-3 w-3 mr-1" />
-                            Save
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-start gap-2">
-                          <button
-                            onClick={() => startEditing(note)}
-                            className="flex-1 text-left min-w-0"
-                          >
-                            <p className="text-xs whitespace-pre-wrap line-clamp-4">
-                              {note.content || (
-                                <span className="text-muted-foreground italic">
-                                  Empty note - click to edit
-                                </span>
-                              )}
-                            </p>
-                          </button>
-
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 opacity-0 group-hover:opacity-100 shrink-0"
-                              >
-                                <MoreHorizontal className="h-3 w-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-32">
-                              <DropdownMenuItem
-                                onClick={() => handleTogglePin(note.id)}
-                              >
-                                <Pin className="h-3.5 w-3.5 mr-2" />
-                                {note.isPinned ? 'Unpin' : 'Pin'}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => handleDeleteNote(note.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-
-                        <div className="flex items-center gap-2 mt-1.5">
-                          {note.isPinned && (
-                            <Pin className="h-2.5 w-2.5 text-primary" />
-                          )}
-                          <span className="text-[10px] text-muted-foreground">
-                            {formatDate(note.updatedAt)}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))
+                    {filteredNotes.map((note) => (
+                      <SortableNoteItem
+                        key={note.id}
+                        note={note}
+                        editingNoteId={editingNoteId}
+                        editContent={editContent}
+                        setEditContent={setEditContent}
+                        setEditingNoteId={setEditingNoteId}
+                        startEditing={startEditing}
+                        handleSaveEdit={handleSaveEdit}
+                        handleTogglePin={handleTogglePin}
+                        handleDeleteNote={handleDeleteNote}
+                        handleDuplicateNote={handleDuplicateNote}
+                        formatDate={formatDate}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               )}
             </div>
           </ScrollArea>

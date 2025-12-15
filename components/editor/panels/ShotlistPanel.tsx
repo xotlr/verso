@@ -19,6 +19,7 @@ import {
   Copy,
   Camera,
   Film,
+  GripVertical,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -27,6 +28,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   Shot,
   SceneWithShots,
@@ -44,6 +61,130 @@ interface ShotlistPanelProps {
   onEditShot?: (shot: Shot) => void;
   onAddShot?: (sceneId: string) => void;
   className?: string;
+}
+
+// Sortable shot item component
+interface SortableShotItemProps {
+  shot: Shot;
+  onEditShot?: (shot: Shot) => void;
+  handleDuplicateShot: (shot: Shot) => void;
+  handleDeleteShot: (shotId: string) => void;
+  getStatusBadge: (status: ShotStatus) => string;
+}
+
+function SortableShotItem({
+  shot,
+  onEditShot,
+  handleDuplicateShot,
+  handleDeleteShot,
+  getStatusBadge,
+}: SortableShotItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: shot.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'flex items-start gap-2 p-2 rounded-lg',
+        'hover:bg-accent/30 transition-colors',
+        'group',
+        isDragging && 'bg-accent shadow-lg'
+      )}
+    >
+      {/* Drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="shrink-0 pt-1 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </div>
+
+      {/* Shot number */}
+      <div className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
+        <span className="text-[10px] font-medium">
+          {shot.shotNumber}
+        </span>
+      </div>
+
+      {/* Shot content */}
+      <div className="flex-1 min-w-0">
+        <p className="text-xs break-words">
+          {shot.description || 'No description'}
+        </p>
+        <div className="flex items-center gap-1.5 mt-1">
+          <Badge
+            variant="secondary"
+            className={cn(
+              'text-[9px] px-1 py-0',
+              getStatusBadge(shot.status as ShotStatus)
+            )}
+          >
+            {shot.status}
+          </Badge>
+          {shot.shotType && (
+            <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+              <Camera className="h-2.5 w-2.5" />
+              {SHOT_TYPE_LABELS[shot.shotType as ShotType]?.split(' ')[0] || shot.shotType}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 opacity-0 group-hover:opacity-100 shrink-0"
+            >
+              <MoreHorizontal className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-36">
+            <DropdownMenuItem
+              onClick={() => onEditShot?.(shot)}
+            >
+              <Edit2 className="h-3.5 w-3.5 mr-2" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleDuplicateShot(shot)}
+            >
+              <Copy className="h-3.5 w-3.5 mr-2" />
+              Duplicate
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => handleDeleteShot(shot.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -163,10 +304,39 @@ export function ShotlistPanel({
     0
   );
 
-  const getStatusBadge = (status: ShotStatus) => {
+  const getStatusBadge = useCallback((status: ShotStatus) => {
     const colors = SHOT_STATUS_COLORS[status] || SHOT_STATUS_COLORS.planned;
     return colors;
-  };
+  }, []);
+
+  // Sensors for drag & drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end - log reorder for now
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      // Find which scene contains these shots
+      const allShots = scenesWithShots.flatMap(s => s.shots);
+      const oldIndex = allShots.findIndex(s => s.id === active.id);
+      const newIndex = allShots.findIndex(s => s.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        // TODO: Implement actual shot reordering persistence via API
+        console.log('Shot reorder requested:', { from: oldIndex, to: newIndex });
+      }
+    }
+  }, [scenesWithShots]);
 
   return (
     <div className={cn('flex flex-col h-full', className)}>
@@ -256,15 +426,15 @@ export function ShotlistPanel({
                       )}
                     >
                       {expandedScenes.has(scene.sceneId) ? (
-                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      ) : (
                         <ChevronUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       )}
                       <Film className="h-3 w-3 text-muted-foreground shrink-0" />
                       <span className="font-medium shrink-0">
                         {scene.sceneNumber}
                       </span>
-                      <span className="truncate text-muted-foreground flex-1 text-left">
+                      <span className="break-words text-muted-foreground flex-1 text-left min-w-0">
                         {scene.sceneHeading}
                       </span>
                       <span className="text-[10px] text-muted-foreground shrink-0">
@@ -285,7 +455,7 @@ export function ShotlistPanel({
                       )}
                     </button>
 
-                    {/* Shots list */}
+                    {/* Shots list with Drag & Drop */}
                     {expandedScenes.has(scene.sceneId) && (
                       <div className="border-t space-y-1 p-2">
                         {scene.shots.length === 0 ? (
@@ -302,82 +472,27 @@ export function ShotlistPanel({
                             <span>Add shot</span>
                           </button>
                         ) : (
-                          scene.shots.map((shot) => (
-                            <div
-                              key={shot.id}
-                              className={cn(
-                                'flex items-start gap-2 p-2 rounded-lg',
-                                'hover:bg-accent/30 transition-colors',
-                                'group'
-                              )}
+                          <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragEnd={handleDragEnd}
+                          >
+                            <SortableContext
+                              items={scene.shots.map(s => s.id)}
+                              strategy={verticalListSortingStrategy}
                             >
-                              {/* Shot number */}
-                              <div className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
-                                <span className="text-[10px] font-medium">
-                                  {shot.shotNumber}
-                                </span>
-                              </div>
-
-                              {/* Shot content */}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs line-clamp-2">
-                                  {shot.description || 'No description'}
-                                </p>
-                                <div className="flex items-center gap-1.5 mt-1">
-                                  <Badge
-                                    variant="secondary"
-                                    className={cn(
-                                      'text-[9px] px-1 py-0',
-                                      getStatusBadge(shot.status as ShotStatus)
-                                    )}
-                                  >
-                                    {shot.status}
-                                  </Badge>
-                                  {shot.shotType && (
-                                    <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
-                                      <Camera className="h-2.5 w-2.5" />
-                                      {SHOT_TYPE_LABELS[shot.shotType as ShotType]?.split(' ')[0] || shot.shotType}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Actions */}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 shrink-0"
-                                  >
-                                    <MoreHorizontal className="h-3 w-3" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-36">
-                                  <DropdownMenuItem
-                                    onClick={() => onEditShot?.(shot)}
-                                  >
-                                    <Edit2 className="h-3.5 w-3.5 mr-2" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleDuplicateShot(shot)}
-                                  >
-                                    <Copy className="h-3.5 w-3.5 mr-2" />
-                                    Duplicate
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    className="text-destructive"
-                                    onClick={() => handleDeleteShot(shot.id)}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          ))
+                              {scene.shots.map((shot) => (
+                                <SortableShotItem
+                                  key={shot.id}
+                                  shot={shot}
+                                  onEditShot={onEditShot}
+                                  handleDuplicateShot={handleDuplicateShot}
+                                  handleDeleteShot={handleDeleteShot}
+                                  getStatusBadge={getStatusBadge}
+                                />
+                              ))}
+                            </SortableContext>
+                          </DndContext>
                         )}
                       </div>
                     )}

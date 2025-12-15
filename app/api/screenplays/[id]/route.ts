@@ -248,8 +248,13 @@ export async function DELETE(
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error deleting screenplay:", error)
+    // Return more details in development
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
     return NextResponse.json(
-      { error: "Failed to delete screenplay" },
+      {
+        error: "Failed to delete screenplay",
+        details: process.env.NODE_ENV === "development" ? errorMessage : undefined
+      },
       { status: 500 }
     )
   }

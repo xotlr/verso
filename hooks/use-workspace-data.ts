@@ -111,7 +111,22 @@ export function useWorkspaceData(): UseWorkspaceDataReturn {
     const response = await fetch(endpoint, { method: 'DELETE' });
 
     if (!response.ok) {
-      throw new Error(`Failed to delete ${type}`);
+      // Try to get error details from response
+      let errorMessage = `Failed to delete ${type}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage = errorData.error;
+          // Include details if available (dev mode)
+          if (errorData.details) {
+            errorMessage += `: ${errorData.details}`;
+          }
+        }
+      } catch {
+        // Response wasn't JSON, use status text
+        errorMessage = `Failed to delete ${type}: ${response.status} ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
     }
 
     // Reload data after deletion

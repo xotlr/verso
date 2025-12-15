@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
 import { FileText, Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -111,7 +112,10 @@ function ActivityCard({ activity }: { activity: Activity }) {
         <div className="absolute -inset-0.5 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full opacity-80" />
         <Avatar className="h-16 w-16 relative border-2 border-background">
           <AvatarImage src={activity.user.image || ''} alt={activity.user.name || ''} />
-          <AvatarFallback className="bg-muted text-muted-foreground text-lg">
+          <AvatarFallback
+            className="text-lg font-medium text-white"
+            style={getSimpleGradientStyle(activity.user.id)}
+          >
             {activity.user.name?.charAt(0).toUpperCase() || '?'}
           </AvatarFallback>
         </Avatar>

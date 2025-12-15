@@ -106,6 +106,23 @@ export function AppHeader({ className }: AppHeaderProps) {
   const pathname = usePathname();
   const [dynamicTitle, setDynamicTitle] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  // Track online/offline status
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Listen for screenplay title updates
   useEffect(() => {
@@ -142,7 +159,7 @@ export function AppHeader({ className }: AppHeaderProps) {
 
   return (
     <header className={cn(
-      "sticky top-0 z-[60] flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4",
+      "sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4",
       className
     )}>
       {/* Desktop only: sidebar trigger */}
@@ -196,12 +213,26 @@ export function AppHeader({ className }: AppHeaderProps) {
       )}
 
       {/* Mobile: Page title - shows "Menu" when menu is open */}
-      <div className="md:hidden flex-1 text-center">
+      <div className="md:hidden flex-1 flex items-center justify-center gap-2">
         <span className="font-semibold text-sm">{menuOpen ? "Menu" : pageTitle}</span>
+        {/* Offline indicator - only shows when disconnected */}
+        {!isOnline && (
+          <div className="flex items-center gap-1 text-orange-500">
+            <div className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse" />
+            <span className="text-[10px] font-medium">Offline</span>
+          </div>
+        )}
       </div>
 
       {/* Desktop: Individual action buttons */}
       <div className="ml-auto hidden md:flex items-center gap-1">
+        {/* Offline indicator - only shows when disconnected */}
+        {!isOnline && (
+          <div className="flex items-center gap-1.5 mr-2 text-orange-500">
+            <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+            <span className="text-xs font-medium">Offline</span>
+          </div>
+        )}
         <Button
           variant="ghost"
           size="icon"

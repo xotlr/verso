@@ -10,13 +10,13 @@ import {
   ChevronDown,
   ChevronUp,
   Clapperboard,
-  GripVertical,
   Search,
   X,
   Plus,
   MoreHorizontal,
   Trash2,
   Copy,
+  GripVertical,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -25,6 +25,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { SceneInfo } from '@/hooks/editor/useProseMirrorEditor';
 import type { EditorView } from 'prosemirror-view';
 import { TextSelection } from 'prosemirror-state';
@@ -42,6 +58,123 @@ interface ScenesPanelProps {
   className?: string;
 }
 
+// Sortable scene item component
+interface SortableSceneItemProps {
+  scene: SceneInfo;
+  sceneIndex: number;
+  navigateToScene: (scene: SceneInfo) => void;
+  formatSceneHeading: (scene: SceneInfo) => string;
+}
+
+function SortableSceneItem({
+  scene,
+  sceneIndex,
+  navigateToScene,
+  formatSceneHeading,
+}: SortableSceneItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: scene.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        'group rounded-lg',
+        'hover:bg-accent/50',
+        'transition-colors',
+        isDragging && 'bg-accent shadow-lg'
+      )}
+    >
+      <div
+        className="w-full flex items-start gap-2 px-3 py-2.5 text-left cursor-pointer"
+        onClick={() => navigateToScene(scene)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            navigateToScene(scene);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+      >
+        {/* Drag handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="shrink-0 pt-0.5 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="h-4 w-4" />
+        </div>
+
+        {/* Scene number */}
+        <span className="w-7 font-mono text-xs font-medium text-muted-foreground shrink-0 pt-0.5 tabular-nums">
+          {scene.sceneNumber || `${sceneIndex + 1}`}
+        </span>
+
+        {/* Content - stacked, wrapping enabled */}
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-sm break-words">
+            {formatSceneHeading(scene)}
+          </div>
+          {scene.timeOfDay && (
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {scene.timeOfDay}
+            </div>
+          )}
+        </div>
+
+        {/* Actions - stop propagation to prevent navigation */}
+        <div
+          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onClick={() => navigateToScene(scene)}>
+                <Film className="h-4 w-4 mr-2" />
+                Go to scene
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Copy className="h-4 w-4 mr-2" />
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Scenes panel showing hierarchical act/scene structure with navigation.
  */
@@ -53,6 +186,18 @@ export function ScenesPanel({
 }: ScenesPanelProps) {
   const [expandedActs, setExpandedActs] = useState<Set<string>>(new Set(['act-1']));
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Sensors for drag & drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Group scenes into acts (every 10 scenes)
   const acts = useMemo(() => {
@@ -130,46 +275,63 @@ export function ScenesPanel({
     }
   }, [view]);
 
-  const formatSceneHeading = (scene: SceneInfo) => {
+  const formatSceneHeading = useCallback((scene: SceneInfo) => {
     const type = scene.type || 'INT';
     const location = scene.location || 'UNKNOWN';
     return `${type}. ${location}`;
-  };
+  }, []);
+
+  // Handle drag end - log reorder for now (document reordering is a separate feature)
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      // Find the scenes in the current order
+      const oldIndex = scenes.findIndex(s => s.id === active.id);
+      const newIndex = scenes.findIndex(s => s.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        // TODO: Implement actual document reordering via ProseMirror transaction
+        // This would involve moving scene_heading nodes and their associated content
+        console.log('Scene reorder requested:', { from: oldIndex, to: newIndex });
+      }
+    }
+  }, [scenes]);
 
   return (
     <div className={cn('flex flex-col h-full', className)}>
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+      <div className="px-5 py-4 border-b border-border flex items-center gap-2">
         <Film className="h-4 w-4 text-primary" />
-        <h2 className="font-semibold text-sm">Scenes</h2>
+        <h2 className="font-semibold text-base">Scenes</h2>
         <span className="text-xs text-muted-foreground ml-auto">
           {scenes.length}
         </span>
         {onAddScene && (
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddScene}>
-            <Plus className="h-3.5 w-3.5" />
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onAddScene}>
+            <Plus className="h-4 w-4" />
           </Button>
         )}
       </div>
 
       {/* Search */}
       {scenes.length > 5 && (
-        <div className="px-3 py-2 border-b border-border">
+        <div className="px-4 py-3 border-b border-border">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Search scenes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 pr-8 text-xs"
+              className="h-9 pl-9 pr-9 text-sm"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -178,113 +340,76 @@ export function ScenesPanel({
 
       {/* Content */}
       <ScrollArea className="flex-1">
-        <div className="p-3">
+        <div className="p-4">
           {filteredActs.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground text-sm">
-              <Film className="h-8 w-8 mx-auto mb-3 opacity-50" />
-              <p className="font-medium">
+            <div className="text-center py-12 text-muted-foreground">
+              <Film className="h-10 w-10 mx-auto mb-3 opacity-50" />
+              <p className="font-medium text-sm">
                 {searchQuery ? 'No matching scenes' : 'No scenes yet'}
               </p>
-              <p className="text-xs mt-1">
+              <p className="text-xs mt-1.5">
                 {searchQuery
                   ? 'Try a different search term'
                   : 'Start writing to see your story structure.'}
               </p>
             </div>
           ) : (
-            filteredActs.map((act) => (
-              <div key={act.id} className="mb-2">
-                {/* Act header */}
-                <button
-                  onClick={() => toggleAct(act.id)}
-                  className={cn(
-                    'w-full flex items-center justify-between',
-                    'px-2 py-2 rounded-lg',
-                    'text-xs font-medium',
-                    'hover:bg-accent',
-                    'transition-colors'
-                  )}
-                >
-                  <span className="flex items-center gap-2">
-                    <Clapperboard className="h-3.5 w-3.5 text-muted-foreground" />
-                    {act.name}
-                    <span className="text-muted-foreground">
-                      ({act.scenes.length})
+            <div className="space-y-3">
+              {filteredActs.map((act) => (
+                <div key={act.id}>
+                  {/* Act header */}
+                  <button
+                    onClick={() => toggleAct(act.id)}
+                    className={cn(
+                      'w-full flex items-center justify-between',
+                      'px-3 py-2.5 rounded-lg',
+                      'text-sm font-medium',
+                      'hover:bg-accent/50',
+                      'transition-colors'
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Clapperboard className="h-4 w-4 text-muted-foreground" />
+                      {act.name}
+                      <span className="text-xs text-muted-foreground font-normal">
+                        ({act.scenes.length})
+                      </span>
                     </span>
-                  </span>
-                  {expandedActs.has(act.id) ? (
-                    <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  )}
-                </button>
+                    {expandedActs.has(act.id) ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
 
-                {/* Scenes list */}
-                {expandedActs.has(act.id) && (
-                  <div className="ml-2 mt-1 space-y-0.5">
-                    {act.scenes.map((scene) => (
-                      <div
-                        key={scene.id}
-                        className={cn(
-                          'w-full flex items-center gap-2',
-                          'pl-3 pr-1 py-1.5 rounded-lg',
-                          'text-left text-xs',
-                          'hover:bg-accent',
-                          'transition-colors',
-                          'group'
-                        )}
+                  {/* Scenes list with drag & drop */}
+                  {expandedActs.has(act.id) && (
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext
+                        items={act.scenes.map(s => s.id)}
+                        strategy={verticalListSortingStrategy}
                       >
-                        <button
-                          onClick={() => navigateToScene(scene)}
-                          className="flex-1 flex items-center gap-2 min-w-0"
-                        >
-                          <GripVertical className="h-3 w-3 text-muted-foreground/30 opacity-0 group-hover:opacity-100 cursor-grab shrink-0" />
-                          <span className="w-5 font-mono text-muted-foreground text-[10px] shrink-0">
-                            {scene.sceneNumber || `${scenes.indexOf(scene) + 1}`}
-                          </span>
-                          <span className="flex-1 truncate">
-                            {formatSceneHeading(scene)}
-                          </span>
-                          {scene.timeOfDay && (
-                            <span className="text-[10px] text-muted-foreground/60 uppercase shrink-0">
-                              {scene.timeOfDay.slice(0, 3)}
-                            </span>
-                          )}
-                        </button>
-
-                        {/* Scene actions */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                            >
-                              <MoreHorizontal className="h-3.5 w-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem onClick={() => navigateToScene(scene)}>
-                              <Film className="h-3.5 w-3.5 mr-2" />
-                              Go to scene
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Copy className="h-3.5 w-3.5 mr-2" />
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
-                              <Trash2 className="h-3.5 w-3.5 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))
+                        <div className="mt-1 space-y-1">
+                          {act.scenes.map((scene) => (
+                            <SortableSceneItem
+                              key={scene.id}
+                              scene={scene}
+                              sceneIndex={scenes.indexOf(scene)}
+                              navigateToScene={navigateToScene}
+                              formatSceneHeading={formatSceneHeading}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </ScrollArea>

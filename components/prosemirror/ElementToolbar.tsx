@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Parentheses,
   ArrowRight,
+  FileText,
 } from 'lucide-react';
 import { ElementType, ELEMENT_CYCLE_ORDER } from '@/lib/prosemirror';
 import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
@@ -23,6 +24,7 @@ interface ElementToolbarProps {
 
 // Element type icons
 const ELEMENT_ICONS: Record<ElementType, React.ReactNode> = {
+  title_page: <FileText size={14} />,
   scene_heading: <AlignLeft size={14} />,
   action: <Type size={14} />,
   character: <User size={14} />,
@@ -34,6 +36,7 @@ const ELEMENT_ICONS: Record<ElementType, React.ReactNode> = {
 
 // Short labels for toolbar buttons
 const SHORT_LABELS: Record<ElementType, string> = {
+  title_page: 'Title',
   scene_heading: 'Scene',
   action: 'Action',
   character: 'Char',

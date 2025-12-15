@@ -61,15 +61,25 @@ export function isParenthetical(line: string): boolean {
 /**
  * Test if a line could be a character name
  * Note: Requires context (next line) to be definitive
+ *
+ * Handles character names with extensions like:
+ * - THEO (V.O.)
+ * - FELIX (O.S.)
+ * - NARRATOR (CONT'D)
  */
 export function couldBeCharacterName(line: string): boolean {
   const trimmed = line.trim();
+
+  // Remove extension (V.O.), (O.S.), (CONT'D), etc. before checking for periods
+  // Extensions are parenthesized and may contain periods
+  const withoutExtension = trimmed.replace(/\s*\([^)]+\)$/, '');
+
   return (
-    trimmed === trimmed.toUpperCase() &&
-    trimmed.length > 1 &&
-    trimmed.length < 50 &&
-    !NON_CHARACTER_KEYWORDS_REGEX.test(trimmed) &&
-    !trimmed.includes('.')
+    withoutExtension === withoutExtension.toUpperCase() &&
+    withoutExtension.length > 1 &&
+    withoutExtension.length < 50 &&
+    !NON_CHARACTER_KEYWORDS_REGEX.test(withoutExtension) &&
+    !withoutExtension.includes('.') // Check only the name part, not extension
   );
 }
 

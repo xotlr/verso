@@ -209,13 +209,17 @@ export type WorkerResponse = PaginateResponse | InitResponse | ErrorResponse;
  * Get display string for a page identifier
  */
 export function displayPageIdentifier(id: PageIdentifier): string {
+  if (!id || !id.type) return '';
+
   switch (id.type) {
     case 'Sequential':
-      return String(id.value);
+      return String(id.value ?? '');
     case 'Inserted':
-      return `${id.value.base}${id.value.suffix}`;
+      return `${id.value?.base ?? ''}${id.value?.suffix ?? ''}`;
     case 'Omitted':
-      return `${id.value} OMITTED`;
+      return `${id.value ?? ''} OMITTED`;
+    default:
+      return '';
   }
 }
 

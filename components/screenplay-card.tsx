@@ -79,12 +79,20 @@ export function ScreenplayCard({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit?.(screenplay.id)}>
+                <DropdownMenuItem onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onEdit?.(screenplay.id);
+                  }}>
                   <Edit3 className="mr-2 h-4 w-4" />
                   Edit
                 </DropdownMenuItem>
                 {onExport && (
-                  <DropdownMenuItem onClick={() => onExport(screenplay)}>
+                  <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onExport(screenplay);
+                    }}>
                     <Download className="mr-2 h-4 w-4" />
                     Export
                   </DropdownMenuItem>
@@ -92,7 +100,11 @@ export function ScreenplayCard({
                 {onRemove && (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => onRemove(screenplay.id)}>
+                    <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        onRemove(screenplay.id);
+                      }}>
                       <X className="mr-2 h-4 w-4" />
                       {removeLabel}
                     </DropdownMenuItem>
@@ -100,7 +112,11 @@ export function ScreenplayCard({
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => onDelete?.(screenplay.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onDelete?.(screenplay.id);
+                  }}
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />

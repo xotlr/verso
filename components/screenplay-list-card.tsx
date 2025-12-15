@@ -308,31 +308,51 @@ export function ScreenplayListCard({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {onEdit && (
-                    <DropdownMenuItem onClick={onEdit}>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onEdit();
+                    }}>
                       <Edit3 className="mr-2 h-4 w-4" />
                       Edit
                     </DropdownMenuItem>
                   )}
                   {onToggleFavorite && (
-                    <DropdownMenuItem onClick={onToggleFavorite}>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onToggleFavorite();
+                    }}>
                       <Star className={cn('mr-2 h-4 w-4', screenplay.isFavorite && 'fill-current')} />
                       {screenplay.isFavorite ? 'Unfavorite' : 'Favorite'}
                     </DropdownMenuItem>
                   )}
                   {onExport && (
-                    <DropdownMenuItem onClick={onExport}>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onExport();
+                    }}>
                       <Download className="mr-2 h-4 w-4" />
                       Export
                     </DropdownMenuItem>
                   )}
                   {onMoveToProject && (
-                    <DropdownMenuItem onClick={onMoveToProject}>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onMoveToProject();
+                    }}>
                       <FolderInput className="mr-2 h-4 w-4" />
                       Move to Project
                     </DropdownMenuItem>
                   )}
                   {onCreateProject && (
-                    <DropdownMenuItem onClick={onCreateProject}>
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onCreateProject();
+                    }}>
                       <FolderPlus className="mr-2 h-4 w-4" />
                       Create Project
                     </DropdownMenuItem>
@@ -341,7 +361,11 @@ export function ScreenplayListCard({
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        onClick={onDelete}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          onDelete();
+                        }}
                         className="text-destructive focus:text-destructive"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />

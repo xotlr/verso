@@ -14,6 +14,7 @@ import {
   Film,
   ArrowRight,
   ChevronDown,
+  FileText,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -75,6 +76,7 @@ function isMarkActive(state: EditorState, markType: string): boolean {
  * Element type icons.
  */
 const ELEMENT_ICONS: Record<ElementType, React.ReactNode> = {
+  title_page: <FileText className="h-4 w-4" />,
   scene_heading: <Film className="h-4 w-4" />,
   action: <Heading className="h-4 w-4" />,
   character: <User className="h-4 w-4" />,

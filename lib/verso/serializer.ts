@@ -7,6 +7,7 @@ import type { Element, ElementType } from './types';
 
 /**
  * Map ProseMirror node types to Verso element types
+ * Note: title_page is handled specially - it's always a full page and not sent to WASM
  */
 const NODE_TYPE_MAP: Record<string, ElementType> = {
   scene_heading: 'scene_heading',
@@ -19,6 +20,14 @@ const NODE_TYPE_MAP: Record<string, ElementType> = {
   dual_dialogue: 'dual_dialogue_left', // Container - will be handled specially
   dual_dialogue_column: 'dual_dialogue_left', // Will check position
 };
+
+/**
+ * Check if document has a title page as first node
+ */
+export function hasTitlePage(doc: ProseMirrorNode): boolean {
+  const firstChild = doc.firstChild;
+  return firstChild?.type.name === 'title_page';
+}
 
 /**
  * Convert a ProseMirror document to Verso Element array.
@@ -70,8 +79,8 @@ function convertNode(
 ): Element[] | null {
   const nodeType = node.type.name;
 
-  // Skip non-element nodes
-  if (nodeType === 'doc' || nodeType === 'text') {
+  // Skip non-element nodes and title_page (title page is always a full page, not paginated)
+  if (nodeType === 'doc' || nodeType === 'text' || nodeType === 'title_page') {
     return null;
   }
 

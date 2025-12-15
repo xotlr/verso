@@ -177,11 +177,73 @@ export function ProseMirrorEditor({
     editable,
   });
 
+  // Check if document has a title page (cover page)
+  const hasTitlePage = view?.state.doc.firstChild?.type.name === 'title_page';
+
   // Create page frames from WASM pagination result
+  // Always show at least 1 page frame, even before WASM returns
+  // If there's a title page, add it as page 1 and shift WASM pages
   const pageFrames = useMemo(() => {
-    if (!paginationResult) return [];
-    return createPageFramesFromWasm(paginationResult);
-  }, [paginationResult]);
+    const frames: Array<{
+      pageNumber: number;
+      pageIdentifier: { type: 'Sequential'; value: number } | { type: 'Inserted'; value: { base: number; suffix: string } } | { type: 'Omitted'; value: number };
+      yOffset: number;
+      hasMoreMarker: boolean;
+      contdText?: string;
+      characterName?: string;
+      isFirstPage?: boolean;
+    }> = [];
+
+    // Add title page frame if present (page 1, no page number shown)
+    if (hasTitlePage) {
+      frames.push({
+        pageNumber: 1,
+        pageIdentifier: { type: 'Sequential' as const, value: 1 },
+        yOffset: 0,
+        hasMoreMarker: false,
+        isFirstPage: true,  // Title page is always first
+      });
+    }
+
+    if (!paginationResult) {
+      // No WASM result yet - show single page (or just title page if present)
+      if (!hasTitlePage) {
+        frames.push({
+          pageNumber: 1,
+          pageIdentifier: { type: 'Sequential' as const, value: 1 },
+          yOffset: 0,
+          hasMoreMarker: false,
+          isFirstPage: true,  // First page when no title page
+        });
+      }
+      return frames;
+    }
+
+    // Add WASM page frames
+    const wasmFrames = createPageFramesFromWasm(paginationResult);
+
+    if (hasTitlePage) {
+      // Shift WASM pages: offset Y positions and increment page numbers
+      // Title page is already first, so WASM pages are never first
+      const titlePageOffset = PAGE_HEIGHT_PX + PAGE_GAP_PX;
+      wasmFrames.forEach((frame) => {
+        frames.push({
+          ...frame,
+          pageNumber: frame.pageNumber + 1,
+          pageIdentifier: frame.pageIdentifier.type === 'Sequential'
+            ? { type: 'Sequential' as const, value: frame.pageIdentifier.value + 1 }
+            : frame.pageIdentifier,
+          yOffset: frame.yOffset + titlePageOffset,
+          isFirstPage: false,  // Never first when title page exists
+        });
+      });
+    } else {
+      // No title page - first WASM frame is the first page
+      frames.push(...wasmFrames);
+    }
+
+    return frames;
+  }, [paginationResult, hasTitlePage]);
 
   // Check if in discrete mode
   const isDiscreteMode = viewMode === 'discrete';

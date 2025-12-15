@@ -169,8 +169,9 @@ export function TemplateSelector({ isOpen, onClose, onSelect: _onSelect, project
       if (selectedType === 'tv-series') {
         let seriesId = selectedSeriesId;
 
-        // If creating a new series, create it first
-        if (isCreatingNewSeries && newSeriesTitle.trim()) {
+        // If creating a new series (explicitly or no series exist), create it first
+        const shouldCreateNewSeries = isCreatingNewSeries || (!seriesList || seriesList.length === 0);
+        if (shouldCreateNewSeries && newSeriesTitle.trim()) {
           const seriesRes = await fetch('/api/series', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -226,8 +227,9 @@ export function TemplateSelector({ isOpen, onClose, onSelect: _onSelect, project
       case 'blank':
         return formData.title.trim().length > 0;
       case 'tv-series':
-        // Must have either selected series OR new series title
-        const hasSeriesSelection = selectedSeriesId || (isCreatingNewSeries && newSeriesTitle.trim().length > 0);
+        // Must have either selected series OR new series title (including when no series exist)
+        const shouldCreateNew = isCreatingNewSeries || (!seriesList || seriesList.length === 0);
+        const hasSeriesSelection = selectedSeriesId || (shouldCreateNew && newSeriesTitle.trim().length > 0);
         const hasEpisodeInfo = (formData.episodeTitle?.trim().length ?? 0) > 0 &&
           !!formData.season &&
           !!formData.episode;
@@ -235,7 +237,7 @@ export function TemplateSelector({ isOpen, onClose, onSelect: _onSelect, project
       default:
         return false;
     }
-  }, [selectedType, formData, selectedSeriesId, isCreatingNewSeries, newSeriesTitle]);
+  }, [selectedType, formData, selectedSeriesId, isCreatingNewSeries, newSeriesTitle, seriesList]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>

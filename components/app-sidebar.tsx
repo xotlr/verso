@@ -35,6 +35,7 @@ import { MdOutlineExplore, MdExplore } from 'react-icons/md';
 import { TeamSwitcher } from "@/components/team-switcher";
 
 import { cn } from '@/lib/utils';
+import "@/styles/sidebar-animations.css";
 import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -66,6 +67,7 @@ import { FormattingGuideDialog } from "@/components/formatting-guide-dialog";
 import { TemplateSelector } from "@/components/template-selector";
 import { NewProjectDialog } from "@/components/new-project-dialog";
 import { PendingInvitesDialog } from "@/components/pending-invites-dialog";
+import { UpgradeDialog } from "@/components/upgrade-dialog";
 import { usePendingInvites } from "@/hooks/use-pending-invites";
 import { Badge } from "@/components/ui/badge";
 
@@ -144,6 +146,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [invitesOpen, setInvitesOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   // Pending invites
   const { count: inviteCount } = usePendingInvites();
@@ -225,7 +228,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   ] : [];
 
   return (
-    <Sidebar collapsible="icon" className="border-r bg-sidebar">
+    <Sidebar collapsible="icon" className="border-r bg-sidebar sidebar-animated">
       {/* Header */}
       <SidebarHeader className="gap-3">
         <SidebarMenu>
@@ -397,8 +400,8 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
       </SidebarContent>
 
       {/* Footer */}
-      <SidebarFooter className="border-t border-border/50 p-2">
-        <SidebarMenu>
+      <SidebarFooter className="border-t border-border/50 p-2 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:py-2">
+        <SidebarMenu className="group-data-[collapsible=icon]:px-0">
           {/* User Account */}
           {user && (
             <SidebarMenuItem>
@@ -406,11 +409,20 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuButton
                     size="lg"
-                    className="bg-muted/50 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                    className={cn(
+                      "sidebar-user-button",
+                      "bg-muted/50 border border-border/50 rounded-xl",
+                      "hover:bg-primary/10 hover:border-primary/40",
+                      "data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                      // Collapsed state - proper sizing without !important
+                      "group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:w-12",
+                      "group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center"
+                    )}
                   >
-                    <div className="relative">
-                      <Avatar className="h-8 w-8 rounded-md">
-                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="rounded-md" />
+                    <div className="relative sidebar-avatar-animated">
+                      <Avatar className="h-8 w-8 rounded-md sidebar-avatar-ring">
+                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="rounded-md object-cover" />
                         <AvatarFallback
                           className="rounded-md text-white font-medium"
                           style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
@@ -419,18 +431,18 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                         </AvatarFallback>
                       </Avatar>
                       {inviteCount > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground sidebar-notification-badge">
                           {inviteCount > 9 ? '9+' : inviteCount}
                         </span>
                       )}
                     </div>
                     {!isCollapsed && (
                       <>
-                        <div className="grid flex-1 text-left text-sm leading-tight">
+                        <div className="grid flex-1 text-left text-sm leading-tight sidebar-text-animated">
                           <span className="truncate font-semibold">{user.name || "User"}</span>
                           <span className="truncate text-xs text-muted-foreground">{user.email}</span>
                         </div>
-                        <ChevronsUpDown className="ml-auto size-4" />
+                        <ChevronsUpDown className="ml-auto size-4 text-muted-foreground sidebar-chevron-animated" />
                       </>
                     )}
                   </SidebarMenuButton>
@@ -441,10 +453,10 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                   align="end"
                   sideOffset={4}
                 >
-                  <DropdownMenuLabel className="p-0 font-normal">
-                    <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                      <Avatar className="h-8 w-8 rounded-md">
-                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="rounded-md" />
+                  <DropdownMenuLabel className="px-3 py-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9 rounded-md ring-1 ring-border/10">
+                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="rounded-md object-cover" />
                         <AvatarFallback
                           className="rounded-md text-white font-medium"
                           style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
@@ -452,9 +464,9 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                           {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U"}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="grid flex-1 text-left text-sm leading-tight">
-                        <span className="truncate font-semibold">{user.name || "User"}</span>
-                        <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+                      <div className="flex-1">
+                        <p className="font-semibold text-sm">{user.name || "User"}</p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
                       </div>
                     </div>
                   </DropdownMenuLabel>
@@ -481,11 +493,9 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                         </Badge>
                       )}
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/settings" className="cursor-pointer">
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Upgrade to Pro
-                      </Link>
+                    <DropdownMenuItem onClick={() => setUpgradeOpen(true)} className="cursor-pointer">
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Upgrade to Pro
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
@@ -545,6 +555,10 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
       <PendingInvitesDialog
         open={invitesOpen}
         onOpenChange={setInvitesOpen}
+      />
+      <UpgradeDialog
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
       />
     </Sidebar>
   );

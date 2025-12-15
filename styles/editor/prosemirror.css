@@ -251,10 +251,15 @@
 }
 
 /* First element on page should not have top spacing (matches Google reference) */
+/* Note: This is overridden in discrete mode where we need top margin for page alignment */
 .pm-editor-page .ProseMirror > *:first-child {
   padding-top: 0 !important;
   margin-top: 0 !important;
 }
+
+/* Discrete mode: First element top margin is handled by pm-first-page-margin decoration widget.
+   This allows conditional logic (e.g., skip margin when title_page is first).
+   See createPageBreakDecorations() in pagination.ts */
 
 /* ============================================
    Screenplay Element Styles
@@ -471,7 +476,7 @@
 }
 
 /* ============================================
-   Placeholder
+   Placeholder / Ghost Text
    ============================================ */
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
@@ -479,6 +484,43 @@
   color: hsl(var(--muted-foreground) / 0.5);
   pointer-events: none;
   height: 0;
+}
+
+/* Ghost placeholders for empty screenplay elements */
+.pm-scene-heading:empty::before {
+  content: 'INT./EXT. LOCATION - TIME';
+  color: hsl(var(--muted-foreground) / 0.3);
+  pointer-events: none;
+}
+
+.pm-action:empty::before {
+  content: 'Describe what happens...';
+  color: hsl(var(--muted-foreground) / 0.3);
+  pointer-events: none;
+}
+
+.pm-character:empty::before {
+  content: 'CHARACTER NAME';
+  color: hsl(var(--muted-foreground) / 0.3);
+  pointer-events: none;
+}
+
+.pm-dialogue:empty::before {
+  content: 'Dialogue...';
+  color: hsl(var(--muted-foreground) / 0.3);
+  pointer-events: none;
+}
+
+.pm-parenthetical:empty::before {
+  content: '(wryly)';
+  color: hsl(var(--muted-foreground) / 0.3);
+  pointer-events: none;
+}
+
+.pm-transition:empty::before {
+  content: 'CUT TO:';
+  color: hsl(var(--muted-foreground) / 0.3);
+  pointer-events: none;
 }
 
 /* ============================================
@@ -939,8 +981,8 @@
 /* Individual page frame - background */
 .pm-page-frame {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  /* Positioned within already-centered container - don't double-center */
+  left: 0;
   width: 816px;
   height: 1056px;
   background: hsl(var(--page));
@@ -955,6 +997,7 @@
   position: absolute;
   top: 48px;
   right: 96px;
+  left: auto; /* Explicitly prevent left positioning */
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
   font-size: 16px;
   line-height: 16px;
@@ -964,14 +1007,21 @@
 
 /* Dark mode handled by CSS variables (--card-foreground) */
 
-/* Gap overlay between pages */
+/* Gap overlay between pages (continuous mode) - matches page frame centering */
 .pm-page-gap-overlay {
   position: absolute;
-  left: 0;
-  right: 0;
+  /* Center like page frames container */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 816px; /* Match PAGE_WIDTH_PX */
   background: hsl(var(--background));
   pointer-events: none;
   z-index: 1;
+}
+
+/* Discrete mode: Hide gap overlays - page frames already show gaps naturally */
+.pm-discrete-mode .pm-page-gap-overlay {
+  display: none;
 }
 
 /* Discrete mode: Content layer sits above page frames */
@@ -980,15 +1030,47 @@
   z-index: 2;
 }
 
-/* Discrete mode: Hide the old page break decorations */
+/* Discrete mode: Page break decorations create spacing but are completely invisible.
+   Page frames provide all visual page appearance (white cards, shadows, page numbers).
+   The decorations just create the vertical space needed for proper content positioning. */
 .pm-discrete-mode .pm-page-break-container {
-  display: none !important;
+  /* Keep in layout flow for spacing - don't use display:none! */
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Discrete mode: Page bottom fills remaining space on the page for proper alignment.
+   The --page-bottom-padding CSS variable is set dynamically based on lines_used from WASM.
+   This ensures content ends at the correct position before the gap. */
+.pm-discrete-mode .pm-page-bottom {
+  padding: 0;
+  /* Use the dynamic padding calculated from lines_used to fill remaining page space */
+  height: var(--page-bottom-padding, 0px);
+}
+
+/* Discrete mode: Page top has no extra padding - page frames handle margins */
+.pm-discrete-mode .pm-page-top {
+  padding: 0;
+  height: 0;
+}
+
+/* Discrete mode: Gap creates spacing between pages but is invisible.
+   The gap BETWEEN page frames shows the editor background naturally.
+   No need for the decoration to provide a background. */
+.pm-discrete-mode .pm-page-gap {
+  height: 40px; /* Must match PAGE_GAP_PX in page-frames.ts */
+  /* Keep invisible - the actual visual gap is between page frame overlays */
+  background: transparent;
 }
 
 /* Discrete mode: Editor pages container */
 .pm-discrete-mode .pm-editor-pages {
   position: relative;
   gap: 0;
+  /* Remove top/bottom padding so content aligns with page frames */
+  /* Page frames start at yOffset=0, so content must too */
+  padding-top: 0;
+  padding-bottom: 0;
   background: transparent;  /* Let page frames show through */
 }
 
@@ -1002,6 +1084,24 @@
   /* Remove fixed height so content can flow beyond one page */
   height: auto;
   min-height: auto;
+
+  /* Remove top/bottom padding - page break decorations handle margins for pages 2+ */
+  /* Keep left/right padding for horizontal content positioning */
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* First page top margin - rendered as a ProseMirror decoration widget
+   Note: CSS ::before pseudo-elements don't work with ProseMirror's contentEditable */
+.pm-first-page-margin {
+  display: block;
+  height: 96px; /* 1" top margin - matches PAGE_TOP_MARGIN */
+  pointer-events: none;
+}
+
+/* In continuous mode, hide the first-page margin spacer */
+.pm-continuous-mode .pm-first-page-margin {
+  display: none;
 }
 
 /* MORE/CONT'D indicators for dialogue continuation (discrete page mode) */
@@ -1035,6 +1135,86 @@
 .dark .pm-page-frame .pm-more-indicator,
 .dark .pm-page-frame .pm-contd-indicator {
   color: var(--pm-text-color-dark);
+}
+
+/* ============================================
+   Title Page (Cover Page) Styles
+   ============================================ */
+
+/* Title page container - takes full page height and centers child nodes */
+.pm-title-page {
+  height: 1056px; /* Full page height - PAGE_HEIGHT_PX */
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 24px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* All title page child elements - editable */
+.pm-title-page-title,
+.pm-title-page-author,
+.pm-title-page-logline {
+  outline: none;
+  min-height: 1.2em; /* Ensure clickable even when empty */
+  cursor: text;
+}
+
+/* Title - large, centered, uppercase */
+.pm-title-page-title {
+  font-size: 24px;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  text-transform: uppercase;
+  font-weight: normal;
+  letter-spacing: 0.02em;
+}
+
+/* Author block */
+.pm-title-page-author {
+  font-size: 16px;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  white-space: pre-line;
+  margin-top: 48px;
+  line-height: 24px;
+}
+
+/* Logline - smaller, italic */
+.pm-title-page-logline {
+  font-size: 14px;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  max-width: 400px;
+  margin-top: 24px;
+  font-style: italic;
+  line-height: 20px;
+}
+
+/* Empty state placeholders */
+.pm-title-page-title:empty::before {
+  content: 'UNTITLED';
+  color: hsl(var(--muted-foreground) / 0.4);
+  pointer-events: none;
+}
+
+.pm-title-page-author:empty::before {
+  content: 'Written by...';
+  color: hsl(var(--muted-foreground) / 0.4);
+  pointer-events: none;
+}
+
+.pm-title-page-logline:empty::before {
+  content: 'Logline (optional)';
+  color: hsl(var(--muted-foreground) / 0.4);
+  pointer-events: none;
+}
+
+/* In discrete mode, title page is the entire first page */
+.pm-discrete-mode .pm-title-page {
+  height: 1056px;
+  margin-top: 0 !important; /* Override first-child margin for title page */
 }
 
 /* Print: Hide page frames (browser handles page breaks) */

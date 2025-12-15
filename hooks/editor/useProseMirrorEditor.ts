@@ -228,12 +228,16 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
       return;
     }
 
-    // Update the pagination plugin with WASM results
-    updatePaginationState(view, pagination.result);
+    // Get the position map that was created during serialization.
+    // This ensures element IDs in the WASM result match the correct document positions.
+    const positionMap = pagination.getPositionMap();
+
+    // Update the pagination plugin with WASM results and the matching position map
+    updatePaginationState(view, pagination.result, positionMap);
 
     // Also update the page count from WASM
     setPageCount(pagination.pageCount);
-  }, [pagination.result, pagination.pageCount]);
+  }, [pagination.result, pagination.pageCount, pagination.getPositionMap]);
 
   // Create the editor state and view
   useEffect(() => {
@@ -248,6 +252,16 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
         characters: charactersRef.current,
         locations: locationsRef.current,
         onStateChange: setAutocompleteState,
+      },
+      // Cover page detection on paste
+      onCoverPageDetected: (coverPage) => {
+        // Log cover page detection for debugging
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[ProseMirror] Cover page detected:', coverPage);
+        }
+        // TODO: Connect to document metadata storage
+        // This could emit an event or call a callback prop to update
+        // the screenplay's title, author, logline, etc.
       },
     });
 

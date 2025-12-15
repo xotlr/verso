@@ -30,6 +30,8 @@ export interface PageFrame {
   contdText?: string;
   /** Character name for split dialogue */
   characterName?: string;
+  /** Whether this is the first page (should not show page number) */
+  isFirstPage?: boolean;
 }
 
 /**
@@ -91,6 +93,7 @@ export function createPageFramesFromWasm(
       hasMoreMarker,
       contdText,
       characterName,
+      isFirstPage: i === 0,  // First frame in WASM result
     });
   }
 
@@ -115,13 +118,17 @@ function getPageNumber(identifier: PageIdentifier): number {
  * Get display string for page identifier (e.g., "47", "47A")
  */
 export function displayPageIdentifier(identifier: PageIdentifier): string {
+  if (!identifier || !identifier.type) return '';
+
   switch (identifier.type) {
     case 'Sequential':
-      return String(identifier.value);
+      return String(identifier.value ?? '');
     case 'Inserted':
-      return `${identifier.value.base}${identifier.value.suffix}`;
+      return `${identifier.value?.base ?? ''}${identifier.value?.suffix ?? ''}`;
     case 'Omitted':
-      return String(identifier.value);
+      return String(identifier.value ?? '');
+    default:
+      return '';
   }
 }
 

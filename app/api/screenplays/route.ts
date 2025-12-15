@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import { z } from "zod"
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit"
+import { screenplaySchema } from "@/lib/prosemirror/schema"
+import { serializeForStorage } from "@/lib/prosemirror/serialization"
 
 // Plan limits for screenplay creation
 const PLAN_LIMITS: Record<string, number> = {
@@ -315,23 +317,70 @@ export async function POST(request: Request) {
       }
     }
 
-    // Validate content size (max 5MB)
-    const contentSize = new TextEncoder().encode(content || "").length
-    const MAX_CONTENT_SIZE = 5 * 1024 * 1024
-    if (contentSize > MAX_CONTENT_SIZE) {
-      return NextResponse.json(
-        { error: "Content too large. Maximum size is 5MB." },
-        { status: 400 }
-      )
-    }
+    // Generate initial content with populated title page if no content provided
+    let finalContent = content
+    let wordCount = 0
 
-    // Compute wordCount for the new screenplay
-    const wordCount = content ? content.split(/\s+/).filter(Boolean).length : 0
+    if (!content || content.trim() === "") {
+      // Create initial document with title page populated from form data
+      const authorName = session.user.name || "Written by..."
+
+      const initialDoc = screenplaySchema.nodeFromJSON({
+        type: "doc",
+        content: [
+          {
+            type: "title_page",
+            content: [
+              {
+                type: "title_page_title",
+                content: title ? [{ type: "text", text: title }] : undefined,
+              },
+              {
+                type: "title_page_author",
+                content: [{ type: "text", text: authorName }],
+              },
+              {
+                type: "title_page_logline",
+                content: logline ? [{ type: "text", text: logline }] : undefined,
+              },
+            ],
+          },
+          {
+            type: "scene_heading",
+            attrs: {
+              id: "scene-1",
+              type: "INT",
+              location: "",
+              timeOfDay: "DAY",
+              sceneNumber: null,
+            },
+          },
+          {
+            type: "action",
+          },
+        ],
+      })
+
+      finalContent = serializeForStorage(initialDoc)
+      // Word count from title page content
+      wordCount = [title, authorName, logline].filter(Boolean).join(" ").split(/\s+/).filter(Boolean).length
+    } else {
+      // Validate content size (max 5MB)
+      const contentSize = new TextEncoder().encode(content).length
+      const MAX_CONTENT_SIZE = 5 * 1024 * 1024
+      if (contentSize > MAX_CONTENT_SIZE) {
+        return NextResponse.json(
+          { error: "Content too large. Maximum size is 5MB." },
+          { status: 400 }
+        )
+      }
+      wordCount = content.split(/\s+/).filter(Boolean).length
+    }
 
     const screenplay = await prisma.screenplay.create({
       data: {
         title,
-        content,
+        content: finalContent,
         wordCount,
         synopsis: logline || synopsis || null, // logline maps to synopsis
         userId: session.user.id,

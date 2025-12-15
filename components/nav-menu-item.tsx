@@ -46,6 +46,7 @@ export function NavMenuItem({
 
   return (
     <SidebarMenuItem
+      className="sidebar-menu-item"
       style={{ '--stagger-delay': `${index * 50}ms` } as React.CSSProperties}
     >
       <TooltipProvider delayDuration={150}>
@@ -67,7 +68,7 @@ export function NavMenuItem({
                 >
                   <div className="relative mr-2 group-data-[collapsible=icon]:mr-0 flex-shrink-0">
                     <CurrentIcon className={cn(
-                      "h-4 w-4 transition-colors duration-150",
+                      "h-4 w-4 transition-colors duration-150 sidebar-menu-icon",
                       isActive ? "text-foreground" : "text-muted-foreground group-hover/item:text-foreground"
                     )} />
                     {notification && (
@@ -90,7 +91,7 @@ export function NavMenuItem({
                   )}
                 >
                   <div className="relative mr-2 group-data-[collapsible=icon]:mr-0 flex-shrink-0">
-                    <CurrentIcon className="h-4 w-4 transition-colors duration-150 group-hover/item:text-foreground" />
+                    <CurrentIcon className="h-4 w-4 transition-colors duration-150 sidebar-menu-icon group-hover/item:text-foreground" />
                     {notification && (
                       <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-primary rounded-full" />
                     )}
