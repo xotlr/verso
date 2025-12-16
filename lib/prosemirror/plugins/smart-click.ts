@@ -79,8 +79,13 @@ function findNearestEditableBlock(doc: Node, clickedPos: number): number | null 
       // Track nearest block
       if (distance < minDistance) {
         minDistance = distance;
-        // Position cursor at start of block (+1 to be inside the node)
-        nearestPos = blockStart + 1;
+        if (distance === 0) {
+          // Clicked inside this block - preserve exact click position
+          nearestPos = clickedPos;
+        } else {
+          // Clicked outside block - position cursor at start of block (+1 to be inside the node)
+          nearestPos = blockStart + 1;
+        }
       }
     }
   });

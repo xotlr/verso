@@ -48,6 +48,68 @@ const goToEnd: Command = (state, dispatch) => {
 };
 
 /**
+ * Go to previous scene heading command.
+ * Finds the nearest scene_heading before the current cursor position.
+ */
+const goToPreviousScene: Command = (state, dispatch) => {
+  const { $head } = state.selection;
+  const currentPos = $head.pos;
+  let targetPos: number | null = null;
+
+  // Walk through doc to find all scene headings before cursor
+  state.doc.descendants((node, pos) => {
+    if (node.type.name === 'scene_heading') {
+      // Only consider scenes that START before our current position
+      if (pos < currentPos) {
+        // Keep track of the closest one (later in doc = closer to cursor)
+        targetPos = pos;
+      }
+    }
+    return true;
+  });
+
+  if (targetPos !== null && dispatch) {
+    const $target = state.doc.resolve(targetPos);
+    const tr = state.tr.setSelection(Selection.near($target));
+    dispatch(tr.scrollIntoView());
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Go to next scene heading command.
+ * Finds the nearest scene_heading after the current cursor position.
+ */
+const goToNextScene: Command = (state, dispatch) => {
+  const { $head } = state.selection;
+  const currentPos = $head.pos;
+  let targetPos: number | null = null;
+
+  // Walk through doc to find first scene heading after cursor
+  state.doc.descendants((node, pos) => {
+    if (node.type.name === 'scene_heading') {
+      // Only consider scenes that START after our current position
+      if (pos > currentPos && targetPos === null) {
+        targetPos = pos;
+        return false; // Stop searching once we find the first one
+      }
+    }
+    return true;
+  });
+
+  if (targetPos !== null && dispatch) {
+    const $target = state.doc.resolve(targetPos);
+    const tr = state.tr.setSelection(Selection.near($target));
+    dispatch(tr.scrollIntoView());
+    return true;
+  }
+
+  return false;
+};
+
+/**
  * Map of shortcut IDs to their ProseMirror commands.
  * Note: Some shortcuts (like save, centerLine) are handled at the React level,
  * not in ProseMirror, so they're not included here.
@@ -64,8 +126,11 @@ const SHORTCUT_COMMANDS: Partial<Record<ShortcutId, Command>> = {
   setDialogue: elementCommands.setDialogue,
   setParenthetical: elementCommands.setParenthetical,
   setTransition: elementCommands.setTransition,
+  setShot: elementCommands.setShot,
   goToStart,
   goToEnd,
+  prevScene: goToPreviousScene,
+  nextScene: goToNextScene,
 };
 
 /**
@@ -128,4 +193,4 @@ export function createBaseKeymapPlugin(): Plugin {
   return keymap(baseKeymap);
 }
 
-export { toggleBold, toggleItalic, toggleUnderline, goToStart, goToEnd };
+export { toggleBold, toggleItalic, toggleUnderline, goToStart, goToEnd, goToPreviousScene, goToNextScene };

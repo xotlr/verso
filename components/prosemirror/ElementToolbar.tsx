@@ -11,6 +11,7 @@ import {
   Parentheses,
   ArrowRight,
   FileText,
+  Camera,
 } from 'lucide-react';
 import { ElementType, ELEMENT_CYCLE_ORDER } from '@/lib/prosemirror';
 import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
@@ -31,7 +32,9 @@ const ELEMENT_ICONS: Record<ElementType, React.ReactNode> = {
   dialogue: <MessageSquare size={14} />,
   parenthetical: <Parentheses size={14} />,
   transition: <ArrowRight size={14} />,
+  shot: <Camera size={14} />,
   dual_dialogue: <MessageSquare size={14} />,
+  ending: <Type size={14} />,
 };
 
 // Short labels for toolbar buttons
@@ -43,7 +46,9 @@ const SHORT_LABELS: Record<ElementType, string> = {
   dialogue: 'Dialog',
   parenthetical: 'Paren',
   transition: 'Trans',
+  shot: 'Shot',
   dual_dialogue: 'Dual',
+  ending: 'End',
 };
 
 // Auto-hide timeout in milliseconds

@@ -635,9 +635,8 @@ export function createPaginationPlugin(): Plugin {
           };
         }
 
-        // If document changed, keep previous page breaks (stale but fast)
-        // WASM will update with accurate results shortly
-        // Only recalculate fallback on first load (when we have no page breaks)
+        // If document changed, map previous page break positions through the transaction
+        // This keeps decorations at sensible positions while waiting for WASM
         if (tr.docChanged) {
           if (prevState.pageBreaks.length === 0) {
             // First calculation - use fallback
@@ -651,9 +650,16 @@ export function createPaginationPlugin(): Plugin {
               source: 'fallback',
             };
           }
-          // Keep stale page breaks - WASM will update shortly
+          // Map page break positions through the transaction to keep them valid
+          // This prevents decorations from jumping to wrong positions during WASM update
+          const mappedBreaks = prevState.pageBreaks.map(pb => ({
+            ...pb,
+            position: tr.mapping.map(pb.position),
+          })).filter(pb => pb.position >= 0 && pb.position <= newState.doc.content.size);
+
           return {
             ...prevState,
+            pageBreaks: mappedBreaks,
             wasmResult: null,
             source: 'stale',
           };

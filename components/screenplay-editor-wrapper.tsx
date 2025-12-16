@@ -7,6 +7,7 @@ import { VersionHistorySidebar } from "./version-history-sidebar";
 import { VersionCompareDialog } from "./version-compare-dialog";
 import { SceneWorkspacePanel } from "./scene-workspace-panel";
 import { ScreenplayDetailsDrawer } from "./screenplay-details-drawer";
+import { ShareDialog } from "./share-dialog";
 import { EditorPanel, EditorPanelProvider } from "./editor/EditorPanel";
 import { CollaborationAvatars } from "./collaboration/CollaborationAvatars";
 import { Scene, Character, Location } from "@/types/screenplay";
@@ -42,6 +43,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   const [compareVersion, setCompareVersion] = useState<ScreenplayVersion | null>(null);
   const [sceneWorkspaceScene, setSceneWorkspaceScene] = useState<Scene | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [sceneInfos, setSceneInfos] = useState<SceneInfo[]>([]);
   const [charInfos, setCharInfos] = useState<CharacterInfo[]>([]);
@@ -456,6 +458,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           showStats={true}
           scenes={sceneInfos}
           characters={charInfos}
+          onShare={() => setIsShareDialogOpen(true)}
         />
       </div>
 
@@ -504,6 +507,12 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         season={season}
         episode={episode}
         episodeTitle={episodeTitle}
+      />
+      <ShareDialog
+        open={isShareDialogOpen}
+        onOpenChange={setIsShareDialogOpen}
+        screenplayId={screenplayId}
+        screenplayTitle={screenplayTitle}
       />
       </div>
     </EditorPanelProvider>

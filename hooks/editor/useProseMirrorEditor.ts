@@ -48,6 +48,16 @@ export interface CharacterInfo {
   dialogueCount: number;
 }
 
+export interface ShotInfo {
+  id: string;
+  shotType: string | null;
+  subject: string | null;
+  content: string;
+  position: number;
+  sceneId: string | null;
+  linkedShotId: string | null;
+}
+
 export interface UseProseMirrorEditorReturn {
   containerRef: React.RefObject<HTMLDivElement>;
   view: EditorView | null;
@@ -186,6 +196,52 @@ function extractCharacters(doc: ProseMirrorNode): CharacterInfo[] {
 
   return Array.from(characterMap.values()).sort((a, b) => b.dialogueCount - a.dialogueCount);
 }
+
+/**
+ * Extract shot information from document.
+ * Returns shots with their scene context.
+ */
+function extractShots(doc: ProseMirrorNode, scenes: SceneInfo[]): ShotInfo[] {
+  const shots: ShotInfo[] = [];
+  let shotIndex = 0;
+
+  doc.forEach((node, offset) => {
+    if (node.type.name === 'shot') {
+      shotIndex++;
+      // Find which scene this shot belongs to
+      let currentSceneId: string | null = null;
+      for (const scene of scenes) {
+        if (scene.position < offset) {
+          currentSceneId = scene.id;
+        } else {
+          break;
+        }
+      }
+
+      // Generate deterministic ID
+      const contentHash = node.textContent
+        .slice(0, 20)
+        .replace(/[^a-z0-9]/gi, '')
+        .toLowerCase();
+      const id = `shot-${shotIndex}-${offset}-${contentHash || 'empty'}`;
+
+      shots.push({
+        id,
+        shotType: node.attrs.shotType || null,
+        subject: node.attrs.subject || null,
+        content: node.textContent,
+        position: offset,
+        sceneId: currentSceneId,
+        linkedShotId: node.attrs.linkedShotId || null,
+      });
+    }
+  });
+
+  return shots;
+}
+
+// Export extractShots for use by other components
+export { extractShots };
 
 /**
  * Main hook for ProseMirror screenplay editor.

@@ -35,6 +35,7 @@ export type AutocompleteContext =
   | 'character'         // Character name suggestions
   | 'extension'         // V.O./O.S./CONT'D suggestions
   | 'transition'        // CUT TO:/FADE TO:/etc. suggestions
+  | 'shot'              // WIDE SHOT/CLOSE-UP/etc. suggestions
   | 'none';
 
 /**
@@ -98,6 +99,25 @@ const TRANSITIONS: AutocompleteSuggestion[] = [
 ];
 
 /**
+ * Shot type suggestions.
+ */
+const SHOT_TYPES: AutocompleteSuggestion[] = [
+  { label: 'WIDE SHOT', value: 'WIDE SHOT ', category: 'extension', description: 'Wide/establishing view' },
+  { label: 'CLOSE-UP', value: 'CLOSE-UP ', category: 'extension', description: 'Tight on subject' },
+  { label: 'EXTREME CLOSE-UP', value: 'EXTREME CLOSE-UP ', category: 'extension', description: 'Very tight detail shot' },
+  { label: 'MEDIUM SHOT', value: 'MEDIUM SHOT ', category: 'extension', description: 'Waist-up framing' },
+  { label: 'TWO-SHOT', value: 'TWO-SHOT ', category: 'extension', description: 'Two people in frame' },
+  { label: 'OVER THE SHOULDER', value: 'OVER THE SHOULDER ', category: 'extension', description: 'OTS shot' },
+  { label: 'POV', value: 'POV ', category: 'extension', description: 'Point of view' },
+  { label: 'INSERT', value: 'INSERT ', category: 'extension', description: 'Detail/insert shot' },
+  { label: 'ANGLE ON', value: 'ANGLE ON ', category: 'extension', description: 'Specific angle' },
+  { label: 'TRACKING SHOT', value: 'TRACKING SHOT ', category: 'extension', description: 'Moving camera' },
+  { label: 'ESTABLISHING SHOT', value: 'ESTABLISHING SHOT ', category: 'extension', description: 'Location establishing' },
+  { label: 'LOW ANGLE', value: 'LOW ANGLE ', category: 'extension', description: 'Looking up' },
+  { label: 'HIGH ANGLE', value: 'HIGH ANGLE ', category: 'extension', description: 'Looking down' },
+];
+
+/**
  * Determine autocomplete context from current state.
  */
 function getContext(state: EditorState): { context: AutocompleteContext; query: string } {
@@ -143,6 +163,20 @@ function getContext(state: EditorState): { context: AutocompleteContext; query: 
   // Transition context
   if (parentType === 'transition') {
     return { context: 'transition', query: textBeforeCursor };
+  }
+
+  // Shot context
+  if (parentType === 'shot') {
+    return { context: 'shot', query: textBeforeCursor };
+  }
+
+  // Check for shot patterns in action (to trigger conversion)
+  if (parentType === 'action') {
+    // Match partial shot type at start of line
+    const shotPrefixMatch = textBeforeCursor.match(/^(W|WI|WID|WIDE|WIDE |C|CL|CLO|CLOS|CLOSE|M|ME|MED|MEDI|MEDIU|MEDIUM|T|TW|TWO|P|PO|POV|I|IN|INS|INSE|INSER|INSERT|A|AN|ANG|ANGL|ANGLE|O|OV|OVE|OVER|E|ES|EST|ESTA|ESTAB|ESTABL|ESTABLI|ESTABLIS|ESTABLISHI|ESTABLISHIN|ESTABLISHING|TR|TRA|TRAC|TRACK|TRACKI|TRACKIN|TRACKING|L|LO|LOW|H|HI|HIG|HIGH)$/i);
+    if (shotPrefixMatch) {
+      return { context: 'shot', query: textBeforeCursor };
+    }
   }
 
   return { context: 'none', query: '' };
@@ -196,6 +230,11 @@ function getSuggestions(
     case 'transition':
       return TRANSITIONS.filter((s) =>
         s.label.toLowerCase().includes(lowerQuery)
+      );
+
+    case 'shot':
+      return SHOT_TYPES.filter((s) =>
+        s.label.toLowerCase().startsWith(lowerQuery)
       );
 
     default:
@@ -276,7 +315,10 @@ export function createAutocompletePlugin(options: AutocompletePluginOptions = {}
     props: {
       handleKeyDown(view, event) {
         const state = autocompletePluginKey.getState(view.state) as AutocompleteState;
-        if (!state?.active) return false;
+
+        // Only intercept keys if autocomplete is active AND has suggestions to navigate
+        // This prevents arrow keys from being captured when no dropdown is showing
+        if (!state?.active || state.suggestions.length === 0) return false;
 
         switch (event.key) {
           case 'ArrowDown': {

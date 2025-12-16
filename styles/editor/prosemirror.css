@@ -435,6 +435,42 @@
   text-align: right;
 }
 
+/* Ending - THE END centered element */
+.ProseMirror .pm-ending {
+  padding-top: 48px; /* 3rem generous spacing before THE END */
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Shot - camera direction/shot description */
+.ProseMirror .pm-shot {
+  /* Use action spacing - shots are similar to action lines */
+  padding-top: var(--pm-space-action);
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: 0;
+  margin-right: 0;
+
+  text-transform: uppercase;
+  color: var(--pm-color-shot, hsl(var(--foreground)));
+  /* Subtle differentiation from regular action */
+  font-weight: 500;
+}
+
+/* Shot placeholder when empty */
+.pm-shot:empty::before {
+  content: 'SHOT';
+  color: hsl(var(--muted-foreground) / 0.3);
+  pointer-events: none;
+}
+
 /* Dual Dialogue - .ProseMirror prefix for higher specificity than reset */
 .ProseMirror .pm-dual-dialogue {
   display: flex;
@@ -605,6 +641,8 @@
   pointer-events: none;
   user-select: none;
   overflow: visible; /* Prevent clipping at different zoom levels */
+  /* Smooth transitions during WASM pagination updates */
+  transition: opacity 150ms ease-out;
 }
 
 /* Zone 1: Previous page bottom edge - creates visual end */
@@ -620,6 +658,9 @@
 
   /* Transparent - shows editor background through gap */
   background: transparent;
+
+  /* Smooth height transitions during pagination updates */
+  transition: height 150ms ease-out;
 }
 
 /* Zone 2: Gap between pages - visible separator with page indicator */

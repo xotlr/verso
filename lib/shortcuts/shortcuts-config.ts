@@ -20,6 +20,7 @@ export type ShortcutId =
   | 'setDialogue'
   | 'setParenthetical'
   | 'setTransition'
+  | 'setShot'
   // Element cycling
   | 'cycleElementNext'
   | 'cycleElementPrev'
@@ -82,6 +83,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
   setDialogue: shortcut('setDialogue', ['Mod', '4'], 'Dialogue', 'elements'),
   setParenthetical: shortcut('setParenthetical', ['Mod', '5'], 'Parenthetical', 'elements'),
   setTransition: shortcut('setTransition', ['Mod', '6'], 'Transition', 'elements'),
+  setShot: shortcut('setShot', ['Mod', '7'], 'Shot', 'elements'),
 
   // Element cycling - these are core to the editor flow and not editable
   cycleElementNext: shortcut('cycleElementNext', ['Tab'], 'Cycle through element types', 'elements', false),

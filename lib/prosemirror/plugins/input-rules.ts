@@ -2,6 +2,7 @@ import { InputRule, inputRules } from 'prosemirror-inputrules';
 import { NodeType } from 'prosemirror-model';
 import { Plugin } from 'prosemirror-state';
 import { screenplaySchema } from '../schema';
+import { detectShot } from '@/lib/screenplay-patterns';
 
 /**
  * Input rule that converts to a specific node type when pattern matches.
@@ -134,7 +135,184 @@ const transitionRules = [
     /^FADE OUT\.\s$/i,
     screenplaySchema.nodes.transition
   ),
+
+  // CUT TO BLACK.
+  nodeInputRule(
+    /^CUT TO BLACK\.?\s$/i,
+    screenplaySchema.nodes.transition
+  ),
+
+  // FADE TO BLACK.
+  nodeInputRule(
+    /^FADE TO BLACK\.?\s$/i,
+    screenplaySchema.nodes.transition
+  ),
+
+  // FADE OUT TO BLACK.
+  nodeInputRule(
+    /^FADE OUT TO BLACK\.?\s$/i,
+    screenplaySchema.nodes.transition
+  ),
+
+  // IRIS OUT.
+  nodeInputRule(
+    /^IRIS OUT\.?\s$/i,
+    screenplaySchema.nodes.transition
+  ),
+
+  // IRIS IN.
+  nodeInputRule(
+    /^IRIS IN\.?\s$/i,
+    screenplaySchema.nodes.transition
+  ),
+
+  // WIPE TO:
+  nodeInputRule(
+    /^WIPE TO:\s$/i,
+    screenplaySchema.nodes.transition
+  ),
+
+  // JUMP CUT TO:
+  nodeInputRule(
+    /^JUMP CUT TO:\s$/i,
+    screenplaySchema.nodes.transition
+  ),
 ];
+
+/**
+ * Ending input rules.
+ * Triggers on THE END and similar patterns.
+ */
+const endingRules = [
+  // THE END (with optional period)
+  nodeInputRule(
+    /^THE END\.?\s$/i,
+    screenplaySchema.nodes.ending
+  ),
+
+  // FADE OUT. THE END (common ending pattern)
+  nodeInputRule(
+    /^FADE OUT\.\s*THE END\.?\s$/i,
+    screenplaySchema.nodes.ending
+  ),
+];
+
+/**
+ * Shot input rules.
+ * Triggers on common shot patterns followed by space or subject.
+ */
+const shotRules = [
+  // Wide shots
+  nodeInputRule(
+    /^(WIDE SHOT|WS|WIDE ON)\s$/i,
+    screenplaySchema.nodes.shot,
+    (match) => ({ shotType: 'WIDE', subject: null })
+  ),
+
+  // Close-up shots
+  nodeInputRule(
+    /^(CLOSE-?UP|CU|CLOSE ON)\s$/i,
+    screenplaySchema.nodes.shot,
+    (match) => ({ shotType: 'CLOSE_UP', subject: null })
+  ),
+
+  // Extreme close-up
+  nodeInputRule(
+    /^(EXTREME CLOSE-?UP|ECU|XCU)\s$/i,
+    screenplaySchema.nodes.shot,
+    (match) => ({ shotType: 'EXTREME_CLOSE_UP', subject: null })
+  ),
+
+  // Medium shots
+  nodeInputRule(
+    /^(MEDIUM SHOT|MS|MEDIUM)\s$/i,
+    screenplaySchema.nodes.shot,
+    (match) => ({ shotType: 'MEDIUM', subject: null })
+  ),
+
+  // Two-shot
+  nodeInputRule(
+    /^(TWO-?SHOT|2-?SHOT)\s$/i,
+    screenplaySchema.nodes.shot,
+    (match) => ({ shotType: 'TWO_SHOT', subject: null })
+  ),
+
+  // POV
+  nodeInputRule(
+    /^(POV|P\.O\.V\.)\s$/i,
+    screenplaySchema.nodes.shot,
+    (match) => ({ shotType: 'POV', subject: null })
+  ),
+
+  // Insert
+  nodeInputRule(
+    /^INSERT\s$/i,
+    screenplaySchema.nodes.shot,
+    (match) => ({ shotType: 'INSERT', subject: null })
+  ),
+
+  // Angle on
+  nodeInputRule(
+    /^ANGLE ON\s$/i,
+    screenplaySchema.nodes.shot,
+    (match) => ({ shotType: 'ANGLE_ON', subject: null })
+  ),
+
+  // Over the shoulder
+  nodeInputRule(
+    /^(OVER THE SHOULDER|OTS|O\/S SHOT)\s$/i,
+    screenplaySchema.nodes.shot,
+    (match) => ({ shotType: 'OVER_SHOULDER', subject: null })
+  ),
+
+  // Tracking shot
+  nodeInputRule(
+    /^(TRACKING SHOT|TRACKING)\s$/i,
+    screenplaySchema.nodes.shot,
+    (match) => ({ shotType: 'TRACKING', subject: null })
+  ),
+
+  // Establishing shot
+  nodeInputRule(
+    /^(ESTABLISHING SHOT|ESTABLISHING)\s$/i,
+    screenplaySchema.nodes.shot,
+    (match) => ({ shotType: 'ESTABLISHING', subject: null })
+  ),
+];
+
+/**
+ * Smart shot detection input rule.
+ * Auto-detects shot patterns and converts to shot element with appropriate attributes.
+ */
+const smartShotRule = new InputRule(
+  // Match shot patterns with subject after a separator
+  /^(WIDE SHOT|WS|WIDE ON|CLOSE-?UP|CU|CLOSE ON|EXTREME CLOSE-?UP|ECU|XCU|MEDIUM SHOT|MS|TWO-?SHOT|2-?SHOT|POV|INSERT|ANGLE ON|OTS|TRACKING|ESTABLISHING)\s*[-:–—]\s*(.+)$/i,
+  (state, match, start, end) => {
+    const $start = state.doc.resolve(start);
+
+    // Only at start of block
+    if ($start.parentOffset !== 0) {
+      return null;
+    }
+
+    const fullText = match[0];
+    const detected = detectShot(fullText);
+
+    if (!detected) {
+      return null;
+    }
+
+    const nodeType = screenplaySchema.nodes.shot;
+    if (!$start.parent.canReplaceWith($start.index(), $start.index(), nodeType)) {
+      return null;
+    }
+
+    return state.tr.setBlockType(start, end, nodeType, {
+      shotType: detected.shotType,
+      subject: detected.subject,
+    });
+  }
+);
 
 /**
  * Parenthetical input rule.
@@ -220,6 +398,9 @@ export function createInputRulesPlugin(): Plugin {
     rules: [
       ...sceneHeadingRules,
       ...transitionRules,
+      ...endingRules,
+      ...shotRules,
+      smartShotRule,
       parentheticalRule,
       ...smartQuotesRules,
       emDashRule,
@@ -228,4 +409,4 @@ export function createInputRulesPlugin(): Plugin {
   });
 }
 
-export { sceneHeadingRules, transitionRules, parentheticalRule };
+export { sceneHeadingRules, transitionRules, shotRules, parentheticalRule };

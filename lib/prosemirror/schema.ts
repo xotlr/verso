@@ -192,6 +192,80 @@ const transition: NodeSpec = {
   },
 };
 
+// Ending node (THE END - centered, special styling)
+const ending: NodeSpec = {
+  content: 'text*',
+  group: 'block',
+  parseDOM: [{ tag: 'p.pm-ending' }],
+  toDOM(): DOMOutputSpec {
+    return ['p', { class: 'pm-ending' }, 0];
+  },
+};
+
+// Shot type enumeration
+export type ShotType =
+  | 'WIDE'
+  | 'EXTREME_WIDE'
+  | 'MEDIUM'
+  | 'MEDIUM_WIDE'
+  | 'MEDIUM_CLOSE'
+  | 'CLOSE_UP'
+  | 'EXTREME_CLOSE_UP'
+  | 'TWO_SHOT'
+  | 'THREE_SHOT'
+  | 'GROUP_SHOT'
+  | 'OVER_SHOULDER'
+  | 'POV'
+  | 'INSERT'
+  | 'ANGLE_ON'
+  | 'MOVING'
+  | 'TRACKING'
+  | 'ESTABLISHING'
+  | 'AERIAL'
+  | 'LOW_ANGLE'
+  | 'HIGH_ANGLE'
+  | 'DUTCH_ANGLE'
+  | null;
+
+// Shot node (camera direction/shot description)
+const shot: NodeSpec = {
+  content: 'text*',
+  group: 'block',
+  attrs: {
+    shotType: { default: null }, // ShotType or null
+    subject: { default: null }, // What the shot is focused on
+    linkedShotId: { default: null }, // Link to shotlist entry
+    sceneId: { default: null }, // Parent scene reference
+  },
+  parseDOM: [
+    {
+      tag: 'p.pm-shot',
+      getAttrs(dom) {
+        const el = dom as HTMLElement;
+        return {
+          shotType: el.getAttribute('data-shot-type'),
+          subject: el.getAttribute('data-subject'),
+          linkedShotId: el.getAttribute('data-linked-shot-id'),
+          sceneId: el.getAttribute('data-scene-id'),
+        };
+      },
+    },
+  ],
+  toDOM(node): DOMOutputSpec {
+    return [
+      'p',
+      {
+        class: 'pm-shot',
+        'data-shot-type': node.attrs.shotType,
+        'data-subject': node.attrs.subject,
+        'data-linked-shot-id': node.attrs.linkedShotId,
+        'data-scene-id': node.attrs.sceneId,
+      },
+      0,
+    ];
+  },
+};
+
 // Dual dialogue container (two characters speaking simultaneously)
 const dual_dialogue: NodeSpec = {
   content: 'dual_dialogue_column dual_dialogue_column',
@@ -242,6 +316,8 @@ const nodes: Record<string, NodeSpec> = {
   dialogue,
   parenthetical,
   transition,
+  ending,
+  shot,
   dual_dialogue,
   dual_dialogue_column,
 
@@ -301,6 +377,8 @@ export type ElementType =
   | 'dialogue'
   | 'parenthetical'
   | 'transition'
+  | 'ending'
+  | 'shot'
   | 'dual_dialogue';
 
 /**
@@ -309,6 +387,7 @@ export type ElementType =
 export const ELEMENT_CYCLE_ORDER: ElementType[] = [
   'scene_heading',
   'action',
+  'shot',
   'character',
   'dialogue',
   'parenthetical',
@@ -344,6 +423,8 @@ export const ELEMENT_DISPLAY_NAMES: Record<ElementType, string> = {
   dialogue: 'Dialogue',
   parenthetical: 'Parenthetical',
   transition: 'Transition',
+  ending: 'The End',
+  shot: 'Shot',
   dual_dialogue: 'Dual Dialogue',
 };
 
@@ -357,6 +438,7 @@ export const ELEMENT_SHORTCUTS: Record<string, ElementType> = {
   'Mod-4': 'dialogue',
   'Mod-5': 'parenthetical',
   'Mod-6': 'transition',
+  'Mod-7': 'shot',
 };
 
 /**
@@ -370,5 +452,7 @@ export const ELEMENT_PLACEHOLDERS: Record<ElementType, string> = {
   dialogue: '',
   parenthetical: '',
   transition: 'CUT TO:',
+  ending: 'THE END',
+  shot: '',
   dual_dialogue: '',
 };

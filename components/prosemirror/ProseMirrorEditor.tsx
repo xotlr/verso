@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, Loader2, Maximize2, Scroll, FileText, X } from 'lucide-react';
+import { Check, Loader2, Maximize2, Scroll, FileText, X, Share2 } from 'lucide-react';
 import {
   useProseMirrorEditor,
   SceneInfo,
@@ -13,6 +13,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { PAGE_WIDTH_PX, PAGE_HEIGHT_PX } from '@/lib/constants';
 import { FloatingToolbar } from './FloatingToolbar';
 import { AutocompleteDropdown } from './AutocompleteDropdown';
+import { EditorContextMenu } from './EditorContextMenu';
 import { ElementToolbar } from './ElementToolbar';
 import { EditorScrollArea, EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { PageFrameRenderer, PageGapRenderer } from './PageFrameRenderer';
@@ -51,6 +52,7 @@ export interface ProseMirrorEditorProps {
   showPageBreaks?: boolean;
   onToggleLineNumbers?: () => void;
   onTogglePageBreaks?: () => void;
+  onShare?: () => void;
 }
 
 /**
@@ -133,6 +135,7 @@ export function ProseMirrorEditor({
   showPageBreaks = true,
   onToggleLineNumbers,
   onTogglePageBreaks,
+  onShare,
 }: ProseMirrorEditorProps) {
   const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -357,6 +360,17 @@ export function ProseMirrorEditor({
           >
             <Maximize2 className="h-4 w-4" />
           </Button>
+          {onShare && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onShare}
+              title="Share"
+              className="h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-accent/50"
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       )}
 
@@ -409,31 +423,33 @@ export function ProseMirrorEditor({
           />
         )}
 
-        <div
-          className={cn(
-            'pm-editor-pages',
-            isDiscreteMode && 'pm-content-layer'
-          )}
-          style={{
-            transform: `scale(${scale})`,
-            transformOrigin: 'top center',
-            width: `${PAGE_WIDTH_PX}px`,
-            // In discrete mode, set min-height to match total page frames height
-            minHeight: isDiscreteMode && discreteTotalHeight > 0
-              ? `${discreteTotalHeight}px`
-              : undefined,
-          }}
-        >
-          {/* ProseMirror mounts here */}
+        <EditorContextMenu view={view} onFindReplace={onToggleFindReplace}>
           <div
-            ref={containerRef}
             className={cn(
-              'pm-editor-page',
-              !isReady && 'opacity-0',
-              'transition-opacity duration-200'
+              'pm-editor-pages',
+              isDiscreteMode && 'pm-content-layer'
             )}
-          />
-        </div>
+            style={{
+              transform: `scale(${scale})`,
+              transformOrigin: 'top center',
+              width: `${PAGE_WIDTH_PX}px`,
+              // In discrete mode, set min-height to match total page frames height
+              minHeight: isDiscreteMode && discreteTotalHeight > 0
+                ? `${discreteTotalHeight}px`
+                : undefined,
+            }}
+          >
+            {/* ProseMirror mounts here */}
+            <div
+              ref={containerRef}
+              className={cn(
+                'pm-editor-page',
+                !isReady && 'opacity-0',
+                'transition-opacity duration-200'
+              )}
+            />
+          </div>
+        </EditorContextMenu>
       </EditorScrollArea>
 
       {/* Element type toolbar (expandable indicator) */}

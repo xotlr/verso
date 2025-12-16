@@ -395,12 +395,39 @@ model Screenplay {
   collaborationSessions CollaborationSession[]
   conflicts             CollaborationConflict[]
 
+  // Share link relation
+  shareLink ShareLink?
+
   @@index([userId])
   @@index([projectId])
   @@index([teamId])
   @@index([seriesId])
   @@index([isPublic, publishedAt])
   @@index([userId, lastOpenedAt])
+}
+
+// Share permissions for link-based access
+enum SharePermission {
+  VIEW    // Read-only access
+  COMMENT // Can view and add comments
+  EDIT    // Full editing access
+}
+
+// Link-based sharing for screenplays
+model ShareLink {
+  id           String          @id @default(cuid())
+  screenplayId String          @unique
+  token        String          @unique @default(cuid())
+  permission   SharePermission @default(VIEW)
+  isActive     Boolean         @default(true)
+  expiresAt    DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  screenplay   Screenplay      @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([screenplayId])
 }
 
 // Version history for screenplays

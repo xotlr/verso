@@ -15,6 +15,7 @@ import {
   ArrowRight,
   ChevronDown,
   FileText,
+  Camera,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -83,7 +84,9 @@ const ELEMENT_ICONS: Record<ElementType, React.ReactNode> = {
   dialogue: <MessageSquare className="h-4 w-4" />,
   parenthetical: <span className="text-xs font-mono">()</span>,
   transition: <ArrowRight className="h-4 w-4" />,
+  shot: <Camera className="h-4 w-4" />,
   dual_dialogue: <User className="h-4 w-4" />,
+  ending: <Heading className="h-4 w-4" />,
 };
 
 /**
