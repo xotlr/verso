@@ -183,3 +183,44 @@ export function getLayoutConstants(config: PageConfig) {
     linesPerPage: config.lines_per_page,
   };
 }
+
+/**
+ * Apply WASM LayoutMetadata as CSS custom properties.
+ *
+ * This is the DYNAMIC counterpart to applyLayoutCSS() which sets config-derived values.
+ * LayoutMetadata comes from actual pagination results and is the SINGLE SOURCE OF TRUTH
+ * for all positioning calculations.
+ *
+ * Call this after EACH pagination result to ensure CSS matches WASM calculations exactly.
+ *
+ * @param layout - LayoutMetadata from PaginationResult.stats.layout
+ */
+export function applyLayoutMetadataCSS(layout: {
+  page_height_px: number;
+  page_gap_px: number;
+  top_margin_px: number;
+  bottom_margin_px: number;
+  line_height_px: number;
+  content_area_px: number;
+  title_page_offset_px: number;
+  has_title_page: boolean;
+}): void {
+  if (typeof document === 'undefined') return; // SSR guard
+
+  const root = document.documentElement;
+
+  // WASM-calculated values (single source of truth for positioning)
+  root.style.setProperty('--wasm-page-height', `${layout.page_height_px}px`);
+  root.style.setProperty('--wasm-page-gap', `${layout.page_gap_px}px`);
+  root.style.setProperty('--wasm-top-margin', `${layout.top_margin_px}px`);
+  root.style.setProperty('--wasm-bottom-margin', `${layout.bottom_margin_px}px`);
+  root.style.setProperty('--wasm-line-height', `${layout.line_height_px}px`);
+  root.style.setProperty('--wasm-content-area', `${layout.content_area_px}px`);
+  root.style.setProperty('--wasm-title-page-offset', `${layout.title_page_offset_px}px`);
+
+  // Derived values for convenience
+  root.style.setProperty('--wasm-page-with-gap', `${layout.page_height_px + layout.page_gap_px}px`);
+
+  // Boolean as CSS custom property (for conditional styling)
+  root.style.setProperty('--wasm-has-title-page', layout.has_title_page ? '1' : '0');
+}

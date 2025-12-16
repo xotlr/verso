@@ -17,7 +17,7 @@ import { ElementToolbar } from './ElementToolbar';
 import { EditorScrollArea, EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { PageFrameRenderer, PageGapRenderer } from './PageFrameRenderer';
 import { createPageFramesFromWasm, PAGE_GAP_PX } from '@/lib/prosemirror/plugins/page-frames';
-import { applyLayoutCSS, DEFAULT_FEATURE_FILM_CONFIG } from '@/lib/verso';
+import { applyLayoutCSS, applyLayoutMetadataCSS, DEFAULT_FEATURE_FILM_CONFIG } from '@/lib/verso';
 import { Button } from '@/components/ui/button';
 import { MobileEditorToolbar } from '@/components/mobile-editor-toolbar';
 import { MobileSceneCharacterSheet } from '@/components/editor/MobileSceneCharacterSheet';
@@ -159,7 +159,7 @@ export function ProseMirrorEditor({
   }, []);
 
   // Apply layout CSS from WASM config on mount
-  // This ensures CSS variables match WASM pagination calculations
+  // This sets initial CSS variables from the config
   useEffect(() => {
     applyLayoutCSS(DEFAULT_FEATURE_FILM_CONFIG);
   }, []);
@@ -185,82 +185,46 @@ export function ProseMirrorEditor({
     editable,
   });
 
-  // Check if document has a title page (cover page)
-  const hasTitlePage = view?.state.doc.firstChild?.type.name === 'title_page';
+  // Apply layout metadata CSS from WASM pagination result
+  // This is the SINGLE SOURCE OF TRUTH - updates CSS variables with actual WASM calculations
+  useEffect(() => {
+    if (paginationResult?.stats.layout) {
+      applyLayoutMetadataCSS(paginationResult.stats.layout);
+    }
+  }, [paginationResult]);
 
   // Create page frames from WASM pagination result
-  // Always show at least 1 page frame, even before WASM returns
-  // If there's a title page, add it as page 1 and shift WASM pages
+  // WASM now handles all positioning including title page offset
+  // pixel_y values are absolute - no JS offset calculations needed
   const pageFrames = useMemo(() => {
-    const frames: Array<{
-      pageNumber: number;
-      pageIdentifier: { type: 'Sequential'; value: number } | { type: 'Inserted'; value: { base: number; suffix: string } } | { type: 'Omitted'; value: number };
-      yOffset: number;
-      hasMoreMarker: boolean;
-      contdText?: string;
-      characterName?: string;
-      isFirstPage?: boolean;
-    }> = [];
-
-    // Add title page frame if present (page 1, no page number shown)
-    if (hasTitlePage) {
-      frames.push({
+    if (!paginationResult) {
+      // No WASM result yet - show single page placeholder
+      return [{
         pageNumber: 1,
         pageIdentifier: { type: 'Sequential' as const, value: 1 },
         yOffset: 0,
         hasMoreMarker: false,
-        isFirstPage: true,  // Title page is always first
-      });
+        isFirstPage: true,
+      }];
     }
 
-    if (!paginationResult) {
-      // No WASM result yet - show single page (or just title page if present)
-      if (!hasTitlePage) {
-        frames.push({
-          pageNumber: 1,
-          pageIdentifier: { type: 'Sequential' as const, value: 1 },
-          yOffset: 0,
-          hasMoreMarker: false,
-          isFirstPage: true,  // First page when no title page
-        });
-      }
-      return frames;
-    }
-
-    // Add WASM page frames
-    const wasmFrames = createPageFramesFromWasm(paginationResult);
-
-    if (hasTitlePage) {
-      // Shift WASM pages: offset Y positions and increment page numbers
-      // Title page is already first, so WASM pages are never first
-      const titlePageOffset = PAGE_HEIGHT_PX + PAGE_GAP_PX;
-      wasmFrames.forEach((frame) => {
-        frames.push({
-          ...frame,
-          pageNumber: frame.pageNumber + 1,
-          pageIdentifier: frame.pageIdentifier.type === 'Sequential'
-            ? { type: 'Sequential' as const, value: frame.pageIdentifier.value + 1 }
-            : frame.pageIdentifier,
-          yOffset: frame.yOffset + titlePageOffset,
-          isFirstPage: false,  // Never first when title page exists
-        });
-      });
-    } else {
-      // No title page - first WASM frame is the first page
-      frames.push(...wasmFrames);
-    }
-
-    return frames;
-  }, [paginationResult, hasTitlePage]);
+    // WASM result includes title page (if present) and all content pages
+    // with absolute pixel_y positions - use directly
+    return createPageFramesFromWasm(paginationResult);
+  }, [paginationResult]);
 
   // Check if in discrete mode
   const isDiscreteMode = viewMode === 'discrete';
 
   // Calculate total height for discrete mode (pages + gaps)
+  // Uses WASM layout values (single source of truth) with fallbacks
   const discreteTotalHeight = useMemo(() => {
     if (!isDiscreteMode || pageFrames.length === 0) return 0;
-    return pageFrames.length * PAGE_HEIGHT_PX + (pageFrames.length - 1) * PAGE_GAP_PX;
-  }, [isDiscreteMode, pageFrames]);
+    // Get layout values from WASM result, fall back to constants
+    const pageHeight = paginationResult?.stats.layout?.page_height_px ?? PAGE_HEIGHT_PX;
+    const pageGap = paginationResult?.stats.layout?.page_gap_px ?? PAGE_GAP_PX;
+    return pageFrames.length * pageHeight + (pageFrames.length - 1) * pageGap;
+  }, [isDiscreteMode, pageFrames, paginationResult]);
 
   // Mobile toolbar callbacks
   const handleInsertElement = useCallback((elementType: string) => {

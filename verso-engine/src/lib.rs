@@ -34,7 +34,7 @@ pub mod layout;
 pub mod types;
 pub mod utils;
 
-pub use layout::paginate;
+pub use layout::{paginate, paginate_with_title_page};
 pub use types::*;
 
 /// Initialize panic hook for better error messages in WASM
@@ -65,6 +65,47 @@ pub fn paginate_document(elements_json: &str, config_json: &str) -> Result<Strin
 
     // Run pagination
     let result = paginate(&elements, &config);
+
+    // Serialize output
+    serde_json::to_string(&result)
+        .map_err(|e| JsError::new(&format!("Failed to serialize result: {}", e)))
+}
+
+/// Pagination with title page awareness - RECOMMENDED ENTRY POINT
+///
+/// This function makes WASM the single source of truth for all positioning.
+/// When `has_title_page` is true:
+/// - Title page is inserted as page 1 with pixel_y: 0
+/// - All content pages start from page 2
+/// - All pixel_y values include the title page offset
+///
+/// JavaScript should use the pixel_y values directly without any offset calculations.
+/// The result includes complete LayoutMetadata in stats.layout.
+///
+/// # Arguments
+///
+/// * `elements_json` - JSON string of Element array (content elements, NOT including title page)
+/// * `config_json` - JSON string of PageConfig
+/// * `has_title_page` - Whether the document has a title page
+///
+/// # Returns
+///
+/// JSON string of PaginationResult with absolute pixel positions
+#[wasm_bindgen]
+pub fn paginate_document_v2(
+    elements_json: &str,
+    config_json: &str,
+    has_title_page: bool,
+) -> Result<String, JsError> {
+    // Deserialize inputs
+    let elements: Vec<Element> = serde_json::from_str(elements_json)
+        .map_err(|e| JsError::new(&format!("Failed to parse elements: {}", e)))?;
+
+    let config: PageConfig = serde_json::from_str(config_json)
+        .map_err(|e| JsError::new(&format!("Failed to parse config: {}", e)))?;
+
+    // Run pagination with title page awareness
+    let result = paginate_with_title_page(&elements, &config, has_title_page);
 
     // Serialize output
     serde_json::to_string(&result)

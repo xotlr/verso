@@ -118,8 +118,18 @@ class PaginationWorkerManager {
 
   /**
    * Run pagination on a set of elements with timeout protection
+   *
+   * @param elements - Content elements (NOT including title page)
+   * @param config - Page configuration
+   * @param hasTitlePage - Whether document has a title page
+   * @param timeoutMs - Timeout in milliseconds
    */
-  async paginate(elements: Element[], config: PageConfig, timeoutMs = 5000): Promise<PaginationResult> {
+  async paginate(
+    elements: Element[],
+    config: PageConfig,
+    hasTitlePage = false,
+    timeoutMs = 5000
+  ): Promise<PaginationResult> {
     if (!this.initialized) {
       await this.initialize();
     }
@@ -139,6 +149,7 @@ class PaginationWorkerManager {
         requestId,
         elements,
         config,
+        hasTitlePage,
       } as WorkerRequest);
     });
 
@@ -228,11 +239,16 @@ export function getPaginationWorker(): PaginationWorkerManager {
 
 /**
  * Convenience function to run pagination
+ *
+ * @param elements - Content elements (NOT including title page)
+ * @param config - Page configuration
+ * @param hasTitlePage - Whether document has a title page
  */
 export async function runPagination(
   elements: Element[],
-  config: PageConfig
+  config: PageConfig,
+  hasTitlePage = false
 ): Promise<PaginationResult> {
   const worker = getPaginationWorker();
-  return worker.paginate(elements, config);
+  return worker.paginate(elements, config, hasTitlePage);
 }

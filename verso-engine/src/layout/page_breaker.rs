@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::types::{
-    Element, ElementId, ElementPosition, ElementType, Page,
+    Element, ElementId, ElementPosition, ElementType, LayoutMetadata, Page,
     PageBreakReason, PageConfig, PageElement, PageIdentifier, PaginationResult,
     PaginationStats, PaginationWarning, WarningType, LineRange,
 };
@@ -124,10 +124,14 @@ struct PaginationState {
     content_area_px: f32,
     /// Cumulative pixel offset for page positioning (accounts for decoration height)
     cumulative_pixel_y: f32,
+    /// Whether document has a title page
+    has_title_page: bool,
+    /// Offset from title page (0 if no title page)
+    title_page_offset_px: f32,
 }
 
 impl PaginationState {
-    fn new(config: &PageConfig) -> Self {
+    fn new(config: &PageConfig, has_title_page: bool) -> Self {
         // Calculate layout constants from config
         let line_height_px = points_to_pixels(config.line_height_pt);
         let page_height_px = points_to_pixels(config.paper_size.height_pt());
@@ -135,11 +139,29 @@ impl PaginationState {
         let bottom_margin_px = points_to_pixels(config.margins.bottom_pt());
         let content_area_px = page_height_px - top_margin_px - bottom_margin_px;
 
+        // Calculate title page offset: page height + gap between pages
+        let title_page_offset_px = if has_title_page {
+            page_height_px + PAGE_GAP_PX
+        } else {
+            0.0
+        };
+
+        // First content page number (1 if no title page, 2 if title page exists)
+        let first_page_number = if has_title_page { 2 } else { 1 };
+
+        // Starting pixel Y for first content page:
+        // - If no title page: top_margin (96px) - content starts inside frame 1
+        // - If title page: title_page_offset + top_margin (1096 + 96 = 1192px)
+        let initial_pixel_y = title_page_offset_px + top_margin_px;
+
         Self {
             pages: Vec::new(),
-            // First page starts at document top (pixel_y = 0)
-            current_page: Page::new_at_offset(PageIdentifier::Sequential(1), 0.0),
-            page_number: 1,
+            // First content page starts after title page offset (if any)
+            current_page: Page::new_at_offset(
+                PageIdentifier::Sequential(first_page_number),
+                initial_pixel_y,
+            ),
+            page_number: first_page_number,
             element_positions: HashMap::new(),
             warnings: Vec::new(),
             break_count: 0,
@@ -149,8 +171,9 @@ impl PaginationState {
             top_margin_px,
             bottom_margin_px,
             content_area_px,
-            // Start at 0 - page frames are positioned from document top
-            cumulative_pixel_y: 0.0,
+            cumulative_pixel_y: initial_pixel_y,
+            has_title_page,
+            title_page_offset_px,
         }
     }
 
@@ -163,22 +186,32 @@ impl PaginationState {
     }
 
     fn end_page(&mut self, _reason: PageBreakReason) {
-        // Calculate content used on current page (in pixels)
-        let content_used_px = self.current_page.lines_used as f32 * self.line_height_px;
+        // Calculate bottom_padding_px for the page being ended
+        // This fills from content END to the physical page BOTTOM
+        //
+        // CRITICAL: Use actual page geometry, NOT lines_per_page!
+        // - lines_per_page (55) is a capacity limit, not geometry
+        // - Content area = page_height - top_margin - bottom_margin = 912px
+        // - But 55 * 16 = 880px, leaving 32px unaccounted per page
+        //
+        // Correct formula: page_height - top_margin - (lines_used * line_height)
+        // This gives exact distance from content end to page bottom edge
+        let content_end = self.top_margin_px + (self.current_page.lines_used as f32 * self.line_height_px);
+        self.current_page.bottom_padding_px = self.page_height_px - content_end;
 
-        // Decoration height = remaining content area + bottom margin + gap + top margin
-        // This accounts for:
-        // - pm-page-bottom: fills remaining space (content_area - content_used) + bottom_margin
-        // - pm-page-gap: PAGE_GAP_PX
-        // - pm-page-top: top_margin (for next page)
-        let remaining_content = self.content_area_px - content_used_px;
-        let decoration_height = remaining_content
-            + self.bottom_margin_px
-            + PAGE_GAP_PX
+        // In discrete mode, page frames are positioned at FIXED intervals:
+        // Frame N (1-indexed) is at: (N-1) * (page_height + gap)
+        //
+        // pixel_y represents where content STARTS on each page.
+        // Formula: pixel_y = (page_number - 1) * (page_height + gap) + top_margin
+        //
+        // The page_number already accounts for title page:
+        // - With title page: first content page is #2, frame at 1*1096=1096, pixel_y=1192
+        // - Without: first content page is #1, frame at 0*1096=0, pixel_y=96
+        //
+        // We're creating the NEXT page (page_number + 1), so frame_index = page_number
+        self.cumulative_pixel_y = self.page_number as f32 * (self.page_height_px + PAGE_GAP_PX)
             + self.top_margin_px;
-
-        // Update cumulative offset: content used + decoration height
-        self.cumulative_pixel_y += content_used_px + decoration_height;
 
         let finished_page = std::mem::replace(
             &mut self.current_page,
@@ -300,7 +333,29 @@ impl PaginationState {
     fn finalize(mut self, timing_us: u64, element_count: usize) -> PaginationResult {
         // Add the last page if it has content
         if !self.current_page.elements.is_empty() {
+            // Calculate bottom padding for the last page
+            // Uses same formula as end_page(): page_height - top_margin - (lines_used * line_height)
+            let content_end = self.top_margin_px + (self.current_page.lines_used as f32 * self.line_height_px);
+            self.current_page.bottom_padding_px = self.page_height_px - content_end;
+
             self.pages.push(self.current_page);
+        }
+
+        // If title page exists, insert it as page 1 at the beginning
+        if self.has_title_page {
+            // Title page has no content elements (lines_used = 0)
+            // So content_end = top_margin, bottom_padding = page_height - top_margin
+            let title_page_bottom_padding = self.page_height_px - self.top_margin_px;
+
+            let title_page = Page {
+                identifier: PageIdentifier::Sequential(1),
+                elements: Vec::new(),  // Title page has no content elements
+                bottom_continuation: None,
+                lines_used: 0,  // Not applicable for title page
+                pixel_y: 0.0,  // Title page starts at document top
+                bottom_padding_px: title_page_bottom_padding,
+            };
+            self.pages.insert(0, title_page);
         }
 
         let page_count = self.pages.len() as u32;
@@ -316,6 +371,18 @@ impl PaginationState {
             0.0
         };
 
+        // Build complete layout metadata - SINGLE SOURCE OF TRUTH
+        let layout = LayoutMetadata {
+            page_height_px: self.page_height_px,
+            page_gap_px: PAGE_GAP_PX,
+            top_margin_px: self.top_margin_px,
+            bottom_margin_px: self.bottom_margin_px,
+            line_height_px: self.line_height_px,
+            has_title_page: self.has_title_page,
+            title_page_offset_px: self.title_page_offset_px,
+            content_area_px: self.content_area_px,
+        };
+
         PaginationResult {
             pages: self.pages,
             element_positions: self.element_positions,
@@ -328,21 +395,43 @@ impl PaginationState {
                 timing_us,
                 total_lines,
                 avg_lines_per_element: avg_lines,
-                // Layout constants (for CSS positioning)
+                // Keep deprecated fields for backward compatibility
                 line_height_px: self.line_height_px,
                 page_height_px: self.page_height_px,
                 page_gap_px: PAGE_GAP_PX,
+                // New: complete layout metadata
+                layout,
             },
         }
     }
 }
 
 /// Core pagination function - pure, deterministic, no side effects
+///
+/// For backward compatibility, assumes no title page.
+/// Use `paginate_with_title_page` for documents with title pages.
 pub fn paginate(elements: &[Element], config: &PageConfig) -> PaginationResult {
+    paginate_with_title_page(elements, config, false)
+}
+
+/// Pagination with explicit title page awareness
+///
+/// When `has_title_page` is true:
+/// - Title page is inserted as page 1 with pixel_y: 0
+/// - All content pages start from page 2
+/// - All pixel_y values include the title page offset
+///
+/// This makes WASM the single source of truth for all positioning.
+/// JavaScript should use pixel_y values directly without any offset calculations.
+pub fn paginate_with_title_page(
+    elements: &[Element],
+    config: &PageConfig,
+    has_title_page: bool,
+) -> PaginationResult {
     let line_calc = LineCalculator::new(config);
     let continuation_mgr = ContinuationManager::new(config);
 
-    let mut state = PaginationState::new(config);
+    let mut state = PaginationState::new(config, has_title_page);
     let element_count = elements.len();
 
     for (idx, element) in elements.iter().enumerate() {

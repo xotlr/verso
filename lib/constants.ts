@@ -14,7 +14,16 @@ export const PARENTHETICAL_INDENT = 31;
 export const MAX_DIALOGUE_WIDTH = 35;
 export const CHARACTER_INDENT = 37;
 
-// Page dimensions (US Letter at 96 DPI)
+/**
+ * Page dimensions (US Letter at 96 DPI)
+ *
+ * FALLBACK VALUES ONLY - Runtime values come from WASM LayoutMetadata.
+ * These are used during initial render before WASM loads.
+ * The WASM engine is the SINGLE SOURCE OF TRUTH for all layout calculations.
+ *
+ * @see lib/verso/layout-css.ts - applyLayoutMetadataCSS() sets CSS variables from WASM
+ * @see styles/editor/prosemirror.css - --wasm-* CSS variables consume these values
+ */
 export const PAGE_WIDTH_PX = 816;
 export const PAGE_HEIGHT_PX = 1056;
 

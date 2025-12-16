@@ -140,6 +140,12 @@ pub struct Page {
     /// This is the exact Y position where this page starts in the rendered view
     #[serde(default)]
     pub pixel_y: f32,
+
+    /// Bottom padding in pixels - height of pm-page-bottom decoration
+    /// Calculated as: (lines_per_page - lines_used) * line_height_px + bottom_margin_px
+    /// WASM is single source of truth for this value - TypeScript uses it directly
+    #[serde(default)]
+    pub bottom_padding_px: f32,
 }
 
 impl Page {
@@ -150,6 +156,7 @@ impl Page {
             bottom_continuation: None,
             lines_used: 0,
             pixel_y: 0.0,
+            bottom_padding_px: 0.0,
         }
     }
 
@@ -160,6 +167,7 @@ impl Page {
             bottom_continuation: None,
             lines_used: 0,
             pixel_y,
+            bottom_padding_px: 0.0,
         }
     }
 

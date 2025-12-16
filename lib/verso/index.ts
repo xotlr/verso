@@ -25,6 +25,7 @@ export type {
   PaginationWarning,
   PaginationStats,
   PaginationResult,
+  LayoutMetadata,
   WorkerRequest,
   WorkerResponse,
 } from './types';
@@ -39,7 +40,7 @@ export { serializeDocument, createPositionMap, hasTitlePage, type PositionMap } 
 export { getPaginationWorker, runPagination } from './worker';
 
 // Layout CSS - derive CSS from WASM config
-export { configToCSS, applyLayoutCSS, getLayoutConstants, type LayoutCSS } from './layout-css';
+export { configToCSS, applyLayoutCSS, applyLayoutMetadataCSS, getLayoutConstants, type LayoutCSS } from './layout-css';
 
 // Default configuration
 export const DEFAULT_FEATURE_FILM_CONFIG: import('./types').PageConfig = {

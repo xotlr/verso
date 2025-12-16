@@ -3,7 +3,6 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { PaginationResult, PageIdentifier } from '@/lib/verso/types';
 import type { PositionMap } from '@/lib/verso/serializer';
-import { getLayoutConstants, DEFAULT_FEATURE_FILM_CONFIG } from '@/lib/verso';
 
 export const paginationPluginKey = new PluginKey<PaginationState>('pagination');
 
@@ -47,6 +46,9 @@ export interface PageBreak {
   linesUsedOnPrevPage: number; // Lines used on previous page (for gap calculation)
   /** Pixel Y position from WASM - exact position for this page */
   pixelY: number;
+  /** Bottom padding from WASM - exact height for pm-page-bottom decoration
+   * WASM is single source of truth - TypeScript uses this value directly */
+  bottomPaddingPx: number;
 }
 
 /**
@@ -56,6 +58,9 @@ export interface WasmLayoutStats {
   lineHeightPx: number;
   pageHeightPx: number;
   pageGapPx: number;
+  topMarginPx: number;
+  bottomMarginPx: number;
+  contentAreaPx: number;
 }
 
 /**
@@ -171,6 +176,8 @@ function convertWasmResultToPageBreaks(
       contdMarker,
       linesUsedOnPrevPage: prevPage.lines_used,
       pixelY: page.pixel_y,
+      // WASM is single source of truth for bottom padding
+      bottomPaddingPx: prevPage.bottom_padding_px,
     });
   }
 
@@ -282,6 +289,7 @@ function calculateFallbackPageBreaks(doc: ProseMirrorNode): PageBreak[] {
               type: 'normal',
               linesUsedOnPrevPage: currentLineCount,
               pixelY: 0, // Fallback - WASM will provide accurate value
+              bottomPaddingPx: 0, // Fallback - WASM will provide accurate value
             });
             currentPage++;
             currentLineCount = nodeLines + 2; // Character + dialogue
@@ -303,6 +311,7 @@ function calculateFallbackPageBreaks(doc: ProseMirrorNode): PageBreak[] {
           type: 'normal',
           linesUsedOnPrevPage: currentLineCount,
           pixelY: 0, // Fallback - WASM will provide accurate value
+          bottomPaddingPx: 0, // Fallback - WASM will provide accurate value
         });
         currentPage++;
         currentLineCount = nodeLines;
@@ -318,6 +327,7 @@ function calculateFallbackPageBreaks(doc: ProseMirrorNode): PageBreak[] {
         characterName,
         linesUsedOnPrevPage: currentLineCount,
         pixelY: 0, // Fallback - WASM will provide accurate value
+        bottomPaddingPx: 0, // Fallback - WASM will provide accurate value
       });
       currentPage++;
       currentLineCount = nodeLines;
@@ -336,51 +346,19 @@ function calculateFallbackPageBreaks(doc: ProseMirrorNode): PageBreak[] {
 }
 
 /**
- * Calculate the bottom padding needed to fill the remaining space on a page.
- * This ensures content aligns properly with page frame overlays in discrete mode.
- *
- * Uses WASM's pixel_y values to derive exact spacing, avoiding cumulative drift
- * from assuming content height = linesUsed × lineHeight.
- *
- * @param linesUsed - Lines used on the previous page
- * @param prevPagePixelY - Pixel Y position where previous page started
- * @param nextPagePixelY - Pixel Y position where next page starts (from WASM)
- * @returns Padding in pixels to add before the gap
- */
-function calculatePageBottomPadding(
-  linesUsed: number,
-  prevPagePixelY: number,
-  nextPagePixelY: number
-): number {
-  // Get layout constants from WASM config
-  const layout = getLayoutConstants(DEFAULT_FEATURE_FILM_CONFIG);
-  const LINE_HEIGHT_PX = layout.lineHeightPx;
-  const PAGE_GAP_PX = 40; // Must match CSS .pm-page-gap height
-  const PAGE_TOP_MARGIN = layout.pageMarginTopPx; // 96px
-
-  // Distance between pages according to WASM (this is the ground truth)
-  const pageSpan = nextPagePixelY - prevPagePixelY;
-
-  // Content used based on WASM's line count
-  const contentUsed = linesUsed * LINE_HEIGHT_PX;
-
-  // pm-page-bottom must fill: pageSpan - contentUsed - gap - top_margin
-  // This self-corrects for any cumulative rendering differences
-  const bottomPadding = pageSpan - contentUsed - PAGE_GAP_PX - PAGE_TOP_MARGIN;
-
-  // Ensure non-negative (safety check)
-  return Math.max(0, bottomPadding);
-}
-
-/**
  * Create decorations for page breaks with 3-zone structure:
  * 1. pm-page-bottom - Bottom edge of previous page (fills remaining space)
  * 2. pm-page-gap - Transparent gap between pages (shows editor background)
  * 3. pm-page-top - Top edge of next page with industry-standard page number (top-right)
+ *
+ * @param doc - The document
+ * @param pageBreaks - Page breaks from WASM
+ * @param layoutStats - Layout stats from WASM (single source of truth for positioning)
  */
 function createPageBreakDecorations(
   doc: ProseMirrorNode,
-  pageBreaks: PageBreak[]
+  pageBreaks: PageBreak[],
+  layoutStats: WasmLayoutStats | null
 ): DecorationSet {
   const decorations: Decoration[] = [];
 
@@ -441,11 +419,12 @@ function createPageBreakDecorations(
     decorations.push(page2Decoration);
   }
 
-  // Get first page start position (after first-page-margin)
-  const layout = getLayoutConstants(DEFAULT_FEATURE_FILM_CONFIG);
-  const FIRST_PAGE_START = layout.pageMarginTopPx; // 96px
+  // When there's a title page, skip the first pageBreak (i=0) because
+  // pm-page-2-break already handles the title page → page 2 transition.
+  // This prevents double decorations at the same position.
+  const startIndex = hasTitlePage ? 1 : 0;
 
-  for (let i = 0; i < pageBreaks.length; i++) {
+  for (let i = startIndex; i < pageBreaks.length; i++) {
     const pageBreak = pageBreaks[i];
 
     // Validate position is within document bounds
@@ -453,15 +432,8 @@ function createPageBreakDecorations(
       continue;
     }
 
-    // Get previous page's pixel_y (or first page start for first break)
-    const prevPagePixelY = i > 0 ? pageBreaks[i - 1].pixelY : FIRST_PAGE_START;
-
-    // Calculate padding using WASM pixel_y values (self-correcting)
-    const bottomPadding = calculatePageBottomPadding(
-      pageBreak.linesUsedOnPrevPage,
-      prevPagePixelY,
-      pageBreak.pixelY
-    );
+    // Use WASM-calculated bottom padding directly (WASM is single source of truth)
+    const bottomPadding = pageBreak.bottomPaddingPx;
 
     // Create the 3-zone page break widget
     const pageBreakWidget = Decoration.widget(
@@ -635,10 +607,22 @@ export function createPaginationPlugin(): Plugin {
           const pageBreaks = convertWasmResultToPageBreaks(newState.doc, wasmResult, positionMap);
 
           // Extract layout stats from WASM (single source of truth)
-          const layoutStats: WasmLayoutStats | null = wasmResult.stats.line_height_px != null ? {
+          // Prefer stats.layout (full LayoutMetadata) over deprecated individual fields
+          const layoutStats: WasmLayoutStats | null = wasmResult.stats.layout ? {
+            lineHeightPx: wasmResult.stats.layout.line_height_px,
+            pageHeightPx: wasmResult.stats.layout.page_height_px,
+            pageGapPx: wasmResult.stats.layout.page_gap_px,
+            topMarginPx: wasmResult.stats.layout.top_margin_px,
+            bottomMarginPx: wasmResult.stats.layout.bottom_margin_px,
+            contentAreaPx: wasmResult.stats.layout.content_area_px,
+          } : wasmResult.stats.line_height_px != null ? {
+            // Fallback to deprecated individual fields
             lineHeightPx: wasmResult.stats.line_height_px,
             pageHeightPx: wasmResult.stats.page_height_px ?? 1056,
             pageGapPx: wasmResult.stats.page_gap_px ?? 40,
+            topMarginPx: 96, // Fallback
+            bottomMarginPx: 48, // Fallback
+            contentAreaPx: 864, // Fallback
           } : null;
 
           return {
@@ -692,7 +676,7 @@ export function createPaginationPlugin(): Plugin {
         const pluginState = paginationPluginKey.getState(state);
         if (!pluginState) return DecorationSet.empty;
 
-        return createPageBreakDecorations(state.doc, pluginState.pageBreaks);
+        return createPageBreakDecorations(state.doc, pluginState.pageBreaks, pluginState.layoutStats);
       },
     },
   });

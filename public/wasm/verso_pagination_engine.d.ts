@@ -46,6 +46,30 @@ export function init(): void;
 export function paginate_document(elements_json: string, config_json: string): string;
 
 /**
+ * Pagination with title page awareness - RECOMMENDED ENTRY POINT
+ *
+ * This function makes WASM the single source of truth for all positioning.
+ * When `has_title_page` is true:
+ * - Title page is inserted as page 1 with pixel_y: 0
+ * - All content pages start from page 2
+ * - All pixel_y values include the title page offset
+ *
+ * JavaScript should use the pixel_y values directly without any offset calculations.
+ * The result includes complete LayoutMetadata in stats.layout.
+ *
+ * # Arguments
+ *
+ * * `elements_json` - JSON string of Element array (content elements, NOT including title page)
+ * * `config_json` - JSON string of PageConfig
+ * * `has_title_page` - Whether the document has a title page
+ *
+ * # Returns
+ *
+ * JSON string of PaginationResult with absolute pixel positions
+ */
+export function paginate_document_v2(elements_json: string, config_json: string, has_title_page: boolean): string;
+
+/**
  * Version of the pagination engine
  */
 export function version(): string;
@@ -59,6 +83,7 @@ export interface InitOutput {
   readonly get_tv_half_hour_config: () => [number, number, number, number];
   readonly get_tv_multi_cam_config: () => [number, number, number, number];
   readonly paginate_document: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+  readonly paginate_document_v2: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
   readonly version: () => [number, number];
   readonly init: () => void;
   readonly get_tv_one_hour_config: () => [number, number, number, number];

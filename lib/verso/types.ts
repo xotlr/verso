@@ -123,11 +123,47 @@ export interface Page {
   lines_used: number;
   /** Pixel offset from document start (at 96 DPI) */
   pixel_y: number;
+  /** Bottom padding in pixels - height of pm-page-bottom decoration
+   * Calculated by WASM as: (lines_per_page - lines_used) * line_height_px + bottom_margin_px
+   * WASM is single source of truth - TypeScript uses this value directly */
+  bottom_padding_px: number;
 }
 
 // ============================================================================
 // Result Types
 // ============================================================================
+
+/**
+ * Complete layout metadata - SINGLE SOURCE OF TRUTH for all positioning
+ *
+ * JavaScript should use these values directly without any offset calculations.
+ * All values are in pixels at 96 DPI.
+ */
+export interface LayoutMetadata {
+  /** Page height in pixels (e.g., 1056 for US Letter at 96 DPI) */
+  page_height_px: number;
+
+  /** Gap between pages in pixels */
+  page_gap_px: number;
+
+  /** Top margin inside page (content starts here) */
+  top_margin_px: number;
+
+  /** Bottom margin inside page */
+  bottom_margin_px: number;
+
+  /** Line height in pixels */
+  line_height_px: number;
+
+  /** Whether document has a title page */
+  has_title_page: boolean;
+
+  /** Total offset from title page (0 if no title page) */
+  title_page_offset_px: number;
+
+  /** Content area height (page_height - top_margin - bottom_margin) */
+  content_area_px: number;
+}
 
 export interface ElementPosition {
   pages: PageIdentifier[];
@@ -158,9 +194,15 @@ export interface PaginationStats {
   total_lines?: number;
   avg_lines_per_element?: number;
   // Layout constants (for CSS positioning, at 96 DPI)
+  // DEPRECATED: Use layout.* instead
   line_height_px?: number;
   page_height_px?: number;
   page_gap_px?: number;
+  /**
+   * Complete layout metadata - SINGLE SOURCE OF TRUTH
+   * JavaScript should use this for ALL layout calculations
+   */
+  layout?: LayoutMetadata;
 }
 
 export interface PaginationResult {
@@ -179,6 +221,8 @@ export interface PaginateRequest {
   requestId: string;
   elements: Element[];
   config: PageConfig;
+  /** Whether the document has a title page */
+  hasTitlePage?: boolean;
 }
 
 export interface InitRequest {

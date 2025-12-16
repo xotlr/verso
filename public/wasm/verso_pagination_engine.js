@@ -249,6 +249,55 @@ export function paginate_document(elements_json, config_json) {
 }
 
 /**
+ * Pagination with title page awareness - RECOMMENDED ENTRY POINT
+ *
+ * This function makes WASM the single source of truth for all positioning.
+ * When `has_title_page` is true:
+ * - Title page is inserted as page 1 with pixel_y: 0
+ * - All content pages start from page 2
+ * - All pixel_y values include the title page offset
+ *
+ * JavaScript should use the pixel_y values directly without any offset calculations.
+ * The result includes complete LayoutMetadata in stats.layout.
+ *
+ * # Arguments
+ *
+ * * `elements_json` - JSON string of Element array (content elements, NOT including title page)
+ * * `config_json` - JSON string of PageConfig
+ * * `has_title_page` - Whether the document has a title page
+ *
+ * # Returns
+ *
+ * JSON string of PaginationResult with absolute pixel positions
+ * @param {string} elements_json
+ * @param {string} config_json
+ * @param {boolean} has_title_page
+ * @returns {string}
+ */
+export function paginate_document_v2(elements_json, config_json, has_title_page) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(elements_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.paginate_document_v2(ptr0, len0, ptr1, len1, has_title_page);
+        var ptr3 = ret[0];
+        var len3 = ret[1];
+        if (ret[3]) {
+            ptr3 = 0; len3 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred4_0 = ptr3;
+        deferred4_1 = len3;
+        return getStringFromWasm0(ptr3, len3);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
+}
+
+/**
  * Version of the pagination engine
  * @returns {string}
  */

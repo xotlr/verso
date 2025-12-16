@@ -166,6 +166,39 @@ function version() {
   }
 }
 
+/**
+ * Pagination with title page awareness - RECOMMENDED FUNCTION
+ *
+ * When has_title_page is true:
+ * - Title page is inserted as page 1 with pixel_y: 0
+ * - All content pages start from page 2
+ * - All pixel_y values include the title page offset
+ *
+ * JavaScript should use pixel_y values directly without any offset calculations.
+ */
+function paginate_document_v2(elements_json, config_json, has_title_page) {
+  let deferred4_0;
+  let deferred4_1;
+  try {
+    const ptr0 = passStringToWasm0(elements_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.paginate_document_v2(ptr0, len0, ptr1, len1, has_title_page);
+    var ptr3 = ret[0];
+    var len3 = ret[1];
+    if (ret[3]) {
+      ptr3 = 0; len3 = 0;
+      throw takeFromExternrefTable0(ret[2]);
+    }
+    deferred4_0 = ptr3;
+    deferred4_1 = len3;
+    return getStringFromWasm0(ptr3, len3);
+  } finally {
+    wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+  }
+}
+
 // WASM imports
 function __wbg_get_imports() {
   const imports = {};
@@ -330,9 +363,11 @@ self.onmessage = async (event) => {
         // Serialize inputs to JSON
         const elementsJson = JSON.stringify(request.elements);
         const configJson = JSON.stringify(request.config);
+        const hasTitlePage = request.hasTitlePage || false;
 
-        // Call WASM pagination
-        const resultJson = paginate_document(elementsJson, configJson);
+        // Call WASM pagination with title page awareness
+        // paginate_document_v2 makes WASM the single source of truth for positioning
+        const resultJson = paginate_document_v2(elementsJson, configJson, hasTitlePage);
         const result = JSON.parse(resultJson);
 
         // Add JS-side timing

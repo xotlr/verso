@@ -2,6 +2,51 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use super::{ElementId, Page, PageIdentifier};
 
+/// Complete layout metadata - SINGLE SOURCE OF TRUTH for all positioning
+/// JavaScript should use these values directly without any offset calculations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LayoutMetadata {
+    /// Page height in pixels (e.g., 1056 for US Letter at 96 DPI)
+    pub page_height_px: f32,
+
+    /// Gap between pages in pixels
+    pub page_gap_px: f32,
+
+    /// Top margin inside page (content starts here)
+    pub top_margin_px: f32,
+
+    /// Bottom margin inside page
+    pub bottom_margin_px: f32,
+
+    /// Line height in pixels
+    pub line_height_px: f32,
+
+    /// Whether document has a title page
+    pub has_title_page: bool,
+
+    /// Total offset from title page (0 if no title page)
+    /// This equals page_height_px + page_gap_px when title page exists
+    pub title_page_offset_px: f32,
+
+    /// Content area height (page_height - top_margin - bottom_margin)
+    pub content_area_px: f32,
+}
+
+impl Default for LayoutMetadata {
+    fn default() -> Self {
+        Self {
+            page_height_px: 1056.0,  // 11" at 96 DPI
+            page_gap_px: 40.0,
+            top_margin_px: 96.0,     // 1" at 96 DPI
+            bottom_margin_px: 48.0,  // 0.5" at 96 DPI
+            line_height_px: 16.0,    // 12pt at 96 DPI
+            has_title_page: false,
+            title_page_offset_px: 0.0,
+            content_area_px: 912.0,  // 1056 - 96 - 48
+        }
+    }
+}
+
 /// Position of an element in the paginated document
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ElementPosition {
@@ -69,16 +114,24 @@ pub struct PaginationStats {
     pub avg_lines_per_element: f32,
 
     /// Layout: line height in pixels (at 96 DPI)
+    /// DEPRECATED: Use layout.line_height_px instead
     #[serde(default)]
     pub line_height_px: f32,
 
     /// Layout: page height in pixels (at 96 DPI)
+    /// DEPRECATED: Use layout.page_height_px instead
     #[serde(default)]
     pub page_height_px: f32,
 
     /// Layout: gap between pages in pixels
+    /// DEPRECATED: Use layout.page_gap_px instead
     #[serde(default)]
     pub page_gap_px: f32,
+
+    /// Complete layout metadata - SINGLE SOURCE OF TRUTH
+    /// JavaScript should use this for ALL layout calculations
+    #[serde(default)]
+    pub layout: LayoutMetadata,
 }
 
 /// Complete result of pagination
@@ -99,6 +152,7 @@ pub struct PaginationResult {
 
 impl PaginationResult {
     pub fn new() -> Self {
+        let layout = LayoutMetadata::default();
         Self {
             pages: Vec::new(),
             element_positions: HashMap::new(),
@@ -111,9 +165,11 @@ impl PaginationResult {
                 timing_us: 0,
                 total_lines: 0,
                 avg_lines_per_element: 0.0,
-                line_height_px: 16.0,    // Default: 12pt at 96 DPI
-                page_height_px: 1056.0,  // Default: 11" at 96 DPI
-                page_gap_px: 40.0,       // Default gap between pages
+                // Keep deprecated fields for backward compatibility
+                line_height_px: layout.line_height_px,
+                page_height_px: layout.page_height_px,
+                page_gap_px: layout.page_gap_px,
+                layout,
             },
         }
     }

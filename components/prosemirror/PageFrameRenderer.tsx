@@ -21,8 +21,9 @@ const PageFrameCard = memo(function PageFrameCard({
 }: {
   frame: PageFrame;
 }) {
-  // Page numbers are now rendered inside pm-page-top decoration (pagination.ts)
-  // This ensures they're positioned relative to actual content flow
+  // Show page number on all pages except first (title page or page 1)
+  const showPageNumber = !frame.isFirstPage && frame.pageNumber > 1;
+
   return (
     <div
       className="pm-page-frame"
@@ -32,7 +33,11 @@ const PageFrameCard = memo(function PageFrameCard({
         height: `${PAGE_HEIGHT_PX}px`,
       }}
       data-page={frame.pageNumber}
-    />
+    >
+      {showPageNumber && (
+        <span className="pm-page-frame-number">{frame.pageNumber}</span>
+      )}
+    </div>
   );
 });
 

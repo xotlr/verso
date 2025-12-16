@@ -57,6 +57,23 @@
   --pm-space-character: 16px;
   --pm-space-transition: 32px;
 
+  /* ============================================
+     WASM Layout Metadata - SINGLE SOURCE OF TRUTH
+     ============================================
+     These are overwritten by applyLayoutMetadataCSS() after pagination.
+     The values here are fallbacks for initial render before WASM loads.
+     ALL positioning CSS should use these variables, not hardcoded values.
+     ============================================ */
+  --wasm-page-height: 1056px;
+  --wasm-page-gap: 40px;
+  --wasm-top-margin: 96px;
+  --wasm-bottom-margin: 48px;
+  --wasm-line-height: 16px;
+  --wasm-content-area: 864px;
+  --wasm-title-page-offset: 0px;
+  --wasm-page-with-gap: 1096px;
+  --wasm-has-title-page: 0;
+
   /* Colors */
   --pm-page-bg: hsl(var(--background));  /* Use theme background, was 100% */
   --pm-page-bg-dark: hsl(0 0% 12%);
@@ -273,7 +290,8 @@
 
 /* First element on page should not have top spacing (matches Google reference) */
 /* Note: This is overridden in discrete mode where we need top margin for page alignment */
-.pm-editor-page .ProseMirror > *:first-child {
+/* Exception: Title page needs its 422px padding-top to position content at WGA standard ~40% */
+.pm-editor-page .ProseMirror > *:first-child:not(.pm-title-page) {
   padding-top: 0 !important;
   margin-top: 0 !important;
 }
@@ -281,6 +299,26 @@
 /* Discrete mode: First element top margin is handled by pm-first-page-margin decoration widget.
    This allows conditional logic (e.g., skip margin when title_page is first).
    See createPageBreakDecorations() in pagination.ts */
+
+/* CRITICAL: Elements after page decorations must have NO top spacing.
+   WASM assumes first element on each page has space_before = 0.
+   Without these rules, CSS padding-top would add extra height that WASM doesn't account for,
+   causing cumulative drift between content flow and page frame positions. */
+.pm-editor-page .ProseMirror > .pm-first-page-margin + * {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+.pm-editor-page .ProseMirror > .pm-page-break-container + * {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+/* Also handle the page 2 break after title page */
+.pm-editor-page .ProseMirror > .pm-page-2-break + * {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
 
 /* ============================================
    Screenplay Element Styles
@@ -588,7 +626,7 @@
 .pm-page-gap {
   position: relative;
   width: 100%;
-  height: 40px; /* Visible gap between pages */
+  height: var(--wasm-page-gap); /* From WASM - single source of truth */
 
   /* Transparent - shows editor background through gap */
   background: transparent;
@@ -1015,7 +1053,7 @@
   /* Positioned within already-centered container - don't double-center */
   left: 0;
   width: 816px;
-  height: 1056px;
+  height: var(--wasm-page-height); /* From WASM - single source of truth */
   background: hsl(var(--page));
   box-shadow: 0 25px 50px -12px hsl(0 0% 0% / 0.25);
   border-radius: 2px;
@@ -1026,14 +1064,15 @@
 /* Page number - industry standard top-right position */
 .pm-page-frame-number {
   position: absolute;
-  top: 48px;
-  right: 96px;
-  left: auto; /* Explicitly prevent left positioning */
+  top: 48px;  /* 0.5" from top */
+  right: 96px; /* 1" from right edge */
+  left: auto;
   font-family: var(--pm-font-family);
   font-size: var(--pm-font-size);
   line-height: var(--pm-line-height);
   color: hsl(var(--card-foreground));
   user-select: none;
+  pointer-events: auto; /* Allow visibility despite container pointer-events: none */
 }
 
 /* Dark mode handled by CSS variables (--card-foreground) */
@@ -1061,51 +1100,41 @@
   z-index: 2;
 }
 
-/* Discrete mode: Page break decorations create spacing but are completely invisible.
-   Page frames provide all visual page appearance (white cards, shadows, page numbers).
-   The decorations just create the vertical space needed for proper content positioning. */
+/* ============================================
+   Discrete Mode: Page Break Styling
+   ============================================
+
+   In discrete mode, page break decorations are INVISIBLE but still
+   affect document flow. They push content to align with frame overlays.
+
+   Frame overlays (PageFrameRenderer) provide the visual page appearance.
+   Decorations calculate heights to fill remaining page space.
+
+   WASM is the single source of truth for page break positions.
+   ============================================ */
+
 .pm-discrete-mode .pm-page-break-container {
-  /* Keep in layout flow for spacing - don't use display:none! */
+  /* Decorations are invisible but still have height */
   visibility: hidden;
   pointer-events: none;
 }
 
-/* Discrete mode: Page bottom fills remaining space on the page for proper alignment.
-   The --page-bottom-padding CSS variable is set dynamically based on lines_used from WASM.
-   This ensures content ends at the correct position before the gap. */
-.pm-discrete-mode .pm-page-bottom {
-  padding: 0;
-  /* Use the dynamic padding calculated from lines_used to fill remaining page space */
-  height: var(--page-bottom-padding, 0px);
-}
-
-/* Discrete mode: Page top provides top margin for page 2+ content */
+/* All zones are invisible but keep their calculated heights */
+.pm-discrete-mode .pm-page-bottom,
+.pm-discrete-mode .pm-page-gap,
 .pm-discrete-mode .pm-page-top {
-  padding: 0;
-  height: var(--pm-page-padding-top, 96px);  /* 1" top margin from WASM */
-}
-
-/* Make page numbers visible in discrete mode despite hidden container */
-.pm-discrete-mode .pm-page-top .pm-page-number {
-  visibility: visible;
-}
-
-/* Discrete mode: Gap creates spacing between pages but is invisible.
-   The gap BETWEEN page frames shows the editor background naturally.
-   No need for the decoration to provide a background. */
-.pm-discrete-mode .pm-page-gap {
-  height: 40px; /* Must match PAGE_GAP_PX in page-frames.ts */
-  /* Keep invisible - the actual visual gap is between page frame overlays */
+  visibility: hidden;
   background: transparent;
 }
+
 
 /* Discrete mode: Editor pages container */
 .pm-discrete-mode .pm-editor-pages {
   position: relative;
   gap: 0;
-  /* Remove bottom padding so content aligns with page frames */
+  /* Remove padding so content aligns with page frames */
   /* Page frames start at yOffset=0, so content must too */
-  /* Note: padding-top kept from base rule for fallback */
+  padding-top: 0;
   padding-bottom: 0;
   background: transparent;  /* Let page frames show through */
 }
@@ -1133,7 +1162,7 @@
    Note: CSS ::before pseudo-elements don't work with ProseMirror's contentEditable */
 .pm-first-page-margin {
   display: block;
-  height: var(--pm-page-padding-top, 96px); /* 1" top margin from WASM */
+  height: var(--wasm-top-margin); /* From WASM - single source of truth */
   pointer-events: none;
 }
 
@@ -1181,7 +1210,7 @@
 
 /* Title page container - WGA standard layout */
 .pm-title-page {
-  height: 1056px; /* Full page height - PAGE_HEIGHT_PX */
+  height: var(--wasm-page-height); /* From WASM - single source of truth */
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -1253,7 +1282,7 @@
 
 /* In discrete mode, title page is the entire first page */
 .pm-discrete-mode .pm-title-page {
-  height: 1056px;
+  height: var(--wasm-page-height);
   margin-top: 0 !important; /* Override first-child margin for title page */
 }
 

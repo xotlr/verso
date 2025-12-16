@@ -91,7 +91,10 @@ export function usePagination(
     const startTime = performance.now();
 
     try {
-      // Serialize the document
+      // Detect if document has a title page
+      const hasTitlePage = doc.firstChild?.type.name === 'title_page';
+
+      // Serialize the document (serializeDocument skips title_page nodes)
       const elements = serializeDocument(doc);
 
       // Create position map
@@ -99,11 +102,12 @@ export function usePagination(
 
       // Debug: Log serialized elements (comment out in production)
       if (process.env.NODE_ENV === 'development') {
-        console.log('[usePagination] Serialized elements:', elements.length, 'version:', thisVersion);
+        console.log('[usePagination] Serialized elements:', elements.length, 'hasTitlePage:', hasTitlePage, 'version:', thisVersion);
       }
 
-      // Run pagination
-      const paginationResult = await runPagination(elements, config);
+      // Run pagination with title page awareness
+      // WASM now handles all positioning - pixel_y values are absolute
+      const paginationResult = await runPagination(elements, config, hasTitlePage);
 
       // CRITICAL: Discard stale results if document changed while we were waiting
       if (thisVersion !== docVersionRef.current) {
