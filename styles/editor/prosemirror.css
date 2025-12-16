@@ -200,7 +200,7 @@
   flex-direction: column;
   align-items: center;
   padding: 32px 0 120px;
-  gap: 32px; /* Match wasm-inspired gap-8 */
+  gap: 0; /* WASM handles all spacing via page break decorations */
   /* No min-height - content dictates height for proper scrolling */
   background: hsl(var(--background));
   /* Container is centered, pages are fixed-size and scaled */
@@ -633,7 +633,7 @@
 .pm-page-top {
   position: relative;
   width: 100%;
-  min-height: var(--pm-page-padding-top, 96px);  /* 1" top margin from WASM */
+  height: var(--pm-page-padding-top, 96px);  /* 1" top margin from WASM - fixed height, not min */
   padding: 0;
 
   /* No shadow on divider - clean separation */

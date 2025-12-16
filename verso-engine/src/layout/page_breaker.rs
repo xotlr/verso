@@ -149,8 +149,8 @@ impl PaginationState {
             top_margin_px,
             bottom_margin_px,
             content_area_px,
-            // Start cumulative offset after first page top margin
-            cumulative_pixel_y: top_margin_px,
+            // Start at 0 - page frames are positioned from document top
+            cumulative_pixel_y: 0.0,
         }
     }
 

@@ -339,32 +339,37 @@ function calculateFallbackPageBreaks(doc: ProseMirrorNode): PageBreak[] {
  * Calculate the bottom padding needed to fill the remaining space on a page.
  * This ensures content aligns properly with page frame overlays in discrete mode.
  *
- * The calculation accounts for:
- * 1. Remaining content area on the current page
- * 2. Bottom margin space on current page
- * 3. Top margin space on next page (where page number appears)
+ * Uses WASM's pixel_y values to derive exact spacing, avoiding cumulative drift
+ * from assuming content height = linesUsed × lineHeight.
  *
  * @param linesUsed - Lines used on the previous page
+ * @param prevPagePixelY - Pixel Y position where previous page started
+ * @param nextPagePixelY - Pixel Y position where next page starts (from WASM)
  * @returns Padding in pixels to add before the gap
  */
-function calculatePageBottomPadding(linesUsed: number): number {
-  // Get layout constants from WASM config - single source of truth
+function calculatePageBottomPadding(
+  linesUsed: number,
+  prevPagePixelY: number,
+  nextPagePixelY: number
+): number {
+  // Get layout constants from WASM config
   const layout = getLayoutConstants(DEFAULT_FEATURE_FILM_CONFIG);
-
   const LINE_HEIGHT_PX = layout.lineHeightPx;
-  const PAGE_TOP_MARGIN = layout.pageMarginTopPx;
-  const PAGE_BOTTOM_MARGIN = layout.pageMarginBottomPx;
-  const CONTENT_AREA_HEIGHT = layout.pageHeightPx - PAGE_TOP_MARGIN - PAGE_BOTTOM_MARGIN;
+  const PAGE_GAP_PX = 40; // Must match CSS .pm-page-gap height
+  const PAGE_TOP_MARGIN = layout.pageMarginTopPx; // 96px
 
-  // Content used = lines × line height (using WASM's exact line height)
+  // Distance between pages according to WASM (this is the ground truth)
+  const pageSpan = nextPagePixelY - prevPagePixelY;
+
+  // Content used based on WASM's line count
   const contentUsed = linesUsed * LINE_HEIGHT_PX;
 
-  // Remaining space on this page
-  const remainingContentArea = Math.max(0, CONTENT_AREA_HEIGHT - contentUsed);
+  // pm-page-bottom must fill: pageSpan - contentUsed - gap - top_margin
+  // This self-corrects for any cumulative rendering differences
+  const bottomPadding = pageSpan - contentUsed - PAGE_GAP_PX - PAGE_TOP_MARGIN;
 
-  // Total padding = remaining content + bottom margin only
-  // Note: PAGE_TOP_MARGIN is provided by pm-page-top, not here
-  return remainingContentArea + PAGE_BOTTOM_MARGIN;
+  // Ensure non-negative (safety check)
+  return Math.max(0, bottomPadding);
 }
 
 /**
@@ -436,14 +441,27 @@ function createPageBreakDecorations(
     decorations.push(page2Decoration);
   }
 
-  pageBreaks.forEach((pageBreak) => {
+  // Get first page start position (after first-page-margin)
+  const layout = getLayoutConstants(DEFAULT_FEATURE_FILM_CONFIG);
+  const FIRST_PAGE_START = layout.pageMarginTopPx; // 96px
+
+  for (let i = 0; i < pageBreaks.length; i++) {
+    const pageBreak = pageBreaks[i];
+
     // Validate position is within document bounds
     if (pageBreak.position < 0 || pageBreak.position > doc.content.size) {
-      return;
+      continue;
     }
 
-    // Calculate padding needed to fill remaining page space (for discrete mode alignment)
-    const bottomPadding = calculatePageBottomPadding(pageBreak.linesUsedOnPrevPage);
+    // Get previous page's pixel_y (or first page start for first break)
+    const prevPagePixelY = i > 0 ? pageBreaks[i - 1].pixelY : FIRST_PAGE_START;
+
+    // Calculate padding using WASM pixel_y values (self-correcting)
+    const bottomPadding = calculatePageBottomPadding(
+      pageBreak.linesUsedOnPrevPage,
+      prevPagePixelY,
+      pageBreak.pixelY
+    );
 
     // Create the 3-zone page break widget
     const pageBreakWidget = Decoration.widget(
@@ -520,7 +538,7 @@ function createPageBreakDecorations(
     );
 
     decorations.push(pageBreakWidget);
-  });
+  }
 
   return DecorationSet.create(doc, decorations);
 }
