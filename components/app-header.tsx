@@ -5,14 +5,6 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileHeaderMenu } from "@/components/mobile-header-menu";
@@ -21,18 +13,17 @@ import { Search, Bell, Settings, ArrowLeft } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 
-// Generate breadcrumbs from pathname
-function getBreadcrumbs(pathname: string, dynamicTitle: string | null): {
+// Get active item label from pathname
+function getActiveItem(pathname: string, dynamicTitle: string | null): {
   label: string;
-  href?: string;
-  isTitle?: boolean;
-}[] {
+  isTitle: boolean;
+} {
   const segments = pathname.split("/").filter(s => s && s !== "home");
-  const breadcrumbs: { label: string; href?: string; isTitle?: boolean }[] = [];
 
   const labelMap: Record<string, string> = {
     screenplays: "Screenplays",
     projects: "Projects",
+    series: "Series",
     explore: "Explore",
     editor: "Editor",
     board: "Beat Board",
@@ -48,26 +39,23 @@ function getBreadcrumbs(pathname: string, dynamicTitle: string | null): {
     screenplay: "Screenplay",
   };
 
-  let currentPath = "";
-  segments.forEach((segment, index) => {
-    currentPath += `/${segment}`;
-    const isLast = index === segments.length - 1;
+  // If we're at /home or root, show "Home"
+  if (segments.length === 0) {
+    return { label: "Home", isTitle: false };
+  }
 
-    // Check if this segment looks like an entity ID (CUID or UUID) and we have a dynamic title
-    // CUIDs are 25+ alphanumeric chars, UUIDs are 36 chars with dashes
-    const isEntityId = segment.match(/^[a-z0-9]{20,}$/i) || segment.match(/^[a-f0-9-]{36}$/);
-    const label = (isEntityId && dynamicTitle)
-      ? dynamicTitle
-      : (labelMap[segment] || (isEntityId ? "Loading..." : segment));
+  // Get the last segment (current page)
+  const lastSegment = segments[segments.length - 1];
 
-    breadcrumbs.push({
-      label,
-      href: isLast ? undefined : currentPath,
-      isTitle: isEntityId && dynamicTitle ? true : false,
-    });
-  });
+  // Check if this segment looks like an entity ID (CUID or UUID) and we have a dynamic title
+  const isEntityId = lastSegment.match(/^[a-z0-9]{20,}$/i) || lastSegment.match(/^[a-f0-9-]{36}$/);
 
-  return breadcrumbs;
+  if (isEntityId && dynamicTitle) {
+    return { label: dynamicTitle, isTitle: true };
+  }
+
+  const label = labelMap[lastSegment] || (isEntityId ? "Loading..." : lastSegment);
+  return { label, isTitle: false };
 }
 
 // Get page title for mobile header
@@ -142,7 +130,7 @@ export function AppHeader({ className }: AppHeaderProps) {
     }));
   }, []);
 
-  const breadcrumbs = getBreadcrumbs(pathname, dynamicTitle);
+  const activeItem = getActiveItem(pathname, dynamicTitle);
   const pageTitle = getPageTitle(pathname);
 
   // Check if on a detail/editor page where we should show back button on mobile
@@ -166,35 +154,19 @@ export function AppHeader({ className }: AppHeaderProps) {
       <SidebarTrigger className="-ml-1 hidden md:flex" />
       <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
 
-      {/* Desktop: Breadcrumbs */}
-      <Breadcrumb className="hidden md:flex">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href="/home">Home</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          {breadcrumbs.map((crumb, i) => (
-            <React.Fragment key={i}>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                {crumb.href ? (
-                  <BreadcrumbLink asChild>
-                    <Link href={crumb.href}>{crumb.label}</Link>
-                  </BreadcrumbLink>
-                ) : crumb.isTitle ? (
-                  <EditableTitle
-                    value={crumb.label}
-                    onSave={handleTitleSave}
-                  />
-                ) : (
-                  <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-                )}
-              </BreadcrumbItem>
-            </React.Fragment>
-          ))}
-        </BreadcrumbList>
-      </Breadcrumb>
+      {/* Desktop: Active item display */}
+      <div className="hidden md:flex items-center">
+        {activeItem.isTitle ? (
+          <EditableTitle
+            value={activeItem.label}
+            onSave={handleTitleSave}
+          />
+        ) : (
+          <span className="text-sm font-medium text-foreground">
+            {activeItem.label}
+          </span>
+        )}
+      </div>
 
       {/* Mobile: Logo or Back button on left */}
       {isDetailPage ? (

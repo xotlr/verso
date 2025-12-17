@@ -69,13 +69,20 @@ export async function GET() {
   }
 }
 
+// Planned season structure schema
+const plannedSeasonSchema = z.object({
+  seasonNumber: z.number().int().min(1).max(99),
+  episodeCount: z.number().int().min(1).max(30),
+})
+
 // Validation schema for creating a series
 const createSeriesSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
   logline: z.string().optional(),
-  genre: z.string().optional(),
+  genre: z.string().optional(), // Comma-separated genres (e.g., "Drama, Thriller")
   format: z.enum(["one-hour", "half-hour", "multi-cam"]).optional(),
   projectId: z.string().optional(),
+  plannedSeasons: z.array(plannedSeasonSchema).optional(), // For future use
 })
 
 // POST /api/series - Create a new series

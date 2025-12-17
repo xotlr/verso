@@ -2,7 +2,14 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Tv, Clock, FileText } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Tv, Clock, FileText, MoreVertical, Edit3, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { SeriesCardData } from './series-card';
@@ -40,6 +47,8 @@ interface SeriesListRowProps {
   isHovered?: boolean;
   onHover?: () => void;
   onLeave?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 export function SeriesListRow({
@@ -48,14 +57,16 @@ export function SeriesListRow({
   isHovered,
   onHover,
   onLeave,
+  onEdit,
+  onDelete,
 }: SeriesListRowProps) {
   const linkHref = href || `/series/${series.id}`;
   const episodeCount = series._count?.episodes || 0;
   const thickness = getThickness(episodeCount);
+  const hasActions = onEdit || onDelete;
 
   return (
-    <Link
-      href={linkHref}
+    <div
       className={cn(
         'group flex items-center gap-3 px-4 py-3',
         'bg-card border border-border/60 rounded-lg',
@@ -69,49 +80,99 @@ export function SeriesListRow({
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
     >
-      {/* TV Icon */}
-      <div className="flex-shrink-0 p-1.5 rounded-md bg-blue-500/10 text-blue-500">
-        <Tv className="h-4 w-4" />
-      </div>
+      <Link href={linkHref} className="flex items-center gap-3 flex-1 min-w-0">
+        {/* TV Icon */}
+        <div className="flex-shrink-0 p-1.5 rounded-md bg-blue-500/10 text-blue-500">
+          <Tv className="h-4 w-4" />
+        </div>
 
-      {/* Title + Logline */}
-      <div className="flex-1 min-w-0">
-        <h3 className="font-semibold text-sm truncate uppercase tracking-tight">
-          {series.title}
-        </h3>
-        {series.logline && (
-          <p className="text-xs text-muted-foreground truncate">
-            {series.logline}
-          </p>
-        )}
-      </div>
+        {/* Title + Logline */}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-sm truncate uppercase tracking-tight">
+            {series.title}
+          </h3>
+          {series.logline && (
+            <p className="text-xs text-muted-foreground truncate">
+              {series.logline}
+            </p>
+          )}
+        </div>
 
-      {/* Episode Count */}
-      <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
-        <FileText className="h-3 w-3" />
-        {episodeCount} {episodeCount === 1 ? 'ep' : 'eps'}
-      </span>
-
-      {/* Genre Badge */}
-      {series.genre && (
-        <Badge variant="secondary" className="hidden md:inline-flex text-[10px]">
-          {series.genre}
-        </Badge>
-      )}
-
-      {/* Format */}
-      {series.format && (
-        <span className="hidden lg:inline text-xs text-muted-foreground uppercase">
-          {series.format}
+        {/* Episode Count */}
+        <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
+          <FileText className="h-3 w-3" />
+          {episodeCount} {episodeCount === 1 ? 'ep' : 'eps'}
         </span>
-      )}
 
-      {/* Timestamp */}
-      <span className="flex items-center gap-1 text-xs text-muted-foreground">
-        <Clock className="h-3 w-3" />
-        {formatTimeCompact(new Date(series.updatedAt))}
-      </span>
-    </Link>
+        {/* Genre Badge */}
+        {series.genre && (
+          <Badge variant="secondary" className="hidden md:inline-flex text-[10px]">
+            {series.genre}
+          </Badge>
+        )}
+
+        {/* Format */}
+        {series.format && (
+          <span className="hidden lg:inline text-xs text-muted-foreground uppercase">
+            {series.format}
+          </span>
+        )}
+
+        {/* Timestamp */}
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Clock className="h-3 w-3" />
+          {formatTimeCompact(new Date(series.updatedAt))}
+        </span>
+      </Link>
+
+      {/* Dropdown menu */}
+      {hasActions && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              className="p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="More options"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {onEdit && (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onEdit();
+                }}
+              >
+                <Edit3 className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+            )}
+            {onDelete && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onDelete();
+                  }}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
   );
 }
 

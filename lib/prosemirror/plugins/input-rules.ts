@@ -206,77 +206,77 @@ const shotRules = [
   nodeInputRule(
     /^(WIDE SHOT|WS|WIDE ON)\s$/i,
     screenplaySchema.nodes.shot,
-    (match) => ({ shotType: 'WIDE', subject: null })
+    (_match) => ({ shotType: 'WIDE', subject: null })
   ),
 
   // Close-up shots
   nodeInputRule(
     /^(CLOSE-?UP|CU|CLOSE ON)\s$/i,
     screenplaySchema.nodes.shot,
-    (match) => ({ shotType: 'CLOSE_UP', subject: null })
+    (_match) => ({ shotType: 'CLOSE_UP', subject: null })
   ),
 
   // Extreme close-up
   nodeInputRule(
     /^(EXTREME CLOSE-?UP|ECU|XCU)\s$/i,
     screenplaySchema.nodes.shot,
-    (match) => ({ shotType: 'EXTREME_CLOSE_UP', subject: null })
+    (_match) => ({ shotType: 'EXTREME_CLOSE_UP', subject: null })
   ),
 
   // Medium shots
   nodeInputRule(
     /^(MEDIUM SHOT|MS|MEDIUM)\s$/i,
     screenplaySchema.nodes.shot,
-    (match) => ({ shotType: 'MEDIUM', subject: null })
+    (_match) => ({ shotType: 'MEDIUM', subject: null })
   ),
 
   // Two-shot
   nodeInputRule(
     /^(TWO-?SHOT|2-?SHOT)\s$/i,
     screenplaySchema.nodes.shot,
-    (match) => ({ shotType: 'TWO_SHOT', subject: null })
+    (_match) => ({ shotType: 'TWO_SHOT', subject: null })
   ),
 
   // POV
   nodeInputRule(
     /^(POV|P\.O\.V\.)\s$/i,
     screenplaySchema.nodes.shot,
-    (match) => ({ shotType: 'POV', subject: null })
+    (_match) => ({ shotType: 'POV', subject: null })
   ),
 
   // Insert
   nodeInputRule(
     /^INSERT\s$/i,
     screenplaySchema.nodes.shot,
-    (match) => ({ shotType: 'INSERT', subject: null })
+    (_match) => ({ shotType: 'INSERT', subject: null })
   ),
 
   // Angle on
   nodeInputRule(
     /^ANGLE ON\s$/i,
     screenplaySchema.nodes.shot,
-    (match) => ({ shotType: 'ANGLE_ON', subject: null })
+    (_match) => ({ shotType: 'ANGLE_ON', subject: null })
   ),
 
   // Over the shoulder
   nodeInputRule(
     /^(OVER THE SHOULDER|OTS|O\/S SHOT)\s$/i,
     screenplaySchema.nodes.shot,
-    (match) => ({ shotType: 'OVER_SHOULDER', subject: null })
+    (_match) => ({ shotType: 'OVER_SHOULDER', subject: null })
   ),
 
   // Tracking shot
   nodeInputRule(
     /^(TRACKING SHOT|TRACKING)\s$/i,
     screenplaySchema.nodes.shot,
-    (match) => ({ shotType: 'TRACKING', subject: null })
+    (_match) => ({ shotType: 'TRACKING', subject: null })
   ),
 
   // Establishing shot
   nodeInputRule(
     /^(ESTABLISHING SHOT|ESTABLISHING)\s$/i,
     screenplaySchema.nodes.shot,
-    (match) => ({ shotType: 'ESTABLISHING', subject: null })
+    (_match) => ({ shotType: 'ESTABLISHING', subject: null })
   ),
 ];
 

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { Download, Upload, RotateCcw, Palette, Type, Layout, CreditCard, Loader2, ChevronRight, Globe, Lock, Eye, AtSign, Check, AlertCircle, Keyboard } from 'lucide-react';
+import { Download, Upload, RotateCcw, Palette, Type, Layout, CreditCard, Loader2, Globe, Lock, Eye, AtSign, Check, AlertCircle, Keyboard, Sparkles } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ImageUpload } from '@/components/image-upload';
@@ -76,6 +77,87 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isLoadingBilling, setIsLoadingBilling] = useState(false);
+  const [isYearly, setIsYearly] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  // Get current user plan
+  const currentPlan = ((session?.user as { plan?: string })?.plan || 'FREE').toUpperCase();
+
+  // Plans data
+  const plans = [
+    {
+      name: 'Free',
+      key: 'FREE',
+      description: 'Perfect for getting started',
+      monthlyPrice: 0,
+      yearlyPrice: 0,
+      features: [
+        'Unlimited screenplays & pages',
+        '1 project',
+        'Industry-standard formatting',
+        'PDF export',
+        'Dark mode',
+      ],
+      priceIdMonthly: undefined as string | undefined,
+      priceIdYearly: undefined as string | undefined,
+    },
+    {
+      name: 'Plus',
+      key: 'PLUS',
+      description: 'For serious screenwriters',
+      monthlyPrice: 12.99,
+      yearlyPrice: 99.99,
+      yearlyDiscount: 'Save $56',
+      features: [
+        'Unlimited projects',
+        'All export formats (PDF, FDX, Fountain)',
+        'Index cards & beat board',
+        'Character analytics',
+        'Cloud sync',
+        'Priority support',
+      ],
+      highlighted: true,
+      priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
+      priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PLUS_YEARLY_PRICE_ID,
+    },
+    {
+      name: 'Pro',
+      key: 'PRO',
+      description: 'For writing teams',
+      monthlyPrice: 29.99,
+      yearlyPrice: 249.99,
+      yearlyDiscount: 'Save $110',
+      features: [
+        'Everything in Plus',
+        'Real-time collaboration',
+        'Up to 5 team members',
+        'Version history',
+        'Comments & notes',
+        'Team workspace',
+      ],
+      priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID,
+      priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID,
+    },
+    {
+      name: 'Max',
+      key: 'MAX',
+      description: 'For production & studios',
+      monthlyPrice: 99.99,
+      yearlyPrice: 899.99,
+      yearlyDiscount: 'Save $300',
+      perUser: true,
+      features: [
+        'Everything in Pro',
+        'Unlimited team members',
+        'Production tools',
+        'Schedules & budgets',
+        'Admin controls',
+        'Custom branding',
+      ],
+      priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_MAX_MONTHLY_PRICE_ID,
+      priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_MAX_YEARLY_PRICE_ID,
+    },
+  ];
 
   // Username check state
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
@@ -222,6 +304,36 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
       toast.error('Failed to open billing portal');
     } finally {
       setIsLoadingBilling(false);
+    }
+  };
+
+  const handleCheckout = async (plan: string, priceId: string | undefined) => {
+    if (!priceId) {
+      toast.info('This plan is not yet available. Please contact support.');
+      return;
+    }
+
+    setLoadingPlan(plan);
+
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId, plan }),
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error(data.error || 'Something went wrong');
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast.error('Something went wrong');
+    } finally {
+      setLoadingPlan(null);
     }
   };
 
@@ -935,31 +1047,172 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
 
       {/* Billing Section */}
       <Card className="mt-8 shrink-0">
-        <CardHeader className="pb-0">
-          <CardTitle className="text-base">Subscription</CardTitle>
-          <CardDescription>Manage your billing and plan</CardDescription>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Subscription</CardTitle>
+              <CardDescription>Manage your billing and plan</CardDescription>
+            </div>
+            {currentPlan !== 'FREE' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleManageBilling}
+                disabled={isLoadingBilling}
+              >
+                {isLoadingBilling ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <CreditCard className="h-4 w-4 mr-2" />
+                )}
+                Manage Billing
+              </Button>
+            )}
+          </div>
         </CardHeader>
-        <CardContent className="pt-4">
-          <button
-            onClick={handleManageBilling}
-            disabled={isLoadingBilling}
-            className="w-full flex items-center justify-between p-3 -mx-3 rounded-lg hover:bg-muted transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Current Plan</span>
-            </div>
-            <div className="flex items-center gap-2">
+        <CardContent className="space-y-6">
+          {/* Billing Toggle */}
+          <div className="flex items-center justify-center gap-3">
+            <span className={cn("text-sm", !isYearly ? "font-medium" : "text-muted-foreground")}>
+              Monthly
+            </span>
+            <Switch
+              checked={isYearly}
+              onCheckedChange={setIsYearly}
+            />
+            <span className={cn("text-sm", isYearly ? "font-medium" : "text-muted-foreground")}>
+              Yearly
+            </span>
+            {isYearly && (
               <Badge variant="secondary" className="text-xs">
-                {(session?.user as { plan?: string })?.plan?.toUpperCase() || 'FREE'}
+                Save up to 30%
               </Badge>
-              {isLoadingBilling ? (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              )}
-            </div>
-          </button>
+            )}
+          </div>
+
+          {/* Plan Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {plans.map((plan) => {
+              const isCurrentPlan = currentPlan === plan.key;
+              const isDowngrade = plan.key === 'FREE' ||
+                (plan.key === 'PLUS' && (currentPlan === 'PRO' || currentPlan === 'MAX')) ||
+                (plan.key === 'PRO' && currentPlan === 'MAX');
+
+              return (
+                <div
+                  key={plan.name}
+                  className={cn(
+                    "relative p-4 rounded-xl border transition-all",
+                    isCurrentPlan
+                      ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                      : plan.highlighted
+                        ? "border-primary/50 bg-primary/[0.02]"
+                        : "border-border hover:border-border/80"
+                  )}
+                >
+                  {isCurrentPlan && (
+                    <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px]">
+                      Current Plan
+                    </Badge>
+                  )}
+                  {!isCurrentPlan && plan.highlighted && (
+                    <Badge variant="secondary" className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px]">
+                      Most Popular
+                    </Badge>
+                  )}
+
+                  <div className="mb-3">
+                    <h3 className="font-semibold">{plan.name}</h3>
+                    <p className="text-xs text-muted-foreground">{plan.description}</p>
+                  </div>
+
+                  <div className="mb-3">
+                    <div className="flex items-baseline gap-0.5">
+                      <span className="text-2xl font-semibold">
+                        ${isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        /{isYearly ? 'yr' : 'mo'}
+                        {plan.perUser && '/user'}
+                      </span>
+                    </div>
+                    {isYearly && plan.yearlyDiscount && (
+                      <Badge variant="secondary" className="mt-1 text-[10px]">
+                        {plan.yearlyDiscount}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <ul className="space-y-1.5 mb-4">
+                    {plan.features.slice(0, 4).map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs">
+                        <Check className="h-3 w-3 text-primary flex-shrink-0 mt-0.5" />
+                        <span className="text-muted-foreground">{feature}</span>
+                      </li>
+                    ))}
+                    {plan.features.length > 4 && (
+                      <li className="text-xs text-muted-foreground pl-5">
+                        +{plan.features.length - 4} more
+                      </li>
+                    )}
+                  </ul>
+
+                  {isCurrentPlan ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled
+                    >
+                      <Check className="h-3.5 w-3.5 mr-1.5" />
+                      Active
+                    </Button>
+                  ) : plan.key === 'FREE' ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={handleManageBilling}
+                      disabled={currentPlan === 'FREE'}
+                    >
+                      {currentPlan === 'FREE' ? 'Current' : 'Downgrade'}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant={plan.highlighted && !isDowngrade ? "default" : "outline"}
+                      size="sm"
+                      className="w-full"
+                      onClick={() =>
+                        handleCheckout(
+                          plan.key,
+                          isYearly ? plan.priceIdYearly : plan.priceIdMonthly
+                        )
+                      }
+                      disabled={loadingPlan === plan.key}
+                    >
+                      {loadingPlan === plan.key ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                          Processing...
+                        </>
+                      ) : isDowngrade ? (
+                        'Downgrade'
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                          Upgrade
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="text-xs text-center text-muted-foreground">
+            All plans include a 14-day free trial. No credit card required to start.
+          </p>
         </CardContent>
       </Card>
 

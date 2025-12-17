@@ -97,8 +97,8 @@ export function ConflictDialog({
       <AlertDialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
         <AlertDialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <div className="h-10 w-10 rounded-full bg-card border-2 border-warning/50 flex items-center justify-center">
+              <AlertTriangle className="h-5 w-5 text-warning" />
             </div>
             <div>
               <AlertDialogTitle className="text-lg">
@@ -130,8 +130,8 @@ export function ConflictDialog({
               {/* Local Version Card */}
               <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                    <Smartphone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <div className="h-8 w-8 rounded-full bg-card border-2 border-info/50 flex items-center justify-center">
+                    <Smartphone className="h-4 w-4 text-info" />
                   </div>
                   <div>
                     <h3 className="font-medium">Your Local Version</h3>
@@ -144,11 +144,11 @@ export function ConflictDialog({
                     <span>Word count:</span>
                     <Badge variant="secondary">{localWordCount.toLocaleString()}</Badge>
                   </div>
-                  <div className="flex items-center justify-between text-green-600">
+                  <div className="flex items-center justify-between text-success-foreground">
                     <span>Characters added:</span>
                     <span>+{stats.additions.toLocaleString()}</span>
                   </div>
-                  <div className="flex items-center justify-between text-red-600">
+                  <div className="flex items-center justify-between text-destructive-foreground">
                     <span>Characters removed:</span>
                     <span>-{stats.deletions.toLocaleString()}</span>
                   </div>
@@ -173,8 +173,8 @@ export function ConflictDialog({
               {/* Server Version Card */}
               <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                    <Cloud className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <div className="h-8 w-8 rounded-full bg-card border-2 border-success/50 flex items-center justify-center">
+                    <Cloud className="h-4 w-4 text-success" />
                   </div>
                   <div>
                     <h3 className="font-medium">Server Version</h3>
@@ -217,8 +217,8 @@ export function ConflictDialog({
           <TabsContent value="compare" className="flex-1 m-0 overflow-hidden flex flex-col">
             <div className="px-6 py-2 border-b bg-muted/50 flex items-center justify-between text-sm">
               <div className="flex items-center gap-4">
-                <span className="text-green-600">+{stats.additions.toLocaleString()} added</span>
-                <span className="text-red-600">-{stats.deletions.toLocaleString()} removed</span>
+                <span className="text-success-foreground">+{stats.additions.toLocaleString()} added</span>
+                <span className="text-destructive-foreground">-{stats.deletions.toLocaleString()} removed</span>
               </div>
               <div className="flex gap-2">
                 <Button size="sm" onClick={() => handleResolve('local')}>
@@ -245,7 +245,7 @@ export function ConflictDialog({
                       return (
                         <span
                           key={index}
-                          className="bg-green-500/20 text-green-700 dark:text-green-400"
+                          className="bg-success/10 text-success-foreground border-l-2 border-success/50 pl-1"
                         >
                           {text}
                         </span>
@@ -255,7 +255,7 @@ export function ConflictDialog({
                       return (
                         <span
                           key={index}
-                          className="bg-red-500/20 text-red-700 dark:text-red-400 line-through"
+                          className="bg-destructive/10 text-destructive-foreground border-l-2 border-destructive/50 pl-1 line-through"
                         >
                           {text}
                         </span>

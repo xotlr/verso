@@ -222,6 +222,8 @@
   background: hsl(var(--background));
   /* Container is centered, pages are fixed-size and scaled */
   margin: 0 auto;
+  /* Smooth zoom transitions */
+  transition: transform 150ms ease-out;
 }
 
 /* Each page - container for ProseMirror content */

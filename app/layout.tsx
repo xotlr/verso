@@ -106,7 +106,7 @@ export default function RootLayout({
               <ShortcutsProvider>
                 <TeamProvider>
                   {children}
-                  <Toaster richColors position="bottom-right" />
+                  <Toaster position="bottom-right" />
                 </TeamProvider>
               </ShortcutsProvider>
             </SettingsProvider>

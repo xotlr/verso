@@ -37,6 +37,14 @@
     --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 100%;
 
+    /* Semantic colors - subtle, low saturation */
+    --success: 142 30% 50%;
+    --success-foreground: 142 40% 25%;
+    --warning: 38 35% 55%;
+    --warning-foreground: 38 50% 30%;
+    --info: 210 30% 55%;
+    --info-foreground: 210 45% 30%;
+
     /* Borders */
     --border: 0 0% 90%;
     --input: 0 0% 90%;
@@ -112,6 +120,14 @@
     /* Destructive */
     --destructive: 0 55% 50%;
     --destructive-foreground: 0 0% 100%;
+
+    /* Semantic colors - subtle, adjusted for dark mode */
+    --success: 142 25% 55%;
+    --success-foreground: 142 35% 75%;
+    --warning: 38 30% 60%;
+    --warning-foreground: 38 45% 80%;
+    --info: 210 25% 60%;
+    --info-foreground: 210 40% 80%;
 
     /* Borders */
     --border: 0 0% 20%;

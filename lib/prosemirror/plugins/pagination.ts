@@ -358,7 +358,7 @@ function calculateFallbackPageBreaks(doc: ProseMirrorNode): PageBreak[] {
 function createPageBreakDecorations(
   doc: ProseMirrorNode,
   pageBreaks: PageBreak[],
-  layoutStats: WasmLayoutStats | null
+  _layoutStats: WasmLayoutStats | null
 ): DecorationSet {
   const decorations: Decoration[] = [];
 

@@ -1,17 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import useSWR from 'swr';
-import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { NumberInput } from '@/components/ui/number-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PageLayout } from '@/components/layouts/page-layout';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,24 +28,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  ArrowLeft,
-  Plus,
-  Tv,
-  Clock,
-  MoreHorizontal,
-  Trash2,
-  Edit3,
-  FileText,
-  Loader2,
-} from 'lucide-react';
+import { ArrowLeft, Tv, FileText, Users, Link as LinkIcon, Loader2 } from 'lucide-react';
+
+// Import series components
+import { SeriesBanner } from '@/components/series/series-banner';
+import { SeasonSection } from '@/components/series/season-section';
+import { SeriesOverviewTab } from '@/components/series/series-overview-tab';
+import { SeriesCharactersTab } from '@/components/series/series-characters-tab';
+import { SeriesResourcesTab } from '@/components/series/series-resources-tab';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -84,10 +74,6 @@ function groupBySeason(episodes: Episode[]): Map<number, Episode[]> {
     }
     grouped.get(season)!.push(ep);
   });
-  // Sort episodes within each season
-  grouped.forEach((eps, _season) => {
-    eps.sort((a, b) => (a.episode || 0) - (b.episode || 0));
-  });
   return grouped;
 }
 
@@ -101,6 +87,7 @@ export default function SeriesPage() {
     fetcher
   );
 
+  // Dialog states
   const [isAddingEpisode, setIsAddingEpisode] = useState(false);
   const [newEpisodeSeason, setNewEpisodeSeason] = useState(1);
   const [newEpisodeNumber, setNewEpisodeNumber] = useState(1);
@@ -111,10 +98,28 @@ export default function SeriesPage() {
   const [deleteSeriesConfirm, setDeleteSeriesConfirm] = useState(false);
   const [isDeletingSeries, setIsDeletingSeries] = useState(false);
 
-  // Auto-set episode number when season changes
+  // Tab state
+  const [activeTab, setActiveTab] = useState('episodes');
+
+  // Auto-set episode number when adding to a season
+  const openAddEpisode = useCallback((season?: number) => {
+    const targetSeason = season || 1;
+    setNewEpisodeSeason(targetSeason);
+
+    if (series) {
+      const seasonEpisodes = series.episodes.filter(ep => ep.season === targetSeason);
+      const maxEpisode = Math.max(0, ...seasonEpisodes.map(ep => ep.episode || 0));
+      setNewEpisodeNumber(maxEpisode + 1);
+    } else {
+      setNewEpisodeNumber(1);
+    }
+
+    setNewEpisodeTitle('');
+    setIsAddingEpisode(true);
+  }, [series]);
+
   const handleSeasonChange = (season: number) => {
     setNewEpisodeSeason(season);
-    // Find next episode number for this season
     if (series) {
       const seasonEpisodes = series.episodes.filter(ep => ep.season === season);
       const maxEpisode = Math.max(0, ...seasonEpisodes.map(ep => ep.episode || 0));
@@ -143,7 +148,6 @@ export default function SeriesPage() {
         mutate();
         setIsAddingEpisode(false);
         setNewEpisodeTitle('');
-        // Increment episode number for convenience
         setNewEpisodeNumber(newEpisodeNumber + 1);
       }
     } catch (error) {
@@ -181,7 +185,7 @@ export default function SeriesPage() {
       });
 
       if (res.ok) {
-        router.push('/home');
+        router.push('/series');
       }
     } catch (error) {
       console.error('Failed to delete series:', error);
@@ -190,173 +194,161 @@ export default function SeriesPage() {
     }
   };
 
-  if (error) {
+  const handleSaveOverview = async (updates: {
+    logline?: string;
+    genre?: string;
+    format?: string;
+  }) => {
+    const res = await fetch(`/api/series/${seriesId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+
+    if (res.ok) {
+      mutate();
+    } else {
+      throw new Error('Failed to save');
+    }
+  };
+
+  // Loading state
+  if (!series && !error) {
     return (
-      <div className="container max-w-4xl py-8">
+      <PageLayout narrow>
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-48 w-full rounded-2xl" />
+          <Skeleton className="h-10 w-full max-w-md" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      </PageLayout>
+    );
+  }
+
+  // Error state
+  if (error || !series) {
+    return (
+      <PageLayout narrow>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.back()}
+          className="mb-6 -ml-2"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
         <EmptyState
           icon={<Tv className="h-6 w-6 text-muted-foreground" />}
           title="Series not found"
           description="This series doesn't exist or you don't have access to it."
         />
-      </div>
-    );
-  }
-
-  if (!series) {
-    return (
-      <div className="container max-w-4xl py-8 space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-4 w-96" />
-        <div className="space-y-4 mt-8">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-      </div>
+      </PageLayout>
     );
   }
 
   const episodesBySeason = groupBySeason(series.episodes);
   const seasons = Array.from(episodesBySeason.keys()).sort((a, b) => a - b);
+  const seasonCount = seasons.length || 1;
 
   return (
-    <div className="container max-w-4xl py-8">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <Tv className="h-6 w-6 text-blue-500" />
-            <h1 className="text-2xl font-bold">{series.title}</h1>
-            {series.genre && (
-              <Badge variant="secondary">{series.genre}</Badge>
-            )}
-          </div>
-          {series.logline && (
-            <p className="text-muted-foreground mt-1">{series.logline}</p>
+    <PageLayout narrow>
+      {/* Back Button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => router.back()}
+        className="mb-6 -ml-2 text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back
+      </Button>
+
+      {/* Series Banner */}
+      <SeriesBanner
+        series={series}
+        seasonCount={seasonCount}
+        onAddEpisode={() => openAddEpisode()}
+        onEdit={() => setActiveTab('overview')}
+        onDelete={() => setDeleteSeriesConfirm(true)}
+      />
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8">
+        <TabsList className="w-full sm:w-auto flex-wrap h-auto gap-1 p-1">
+          <TabsTrigger value="episodes" className="gap-1.5 px-3 py-1.5">
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Episodes</span>
+            <Badge variant="secondary" className="text-xs ml-1">
+              {series._count.episodes}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="overview" className="gap-1.5 px-3 py-1.5">
+            <Tv className="h-4 w-4" />
+            <span className="hidden sm:inline">Overview</span>
+          </TabsTrigger>
+          <TabsTrigger value="characters" className="gap-1.5 px-3 py-1.5">
+            <Users className="h-4 w-4" />
+            <span className="hidden sm:inline">Characters</span>
+          </TabsTrigger>
+          <TabsTrigger value="resources" className="gap-1.5 px-3 py-1.5">
+            <LinkIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Resources</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Episodes Tab */}
+        <TabsContent value="episodes" className="mt-6 space-y-6">
+          {seasons.length === 0 ? (
+            <EmptyState
+              icon={<FileText className="h-6 w-6 text-muted-foreground" />}
+              title="No episodes yet"
+              description="Create your first episode to get started."
+              action={{
+                label: 'Add Episode',
+                onClick: () => openAddEpisode(1),
+              }}
+            />
+          ) : (
+            seasons.map(season => (
+              <SeasonSection
+                key={season}
+                seasonNumber={season}
+                episodes={episodesBySeason.get(season) || []}
+                onAddEpisode={openAddEpisode}
+                onDeleteEpisode={setDeleteEpisodeId}
+              />
+            ))
           )}
-          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-            <span>{series._count.episodes} episodes</span>
-            {series.format && (
-              <span className="capitalize">{series.format.replace('-', ' ')}</span>
-            )}
-            {series.project && (
-              <Link href={`/project/${series.project.id}`} className="hover:underline">
-                Project: {series.project.name}
-              </Link>
-            )}
-          </div>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreHorizontal className="h-5 w-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>
-              <Edit3 className="h-4 w-4 mr-2" />
-              Edit Series
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => setDeleteSeriesConfirm(true)}
+
+          {/* Add New Season Button */}
+          {seasons.length > 0 && (
+            <Button
+              variant="outline"
+              className="w-full border-dashed"
+              onClick={() => openAddEpisode(Math.max(...seasons) + 1)}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Series
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+              + Add Season {Math.max(...seasons) + 1}
+            </Button>
+          )}
+        </TabsContent>
 
-      {/* Add Episode Button */}
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-semibold">Episodes</h2>
-        <Button onClick={() => setIsAddingEpisode(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Episode
-        </Button>
-      </div>
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="mt-6">
+          <SeriesOverviewTab series={series} onSave={handleSaveOverview} />
+        </TabsContent>
 
-      {/* Episodes by Season */}
-      {seasons.length === 0 ? (
-        <EmptyState
-          icon={<FileText className="h-6 w-6 text-muted-foreground" />}
-          title="No episodes yet"
-          description="Create your first episode to get started."
-          action={{
-            label: 'Add Episode',
-            onClick: () => setIsAddingEpisode(true),
-          }}
-        />
-      ) : (
-        <div className="space-y-8">
-          {seasons.map(season => (
-            <div key={season}>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                Season {season}
-              </h3>
-              <div className="space-y-2">
-                {episodesBySeason.get(season)!.map(episode => (
-                  <Link
-                    key={episode.id}
-                    href={`/screenplay/${episode.id}`}
-                    className="group flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm font-mono text-muted-foreground w-16">
-                        S{String(episode.season).padStart(2, '0')}E{String(episode.episode).padStart(2, '0')}
-                      </span>
-                      <div>
-                        <h4 className="font-medium group-hover:underline">
-                          {episode.episodeTitle || 'Untitled'}
-                        </h4>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                          <span>{episode.wordCount.toLocaleString()} words</span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {formatDistanceToNow(new Date(episode.updatedAt), { addSuffix: true })}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={e => e.preventDefault()}>
-                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => {
-                          e.preventDefault();
-                          router.push(`/screenplay/${episode.id}`);
-                        }}>
-                          <Edit3 className="h-4 w-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setDeleteEpisodeId(episode.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        {/* Characters Tab */}
+        <TabsContent value="characters" className="mt-6">
+          <SeriesCharactersTab seriesId={seriesId} />
+        </TabsContent>
+
+        {/* Resources Tab */}
+        <TabsContent value="resources" className="mt-6">
+          <SeriesResourcesTab seriesId={seriesId} />
+        </TabsContent>
+      </Tabs>
 
       {/* Add Episode Dialog */}
       <Dialog open={isAddingEpisode} onOpenChange={setIsAddingEpisode}>
@@ -396,9 +388,10 @@ export default function SeriesPage() {
                     handleCreateEpisode();
                   }
                 }}
+                autoFocus
               />
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" onClick={() => setIsAddingEpisode(false)}>
                 Cancel
               </Button>
@@ -463,6 +456,6 @@ export default function SeriesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageLayout>
   );
 }

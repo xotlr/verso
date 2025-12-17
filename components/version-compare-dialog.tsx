@@ -81,10 +81,10 @@ export function VersionCompareDialog({
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-green-600">
+              <span className="text-sm text-success-foreground">
                 +{stats.additions.toLocaleString()}
               </span>
-              <span className="text-sm text-red-600">
+              <span className="text-sm text-destructive-foreground">
                 -{stats.deletions.toLocaleString()}
               </span>
               {onRestore && (
@@ -124,7 +124,7 @@ export function VersionCompareDialog({
                     return (
                       <span
                         key={index}
-                        className="bg-green-500/20 text-green-700 dark:text-green-400"
+                        className="bg-success/10 text-success-foreground border-l-2 border-success/50 pl-1"
                       >
                         {text}
                       </span>
@@ -134,7 +134,7 @@ export function VersionCompareDialog({
                     return (
                       <span
                         key={index}
-                        className="bg-red-500/20 text-red-700 dark:text-red-400 line-through"
+                        className="bg-destructive/10 text-destructive-foreground border-l-2 border-destructive/50 pl-1 line-through"
                       >
                         {text}
                       </span>

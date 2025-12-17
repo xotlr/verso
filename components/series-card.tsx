@@ -2,8 +2,14 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Tv, Clock, FileText } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Tv, Clock, FileText, MoreVertical, Edit3, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface SeriesCardData {
@@ -34,94 +40,231 @@ function formatTimeCompact(date: Date): string {
   return `${diffMonths}mo`;
 }
 
+// Calculate number of seasons based on episode count (rough estimate)
+function estimateSeasonCount(episodeCount: number): number {
+  if (episodeCount === 0) return 1;
+  if (episodeCount <= 10) return 1;
+  if (episodeCount <= 22) return 2;
+  if (episodeCount <= 35) return 3;
+  return Math.min(Math.ceil(episodeCount / 12), 5);
+}
+
 interface SeriesCardProps {
   series: SeriesCardData;
   href?: string;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export function SeriesCard({ series, href }: SeriesCardProps) {
+export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) {
   const linkHref = href || `/series/${series.id}`;
   const episodeCount = series._count?.episodes || 0;
+  const seasonCount = estimateSeasonCount(episodeCount);
+  const hasActions = onEdit || onDelete;
+
+  // Calculate stack layers based on season count (min 1, max 3)
+  const stackLayers = Math.min(Math.max(seasonCount, 1), 3);
+
+  // Card height - matches screenplay card
+  const cardHeight = 'h-[180px] sm:h-[200px] md:h-[220px]';
 
   return (
-    <Link
-      href={linkHref}
-      className={cn(
-        'group block',
-        'bg-card rounded-xl border-2 border-blue-500/20',
-        'hover:border-blue-500/40 hover:shadow-md',
-        'transition-all duration-300',
-        'overflow-hidden'
+    <div className="group/stack relative transition-all duration-300 ease-out hover:-translate-y-1">
+      {/* Stacked paper layers - neutral colors, more layers = more seasons */}
+      {stackLayers >= 3 && (
+        <div
+          className={cn(
+            'absolute inset-0 rounded-xl',
+            'bg-muted border border-border shadow-sm',
+            'translate-x-1.5 translate-y-1.5',
+            'group-hover/stack:translate-x-3 group-hover/stack:translate-y-3',
+            'transition-transform duration-300',
+            cardHeight
+          )}
+        />
       )}
-    >
-      {/* Header with TV icon */}
-      <div className="p-4 pb-0">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-            <Tv className="h-5 w-5 text-blue-500" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-sm uppercase tracking-tight truncate group-hover:text-blue-500 transition-colors">
-              {series.title}
-            </h3>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <FileText className="h-3 w-3" />
-                {episodeCount} {episodeCount === 1 ? 'episode' : 'episodes'}
-              </span>
-              {series.genre && (
-                <Badge variant="secondary" className="text-[10px] py-0">
-                  {series.genre}
-                </Badge>
+      {stackLayers >= 2 && (
+        <div
+          className={cn(
+            'absolute inset-0 rounded-xl',
+            'bg-muted border border-border shadow-sm',
+            'translate-x-1 translate-y-1',
+            'group-hover/stack:translate-x-2 group-hover/stack:translate-y-2',
+            'transition-transform duration-300',
+            cardHeight
+          )}
+        />
+      )}
+      {stackLayers >= 1 && (
+        <div
+          className={cn(
+            'absolute inset-0 rounded-xl',
+            'bg-muted border border-border shadow-sm',
+            'translate-x-0.5 translate-y-0.5',
+            'group-hover/stack:translate-x-1 group-hover/stack:translate-y-1',
+            'transition-transform duration-300',
+            cardHeight
+          )}
+        />
+      )}
+
+      {/* Main card */}
+      <div
+        className={cn(
+          'group relative flex flex-col',
+          'bg-card rounded-xl',
+          'border border-border/60',
+          'hover:border-border hover:shadow-md',
+          'transition-all duration-300 ease-out',
+          'touch-manipulation cursor-pointer overflow-hidden',
+          cardHeight
+        )}
+      >
+        <Link href={linkHref} className="flex-1 flex flex-col">
+          <div className="p-5 sm:p-6 flex flex-col h-full font-mono">
+            {/* Header: Type Badge + Title + Menu */}
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex-1 min-w-0">
+                {/* Type badge */}
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                    <Tv className="h-2.5 w-2.5" />
+                    SERIES
+                  </span>
+                </div>
+
+                {/* Title */}
+                <h3 className="font-bold uppercase tracking-tight line-clamp-1 text-foreground group-hover/stack:text-primary group-hover/stack:underline transition-colors text-base sm:text-lg md:text-xl">
+                  {series.title}
+                </h3>
+
+                {/* Season/Episode info */}
+                <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide flex items-center gap-1.5">
+                  <span className="font-semibold">
+                    {seasonCount} {seasonCount === 1 ? 'Season' : 'Seasons'}
+                  </span>
+                  <span className="text-muted-foreground/50">·</span>
+                  <span>{episodeCount} {episodeCount === 1 ? 'Episode' : 'Episodes'}</span>
+                  {series.genre && (
+                    <>
+                      <span className="text-muted-foreground/50">·</span>
+                      <span>{series.genre}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {hasActions && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
+                      aria-label="More options"
+                    >
+                      <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {onEdit && (
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        onEdit();
+                      }}>
+                        <Edit3 className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                    )}
+                    {onDelete && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            onDelete();
+                          }}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
+
+            {/* Logline */}
+            {series.logline && (
+              <div className="flex-grow">
+                <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground line-clamp-2">
+                  <span className="font-bold text-foreground mr-1">LOGLINE:</span>
+                  {series.logline}
+                </p>
+              </div>
+            )}
           </div>
-        </div>
-      </div>
 
-      {/* Logline */}
-      {series.logline && (
-        <div className="px-4 pt-3">
-          <p className="text-xs text-muted-foreground line-clamp-2">
-            <span className="font-bold text-foreground mr-1">LOGLINE:</span>
-            {series.logline}
-          </p>
-        </div>
-      )}
+          {/* Footer */}
+          <div className="mt-auto border-t border-border/40">
+            <div className="px-5 sm:px-6 py-3 flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
+              {/* Left: Episode count badge */}
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-border/50 bg-muted/50 uppercase tracking-wider font-bold text-[10px] sm:text-xs">
+                <FileText className="h-3 w-3" />
+                {episodeCount} eps
+              </span>
 
-      {/* Footer */}
-      <div className="px-4 py-3 mt-2 border-t border-border/40">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          {series.format && (
-            <span className="uppercase tracking-wide">{series.format}</span>
-          )}
-          <span className="flex items-center gap-1 ml-auto">
-            <Clock className="h-3 w-3" />
-            {formatTimeCompact(new Date(series.updatedAt))}
-          </span>
-        </div>
+              {/* Right: Timestamp */}
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                <span>{formatTimeCompact(new Date(series.updatedAt))}</span>
+              </div>
+            </div>
+          </div>
+        </Link>
       </div>
-    </Link>
+    </div>
   );
 }
 
 // Skeleton for loading state
 export function SeriesCardSkeleton() {
   return (
-    <div className="bg-card rounded-xl border-2 border-border/40 p-4 animate-pulse">
-      <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-lg bg-muted" />
-        <div className="flex-1 space-y-2">
-          <div className="h-4 w-32 bg-muted rounded" />
-          <div className="h-3 w-20 bg-muted rounded" />
+    <div className="relative">
+      {/* Shadow layers */}
+      <div className="absolute inset-0 rounded-xl bg-muted border border-border translate-x-1 translate-y-1 h-[180px] sm:h-[200px] md:h-[220px]" />
+      <div className="absolute inset-0 rounded-xl bg-muted border border-border translate-x-0.5 translate-y-0.5 h-[180px] sm:h-[200px] md:h-[220px]" />
+
+      {/* Main card */}
+      <div className="relative bg-card rounded-xl border border-border/60 h-[180px] sm:h-[200px] md:h-[220px] overflow-hidden">
+        <div className="p-5 sm:p-6 flex flex-col h-full font-mono">
+          {/* Header skeleton */}
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex-1">
+              <div className="h-4 w-16 bg-muted rounded animate-pulse mb-2" />
+              <div className="h-5 w-3/4 bg-muted rounded animate-pulse mb-2" />
+              <div className="h-3 w-1/2 bg-muted rounded animate-pulse" />
+            </div>
+          </div>
+
+          {/* Logline skeleton */}
+          <div className="flex-grow">
+            <div className="h-3 w-full bg-muted rounded animate-pulse mb-2" />
+            <div className="h-3 w-4/5 bg-muted rounded animate-pulse" />
+          </div>
+
+          {/* Footer skeleton */}
+          <div className="mt-auto pt-3 border-t border-border/40 flex items-center justify-between">
+            <div className="h-5 w-16 bg-muted rounded animate-pulse" />
+            <div className="h-3 w-12 bg-muted rounded animate-pulse" />
+          </div>
         </div>
-      </div>
-      <div className="mt-3 space-y-2">
-        <div className="h-3 w-full bg-muted rounded" />
-        <div className="h-3 w-2/3 bg-muted rounded" />
-      </div>
-      <div className="mt-4 pt-3 border-t border-border/40">
-        <div className="h-3 w-16 bg-muted rounded ml-auto" />
       </div>
     </div>
   );

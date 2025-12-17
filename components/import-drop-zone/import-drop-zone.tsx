@@ -98,7 +98,7 @@ export function ImportDropZone({
         isDragging && 'border-primary bg-primary/5 scale-[1.02]',
         state === 'idle' && !isDragging && 'border-border hover:border-primary/50 hover:bg-muted/50',
         state === 'processing' && 'border-primary/50 bg-primary/5',
-        state === 'success' && 'border-green-500 bg-green-500/5',
+        state === 'success' && 'border-success/50 bg-success/5',
         state === 'error' && 'border-destructive bg-destructive/5',
         disabled && 'opacity-50 cursor-not-allowed',
         !disabled && !isProcessing && 'cursor-pointer',
@@ -168,11 +168,11 @@ export function ImportDropZone({
       {/* Success State */}
       {state === 'success' && result && (
         <>
-          <div className="rounded-full bg-green-500/10 p-3">
-            <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
+          <div className="rounded-full bg-success/10 p-3">
+            <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-success" />
           </div>
           <div className="text-center">
-            <p className="text-sm sm:text-base font-medium text-green-600">
+            <p className="text-sm sm:text-base font-medium text-success-foreground">
               Import successful
             </p>
             <p className="text-xs sm:text-sm text-muted-foreground">

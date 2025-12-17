@@ -168,8 +168,8 @@ export function ScreenplayListCard({
   // Stacked paper effect based on word count
   const stackedPaperCount = getStackedPaperCount(screenplay.wordCount);
 
-  // Card height classes
-  const cardHeight = isCompact ? 'min-h-[100px] sm:min-h-[120px]' : 'h-[160px] sm:h-[180px] md:h-[200px]';
+  // Card height classes - increased base height for single column mobile layout
+  const cardHeight = isCompact ? 'min-h-[120px] sm:min-h-[140px]' : 'h-[180px] sm:h-[200px] md:h-[220px]';
 
   // Series cards are more rounded (like a bound book)
   const cardRadius = isSeries ? 'rounded-xl' : 'rounded-lg';
@@ -234,8 +234,8 @@ export function ScreenplayListCard({
 
       <Link href={linkHref} className="flex-1 flex flex-col">
         <div className={cn(
-          'p-4 sm:p-5 flex flex-col h-full font-mono',
-          isCompact && 'p-3'
+          'p-5 sm:p-6 flex flex-col h-full font-mono',
+          isCompact && 'p-4'
         )}>
           {/* Header: Type Badge + Title + Menu */}
           <div className="flex justify-between items-start mb-2">
@@ -255,7 +255,7 @@ export function ScreenplayListCard({
                 className={cn(
                   'font-bold uppercase tracking-tight line-clamp-1',
                   'text-foreground group-hover/stack:text-primary group-hover/stack:underline transition-colors',
-                  isCompact ? 'text-sm' : 'text-sm sm:text-base'
+                  isCompact ? 'text-sm sm:text-base' : 'text-base sm:text-lg md:text-xl'
                 )}
               >
                 {screenplay.title}
@@ -300,10 +300,10 @@ export function ScreenplayListCard({
                       e.preventDefault();
                       e.stopPropagation();
                     }}
-                    className="p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground"
+                    className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                     aria-label="More options"
                   >
-                    <MoreVertical className="h-4 w-4" />
+                    <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -381,7 +381,7 @@ export function ScreenplayListCard({
           {/* Logline/Synopsis with "LOGLINE:" label */}
           {displayText && !isCompact && (
             <div className="flex-grow">
-              <p className="text-[12px] sm:text-[13px] leading-relaxed text-muted-foreground line-clamp-2">
+              <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground line-clamp-2">
                 <span className="font-bold text-foreground mr-1">LOGLINE:</span>
                 {displayText}
               </p>
@@ -392,19 +392,19 @@ export function ScreenplayListCard({
         {/* Footer: Edge-to-edge divider */}
         <div className="mt-auto border-t border-border/40">
           <div className={cn(
-            'px-4 sm:px-5 py-3 flex items-center justify-between text-[11px] text-muted-foreground',
-            isCompact && 'px-3'
+            'px-5 sm:px-6 py-3 flex items-center justify-between text-xs sm:text-sm text-muted-foreground',
+            isCompact && 'px-4'
           )}>
             {/* Left: Project badge and/or word count */}
             <div className="flex items-center gap-2">
               {showProject && screenplay.project && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-border/50 bg-muted/50 uppercase tracking-wider font-bold text-[10px] truncate max-w-[100px]">
-                  <Folder className="h-2.5 w-2.5" />
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-border/50 bg-muted/50 uppercase tracking-wider font-bold text-[10px] sm:text-xs truncate max-w-[100px]">
+                  <Folder className="h-3 w-3" />
                   {screenplay.project.name}
                 </span>
               )}
               {showWordCount && screenplay.wordCount !== undefined && (
-                <span className="px-2 py-0.5 rounded border border-border/50 bg-muted/50 uppercase tracking-wider font-bold text-[10px]">
+                <span className="px-2 py-0.5 rounded border border-border/50 bg-muted/50 uppercase tracking-wider font-bold text-[10px] sm:text-xs">
                   {formatWordCount(screenplay.wordCount)}
                 </span>
               )}
@@ -442,10 +442,10 @@ export function ScreenplayListCardSkeleton({ variant = 'default' }: { variant?: 
       suppressHydrationWarning
       className={cn(
         'relative bg-card rounded-lg border border-border/60',
-        isCompact ? 'min-h-[100px] sm:min-h-[120px]' : 'h-[160px] sm:h-[180px] md:h-[200px]'
+        isCompact ? 'min-h-[120px] sm:min-h-[140px]' : 'h-[180px] sm:h-[200px] md:h-[220px]'
       )}
     >
-      <div className={cn('p-4 sm:p-5 flex flex-col h-full font-mono', isCompact && 'p-3')}>
+      <div className={cn('p-5 sm:p-6 flex flex-col h-full font-mono', isCompact && 'p-4')}>
         {/* Header skeleton */}
         <div className="flex items-start justify-between mb-2">
           <div className="flex-1">

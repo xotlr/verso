@@ -1,36 +1,29 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { ListPageToolbar } from '@/components/ui/list-page-toolbar';
 import { ListWithPreview } from '@/components/ui/list-preview-panel';
 import { SeriesCard, SeriesCardSkeleton } from '@/components/series-card';
 import { SeriesListRow, SeriesListRowSkeleton } from '@/components/series-list-row';
+import { CreateSeriesDialog } from '@/components/series/create-series-dialog';
 import { useViewMode } from '@/hooks/use-view-mode';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Plus,
-  Tv,
-  Loader2,
-} from 'lucide-react';
-import { genreOptions } from '@/types/templates';
+import { Plus, Tv } from 'lucide-react';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -46,43 +39,33 @@ interface Series {
 }
 
 export default function SeriesListPage() {
+  const router = useRouter();
   const { data: seriesList, error, mutate } = useSWR<Series[]>('/api/series', fetcher);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useViewMode('series');
   const [hoveredSeries, setHoveredSeries] = useState<Series | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newGenre, setNewGenre] = useState('');
-  const [newLogline, setNewLogline] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  const handleCreate = async () => {
-    if (!newTitle.trim()) return;
-
-    setIsSubmitting(true);
+  // Delete series handler
+  const deleteSeries = async () => {
+    if (!deleteTarget) return;
     try {
-      const res = await fetch('/api/series', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: newTitle.trim(),
-          genre: newGenre || undefined,
-          logline: newLogline.trim() || undefined,
-        }),
+      const response = await fetch(`/api/series/${deleteTarget}`, {
+        method: 'DELETE',
       });
-
-      if (res.ok) {
+      if (response.ok) {
         mutate();
-        setIsCreating(false);
-        setNewTitle('');
-        setNewGenre('');
-        setNewLogline('');
+        toast.success('Series deleted');
+      } else {
+        toast.error('Failed to delete series');
       }
     } catch (error) {
-      console.error('Failed to create series:', error);
+      console.error('Error deleting series:', error);
+      toast.error('Failed to delete series');
     } finally {
-      setIsSubmitting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -110,69 +93,32 @@ export default function SeriesListPage() {
   return (
     <>
       {/* Create Series Dialog */}
-      <Dialog open={isCreating} onOpenChange={setIsCreating}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Series</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label>Series Title *</Label>
-              <Input
-                placeholder="Enter series name"
-                value={newTitle}
-                onChange={e => setNewTitle(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && newTitle.trim()) {
-                    handleCreate();
-                  }
-                }}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Genre</Label>
-              <Select value={newGenre} onValueChange={setNewGenre}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select genre (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {genreOptions.map(genre => (
-                    <SelectItem key={genre} value={genre}>
-                      {genre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Logline</Label>
-              <Input
-                placeholder="One-line summary (optional)"
-                value={newLogline}
-                onChange={e => setNewLogline(e.target.value)}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setIsCreating(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreate}
-                disabled={!newTitle.trim() || isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create Series'
-                )}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CreateSeriesDialog
+        open={isCreating}
+        onOpenChange={setIsCreating}
+        onSuccess={() => mutate()}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Series</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this series? Episodes will be unlinked but not deleted. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteSeries}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <PageLayout
         title="Series"
@@ -241,6 +187,8 @@ export default function SeriesListPage() {
                   updatedAt: series.updatedAt,
                   _count: series._count,
                 }}
+                onEdit={() => router.push(`/series/${series.id}`)}
+                onDelete={() => setDeleteTarget(series.id)}
               />
             ))}
           </div>
@@ -278,6 +226,8 @@ export default function SeriesListPage() {
                   isHovered={hoveredSeries?.id === series.id}
                   onHover={() => setHoveredSeries(series)}
                   onLeave={() => setHoveredSeries(null)}
+                  onEdit={() => router.push(`/series/${series.id}`)}
+                  onDelete={() => setDeleteTarget(series.id)}
                 />
               ))}
             </div>

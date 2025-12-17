@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Check, Loader2, Maximize2, Scroll, FileText, X, Share2 } from 'lucide-react';
 import {
@@ -9,12 +9,14 @@ import {
   CharacterInfo,
 } from '@/hooks/editor/useProseMirrorEditor';
 import { useResponsiveScale } from '@/hooks/editor/useResponsiveScale';
+import { useEditorZoom } from '@/hooks/editor/useEditorZoom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PAGE_WIDTH_PX, PAGE_HEIGHT_PX } from '@/lib/constants';
 import { FloatingToolbar } from './FloatingToolbar';
 import { AutocompleteDropdown } from './AutocompleteDropdown';
 import { EditorContextMenu } from './EditorContextMenu';
 import { ElementToolbar } from './ElementToolbar';
+import { ZoomIndicator } from './ZoomIndicator';
 import { EditorScrollArea, EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { PageFrameRenderer, PageGapRenderer } from './PageFrameRenderer';
 import { createPageFramesFromWasm, PAGE_GAP_PX } from '@/lib/prosemirror/plugins/page-frames';
@@ -144,8 +146,25 @@ export function ProseMirrorEditor({
   const [scenesSheetOpen, setScenesSheetOpen] = useState(false);
   const isMobile = useIsMobile();
 
+  // Ref for scroll container (for zoom gestures)
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   // Responsive scaling - pages are fixed size and scaled with CSS transforms
-  const { scale } = useResponsiveScale(!isInFocusMode);
+  const { scale: responsiveScale } = useResponsiveScale(!isInFocusMode);
+
+  // User-controlled zoom with gesture support
+  const {
+    zoom: scale,
+    setZoom,
+    zoomIn,
+    zoomOut,
+    resetZoom,
+    // isZoomed - available but not currently used
+    fitToWidthScale,
+  } = useEditorZoom({
+    containerRef: scrollContainerRef,
+    fitToWidthScale: responsiveScale,
+  });
 
   // Toggle app-level focus mode (hides sidebar + header)
   const toggleFocusMode = useCallback(() => {
@@ -400,6 +419,7 @@ export function ProseMirrorEditor({
 
       {/* Editor container with page styling */}
       <EditorScrollArea
+        ref={scrollContainerRef}
         className={cn(
           'pm-editor-scroll-area h-full',
           viewMode === 'continuous' && 'pm-continuous-mode'
@@ -471,6 +491,17 @@ export function ProseMirrorEditor({
         />
       )}
 
+      {/* Zoom slider - Procreate style, positioned past sidebar (256px + 16px gap) */}
+      {isReady && (
+        <ZoomIndicator
+          zoom={scale}
+          fitToWidthScale={fitToWidthScale}
+          onZoomChange={setZoom}
+          onResetZoom={resetZoom}
+          className="left-[272px] top-1/2 -translate-y-1/2"
+        />
+      )}
+
       {/* Floating toolbar on selection */}
       {isReady && <FloatingToolbar view={view} scrollbarWidth={EDITOR_SCROLLBAR_WIDTH} />}
 
@@ -510,8 +541,8 @@ export function ProseMirrorEditor({
           onOpenScenes={() => setScenesSheetOpen(true)}
           onToggleLineNumbers={() => onToggleLineNumbers?.()}
           onTogglePageBreaks={() => onTogglePageBreaks?.()}
-          onZoomIn={() => {}}
-          onZoomOut={() => {}}
+          onZoomIn={zoomIn}
+          onZoomOut={zoomOut}
           showLineNumbers={showLineNumbers}
           showPageBreaks={showPageBreaks}
           zoom={Math.round(scale * 100)}
