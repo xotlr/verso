@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunces, Plus_Jakarta_Sans } from "next/font/google";
+import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunces, Plus_Jakarta_Sans, Source_Sans_3, Cormorant_Garamond, Crimson_Pro } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SettingsProvider } from "@/contexts/settings-context";
@@ -53,6 +53,24 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
 });
 
+const sourceSans3 = Source_Sans_3({
+  weight: ['400', '500', '600', '700'],
+  variable: "--font-source-sans",
+  subsets: ["latin"],
+});
+
+const cormorantGaramond = Cormorant_Garamond({
+  weight: ['400', '500', '600', '700'],
+  variable: "--font-cormorant-garamond",
+  subsets: ["latin"],
+});
+
+const crimsonPro = Crimson_Pro({
+  weight: ['400', '500', '600', '700'],
+  variable: "--font-crimson-pro",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
   title: "VERSO - Professional Screenplay Editor",
   description: "Write and format screenplays with AI assistance",
@@ -95,7 +113,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable} ${sourceSans3.variable} ${cormorantGaramond.variable} ${crimsonPro.variable}`}
     >
       <body className="antialiased overflow-hidden h-screen">
         <AuthProvider>

@@ -42,6 +42,7 @@ export interface ScreenplayListCardData {
   season?: number | null;
   episode?: number | null;
   episodeTitle?: string | null;
+  series?: { id: string; title: string } | null;
 }
 
 interface ScreenplayListCardProps {
@@ -105,12 +106,7 @@ function TypeBadge({ type }: { type: DisplayScreenplayType }) {
 
   return (
     <span
-      className={cn(
-        'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider',
-        isSeries
-          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-      )}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20"
     >
       <Icon className="h-2.5 w-2.5" />
       {isSeries ? 'SERIES' : 'FILM'}
@@ -118,9 +114,9 @@ function TypeBadge({ type }: { type: DisplayScreenplayType }) {
   );
 }
 
-// Episode info for TV shows
-function EpisodeInfo({ season, episode, episodeTitle }: { season?: number | null; episode?: number | null; episodeTitle?: string | null }) {
-  if (!season && !episode) return null;
+// Series info: season/episode + series title
+function SeriesInfo({ season, episode, seriesTitle }: { season?: number | null; episode?: number | null; seriesTitle?: string | null }) {
+  if (!season && !episode && !seriesTitle) return null;
 
   const parts: string[] = [];
   if (season) parts.push(`S${String(season).padStart(2, '0')}`);
@@ -128,11 +124,13 @@ function EpisodeInfo({ season, episode, episodeTitle }: { season?: number | null
 
   return (
     <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide flex items-center gap-1.5">
-      <span className="font-semibold text-blue-600 dark:text-blue-400">{parts.join('')}</span>
-      {episodeTitle && (
+      {parts.length > 0 && (
+        <span className="font-semibold text-primary">{parts.join('')}</span>
+      )}
+      {seriesTitle && (
         <>
-          <span className="text-muted-foreground/50">·</span>
-          <span className="truncate">&quot;{episodeTitle}&quot;</span>
+          {parts.length > 0 && <span className="text-muted-foreground/50">·</span>}
+          <span className="truncate">{seriesTitle}</span>
         </>
       )}
     </div>
@@ -220,11 +218,8 @@ export function ScreenplayListCard({
           'bg-card',
           cardRadius,
           'border border-border/60',
-          // Series has a slightly thicker/different border
-          isSeries && 'border-2 border-blue-500/20',
           // Hover effects
           'hover:border-border',
-          isSeries && 'hover:border-blue-500/40',
           'hover:shadow-md',
           'transition-all duration-300 ease-out',
           'touch-manipulation cursor-pointer overflow-hidden',
@@ -250,7 +245,7 @@ export function ScreenplayListCard({
                 )}
               </div>
 
-              {/* Title */}
+              {/* Title - use episodeTitle for series episodes */}
               <h3
                 className={cn(
                   'font-bold uppercase tracking-tight line-clamp-1',
@@ -258,15 +253,15 @@ export function ScreenplayListCard({
                   isCompact ? 'text-sm sm:text-base' : 'text-base sm:text-lg md:text-xl'
                 )}
               >
-                {screenplay.title}
+                {isSeries && screenplay.episodeTitle ? screenplay.episodeTitle : screenplay.title}
               </h3>
 
-              {/* Series-specific: Episode info */}
+              {/* Series-specific: Season/Episode + Series Title */}
               {isSeries && (
-                <EpisodeInfo
+                <SeriesInfo
                   season={screenplay.season}
                   episode={screenplay.episode}
-                  episodeTitle={screenplay.episodeTitle}
+                  seriesTitle={screenplay.series?.title}
                 />
               )}
 

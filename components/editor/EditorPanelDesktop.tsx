@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useEditorPanel, EDITOR_PANEL_WIDTH } from './EditorPanelContext';
@@ -17,6 +17,7 @@ interface EditorPanelDesktopProps {
   scenes: SceneInfo[];
   characters: CharacterInfo[];
   view: EditorView | null;
+  currentSceneId?: string | null;
   screenplayId?: string;
   scenesWithShots?: SceneWithShots[];
   onShotsChange?: (shots: Shot[]) => void;
@@ -51,6 +52,7 @@ export function EditorPanelDesktop({
   scenes,
   characters,
   view,
+  currentSceneId,
   screenplayId,
   scenesWithShots = [],
   onShotsChange,
@@ -58,9 +60,20 @@ export function EditorPanelDesktop({
   onAddShot,
 }: EditorPanelDesktopProps) {
   const { open, activePanel, setActivePanel, position, isMobile } = useEditorPanel();
+  const [isInFocusMode, setIsInFocusMode] = useState(false);
 
-  // Hidden on mobile
-  if (isMobile) return null;
+  // Listen for focus mode toggle events
+  useEffect(() => {
+    const handleFocusModeToggle = () => {
+      setIsInFocusMode(prev => !prev);
+    };
+
+    window.addEventListener('focus-mode-toggle', handleFocusModeToggle);
+    return () => window.removeEventListener('focus-mode-toggle', handleFocusModeToggle);
+  }, []);
+
+  // Hidden on mobile or in focus mode
+  if (isMobile || isInFocusMode) return null;
 
   const isPanelOpen = open && activePanel !== null;
 
@@ -70,8 +83,8 @@ export function EditorPanelDesktop({
     0
   );
 
-  // Get current scene ID for notes panel
-  const currentSceneId = scenes[0]?.id;
+  // Fallback scene ID for notes panel (uses prop or first scene)
+  const notesSceneId = currentSceneId ?? scenes[0]?.id;
 
   // Position classes based on left/right
   const isRight = position === 'right';
@@ -144,6 +157,7 @@ export function EditorPanelDesktop({
                       <ScenesPanel
                         scenes={scenes}
                         view={view}
+                        currentSceneId={currentSceneId}
                         className="h-full"
                       />
                     </motion.div>
@@ -162,6 +176,7 @@ export function EditorPanelDesktop({
                       <CharactersPanel
                         characters={characters}
                         screenplayId={screenplayId}
+                        view={view}
                         className="h-full"
                       />
                     </motion.div>
@@ -200,7 +215,7 @@ export function EditorPanelDesktop({
                     >
                       <NotesPanel
                         screenplayId={screenplayId}
-                        currentSceneId={currentSceneId}
+                        currentSceneId={notesSceneId}
                         className="h-full"
                       />
                     </motion.div>

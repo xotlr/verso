@@ -22,7 +22,9 @@ export function useResponsiveScale(showSidebar: boolean = true) {
 
       // Padding around the page (less on mobile)
       const padding = mobile ? 32 : 96;
-      const availableWidth = width - sidebarWidth - padding;
+      // Account for scrollbar width (8px) to prevent horizontal overflow
+      const scrollbarWidth = 8;
+      const availableWidth = width - sidebarWidth - padding - scrollbarWidth;
 
       // Calculate scale to fit page in available width
       let newScale = 1;

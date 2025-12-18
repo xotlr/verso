@@ -139,6 +139,7 @@ export function MobileEditorToolbar({
   className,
 }: MobileEditorToolbarProps) {
   const [insertSheetOpen, setInsertSheetOpen] = useState(false)
+  const [formatSheetOpen, setFormatSheetOpen] = useState(false)
   const [moreSheetOpen, setMoreSheetOpen] = useState(false)
 
   return (
@@ -188,15 +189,15 @@ export function MobileEditorToolbar({
             <Plus className="h-5 w-5" />
           </Button>
 
-          {/* Scenes/Characters */}
+          {/* Format */}
           <Button
             variant="ghost"
             size="icon"
-            onClick={onOpenScenes}
+            onClick={() => setFormatSheetOpen(true)}
             className="h-11 w-11 rounded-xl"
-            aria-label="Scenes and characters"
+            aria-label="Format text"
           >
-            <List className="h-5 w-5" />
+            <Type className="h-5 w-5" />
           </Button>
 
           {/* More */}
@@ -287,50 +288,67 @@ export function MobileEditorToolbar({
               }}
             />
           </div>
+        </SheetContent>
+      </Sheet>
 
-          {/* Format section */}
-          <div className="mt-6 pt-4 border-t">
-            <p className="text-sm font-medium text-muted-foreground mb-3">
-              Format Selection
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  onBold()
-                  setInsertSheetOpen(false)
-                }}
-                className="flex-1 h-11"
-              >
-                <Bold className="h-4 w-4 mr-2" />
-                Bold
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  onItalic()
-                  setInsertSheetOpen(false)
-                }}
-                className="flex-1 h-11"
-              >
-                <Italic className="h-4 w-4 mr-2" />
-                Italic
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  onUnderline()
-                  setInsertSheetOpen(false)
-                }}
-                className="flex-1 h-11"
-              >
-                <Underline className="h-4 w-4 mr-2" />
-                Underline
-              </Button>
-            </div>
+      {/* Format Sheet */}
+      <Sheet open={formatSheetOpen} onOpenChange={setFormatSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl">
+          <SheetHeader className="pb-4">
+            <SheetTitle>Format Text</SheetTitle>
+            <SheetDescription>
+              Apply formatting to selected text
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="grid grid-cols-3 gap-3 pb-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                onBold()
+                setFormatSheetOpen(false)
+              }}
+              className="h-14 flex-col gap-1"
+            >
+              <Bold className="h-5 w-5" />
+              <span className="text-xs">Bold</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                onItalic()
+                setFormatSheetOpen(false)
+              }}
+              className="h-14 flex-col gap-1"
+            >
+              <Italic className="h-5 w-5" />
+              <span className="text-xs">Italic</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                onUnderline()
+                setFormatSheetOpen(false)
+              }}
+              className="h-14 flex-col gap-1"
+            >
+              <Underline className="h-5 w-5" />
+              <span className="text-xs">Underline</span>
+            </Button>
+          </div>
+
+          <div className="border-t pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                onAutoFormat()
+                setFormatSheetOpen(false)
+              }}
+              className="w-full h-11 justify-start"
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Auto-format Document
+            </Button>
           </div>
         </SheetContent>
       </Sheet>
@@ -396,17 +414,6 @@ export function MobileEditorToolbar({
                 <FileDown className="h-4 w-4 mr-2" />
                 Export PDF
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  onAutoFormat()
-                  setMoreSheetOpen(false)
-                }}
-                className="h-11 justify-start"
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                Auto-format
-              </Button>
             </div>
           </div>
 
@@ -414,6 +421,19 @@ export function MobileEditorToolbar({
           <div className="space-y-2 mb-6">
             <p className="text-sm font-medium text-muted-foreground">Tools</p>
             <div className="grid grid-cols-2 gap-2">
+              {onOpenScenes && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    onOpenScenes()
+                    setMoreSheetOpen(false)
+                  }}
+                  className="h-11 justify-start"
+                >
+                  <List className="h-4 w-4 mr-2" />
+                  Scenes & Characters
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() => {
@@ -433,7 +453,7 @@ export function MobileEditorToolbar({
                 }}
                 className="h-11 justify-start"
               >
-                <List className="h-4 w-4 mr-2" />
+                <Film className="h-4 w-4 mr-2" />
                 Scene Navigator
               </Button>
               {onTogglePanel && (

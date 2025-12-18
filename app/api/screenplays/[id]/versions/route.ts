@@ -113,9 +113,36 @@ const createVersionSchema = z.object({
   content: z.string(),
   reason: z.enum(["manual", "auto", "interval", "restore"]),
   label: z.string().optional(),
+  message: z.string().optional(), // Commit message describing what changed
   wordCount: z.number().int().min(0),
   sceneCount: z.number().int().min(0),
 })
+
+// Calculate change stats between two contents
+function calculateChangeStats(
+  newContent: string,
+  newWordCount: number,
+  newSceneCount: number,
+  previousContent: string | null,
+  previousWordCount: number | null,
+  previousSceneCount: number | null
+) {
+  if (!previousContent || previousWordCount === null || previousSceneCount === null) {
+    return null // First version, no comparison
+  }
+
+  const wordsAdded = Math.max(0, newWordCount - previousWordCount)
+  const wordsRemoved = Math.max(0, previousWordCount - newWordCount)
+  const scenesAdded = Math.max(0, newSceneCount - previousSceneCount)
+  const scenesRemoved = Math.max(0, previousSceneCount - newSceneCount)
+
+  return {
+    wordsAdded,
+    wordsRemoved,
+    scenesAdded,
+    scenesRemoved,
+  }
+}
 
 // POST /api/screenplays/[id]/versions - Create a new version
 export async function POST(
@@ -151,13 +178,18 @@ export async function POST(
       )
     }
 
-    const { content, reason, label, wordCount, sceneCount } = result.data
+    const { content, reason, label, message, wordCount, sceneCount } = result.data
 
-    // Get the next version number
+    // Get the last version for version number and change stats
     const lastVersion = await prisma.screenplayVersion.findFirst({
       where: { screenplayId: id },
       orderBy: { versionNumber: "desc" },
-      select: { versionNumber: true },
+      select: {
+        versionNumber: true,
+        content: true,
+        wordCount: true,
+        sceneCount: true,
+      },
     })
 
     const versionNumber = (lastVersion?.versionNumber ?? 0) + 1
@@ -167,16 +199,29 @@ export async function POST(
     const revisionColorIndex = (versionNumber - 1) % REVISION_COLORS.length
     const revisionColor = REVISION_COLORS[revisionColorIndex]
 
+    // Calculate change stats compared to previous version
+    const changeStats = calculateChangeStats(
+      content,
+      wordCount,
+      sceneCount,
+      lastVersion?.content ?? null,
+      lastVersion?.wordCount ?? null,
+      lastVersion?.sceneCount ?? null
+    )
+
     const version = await prisma.screenplayVersion.create({
       data: {
         screenplayId: id,
         content,
         versionNumber,
         label,
+        message,
         reason,
         revisionColor,
         wordCount,
         sceneCount,
+        // Only include changeStats if it's not null (Prisma Json field requires value or omission)
+        ...(changeStats ? { changeStats } : {}),
         createdBy: session.user.id,
       },
       include: {

@@ -6,7 +6,13 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
-const Tabs = TabsPrimitive.Root
+const Tabs = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Root>
+>(({ ...props }, ref) => (
+  <TabsPrimitive.Root ref={ref} {...props} suppressHydrationWarning />
+))
+Tabs.displayName = "Tabs"
 
 const tabsListVariants = cva(
   [

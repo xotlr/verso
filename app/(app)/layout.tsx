@@ -1,15 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
 import { useMounted } from "@/hooks/use-mobile";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { BottomNav } from "@/components/bottom-nav";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
-import { Button } from "@/components/ui/button";
-import { Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ProductivityProvider } from "@/contexts/productivity-context";
 
@@ -18,38 +15,16 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
-  const pathname = usePathname();
   const mounted = useMounted();
   const [focusMode, setFocusMode] = useState(false);
-  const [backdropActive, setBackdropActive] = useState(false);
-  const isEditorRoute = pathname.includes('/screenplay/');
 
-  // Refs for accessibility and scroll preservation
+  // Ref for keyboard accessibility
   const focusContainerRef = useRef<HTMLDivElement>(null);
-  const scrollPositionRef = useRef(0);
 
-  // Listen for focus mode toggle events with staggered backdrop timing
+  // Listen for focus mode toggle events
   useEffect(() => {
     const handleFocusModeToggle = () => {
-      setFocusMode(prev => {
-        const newMode = !prev;
-        if (newMode) {
-          // Save scroll position before entering focus mode
-          const scrollContainer = document.querySelector('[data-radix-scroll-area-viewport]');
-          scrollPositionRef.current = scrollContainer?.scrollTop || 0;
-          setBackdropActive(true);
-        } else {
-          // Restore scroll position after exiting
-          setTimeout(() => {
-            const scrollContainer = document.querySelector('[data-radix-scroll-area-viewport]');
-            if (scrollContainer) {
-              scrollContainer.scrollTop = scrollPositionRef.current;
-            }
-            setBackdropActive(false);
-          }, 150); // Increased delay for smoother exit
-        }
-        return newMode;
-      });
+      setFocusMode(prev => !prev);
     };
 
     window.addEventListener('focus-mode-toggle', handleFocusModeToggle);
@@ -103,7 +78,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <ProductivityProvider>
-      <SidebarProvider defaultOpen={!focusMode && !isEditorRoute}>
+      <SidebarProvider defaultOpen={false}>
         {/* Sidebar - slides out in focus mode */}
         <div className={cn(
           "transition-all duration-500 ease-out",
@@ -116,44 +91,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
           "flex flex-col h-screen transition-all duration-500 ease-out overflow-x-hidden",
           focusMode && "!ml-0"
         )}>
-          {/* Header - hidden in focus mode, always rendered during SSR to prevent hydration mismatch */}
-          {(!mounted || !focusMode) && <AppHeader />}
-
-          {/* Focus mode exit button - centered at top */}
+          {/* Header - slides up in focus mode */}
           <div className={cn(
-            "fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ease-out",
-            focusMode ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
+            "transition-all duration-500 ease-out overflow-hidden",
+            focusMode ? "opacity-0 -translate-y-full h-0" : "h-14"
           )}>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 opacity-70 hover:opacity-100 transition-opacity bg-background/90 backdrop-blur-sm shadow-lg"
-              onClick={() => window.dispatchEvent(new CustomEvent('focus-mode-toggle'))}
-              title="Exit Focus Mode (Esc)"
-            >
-              <Minimize2 className="h-4 w-4" />
-              <span className="text-xs">Exit Focus</span>
-            </Button>
+            <AppHeader />
           </div>
 
           <main
             ref={focusContainerRef}
             className={cn(
-              "flex-1 overflow-hidden transition-all duration-400 ease-out",
-              focusMode
-                ? "fixed inset-0 z-40 flex items-center justify-center p-4 md:p-8"
-                : "pb-16 md:pb-0"
+              "flex-1 overflow-hidden transition-all duration-300 ease-out",
+              !focusMode && "pb-14 md:pb-0"
             )}
-            role={focusMode ? "dialog" : undefined}
-            aria-modal={focusMode ? "true" : undefined}
-            aria-label={focusMode ? "Focus mode editor" : undefined}
           >
-            <div className={cn(
-              "h-full w-full overflow-hidden",
-              focusMode && "max-w-5xl max-h-[90vh] rounded-lg md:rounded-xl"
-            )}>
-              {children}
-            </div>
+            {children}
           </main>
 
           {/* Screen reader announcement for focus mode */}
@@ -166,15 +119,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
           {/* Bottom Navigation - mobile only, hidden in focus mode, always rendered during SSR */}
           {(!mounted || !focusMode) && <BottomNav />}
         </SidebarInset>
-
-        {/* Focus mode backdrop overlay */}
-        <div
-          className={cn(
-            "fixed inset-0 z-30 bg-black/75 backdrop-blur-[8px] transition-opacity duration-400 ease-out",
-            backdropActive ? "opacity-100" : "opacity-0 pointer-events-none"
-          )}
-          aria-hidden="true"
-        />
 
         {/* PWA Install Prompt */}
         <InstallPrompt />

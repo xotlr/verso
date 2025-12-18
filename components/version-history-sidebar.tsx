@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ScreenplayVersion, VersionsResponse, REVISION_COLOR_MAP, RevisionColor } from '@/types/version';
+import { ScreenplayVersion, VersionsResponse, REVISION_COLOR_MAP, RevisionColor, ChangeStats } from '@/types/version';
 import {
   Clock,
   History,
@@ -14,6 +14,10 @@ import {
   Tag,
   Check,
   X,
+  MessageSquare,
+  TrendingUp,
+  TrendingDown,
+  ArrowRight,
 } from 'lucide-react';
 import {
   Sheet,
@@ -42,6 +46,7 @@ interface VersionHistorySidebarProps {
   onClose: () => void;
   onRestore: (content: string) => void;
   onCompare?: (version: ScreenplayVersion) => void;
+  onCompareTwoVersions?: (fromVersion: ScreenplayVersion, toVersion: ScreenplayVersion) => void;
   currentContent: string;
 }
 
@@ -51,6 +56,7 @@ export function VersionHistorySidebar({
   onClose,
   onRestore,
   onCompare,
+  onCompareTwoVersions,
   currentContent: _currentContent,
 }: VersionHistorySidebarProps) {
   const [versions, setVersions] = useState<ScreenplayVersion[]>([]);
@@ -63,6 +69,11 @@ export function VersionHistorySidebar({
   const [restoring, setRestoring] = useState(false);
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [labelValue, setLabelValue] = useState('');
+
+  // Compare mode state
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareFrom, setCompareFrom] = useState<ScreenplayVersion | null>(null);
+  const [compareTo, setCompareTo] = useState<ScreenplayVersion | null>(null);
 
   const fetchVersions = useCallback(async (pageNum: number, append = false) => {
     if (!screenplayId) return;
@@ -79,7 +90,9 @@ export function VersionHistorySidebar({
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch versions');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Version fetch failed:', response.status, errorData);
+        throw new Error(errorData.error || `Failed to fetch versions (${response.status})`);
       }
 
       const data: VersionsResponse = await response.json();
@@ -192,17 +205,75 @@ export function VersionHistorySidebar({
     );
   };
 
+  // Handle compare mode selection
+  const handleCompareSelect = (version: ScreenplayVersion) => {
+    if (!compareFrom) {
+      setCompareFrom(version);
+    } else if (!compareTo && version.id !== compareFrom.id) {
+      setCompareTo(version);
+    } else if (version.id === compareFrom.id) {
+      setCompareFrom(null);
+    } else if (compareTo && version.id === compareTo.id) {
+      setCompareTo(null);
+    } else {
+      // Both selected, replace the "from" with new selection
+      setCompareFrom(compareTo);
+      setCompareTo(version);
+    }
+  };
+
+  const handleDoCompare = () => {
+    if (compareFrom && compareTo && onCompareTwoVersions) {
+      // Always compare older to newer (lower version number first)
+      const [older, newer] = compareFrom.versionNumber < compareTo.versionNumber
+        ? [compareFrom, compareTo]
+        : [compareTo, compareFrom];
+      onCompareTwoVersions(older, newer);
+    }
+  };
+
+  const exitCompareMode = () => {
+    setCompareMode(false);
+    setCompareFrom(null);
+    setCompareTo(null);
+  };
+
+  // Format change stats
+  const formatChangeStats = (stats: ChangeStats | null) => {
+    if (!stats) return null;
+    const { wordsAdded, wordsRemoved } = stats;
+    const parts = [];
+    if (wordsAdded > 0) parts.push(`+${wordsAdded}`);
+    if (wordsRemoved > 0) parts.push(`-${wordsRemoved}`);
+    return parts.length > 0 ? parts.join(' / ') + ' words' : null;
+  };
+
   return (
     <>
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <SheetContent side="right" className="w-[400px] sm:w-[450px] p-0">
           <SheetHeader className="px-4 py-3 border-b">
-            <SheetTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              Version History
-            </SheetTitle>
+            <div className="flex items-center justify-between">
+              <SheetTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Version History
+              </SheetTitle>
+              {onCompareTwoVersions && (
+                <Button
+                  variant={compareMode ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => compareMode ? exitCompareMode() : setCompareMode(true)}
+                  className="text-xs"
+                >
+                  <GitCompare className="h-3.5 w-3.5 mr-1.5" />
+                  {compareMode ? 'Exit Compare' : 'Compare'}
+                </Button>
+              )}
+            </div>
             <SheetDescription>
-              Browse and restore previous versions of your screenplay
+              {compareMode
+                ? 'Select two versions to compare'
+                : 'Browse and restore previous versions of your screenplay'}
             </SheetDescription>
           </SheetHeader>
 
@@ -221,15 +292,44 @@ export function VersionHistorySidebar({
                 </div>
               ) : (
                 <div className="space-y-3">
+                  {/* Compare mode selection bar */}
+                  {compareMode && (compareFrom || compareTo) && (
+                    <div className="mb-4 p-3 bg-muted rounded-lg border">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-muted-foreground">
+                            {compareFrom ? `v${compareFrom.versionNumber}` : 'Select first'}
+                          </span>
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-muted-foreground">
+                            {compareTo ? `v${compareTo.versionNumber}` : 'Select second'}
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={handleDoCompare}
+                          disabled={!compareFrom || !compareTo}
+                        >
+                          Compare
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   {versions.map((version) => {
                     const revisionColorInfo = version.revisionColor
                       ? REVISION_COLOR_MAP[version.revisionColor as RevisionColor]
                       : null;
+                    const isSelectedForCompare = compareFrom?.id === version.id || compareTo?.id === version.id;
+                    const changeStatsText = formatChangeStats(version.changeStats);
 
                     return (
                     <div
                       key={version.id}
-                      className="border rounded-lg p-3 hover:bg-muted/50 transition-colors relative overflow-hidden"
+                      className={`border rounded-lg p-3 hover:bg-muted/50 transition-colors relative overflow-hidden ${
+                        compareMode ? 'cursor-pointer' : ''
+                      } ${isSelectedForCompare ? 'ring-2 ring-primary bg-primary/5' : ''}`}
+                      onClick={compareMode ? () => handleCompareSelect(version) : undefined}
                     >
                       {/* Revision color indicator strip */}
                       {revisionColorInfo && (
@@ -330,6 +430,14 @@ export function VersionHistorySidebar({
                             </button>
                           )}
 
+                          {/* Commit message display */}
+                          {version.message && (
+                            <div className="mt-2 text-xs text-foreground/80 bg-muted/50 px-2 py-1.5 rounded flex items-start gap-1.5">
+                              <MessageSquare className="h-3 w-3 mt-0.5 shrink-0 text-muted-foreground" />
+                              <span className="italic">&quot;{version.message}&quot;</span>
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                             <span>
                               {formatDistanceToNow(new Date(version.createdAt), {
@@ -338,6 +446,23 @@ export function VersionHistorySidebar({
                             </span>
                             <span>{version.wordCount.toLocaleString()} words</span>
                             <span>{version.sceneCount} scenes</span>
+                            {/* Change stats */}
+                            {changeStatsText && (
+                              <span className={`flex items-center gap-0.5 ${
+                                version.changeStats && version.changeStats.wordsAdded > version.changeStats.wordsRemoved
+                                  ? 'text-green-600 dark:text-green-400'
+                                  : version.changeStats && version.changeStats.wordsRemoved > version.changeStats.wordsAdded
+                                  ? 'text-red-600 dark:text-red-400'
+                                  : ''
+                              }`}>
+                                {version.changeStats && version.changeStats.wordsAdded > version.changeStats.wordsRemoved ? (
+                                  <TrendingUp className="h-3 w-3" />
+                                ) : version.changeStats && version.changeStats.wordsRemoved > version.changeStats.wordsAdded ? (
+                                  <TrendingDown className="h-3 w-3" />
+                                ) : null}
+                                {changeStatsText}
+                              </span>
+                            )}
                           </div>
 
                           {version.creator && (
@@ -347,28 +472,46 @@ export function VersionHistorySidebar({
                           )}
                         </div>
 
-                        <div className="flex items-center gap-1">
-                          {onCompare && (
+                        {/* Action buttons - hide in compare mode */}
+                        {!compareMode && (
+                          <div className="flex items-center gap-1">
+                            {onCompare && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onCompare(version);
+                                }}
+                                title="Compare with current"
+                              >
+                                <GitCompare className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button
                               size="icon"
                               variant="ghost"
                               className="h-8 w-8"
-                              onClick={() => onCompare(version)}
-                              title="Compare with current"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRestoreClick(version);
+                              }}
+                              title="Restore this version"
                             >
-                              <GitCompare className="h-4 w-4" />
+                              <RotateCcw className="h-4 w-4" />
                             </Button>
-                          )}
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8"
-                            onClick={() => handleRestoreClick(version)}
-                            title="Restore this version"
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
-                        </div>
+                          </div>
+                        )}
+
+                        {/* Compare mode indicator */}
+                        {compareMode && isSelectedForCompare && (
+                          <div className="flex items-center">
+                            <Badge variant="default" className="text-xs">
+                              {compareFrom?.id === version.id ? 'From' : 'To'}
+                            </Badge>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

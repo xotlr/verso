@@ -2,15 +2,10 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
-import Link from "next/link";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { MobileHeaderMenu } from "@/components/mobile-header-menu";
 import { EditableTitle } from "@/components/editable-title";
-import { Search, Bell, Settings, ArrowLeft } from "lucide-react";
-import { Logo } from "@/components/logo";
+import { Search, Bell, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Get active item label from pathname
@@ -61,7 +56,7 @@ function getActiveItem(pathname: string, dynamicTitle: string | null): {
 // Get page title for mobile header
 function getPageTitle(pathname: string): string {
   const titleMap: Record<string, string> = {
-    "/home": "Verso",
+    "/home": "Home",
     "/screenplays": "Screenplays",
     "/projects": "Projects",
     "/explore": "Explore",
@@ -93,7 +88,6 @@ interface AppHeaderProps {
 export function AppHeader({ className }: AppHeaderProps) {
   const pathname = usePathname();
   const [dynamicTitle, setDynamicTitle] = useState<string | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
 
   // Track online/offline status
@@ -147,13 +141,9 @@ export function AppHeader({ className }: AppHeaderProps) {
 
   return (
     <header className={cn(
-      "sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4",
+      "sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 bg-sidebar px-4",
       className
     )}>
-      {/* Desktop only: sidebar trigger */}
-      <SidebarTrigger className="-ml-1 hidden md:flex" />
-      <Separator orientation="vertical" className="mr-2 h-4 hidden md:block" />
-
       {/* Desktop: Active item display */}
       <div className="hidden md:flex items-center">
         {activeItem.isTitle ? (
@@ -168,8 +158,8 @@ export function AppHeader({ className }: AppHeaderProps) {
         )}
       </div>
 
-      {/* Mobile: Logo or Back button on left */}
-      {isDetailPage ? (
+      {/* Mobile: Back button on left for detail pages */}
+      {isDetailPage && (
         <Button
           variant="ghost"
           size="icon"
@@ -178,15 +168,11 @@ export function AppHeader({ className }: AppHeaderProps) {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-      ) : (
-        <Link href="/home" className="md:hidden">
-          <Logo size={32} />
-        </Link>
       )}
 
-      {/* Mobile: Page title - shows "Menu" when menu is open */}
+      {/* Mobile: Page title */}
       <div className="md:hidden flex-1 flex items-center justify-center gap-2">
-        <span className="font-semibold text-sm">{menuOpen ? "Menu" : pageTitle}</span>
+        <span className="font-semibold text-sm">{pageTitle}</span>
         {/* Offline indicator - only shows when disconnected */}
         {!isOnline && (
           <div className="flex items-center gap-1 text-orange-500">
@@ -218,16 +204,6 @@ export function AppHeader({ className }: AppHeaderProps) {
           <Bell className="h-4 w-4" />
         </Button>
         <ThemeToggle />
-        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-          <Link href="/settings">
-            <Settings className="h-4 w-4" />
-          </Link>
-        </Button>
-      </div>
-
-      {/* Mobile: Right-side menu */}
-      <div className="md:hidden">
-        <MobileHeaderMenu open={menuOpen} onOpenChange={setMenuOpen} />
       </div>
     </header>
   );

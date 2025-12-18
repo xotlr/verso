@@ -65,6 +65,7 @@ interface Act {
 interface ScenesPanelProps {
   scenes: SceneInfo[];
   view: EditorView | null;
+  currentSceneId?: string | null;
   onAddScene?: () => void;
   onAddShotToScene?: (sceneId: string) => void;
   className?: string;
@@ -74,6 +75,7 @@ interface ScenesPanelProps {
 interface SortableSceneItemProps {
   scene: SceneInfo;
   sceneIndex: number;
+  isActive?: boolean;
   navigateToScene: (scene: SceneInfo) => void;
   formatSceneHeading: (scene: SceneInfo) => string;
   onAddShot?: (sceneId: string) => void;
@@ -82,10 +84,12 @@ interface SortableSceneItemProps {
 function SortableSceneItem({
   scene,
   sceneIndex,
+  isActive,
   navigateToScene,
   formatSceneHeading,
   onAddShot,
 }: SortableSceneItemProps) {
+  const itemRef = React.useRef<HTMLDivElement>(null);
   const {
     attributes,
     listeners,
@@ -95,6 +99,13 @@ function SortableSceneItem({
     isDragging,
   } = useSortable({ id: scene.id });
 
+  // Auto-scroll to active scene
+  React.useEffect(() => {
+    if (isActive && itemRef.current) {
+      itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [isActive]);
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -102,14 +113,22 @@ function SortableSceneItem({
     zIndex: isDragging ? 10 : undefined,
   };
 
+  // Combine refs
+  const combinedRef = (node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    (itemRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+  };
+
   return (
     <div
-      ref={setNodeRef}
+      ref={combinedRef}
       style={style}
       className={cn(
         'group rounded-lg',
-        'hover:bg-accent/50 hover:-translate-y-0.5 hover:shadow-sm',
         'transition-all duration-150',
+        isActive
+          ? 'bg-primary/10 border-l-2 border-primary shadow-sm'
+          : 'hover:bg-accent/50 hover:-translate-y-0.5 hover:shadow-sm',
         isDragging && 'bg-accent shadow-lg'
       )}
     >
@@ -145,18 +164,6 @@ function SortableSceneItem({
           <div className="font-medium text-xs break-words">
             {formatSceneHeading(scene)}
           </div>
-          {scene.timeOfDay && (
-            <div className="flex items-center gap-1 mt-0.5">
-              <span className="text-[10px] text-muted-foreground">
-                {scene.timeOfDay}
-              </span>
-              {scene.autoDetectedTimeOfDay && (
-                <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 font-normal text-muted-foreground">
-                  Auto
-                </Badge>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Actions - stop propagation to prevent navigation */}
@@ -214,6 +221,7 @@ function SortableSceneItem({
 export function ScenesPanel({
   scenes,
   view,
+  currentSceneId,
   onAddScene,
   onAddShotToScene,
   className,
@@ -377,7 +385,6 @@ export function ScenesPanel({
     <div className={cn('flex flex-col h-full', className)}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-        <Film className="h-3.5 w-3.5 text-primary" />
         <h2 className="font-semibold text-sm">Scenes</h2>
         <span className="text-[10px] text-muted-foreground ml-auto">
           {scenes.length}
@@ -568,6 +575,7 @@ export function ScenesPanel({
                               key={scene.id}
                               scene={scene}
                               sceneIndex={scenes.indexOf(scene)}
+                              isActive={scene.id === currentSceneId}
                               navigateToScene={navigateToScene}
                               formatSceneHeading={formatSceneHeading}
                               onAddShot={onAddShotToScene}

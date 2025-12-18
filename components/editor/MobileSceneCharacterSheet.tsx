@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,12 +16,72 @@ interface MobileSceneCharacterSheetProps {
   scenes: SceneInfo[];
   characters: CharacterInfo[];
   view: EditorView | null;
+  currentSceneId?: string | null;
 }
 
 interface Act {
   id: string;
   name: string;
   scenes: SceneInfo[];
+}
+
+interface SceneListItemProps {
+  scene: SceneInfo;
+  index: number;
+  isActive: boolean;
+  onNavigate: (scene: SceneInfo) => void;
+  formatHeading: (scene: SceneInfo) => string;
+}
+
+function SceneListItem({
+  scene,
+  index,
+  isActive,
+  onNavigate,
+  formatHeading,
+}: SceneListItemProps) {
+  const itemRef = useRef<HTMLButtonElement>(null);
+
+  // Auto-scroll to active scene
+  useEffect(() => {
+    if (isActive && itemRef.current) {
+      itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [isActive]);
+
+  return (
+    <button
+      ref={itemRef}
+      onClick={() => onNavigate(scene)}
+      className={cn(
+        'w-full flex items-center gap-3 min-h-[44px]',
+        'px-3 py-2 rounded-lg',
+        'text-left text-sm',
+        'transition-all',
+        'touch-manipulation',
+        isActive
+          ? 'bg-primary/10 border-l-2 border-primary'
+          : 'hover:bg-accent active:scale-[0.98]'
+      )}
+    >
+      <span
+        className={cn(
+          'flex-shrink-0 w-6 h-6 rounded-full text-xs font-medium flex items-center justify-center',
+          isActive
+            ? 'bg-primary text-primary-foreground'
+            : 'bg-primary/10 text-primary'
+        )}
+      >
+        {index + 1}
+      </span>
+      <span className="flex-1 truncate">{formatHeading(scene)}</span>
+      {scene.timeOfDay && (
+        <span className="text-xs text-muted-foreground flex-shrink-0">
+          {scene.timeOfDay}
+        </span>
+      )}
+    </button>
+  );
 }
 
 /**
@@ -34,6 +94,7 @@ export function MobileSceneCharacterSheet({
   scenes,
   characters,
   view,
+  currentSceneId,
 }: MobileSceneCharacterSheetProps) {
   // Group scenes into acts (every 10 scenes)
   const acts = useMemo(() => {
@@ -143,31 +204,19 @@ export function MobileSceneCharacterSheet({
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {scenes.map((scene, idx) => (
-                      <button
-                        key={scene.id}
-                        onClick={() => navigateToScene(scene)}
-                        className={cn(
-                          'w-full flex items-center gap-3 min-h-[44px]',
-                          'px-3 py-2 rounded-lg',
-                          'text-left text-sm',
-                          'hover:bg-accent active:scale-[0.98] transition-all',
-                          'touch-manipulation'
-                        )}
-                      >
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center">
-                          {idx + 1}
-                        </span>
-                        <span className="flex-1 truncate">
-                          {formatSceneHeading(scene)}
-                        </span>
-                        {scene.timeOfDay && (
-                          <span className="text-xs text-muted-foreground flex-shrink-0">
-                            {scene.timeOfDay}
-                          </span>
-                        )}
-                      </button>
-                    ))}
+                    {scenes.map((scene, idx) => {
+                      const isActive = scene.id === currentSceneId;
+                      return (
+                        <SceneListItem
+                          key={scene.id}
+                          scene={scene}
+                          index={idx}
+                          isActive={isActive}
+                          onNavigate={navigateToScene}
+                          formatHeading={formatSceneHeading}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </div>

@@ -138,7 +138,8 @@ export function getTimeBasedGreeting(
   const now = mounted ? new Date() : new Date(0);
   const hour = now.getHours();
   const firstName = userName?.split(' ')[0];
-  const minuteSeed = mounted ? Math.floor(Date.now() / 60000) : 0;
+  // Use daily seed so greeting stays consistent all day
+  const dailySeed = mounted ? Math.floor(Date.now() / 86400000) : 0;
 
   const timePeriod =
     (hour >= 5 && hour < 12) ? "morning" :
@@ -146,7 +147,7 @@ export function getTimeBasedGreeting(
     (hour >= 17 && hour < 21) ? "evening" : "night";
 
   const pool = timeBasedGreetings[timePeriod];
-  const text = pickSmartGreeting(pool, recentGreetings, minuteSeed, mounted);
+  const text = pickSmartGreeting(pool, recentGreetings, dailySeed, mounted);
 
   return {
     text,
@@ -178,11 +179,12 @@ export function getContextualGreeting(ctx: GreetingContext): GreetingResult {
 
   const firstName = userName?.split(' ')[0];
   // Only use Date.now() after mount to prevent hydration mismatches
-  const minuteSeed = mounted ? Math.floor(Date.now() / 60000) : 0;
+  // Use daily seed so greeting stays consistent all day (no change on refresh)
+  const dailySeed = mounted ? Math.floor(Date.now() / 86400000) : 0;
   const daysSinceWrite = getDaysSinceLastWrite(lastWriteDate);
 
   // Helper to pick greeting avoiding recently shown ones
-  const smartPick = (pool: string[]) => pickSmartGreeting(pool, recentGreetings, minuteSeed, mounted);
+  const smartPick = (pool: string[]) => pickSmartGreeting(pool, recentGreetings, dailySeed, mounted);
 
   // Priority 1: LEGENDARY (7+ day streak) - Peak celebration
   if (currentStreak >= 7) {

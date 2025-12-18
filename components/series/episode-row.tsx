@@ -15,7 +15,7 @@ import { Clock, MoreHorizontal, Edit3, Trash2, ExternalLink } from 'lucide-react
 interface Episode {
   id: string;
   title: string;
-  season: number | null;
+  season?: number | null;
   episode: number | null;
   episodeTitle: string | null;
   wordCount: number;

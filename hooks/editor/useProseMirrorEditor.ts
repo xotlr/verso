@@ -64,6 +64,7 @@ export interface UseProseMirrorEditorReturn {
 
   // State
   currentElementType: ElementType;
+  currentSceneId: string | null;
   wordCount: number;
   pageCount: number;
   isReady: boolean;
@@ -254,6 +255,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
   const isInitializedRef = useRef(false);
 
   const [currentElementType, setCurrentElementTypeState] = useState<ElementType>('action');
+  const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
   const [wordCount, setWordCount] = useState(0);
   const [pageCount, setPageCount] = useState(1);
   const [isReady, setIsReady] = useState(false);
@@ -265,6 +267,9 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
   // Track characters and locations for autocomplete
   const charactersRef = useRef<string[]>([]);
   const locationsRef = useRef<string[]>([]);
+
+  // Track scenes for current scene detection
+  const scenesRef = useRef<SceneInfo[]>([]);
 
   // Debounce extraction to avoid running on every keystroke
   const extractionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -382,6 +387,9 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
             charactersRef.current = characters.map(c => c.name);
             locationsRef.current = scenes.map(s => s.location).filter((v, i, a) => v && a.indexOf(v) === i);
 
+            // Update scenes ref for current scene detection
+            scenesRef.current = scenes;
+
             if (onScenesChangeRef.current) {
               onScenesChangeRef.current(scenes, characters);
             }
@@ -401,6 +409,18 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
           setCurrentElementTypeState(parentType);
         }
 
+        // Update current scene based on cursor position
+        const cursorPos = newState.selection.from;
+        let activeSceneId: string | null = null;
+        for (const scene of scenesRef.current) {
+          if (scene.position <= cursorPos) {
+            activeSceneId = scene.id;
+          } else {
+            break;
+          }
+        }
+        setCurrentSceneId(activeSceneId);
+
         // Update undo/redo state
         setCanUndo(undo(newState));
         setCanRedo(redo(newState));
@@ -417,9 +437,10 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     setIsReady(true);
 
     // Initial scene/character extraction
+    const scenes = extractScenes(doc);
+    const characters = extractCharacters(doc);
+    scenesRef.current = scenes;
     if (onScenesChangeRef.current) {
-      const scenes = extractScenes(doc);
-      const characters = extractCharacters(doc);
       onScenesChangeRef.current(scenes, characters);
     }
 
@@ -534,6 +555,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
 
     // State
     currentElementType,
+    currentSceneId,
     wordCount,
     pageCount,
     isReady,

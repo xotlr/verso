@@ -458,7 +458,6 @@ export function NotesPanel({
     <div className={cn('flex flex-col h-full', className)}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-        <StickyNote className="h-3.5 w-3.5 text-primary" />
         <h2 className="font-semibold text-sm">Notes</h2>
         <span className="text-[10px] text-muted-foreground ml-auto flex items-center gap-1">
           {isSaving && <Loader2 className="h-3 w-3 animate-spin" />}

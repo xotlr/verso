@@ -71,8 +71,7 @@ export function ScreenplayListRow({
           "flex items-center gap-2 px-3 bg-card border border-border/60 rounded-t-lg",
           "transition-all duration-200",
           // Colored tab indicator
-          "border-l-4",
-          isSeries ? "border-l-blue-500" : "border-l-amber-500",
+          "border-l-4 border-l-primary",
           isHovered
             ? "bg-accent/50 border-border"
             : "hover:bg-accent/30"
@@ -80,21 +79,28 @@ export function ScreenplayListRow({
         style={{ height: `${TAB_HEIGHT}px` }}
       >
         {/* Type Icon */}
-        <div
-          className={cn(
-            'flex-shrink-0 p-1 rounded',
-            isSeries
-              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-          )}
-        >
+        <div className="flex-shrink-0 p-1 rounded bg-primary/10 text-primary">
           <TypeIcon className="h-3.5 w-3.5" />
         </div>
 
-        {/* Title */}
+        {/* Title - use episodeTitle for series episodes */}
         <h3 className="flex-1 font-semibold text-sm truncate uppercase tracking-tight">
-          {screenplay.title}
+          {isSeries && screenplay.episodeTitle ? screenplay.episodeTitle : screenplay.title}
         </h3>
+
+        {/* Series info badge */}
+        {isSeries && (screenplay.season || screenplay.episode || screenplay.series) && (
+          <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary">
+            {screenplay.season && `S${String(screenplay.season).padStart(2, '0')}`}
+            {screenplay.episode && `E${String(screenplay.episode).padStart(2, '0')}`}
+            {screenplay.series?.title && (
+              <>
+                <span className="text-muted-foreground/50">·</span>
+                <span className="truncate max-w-[80px]">{screenplay.series.title}</span>
+              </>
+            )}
+          </span>
+        )}
 
         {/* Favorite Star */}
         {screenplay.isFavorite && (

@@ -3,7 +3,6 @@
 import React from 'react';
 import { EditorPanelDesktop } from './EditorPanelDesktop';
 import { EditorPanelMobile } from './EditorPanelMobile';
-import { EditorPanelTrigger } from './EditorPanelTrigger';
 import type { SceneInfo, CharacterInfo } from '@/hooks/editor/useProseMirrorEditor';
 import type { EditorView } from 'prosemirror-view';
 import type { SceneWithShots, Shot } from '@/types/shotlist';
@@ -12,6 +11,7 @@ interface EditorPanelProps {
   scenes: SceneInfo[];
   characters: CharacterInfo[];
   view: EditorView | null;
+  currentSceneId?: string | null;
   screenplayId?: string;
   scenesWithShots?: SceneWithShots[];
   onShotsChange?: (shots: Shot[]) => void;
@@ -28,6 +28,7 @@ export function EditorPanel({
   scenes,
   characters,
   view,
+  currentSceneId,
   screenplayId,
   scenesWithShots,
   onShotsChange,
@@ -38,6 +39,7 @@ export function EditorPanel({
     scenes,
     characters,
     view,
+    currentSceneId,
     screenplayId,
     scenesWithShots,
     onShotsChange,
@@ -50,11 +52,8 @@ export function EditorPanel({
       {/* Desktop panel - hidden on mobile via internal check */}
       <EditorPanelDesktop {...sharedProps} />
 
-      {/* Mobile panel - only renders drawer on mobile */}
+      {/* Mobile panel - only renders drawer on mobile, triggered by edge swipe */}
       <EditorPanelMobile {...sharedProps} />
-
-      {/* Mobile FAB trigger - only renders on mobile */}
-      <EditorPanelTrigger />
     </>
   );
 }

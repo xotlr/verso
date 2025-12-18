@@ -21,12 +21,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { ListPageToolbar, FilterPill } from '@/components/ui/list-page-toolbar';
-import { Star } from 'lucide-react';
+import { Star, Tv } from 'lucide-react';
 import { PiFilmScript } from 'react-icons/pi';
 import { RiFolder6Line } from 'react-icons/ri';
+import { CreateSeriesDialog } from '@/components/series/create-series-dialog';
 import { PendingInviteBanner } from '@/components/pending-invite-banner';
 import { PendingProjectRoleInviteBanner } from '@/components/pending-project-role-invite-banner';
-import { StatsCards } from '@/components/dashboard';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { ImportResult } from '@/components/import-drop-zone';
 
@@ -43,6 +43,7 @@ function WorkspacePageContent() {
   const {
     screenplays,
     projects,
+    series,
     dashboardStats,
     isLoading,
     loadData,
@@ -70,9 +71,10 @@ function WorkspacePageContent() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [newSeriesOpen, setNewSeriesOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
-    type: 'screenplay' | 'project';
+    type: 'screenplay' | 'project' | 'series';
   } | null>(null);
   const [activeTab, setActiveTab] = useState<TabValue>('screenplays');
   const [showFavorites, setShowFavorites] = useState(false);
@@ -111,13 +113,17 @@ function WorkspacePageContent() {
     setNewProjectOpen(true);
   };
 
+  const createNewSeries = () => {
+    setNewSeriesOpen(true);
+  };
+
   const handleProjectCreated = (project: ProjectItem) => {
     loadData();
     setNewProjectOpen(false);
     router.push(`/project/${project.id}`);
   };
 
-  const handleDelete = (id: string, type: 'screenplay' | 'project') => {
+  const handleDelete = (id: string, type: 'screenplay' | 'project' | 'series') => {
     setDeleteTarget({ id, type });
   };
 
@@ -212,6 +218,12 @@ function WorkspacePageContent() {
     return matchesSearch && matchesFavorites;
   }).length;
 
+  const filteredSeriesCount = series.filter(
+    (s) =>
+      s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.logline?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
+  ).length;
+
   const filteredProjectCount = projects.filter(
     (p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -239,17 +251,24 @@ function WorkspacePageContent() {
         onClose={() => setNewProjectOpen(false)}
         onCreated={handleProjectCreated}
       />
+      <CreateSeriesDialog
+        open={newSeriesOpen}
+        onOpenChange={setNewSeriesOpen}
+        onSuccess={loadData}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {deleteTarget?.type === 'screenplay' ? 'Screenplay' : 'Project'}
+              Delete {deleteTarget?.type === 'screenplay' ? 'Screenplay' : deleteTarget?.type === 'series' ? 'Series' : 'Project'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget?.type === 'project'
                 ? 'Are you sure? Screenplays in this project will become standalone. This action cannot be undone.'
+                : deleteTarget?.type === 'series'
+                ? 'Are you sure? Episodes in this series will become standalone screenplays. This action cannot be undone.'
                 : 'Are you sure you want to delete this screenplay? This action cannot be undone.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -293,16 +312,6 @@ function WorkspacePageContent() {
             onCreateScreenplay={createNewScreenplay}
           />
 
-          {/* Stats Cards */}
-          {dashboardStats && (
-            <StatsCards
-              screenplayCount={dashboardStats.screenplayCount}
-              projectCount={dashboardStats.projectCount}
-              wordsThisWeek={dashboardStats.wordsThisWeek}
-              currentStreak={dashboardStats.currentStreak}
-            />
-          )}
-
           {/* Tabs, Search, and Filters */}
           <ListPageToolbar
             tabs={{
@@ -312,6 +321,12 @@ function WorkspacePageContent() {
                   label: 'Screenplays',
                   icon: <PiFilmScript className="h-4 w-4" />,
                   count: filteredScreenplayCount,
+                },
+                {
+                  value: 'series',
+                  label: 'Series',
+                  icon: <Tv className="h-4 w-4" />,
+                  count: filteredSeriesCount,
                 },
                 {
                   value: 'projects',
@@ -357,6 +372,7 @@ function WorkspacePageContent() {
             isLoading={isLoading}
             screenplays={screenplays}
             projects={projects}
+            series={series}
             searchQuery={searchQuery}
             showFavorites={showFavorites}
             viewMode={viewMode}
@@ -365,6 +381,7 @@ function WorkspacePageContent() {
             onImportComplete={handleImportComplete}
             onCreateScreenplay={createNewScreenplay}
             onCreateProject={createNewProject}
+            onCreateSeries={createNewSeries}
             onMoveToProject={(screenplay) => setMoveTarget(screenplay)}
             onCreateProjectFromScreenplay={createProjectFromScreenplay}
           />

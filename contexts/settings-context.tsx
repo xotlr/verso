@@ -10,6 +10,7 @@ interface SettingsContextType {
   updateEditorSettings: (updates: Partial<AppSettings['editor']>) => void;
   updateLayoutSettings: (updates: Partial<AppSettings['layout']>) => void;
   updateExportSettings: (updates: Partial<AppSettings['export']>) => void;
+  updateInterfaceSettings: (updates: Partial<AppSettings['interface']>) => void;
   setThemePreset: (preset: ThemePreset) => void;
   resetSettings: () => void;
   exportSettings: () => string;
@@ -62,6 +63,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           },
           layout: { ...defaultSettings.layout, ...parsed.layout },
           export: { ...defaultSettings.export, ...parsed.export },
+          interface: { ...defaultSettings.interface, ...parsed.interface },
         });
       }
     } catch (error) {
@@ -165,6 +167,13 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const updateInterfaceSettings = useCallback((updates: Partial<AppSettings['interface']>) => {
+    setSettings((prev) => ({
+      ...prev,
+      interface: { ...prev.interface, ...updates },
+    }));
+  }, []);
+
   const setThemePreset = useCallback((preset: ThemePreset) => {
     const presetSettings = themePresets[preset];
     if (presetSettings) {
@@ -213,6 +222,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         },
         layout: { ...defaultSettings.layout, ...parsed.layout },
         export: { ...defaultSettings.export, ...parsed.export },
+        interface: { ...defaultSettings.interface, ...parsed.interface },
       });
       return true;
     } catch (error) {
@@ -228,6 +238,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     updateEditorSettings,
     updateLayoutSettings,
     updateExportSettings,
+    updateInterfaceSettings,
     setThemePreset,
     resetSettings,
     exportSettings,

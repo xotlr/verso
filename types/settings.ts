@@ -1,7 +1,8 @@
 export type ThemePreset =
-  | 'minimal' | 'paper'  // Essential
+  | 'verso' | 'paper'  // Essential
   | 'matcha' | 'neovictorian'  // Vintage
-  | 'romance' | 'horror';  // Genre
+  | 'romance' | 'horror'  // Genre
+  | 'typewriter' | 'screenplay-classic' | 'sepia' | 'midnight' | 'studio' | 'belle-epoque' | 'faerun';  // Writer
 
 export interface ThemeMetadata {
   name: string;
@@ -10,7 +11,7 @@ export interface ThemeMetadata {
 
 export const themeMetadata: Record<ThemePreset, ThemeMetadata> = {
   // Essential themes
-  minimal: { name: 'Minimal', subtitle: 'Clean and focused' },
+  verso: { name: 'Verso', subtitle: 'Default dark theme' },
   paper: { name: 'Paper', subtitle: 'Classic screenplay feel' },
   // Vintage themes
   matcha: { name: 'Matcha', subtitle: 'Chinese retro charm' },
@@ -18,6 +19,14 @@ export const themeMetadata: Record<ThemePreset, ThemeMetadata> = {
   // Genre themes
   romance: { name: 'Romance', subtitle: 'Soft and heartfelt' },
   horror: { name: 'Horror', subtitle: 'Blood red on gray' },
+  // Writer themes
+  typewriter: { name: 'Typewriter', subtitle: 'Classic typing feel' },
+  'screenplay-classic': { name: 'Screenplay Classic', subtitle: 'Traditional screenplay look' },
+  sepia: { name: 'Sepia', subtitle: 'Warm vintage tones' },
+  midnight: { name: 'Midnight', subtitle: 'Dark blue atmosphere' },
+  studio: { name: 'Studio', subtitle: 'Professional workspace' },
+  'belle-epoque': { name: 'Belle Époque', subtitle: 'French elegance' },
+  faerun: { name: 'Faerûn', subtitle: 'Fantasy adventure' },
 };
 
 export type UIFont = 'inter' | 'sf-pro' | 'geist' | 'ibm-plex' | 'plus-jakarta';
@@ -101,10 +110,21 @@ export interface AutocompleteSettings {
 export interface EditorSettings {
   autocomplete: AutocompleteSettings;
   textContrast: number; // 15-35, default 25 (lightness percentage)
+  typewriterMode: boolean;
+  focusLineHighlight: boolean;
+  scrollMode: 'discrete' | 'continuous';
+}
+
+export interface InterfaceSettings {
+  showStatsBar: boolean;
+  showPageNumbers: boolean;
+  reduceMotion: boolean;
+  highContrast: boolean;
 }
 
 export interface LayoutSettings {
   layoutMode: LayoutMode;
+  toolbarPosition: 'left' | 'right';
 }
 
 export interface ExportSettings {
@@ -115,13 +135,14 @@ export interface ExportSettings {
 export interface AppSettings {
   visual: VisualSettings;
   editor: EditorSettings;
+  interface: InterfaceSettings;
   layout: LayoutSettings;
   export: ExportSettings;
 }
 
 export const defaultSettings: AppSettings = {
   visual: {
-    themePreset: 'minimal',
+    themePreset: 'verso',
     lightColors: {
       // Neutral tones (matches globals.css)
       background: '0 0% 98%',             // Neutral off-white
@@ -235,9 +256,19 @@ export const defaultSettings: AppSettings = {
       delayMs: 5000, // 5 second delay by default
     },
     textContrast: 25, // Default lightness percentage
+    typewriterMode: false,
+    focusLineHighlight: false,
+    scrollMode: 'discrete',
+  },
+  interface: {
+    showStatsBar: true,
+    showPageNumbers: true,
+    reduceMotion: false,
+    highContrast: false,
   },
   layout: {
     layoutMode: 'classic',
+    toolbarPosition: 'left',
   },
   export: {
     defaultFormat: 'pdf',
@@ -250,9 +281,9 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
   // ESSENTIAL THEMES - Core workspace themes
   // ============================================
 
-  // Minimal: Clean neutral grayscale - no color tint
-  minimal: {
-    themePreset: 'minimal',
+  // Verso: Clean neutral grayscale - no color tint
+  verso: {
+    themePreset: 'verso',
     lightColors: {
       background: '0 0% 99%',             // Pure off-white
       foreground: '0 0% 32%',             // Neutral dark gray
@@ -766,4 +797,15 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       width: 2,
     },
   },
+
+  // ============================================
+  // WRITER THEMES - Placeholder entries
+  // ============================================
+  typewriter: { themePreset: 'typewriter' },
+  'screenplay-classic': { themePreset: 'screenplay-classic' },
+  sepia: { themePreset: 'sepia' },
+  midnight: { themePreset: 'midnight' },
+  studio: { themePreset: 'studio' },
+  'belle-epoque': { themePreset: 'belle-epoque' },
+  faerun: { themePreset: 'faerun' },
 };

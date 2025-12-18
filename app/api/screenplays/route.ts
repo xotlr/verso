@@ -127,6 +127,10 @@ export async function GET(request: Request) {
           season: true,
           episode: true,
           episodeTitle: true,
+          seriesId: true,
+          series: {
+            select: { id: true, title: true },
+          },
           project: {
             select: { id: true, name: true },
           },

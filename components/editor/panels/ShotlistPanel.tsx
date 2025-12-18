@@ -342,7 +342,6 @@ export function ShotlistPanel({
     <div className={cn('flex flex-col h-full', className)}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-        <Clapperboard className="h-4 w-4 text-primary" />
         <h2 className="font-semibold text-sm">Shotlist</h2>
         <span className="text-xs text-muted-foreground ml-auto">
           {totalShots}

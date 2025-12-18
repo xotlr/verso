@@ -220,8 +220,7 @@
   gap: 0; /* WASM handles all spacing via page break decorations */
   /* No min-height - content dictates height for proper scrolling */
   background: hsl(var(--background));
-  /* Container is centered, pages are fixed-size and scaled */
-  margin: 0 auto;
+  /* Centering via left: 50% + translateX(-50%) in inline styles for proper mobile scaling */
   /* Smooth zoom transitions */
   transition: transform 150ms ease-out;
 }
@@ -1043,15 +1042,7 @@
    Mobile Editor Adjustments
    ============================================ */
 @media (max-width: 767px) {
-  /* Add padding for mobile bottom toolbar (56px + safe area) */
-  .pm-editor-wrapper {
-    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
-  }
-
-  /* Ensure editor scroll area accounts for bottom toolbar */
-  .pm-editor-scroll-area {
-    padding-bottom: 60px;
-  }
+  /* Bottom padding handled by layout.tsx pb-14 - don't duplicate here */
 
   /* Adjust page scaling origin for centered mobile pages */
   .pm-editor-pages {

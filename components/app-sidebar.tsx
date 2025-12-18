@@ -32,7 +32,7 @@ import { TbHome, TbHomeFilled } from 'react-icons/tb';
 import { PiFilmScript, PiFilmScriptFill } from 'react-icons/pi';
 import { RiFolder6Line, RiFolder6Fill } from 'react-icons/ri';
 import { MdOutlineExplore, MdExplore } from 'react-icons/md';
-import { TeamSwitcher } from "@/components/team-switcher";
+import { Logo } from "@/components/logo";
 
 import { cn } from '@/lib/utils';
 import "@/styles/sidebar-animations.css";
@@ -55,7 +55,6 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarRail,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
@@ -228,14 +227,15 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   ] : [];
 
   return (
-    <Sidebar collapsible="icon" className="border-r bg-sidebar sidebar-animated">
+    <Sidebar collapsible="icon" className="bg-sidebar sidebar-animated">
       {/* Header */}
       <SidebarHeader className="gap-3">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <TeamSwitcher isCollapsed={isCollapsed} />
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {/* Logo - matches header height for alignment */}
+        <div className="flex h-14 items-center justify-center">
+          <Link href="/home" className="flex items-center justify-center">
+            <Logo size={28} className="text-primary" />
+          </Link>
+        </div>
 
         {/* Create Button with Dropdown */}
         <SidebarMenu className="gap-1.5">
@@ -320,83 +320,43 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
           </SidebarGroup>
         )}
 
-        {/* Resources Section */}
-        {/* Use consistent structure during hydration, show expanded after mount */}
-        {mounted && !isCollapsed ? (
-          <SidebarGroup>
-            <SidebarGroupLabel>Resources</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <NavMenuItem
-                  title="Templates"
-                  icon={LayoutTemplate}
-                  pathname={pathname}
-                  isCollapsed={isCollapsed}
-                  onClick={() => setTemplateSelectorOpen(true)}
-                />
-                <NavMenuItem
-                  title="Formatting Guide"
-                  icon={BookOpen}
-                  pathname={pathname}
-                  isCollapsed={isCollapsed}
-                  onClick={() => setFormattingGuideOpen(true)}
-                />
-                <NavMenuItem
-                  title="Keyboard Shortcuts"
-                  icon={Keyboard}
-                  pathname={pathname}
-                  isCollapsed={isCollapsed}
-                  onClick={() => setShortcutsOpen(true)}
-                />
-                <NavMenuItem
-                  title="Help & Feedback"
-                  url="/help"
-                  icon={HelpCircle}
-                  pathname={pathname}
-                  isCollapsed={isCollapsed}
-                />
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ) : (
-          /* Collapsed Resources - Dropdown menu */
-          <SidebarGroup>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <SidebarMenuButton>
-                      <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                    </SidebarMenuButton>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent side="right" align="start" className="w-48">
-                    <DropdownMenuLabel>Resources</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setTemplateSelectorOpen(true)}>
-                      <LayoutTemplate className="mr-2 h-4 w-4" />
-                      Templates
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setFormattingGuideOpen(true)}>
-                      <BookOpen className="mr-2 h-4 w-4" />
-                      Formatting Guide
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
-                      <Keyboard className="mr-2 h-4 w-4" />
-                      Keyboard Shortcuts
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href="/help" className="flex items-center cursor-pointer">
-                        <HelpCircle className="mr-2 h-4 w-4" />
-                        Help & Feedback
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroup>
-        )}
+        {/* Resources Section - Always show as dropdown menu */}
+        <SidebarGroup>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <SidebarMenuButton>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                  </SidebarMenuButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="right" align="start" className="w-48">
+                  <DropdownMenuLabel>Resources</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setTemplateSelectorOpen(true)}>
+                    <LayoutTemplate className="mr-2 h-4 w-4" />
+                    Templates
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setFormattingGuideOpen(true)}>
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    Formatting Guide
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
+                    <Keyboard className="mr-2 h-4 w-4" />
+                    Keyboard Shortcuts
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/help" className="flex items-center cursor-pointer">
+                      <HelpCircle className="mr-2 h-4 w-4" />
+                      Help & Feedback
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
 
       {/* Footer */}
@@ -527,8 +487,6 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
           )}
         </SidebarMenu>
       </SidebarFooter>
-
-      <SidebarRail />
 
       {/* Dialogs */}
       <KeyboardShortcutsDialog

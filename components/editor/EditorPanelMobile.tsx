@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { useEditorPanel, type EditorPanelType } from './EditorPanelContext';
 import { ScenesPanel } from './panels/ScenesPanel';
@@ -22,6 +22,7 @@ interface EditorPanelMobileProps {
   scenes: SceneInfo[];
   characters: CharacterInfo[];
   view: EditorView | null;
+  currentSceneId?: string | null;
   screenplayId?: string;
   scenesWithShots?: SceneWithShots[];
   onShotsChange?: (shots: Shot[]) => void;
@@ -51,9 +52,10 @@ function TabButton({
   return (
     <button
       onClick={() => onClick(panel)}
+      aria-label={label}
       className={cn(
-        'flex-1 flex flex-col items-center gap-1 py-3 px-2',
-        'touch-manipulation min-h-[56px]',
+        'flex-1 flex items-center justify-center py-3 px-2',
+        'touch-manipulation min-h-[48px]',
         'transition-colors',
         isActive
           ? 'text-primary border-b-2 border-primary bg-primary/5'
@@ -63,12 +65,11 @@ function TabButton({
       <div className="relative">
         {icon}
         {count > 0 && (
-          <span className="absolute -top-1 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground px-1">
+          <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground px-1">
             {count > 99 ? '99+' : count}
           </span>
         )}
       </div>
-      <span className="text-[10px] font-medium">{label}</span>
     </button>
   );
 }
@@ -92,6 +93,7 @@ export function EditorPanelMobile({
   scenes,
   characters,
   view,
+  currentSceneId,
   screenplayId,
   scenesWithShots = [],
   onShotsChange,
@@ -100,6 +102,68 @@ export function EditorPanelMobile({
 }: EditorPanelMobileProps) {
   const { mobileOpen, setMobileOpen, activePanel, setActivePanel, isMobile } =
     useEditorPanel();
+
+  // Edge swipe detection state
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const EDGE_THRESHOLD = 30; // px from right edge to start gesture
+  const SWIPE_THRESHOLD = 60; // px to complete swipe
+  const MAX_Y_DRIFT = 50; // max vertical movement allowed
+
+  // Handle edge swipe gesture to open panel
+  const handleTouchStart = useCallback((e: TouchEvent) => {
+    if (mobileOpen) return; // Don't detect if already open
+
+    const touch = e.touches[0];
+    const distanceFromRightEdge = window.innerWidth - touch.clientX;
+
+    // Only start tracking if touch begins near right edge
+    if (distanceFromRightEdge <= EDGE_THRESHOLD) {
+      touchStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        time: Date.now(),
+      };
+    }
+  }, [mobileOpen]);
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (!touchStartRef.current || mobileOpen) return;
+
+    const touch = e.touches[0];
+    const deltaX = touchStartRef.current.x - touch.clientX;
+    const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
+
+    // Cancel if too much vertical movement (user is scrolling)
+    if (deltaY > MAX_Y_DRIFT) {
+      touchStartRef.current = null;
+      return;
+    }
+
+    // If swiped left enough from the right edge, open the panel
+    if (deltaX >= SWIPE_THRESHOLD) {
+      setMobileOpen(true);
+      touchStartRef.current = null;
+    }
+  }, [mobileOpen, setMobileOpen]);
+
+  const handleTouchEnd = useCallback(() => {
+    touchStartRef.current = null;
+  }, []);
+
+  // Attach touch event listeners
+  useEffect(() => {
+    if (!isMobile) return;
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isMobile, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   // Only render on mobile
   if (!isMobile) return null;
@@ -115,14 +179,26 @@ export function EditorPanelMobile({
     0
   );
 
-  const currentSceneId = scenes[0]?.id;
+  // For notes panel, use prop or fallback to first scene
+  const notesSceneId = currentSceneId ?? scenes[0]?.id;
 
   // Default to scenes if no panel selected
   const currentPanel = activePanel || 'scenes';
 
   return (
-    <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
-      <DrawerContent className="max-h-[85vh] flex flex-col">
+    <>
+      {/* Subtle edge indicator for swipe gesture discoverability */}
+      {!mobileOpen && (
+        <div
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-30 pointer-events-none md:hidden"
+          aria-hidden="true"
+        >
+          <div className="w-1 h-16 bg-primary/20 rounded-l-full" />
+        </div>
+      )}
+
+      <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
+        <DrawerContent className="max-h-[90vh] flex flex-col">
         <DrawerHeader className="sr-only">
           <DrawerTitle>{getPanelTitle(currentPanel)}</DrawerTitle>
         </DrawerHeader>
@@ -133,7 +209,7 @@ export function EditorPanelMobile({
             panel="scenes"
             activePanel={currentPanel}
             onClick={handlePanelChange}
-            icon={<Film className="h-5 w-5" />}
+            icon={<Film className="h-6 w-6" />}
             label="Scenes"
             count={scenes.length}
           />
@@ -141,7 +217,7 @@ export function EditorPanelMobile({
             panel="characters"
             activePanel={currentPanel}
             onClick={handlePanelChange}
-            icon={<Users className="h-5 w-5" />}
+            icon={<Users className="h-6 w-6" />}
             label="Characters"
             count={characters.length}
           />
@@ -149,7 +225,7 @@ export function EditorPanelMobile({
             panel="shotlist"
             activePanel={currentPanel}
             onClick={handlePanelChange}
-            icon={<Clapperboard className="h-5 w-5" />}
+            icon={<Clapperboard className="h-6 w-6" />}
             label="Shots"
             count={shotCount}
           />
@@ -157,7 +233,7 @@ export function EditorPanelMobile({
             panel="notes"
             activePanel={currentPanel}
             onClick={handlePanelChange}
-            icon={<StickyNote className="h-5 w-5" />}
+            icon={<StickyNote className="h-6 w-6" />}
             label="Notes"
           />
         </div>
@@ -168,6 +244,7 @@ export function EditorPanelMobile({
             <ScenesPanel
               scenes={scenes}
               view={view}
+              currentSceneId={currentSceneId}
               className="h-full"
             />
           )}
@@ -176,6 +253,7 @@ export function EditorPanelMobile({
             <CharactersPanel
               characters={characters}
               screenplayId={screenplayId}
+              view={view}
               className="h-full"
             />
           )}
@@ -194,12 +272,13 @@ export function EditorPanelMobile({
           {currentPanel === 'notes' && screenplayId && (
             <NotesPanel
               screenplayId={screenplayId}
-              currentSceneId={currentSceneId}
+              currentSceneId={notesSceneId}
               className="h-full"
             />
           )}
         </div>
       </DrawerContent>
     </Drawer>
+    </>
   );
 }

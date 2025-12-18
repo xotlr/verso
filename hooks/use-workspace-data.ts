@@ -14,6 +14,13 @@ export interface ScreenplayItem {
   project?: { id: string; name: string } | null;
   author?: string | null;
   user?: { id: string; name: string | null } | null;
+  // Series/TV fields
+  type?: 'FILM' | 'TV' | null;
+  season?: number | null;
+  episode?: number | null;
+  episodeTitle?: string | null;
+  seriesId?: string | null;
+  series?: { id: string; title: string } | null;
 }
 
 export interface ProjectRole {
@@ -40,6 +47,16 @@ export interface ProjectItem {
   };
 }
 
+export interface SeriesItem {
+  id: string;
+  title: string;
+  logline?: string | null;
+  genre?: string | null;
+  format?: string | null;
+  updatedAt: string;
+  _count?: { episodes: number };
+}
+
 export interface DashboardStats {
   screenplayCount: number;
   projectCount: number;
@@ -57,12 +74,14 @@ export interface DashboardStats {
 export interface UseWorkspaceDataReturn {
   screenplays: ScreenplayItem[];
   projects: ProjectItem[];
+  series: SeriesItem[];
   dashboardStats: DashboardStats | null;
   isLoading: boolean;
   loadData: () => Promise<void>;
-  deleteItem: (id: string, type: 'screenplay' | 'project') => Promise<void>;
+  deleteItem: (id: string, type: 'screenplay' | 'project' | 'series') => Promise<void>;
   setScreenplays: React.Dispatch<React.SetStateAction<ScreenplayItem[]>>;
   setProjects: React.Dispatch<React.SetStateAction<ProjectItem[]>>;
+  setSeries: React.Dispatch<React.SetStateAction<SeriesItem[]>>;
 }
 
 /**
@@ -71,15 +90,17 @@ export interface UseWorkspaceDataReturn {
 export function useWorkspaceData(): UseWorkspaceDataReturn {
   const [screenplays, setScreenplays] = useState<ScreenplayItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [series, setSeries] = useState<SeriesItem[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [screenplaysRes, projectsRes, statsRes] = await Promise.all([
+      const [screenplaysRes, projectsRes, seriesRes, statsRes] = await Promise.all([
         fetch('/api/screenplays'),
         fetch('/api/projects'),
+        fetch('/api/series'),
         fetch('/api/dashboard/stats'),
       ]);
 
@@ -93,6 +114,11 @@ export function useWorkspaceData(): UseWorkspaceDataReturn {
         setProjects(data);
       }
 
+      if (seriesRes.ok) {
+        const data = await seriesRes.json();
+        setSeries(data || []);
+      }
+
       if (statsRes.ok) {
         setDashboardStats(await statsRes.json());
       }
@@ -103,10 +129,13 @@ export function useWorkspaceData(): UseWorkspaceDataReturn {
     }
   }, []);
 
-  const deleteItem = useCallback(async (id: string, type: 'screenplay' | 'project') => {
-    const endpoint = type === 'screenplay'
-      ? `/api/screenplays/${id}`
-      : `/api/projects/${id}`;
+  const deleteItem = useCallback(async (id: string, type: 'screenplay' | 'project' | 'series') => {
+    const endpoints = {
+      screenplay: `/api/screenplays/${id}`,
+      project: `/api/projects/${id}`,
+      series: `/api/series/${id}`,
+    };
+    const endpoint = endpoints[type];
 
     const response = await fetch(endpoint, { method: 'DELETE' });
 
@@ -141,11 +170,13 @@ export function useWorkspaceData(): UseWorkspaceDataReturn {
   return {
     screenplays,
     projects,
+    series,
     dashboardStats,
     isLoading,
     loadData,
     deleteItem,
     setScreenplays,
     setProjects,
+    setSeries,
   };
 }

@@ -102,9 +102,9 @@ export function TeamSwitcher({ isCollapsed = false }: TeamSwitcherProps) {
               isCollapsed && "bg-transparent h-full w-full"
             )}>
               {currentTeam ? (
-                <Users className={cn("h-4 w-4", isCollapsed ? "text-foreground" : "text-primary-foreground")} />
+                <Users className={cn("h-4 w-4", isCollapsed ? "text-primary" : "text-primary-foreground")} />
               ) : (
-                <Logo size={36} color="currentColor" className={cn(isCollapsed ? "text-foreground" : "text-primary-foreground")} />
+                <Logo size={36} color="currentColor" className={cn(isCollapsed ? "text-primary" : "text-primary-foreground")} />
               )}
             </div>
             {!isCollapsed && (

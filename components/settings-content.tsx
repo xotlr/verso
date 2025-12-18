@@ -604,7 +604,7 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                 <div>
                   <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2">Essential</p>
                   <div className="grid grid-cols-2 gap-2">
-                    {(['minimal', 'paper'] as ThemePreset[]).map((preset) => (
+                    {(['verso', 'paper'] as ThemePreset[]).map((preset) => (
                       <button
                         key={preset}
                         onClick={() => setThemePreset(preset)}
@@ -647,6 +647,27 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
                   <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2">Genre</p>
                   <div className="grid grid-cols-2 gap-2">
                     {(['romance', 'horror'] as ThemePreset[]).map((preset) => (
+                      <button
+                        key={preset}
+                        onClick={() => setThemePreset(preset)}
+                        className={`p-3 rounded-lg border-2 transition-all text-left ${
+                          settings.visual.themePreset === preset
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                      >
+                        <div className="text-sm font-medium">{themeMetadata[preset].name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{themeMetadata[preset].subtitle}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Writer Themes */}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2">Writer</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['typewriter', 'screenplay-classic', 'sepia', 'midnight', 'studio', 'belle-epoque', 'faerun'] as ThemePreset[]).map((preset) => (
                       <button
                         key={preset}
                         onClick={() => setThemePreset(preset)}

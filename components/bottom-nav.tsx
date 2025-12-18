@@ -95,24 +95,23 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background/95 backdrop-blur-lg border-t border-border safe-area-bottom">
-      <div className="relative flex items-center justify-around h-16 px-2">
+      <div className="relative flex items-center justify-around h-14 px-2">
         {/* Home */}
         <Link
           href="/home"
           className={cn(
-            "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
+            "group flex items-center justify-center p-3 rounded-xl min-w-[48px] touch-manipulation relative tap-bounce",
             "transition-colors duration-200",
             isActive('/home')
-              ? "text-primary font-medium"
+              ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
           {isActive('/home') ? (
-            <TbHomeFilled className="h-5 w-5 transition-all duration-300 scale-105 group-active:scale-90" />
+            <TbHomeFilled className="h-6 w-6 transition-all duration-300 scale-105 group-active:scale-90" />
           ) : (
-            <TbHome className="h-5 w-5 transition-all duration-300 group-active:scale-90" />
+            <TbHome className="h-6 w-6 transition-all duration-300 group-active:scale-90" />
           )}
-          <span className="text-[10px] font-medium">Home</span>
           {isActive('/home') && (
             <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
           )}
@@ -122,19 +121,18 @@ export function BottomNav() {
         <Link
           href="/screenplays"
           className={cn(
-            "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
+            "group flex items-center justify-center p-3 rounded-xl min-w-[48px] touch-manipulation relative tap-bounce",
             "transition-colors duration-200",
             isActive('/screenplays')
-              ? "text-primary font-medium"
+              ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
           {isActive('/screenplays') ? (
-            <PiFilmScriptFill className="h-5 w-5 transition-all duration-300 scale-105 group-active:scale-90" />
+            <PiFilmScriptFill className="h-6 w-6 transition-all duration-300 scale-105 group-active:scale-90" />
           ) : (
-            <PiFilmScript className="h-5 w-5 transition-all duration-300 group-active:scale-90" />
+            <PiFilmScript className="h-6 w-6 transition-all duration-300 group-active:scale-90" />
           )}
-          <span className="text-[10px] font-medium">Scripts</span>
           {isActive('/screenplays') && (
             <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
           )}
@@ -147,21 +145,20 @@ export function BottomNav() {
             <DrawerTrigger asChild>
               <button
                 className={cn(
-                  "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
+                  "group flex items-center justify-center p-3 rounded-xl min-w-[48px] touch-manipulation relative tap-bounce",
                   "transition-colors duration-200",
                   createOpen
-                    ? "text-primary font-medium"
+                    ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Plus className={cn(
-                  "h-5 w-5 transition-all duration-300",
+                  "h-6 w-6 transition-all duration-300",
                   createOpen
                     ? "fill-primary stroke-primary scale-105 rotate-45"
                     : "fill-none stroke-current",
                   "group-active:scale-90"
                 )} />
-                <span className="text-[10px] font-medium">Create</span>
                 {createOpen && (
                   <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
                 )}
@@ -213,10 +210,9 @@ export function BottomNav() {
           </Drawer>
         ) : (
           <button
-            className="group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative text-muted-foreground"
+            className="group flex items-center justify-center p-3 rounded-xl min-w-[48px] touch-manipulation relative text-muted-foreground"
           >
-            <Plus className="h-5 w-5" />
-            <span className="text-[10px] font-medium">Create</span>
+            <Plus className="h-6 w-6" />
           </button>
         )}
 
@@ -227,21 +223,20 @@ export function BottomNav() {
             <DrawerTrigger asChild>
               <button
                 className={cn(
-                  "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
+                  "group flex items-center justify-center p-3 rounded-xl min-w-[48px] touch-manipulation relative tap-bounce",
                   "transition-colors duration-200",
                   isToolsActive || toolsOpen
-                    ? "text-primary font-medium"
+                    ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <BarChart3 className={cn(
-                  "h-5 w-5 transition-all duration-300",
+                  "h-6 w-6 transition-all duration-300",
                   (isToolsActive || toolsOpen)
                     ? "fill-primary stroke-primary scale-105"
                     : "fill-none stroke-current",
                   "group-active:scale-90"
                 )} />
-                <span className="text-[10px] font-medium">Tools</span>
                 {(isToolsActive || toolsOpen) && (
                   <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
                 )}
@@ -337,10 +332,9 @@ export function BottomNav() {
           </Drawer>
         ) : (
           <button
-            className="group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative text-muted-foreground"
+            className="group flex items-center justify-center p-3 rounded-xl min-w-[48px] touch-manipulation relative text-muted-foreground"
           >
-            <BarChart3 className="h-5 w-5" />
-            <span className="text-[10px] font-medium">Tools</span>
+            <BarChart3 className="h-6 w-6" />
           </button>
         )}
 
@@ -348,26 +342,26 @@ export function BottomNav() {
         <Link
           href="/settings"
           className={cn(
-            "group flex flex-col items-center justify-center gap-0.5 p-2 rounded-lg min-w-[56px] touch-manipulation relative tap-bounce",
+            "group flex items-center justify-center p-3 rounded-xl min-w-[48px] touch-manipulation relative tap-bounce",
             "transition-colors duration-200",
             isActive('/settings')
-              ? "text-primary font-medium"
+              ? "text-primary"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
           <div className={cn(
-            "transition-all duration-300",
-            isActive('/settings') && "scale-105",
+            "transition-all duration-300 rounded-full",
+            "ring-2 ring-border",
+            isActive('/settings') && "scale-105 ring-primary",
             "group-active:scale-90"
           )}>
             <ProfileAvatar
               userId={session?.user?.id || ''}
               imageUrl={session?.user?.image}
               name={session?.user?.name}
-              size="xs"
+              size="sm"
             />
           </div>
-          <span className="text-[10px] font-medium">Profile</span>
           {isActive('/settings') && (
             <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
           )}

@@ -228,21 +228,22 @@ model Project {
   roleInvites   ProjectRoleInvite[]
   roleNeeds     ProjectRoleNeed[]
 
+  // Series that belong to this project
+  series Series[]
+
   @@index([userId])
   @@index([teamId])
   @@index([isPublic, publishedAt])
-
-  // Series that belong to this project
-  series Series[]
 }
 
-// Series = TV Series container (holds episodes)
+// Series = TV Series container (holds seasons and episodes)
 model Series {
   id        String   @id @default(cuid())
   title     String
   logline   String?  @db.Text
   genre     String?
-  format    String?  // "one-hour", "half-hour", "multi-cam"
+  format    String? // "one-hour", "half-hour", "multi-cam"
+  banner    String? // Banner image URL
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -254,11 +255,34 @@ model Series {
   projectId String?
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  // Episodes (screenplays that belong to this series)
-  episodes Screenplay[]
+  // Seasons (each season contains episodes)
+  seasons Season[]
+
+  // Legacy: Direct episodes relation (kept for migration, will be removed)
+  episodes Screenplay[] @relation("SeriesEpisodes")
 
   @@index([userId])
   @@index([projectId])
+}
+
+// Season = Container for episodes within a series
+model Season {
+  id          String   @id @default(cuid())
+  number      Int // Season number (1, 2, 3...)
+  title       String? // Optional title (e.g., "The Beginning")
+  description String?  @db.Text
+  status      String   @default("planning") // "planning", "writing", "complete"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  seriesId String
+  series   Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  // Episodes in this season
+  episodes Screenplay[] @relation("SeasonEpisodes")
+
+  @@unique([seriesId, number]) // Can't have duplicate season numbers within a series
+  @@index([seriesId])
 }
 
 // Project roles (Director, Writer, Producer, etc.)
@@ -303,9 +327,9 @@ model ProjectRoleInvite {
 model ProjectRoleNeed {
   id          String   @id @default(cuid())
   projectId   String
-  role        String   // "director" | "writer" | "producer" | "cinematographer" | etc.
+  role        String // "director" | "writer" | "producer" | "cinematographer" | etc.
   description String?  @db.Text
-  location    String?  // "Los Angeles", "Remote", etc.
+  location    String? // "Los Angeles", "Remote", etc.
   isPaid      Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -318,13 +342,13 @@ model ProjectRoleNeed {
 
 // Applications/Interest for open project roles
 model ProjectRoleApplication {
-  id          String            @id @default(cuid())
-  roleNeedId  String
-  userId      String
-  message     String?           @db.Text
-  status      ApplicationStatus @default(PENDING)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  id         String            @id @default(cuid())
+  roleNeedId String
+  userId     String
+  message    String?           @db.Text
+  status     ApplicationStatus @default(PENDING)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 
   roleNeed ProjectRoleNeed @relation(fields: [roleNeedId], references: [id], onDelete: Cascade)
   user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -355,14 +379,17 @@ model Screenplay {
   userId    String
   projectId String?
   teamId    String?
-  seriesId  String?  // For TV episodes - links to parent Series
+
+  // TV Series relations
+  seriesId String? // Legacy: Direct link to Series (kept for migration)
+  seasonId String? // New: Link to Season (episodes belong to seasons)
 
   // Screenplay type
   type         ScreenplayType @default(FILM)
   format       String         @default("feature-film") // 'feature-film' | 'tv-one-hour' | 'tv-half-hour' | 'tv-multi-cam'
-  season       Int? // For TV episodes
-  episode      Int? // For TV episodes
-  episodeTitle String? // For TV episodes
+  season       Int? // Legacy: Season number (kept for migration, use seasonId instead)
+  episode      Int? // Episode number within the season
+  episodeTitle String? // Episode title
 
   // Quick Access fields
   isFavorite   Boolean   @default(false)
@@ -377,13 +404,19 @@ model Screenplay {
   author      String?
 
   // Cached stats (computed on save for performance)
-  wordCount   Int       @default(0)
+  wordCount Int @default(0)
+
+  // Timelapse recording
+  timelapseEnabled Boolean   @default(true) // Whether to record operations for timelapse
+  timelapseStarted DateTime? // When timelapse recording started
+  timelapseShareId String?   @unique // Public share ID for timelapse (cuid)
 
   // Relations
   user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   project          Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
   team             Team?               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  series           Series?             @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  series           Series?             @relation("SeriesEpisodes", fields: [seriesId], references: [id], onDelete: SetNull)
+  seasonRef        Season?             @relation("SeasonEpisodes", fields: [seasonId], references: [id], onDelete: SetNull)
   versions         ScreenplayVersion[]
   sceneMetas       SceneMeta[]
   characterMetas   CharacterMeta[]
@@ -402,15 +435,17 @@ model Screenplay {
   @@index([projectId])
   @@index([teamId])
   @@index([seriesId])
+  @@index([seasonId])
   @@index([isPublic, publishedAt])
   @@index([userId, lastOpenedAt])
+  @@index([timelapseShareId])
 }
 
 // Share permissions for link-based access
 enum SharePermission {
-  VIEW    // Read-only access
+  VIEW // Read-only access
   COMMENT // Can view and add comments
-  EDIT    // Full editing access
+  EDIT // Full editing access
 }
 
 // Link-based sharing for screenplays
@@ -424,7 +459,7 @@ model ShareLink {
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
-  screenplay   Screenplay      @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([screenplayId])
@@ -443,10 +478,12 @@ model ScreenplayVersion {
   label         String? // User-named snapshots
   reason        String // "manual" | "auto" | "interval" | "restore"
   revisionColor String? // Industry-standard revision color: white, blue, pink, yellow, green, goldenrod, buff, salmon
+  message       String? @db.Text // Commit message/notes describing what changed
 
   // Stats
-  wordCount  Int
-  sceneCount Int
+  wordCount   Int
+  sceneCount  Int
+  changeStats Json? // { wordsAdded, wordsRemoved, scenesAdded, scenesRemoved }
 
   // Tracking
   createdAt DateTime @default(now())
@@ -821,11 +858,11 @@ model ProcessedWebhookEvent {
 
 // Greeting history for smart greeting algorithm (avoids repetition)
 model GreetingHistory {
-  id        String   @id @default(cuid())
-  userId    String
-  category  String   // GreetingCategory enum value (e.g., "LEGENDARY", "ON_FIRE")
-  text      String   // The actual greeting shown
-  shownAt   DateTime @default(now())
+  id       String   @id @default(cuid())
+  userId   String
+  category String // GreetingCategory enum value (e.g., "LEGENDARY", "ON_FIRE")
+  text     String // The actual greeting shown
+  shownAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

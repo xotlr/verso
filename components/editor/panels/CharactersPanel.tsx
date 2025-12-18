@@ -13,9 +13,11 @@ import {
   MoreHorizontal,
   Edit2,
   Trash2,
-  UserCircle,
   GripVertical,
   Copy,
+  MessageSquare,
+  Play,
+  Clipboard,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -24,6 +26,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { toast } from 'sonner';
+import type { EditorView } from 'prosemirror-view';
+import { TextSelection } from 'prosemirror-state';
 import {
   DndContext,
   closestCenter,
@@ -47,6 +57,7 @@ export type CharacterRole = 'Protagonist' | 'Antagonist' | 'Supporting' | 'Minor
 interface CharactersPanelProps {
   characters: CharacterInfo[];
   screenplayId?: string;
+  view?: EditorView | null;
   onAddCharacter?: () => void;
   className?: string;
 }
@@ -59,6 +70,9 @@ interface SortableCharacterItemProps {
   isProtagonist: boolean;
   cycleRole: (charId: string) => void;
   getRoleLabel: (role: CharacterRole) => string;
+  onGoToFirstAppearance: (charName: string) => void;
+  onGoToFirstDialogue: (charName: string) => void;
+  onCopyName: (charName: string) => void;
 }
 
 function SortableCharacterItem({
@@ -68,7 +82,11 @@ function SortableCharacterItem({
   isProtagonist,
   cycleRole,
   getRoleLabel,
+  onGoToFirstAppearance,
+  onGoToFirstDialogue,
+  onCopyName,
 }: SortableCharacterItemProps) {
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const {
     attributes,
     listeners,
@@ -108,43 +126,73 @@ function SortableCharacterItem({
           <GripVertical className="h-3.5 w-3.5" />
         </div>
 
-        <div className="relative shrink-0">
-          <div className={cn(
-            'h-7 w-7 rounded-md flex items-center justify-center text-xs font-bold',
-            isProtagonist
-              ? 'bg-primary-foreground text-primary'
-              : 'bg-foreground/10 text-foreground'
-          )}>
-            {char.name.charAt(0)}
-          </div>
-          {/* Rank indicator for top 3 */}
-          {index < 3 && (
-            <div className={cn(
-              'absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-md flex items-center justify-center text-[9px] font-bold border',
-              isProtagonist
-                ? 'bg-primary-foreground text-primary border-primary'
-                : index === 0
-                  ? 'bg-primary text-primary-foreground border-card'
-                  : 'bg-muted text-muted-foreground border-card'
-            )}>
-              {index + 1}
-            </div>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h4 className={cn(
-            'font-medium text-xs break-words',
-            isProtagonist && 'text-primary-foreground'
-          )}>
-            {char.name}
-          </h4>
-          <span className={cn(
-            'text-[10px]',
-            isProtagonist ? 'text-primary-foreground/70' : 'text-muted-foreground'
-          )}>
-            {char.dialogueCount} lines
-          </span>
-        </div>
+        {/* Clickable character info with navigation popover */}
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+          <PopoverTrigger asChild>
+            <button className="flex items-center gap-1.5 flex-1 min-w-0 text-left cursor-pointer hover:opacity-80 transition-opacity">
+              <div className="relative shrink-0">
+                <div className={cn(
+                  'h-7 w-7 rounded-md flex items-center justify-center text-xs font-bold',
+                  isProtagonist
+                    ? 'bg-primary-foreground text-primary'
+                    : 'bg-foreground/10 text-foreground'
+                )}>
+                  {char.name.charAt(0)}
+                </div>
+                {/* Rank indicator for top 3 */}
+                {index < 3 && (
+                  <div className={cn(
+                    'absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-md flex items-center justify-center text-[9px] font-bold border',
+                    isProtagonist
+                      ? 'bg-primary-foreground text-primary border-primary'
+                      : index === 0
+                        ? 'bg-primary text-primary-foreground border-card'
+                        : 'bg-muted text-muted-foreground border-card'
+                  )}>
+                    {index + 1}
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className={cn(
+                  'font-medium text-xs break-words',
+                  isProtagonist && 'text-primary-foreground'
+                )}>
+                  {char.name}
+                </h4>
+                <span className={cn(
+                  'text-[10px]',
+                  isProtagonist ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                )}>
+                  {char.dialogueCount} lines
+                </span>
+              </div>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-1" align="start">
+            <button
+              onClick={() => {
+                onGoToFirstAppearance(char.name);
+                setPopoverOpen(false);
+              }}
+              className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded-md hover:bg-accent transition-colors"
+            >
+              <Play className="h-3.5 w-3.5" />
+              First appearance
+            </button>
+            <button
+              onClick={() => {
+                onGoToFirstDialogue(char.name);
+                setPopoverOpen(false);
+              }}
+              className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded-md hover:bg-accent transition-colors"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              First dialogue
+            </button>
+          </PopoverContent>
+        </Popover>
+
         <button
           onClick={() => cycleRole(char.id)}
           className={cn(
@@ -160,7 +208,7 @@ function SortableCharacterItem({
           {getRoleLabel(role)}
         </button>
 
-        {/* Character actions */}
+        {/* Character actions - improved context menu */}
         <div onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -175,23 +223,32 @@ function SortableCharacterItem({
                 <MoreHorizontal className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem>
-                <UserCircle className="h-3.5 w-3.5 mr-2" />
-                View details
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => onGoToFirstAppearance(char.name)}>
+                <Play className="h-3.5 w-3.5 mr-2" />
+                Go to first appearance
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onGoToFirstDialogue(char.name)}>
+                <MessageSquare className="h-3.5 w-3.5 mr-2" />
+                Go to first dialogue
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onCopyName(char.name)}>
+                <Clipboard className="h-3.5 w-3.5 mr-2" />
+                Copy name
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <Edit2 className="h-3.5 w-3.5 mr-2" />
-                Edit name
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Copy className="h-3.5 w-3.5 mr-2" />
-                Duplicate
+                Rename
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Copy className="h-3.5 w-3.5 mr-2" />
+                Merge with...
+              </DropdownMenuItem>
               <DropdownMenuItem className="text-destructive">
                 <Trash2 className="h-3.5 w-3.5 mr-2" />
-                Remove
+                Remove from script
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -207,15 +264,104 @@ function SortableCharacterItem({
 export function CharactersPanel({
   characters,
   screenplayId,
+  view,
   onAddCharacter,
   className,
 }: CharactersPanelProps) {
   const [characterRoles, setCharacterRoles] = useState<Map<string, CharacterRole>>(new Map());
   const [characterFilter, setCharacterFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState<CharacterRole | 'all'>('all');
-  const [isLoadingRoles, setIsLoadingRoles] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
+
+  // Navigate to first appearance of character (any mention)
+  const goToFirstAppearance = useCallback((charName: string) => {
+    if (!view) {
+      toast.error('Editor not ready');
+      return;
+    }
+
+    const { doc, tr } = view.state;
+    let foundPos: number | null = null;
+    const charNameUpper = charName.toUpperCase();
+
+    // Search through all nodes for character name
+    doc.descendants((node, pos) => {
+      if (foundPos !== null) return false; // Stop if already found
+
+      // Check character nodes (dialogue attribution)
+      if (node.type.name === 'character') {
+        const text = node.textContent.trim().toUpperCase();
+        if (text === charNameUpper || text.startsWith(charNameUpper + ' (')) {
+          foundPos = pos;
+          return false;
+        }
+      }
+
+      // Check action and other text nodes for mentions
+      if (node.isText && node.text) {
+        const text = node.text.toUpperCase();
+        const idx = text.indexOf(charNameUpper);
+        if (idx !== -1) {
+          foundPos = pos + idx;
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    if (foundPos !== null) {
+      const selection = TextSelection.create(doc, foundPos);
+      view.dispatch(tr.setSelection(selection).scrollIntoView());
+      view.focus();
+      toast.success(`Jumped to ${charName}'s first appearance`);
+    } else {
+      toast.error(`${charName} not found in script`);
+    }
+  }, [view]);
+
+  // Navigate to first dialogue line of character
+  const goToFirstDialogue = useCallback((charName: string) => {
+    if (!view) {
+      toast.error('Editor not ready');
+      return;
+    }
+
+    const { doc, tr } = view.state;
+    let foundPos: number | null = null;
+    const charNameUpper = charName.toUpperCase();
+
+    // Search for character nodes followed by dialogue
+    doc.descendants((node, pos) => {
+      if (foundPos !== null) return false;
+
+      if (node.type.name === 'character') {
+        const text = node.textContent.trim().toUpperCase();
+        if (text === charNameUpper || text.startsWith(charNameUpper + ' (')) {
+          foundPos = pos;
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    if (foundPos !== null) {
+      const selection = TextSelection.create(doc, foundPos);
+      view.dispatch(tr.setSelection(selection).scrollIntoView());
+      view.focus();
+      toast.success(`Jumped to ${charName}'s first dialogue`);
+    } else {
+      toast.error(`${charName} has no dialogue`);
+    }
+  }, [view]);
+
+  // Copy character name to clipboard
+  const copyName = useCallback((charName: string) => {
+    navigator.clipboard.writeText(charName);
+    toast.success(`Copied "${charName}" to clipboard`);
+  }, []);
 
   // Storage key for localStorage
   const storageKey = screenplayId ? `character-roles-${screenplayId}` : null;
@@ -237,7 +383,6 @@ export function CharactersPanel({
       }
 
       // Then load from API for authoritative data
-      setIsLoadingRoles(true);
       try {
         const res = await fetch(`/api/screenplays/${screenplayId}/characters`);
         if (res.ok) {
@@ -252,7 +397,6 @@ export function CharactersPanel({
       } catch (e) {
         console.error('Failed to load character roles from API:', e);
       } finally {
-        setIsLoadingRoles(false);
         isInitialLoadRef.current = false;
       }
     };
@@ -399,7 +543,6 @@ export function CharactersPanel({
     <div className={cn('flex flex-col h-full', className)}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-        <Users className="h-3.5 w-3.5 text-primary" />
         <h2 className="font-semibold text-sm">Characters</h2>
         <span className="text-[10px] text-muted-foreground ml-auto">
           {characters.length}
@@ -463,20 +606,7 @@ export function CharactersPanel({
           {/* Character List - Scrollable with Drag & Drop */}
           <ScrollArea className="flex-1">
             <div className="p-3 space-y-1.5">
-              {isLoadingRoles && (
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-center gap-2 px-2.5 py-2 animate-pulse">
-                      <div className="h-7 w-7 rounded-md bg-muted" />
-                      <div className="flex-1 space-y-1">
-                        <div className="h-3 w-24 rounded bg-muted" />
-                        <div className="h-2 w-16 rounded bg-muted" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {!isLoadingRoles && filteredCharacters.length === 0 ? (
+              {filteredCharacters.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground text-xs">
                   No characters match your filter.
                 </div>
@@ -503,6 +633,9 @@ export function CharactersPanel({
                           isProtagonist={isProtagonist}
                           cycleRole={cycleRole}
                           getRoleLabel={getRoleLabel}
+                          onGoToFirstAppearance={goToFirstAppearance}
+                          onGoToFirstDialogue={goToFirstDialogue}
+                          onCopyName={copyName}
                         />
                       );
                     })}

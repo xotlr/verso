@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { ProseMirrorEditor } from "./prosemirror";
 import { EditorFloatingPanel } from "./editor-floating-panel";
 import { VersionHistorySidebar } from "./version-history-sidebar";
 import { VersionCompareDialog } from "./version-compare-dialog";
+import { VersionCompareTwoDialog } from "./version-compare-two-dialog";
+import { SaveVersionDialog } from "./save-version-dialog";
 import { SceneWorkspacePanel } from "./scene-workspace-panel";
 import { ScreenplayDetailsDrawer } from "./screenplay-details-drawer";
 import { ShareDialog } from "./share-dialog";
@@ -16,6 +19,7 @@ import { parseScreenplayText } from "@/lib/screenplay-utils";
 import { useSettings } from "@/contexts/settings-context";
 import { useOfflineSave } from "@/hooks/use-offline-save";
 import { useCollaboration } from "@/hooks/use-collaboration";
+import { useTimelapseRecorder } from "@/hooks/use-timelapse-recorder";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -31,6 +35,7 @@ interface ScreenplayEditorWrapperProps {
 type ScreenplayType = 'FEATURE' | 'TV' | 'SHORT';
 
 export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange }: ScreenplayEditorWrapperProps) {
+  const router = useRouter();
   const [screenplayText, setScreenplayText] = useState("");
   const [screenplayTitle, setScreenplayTitle] = useState("Untitled Screenplay");
   const [scenes, setScenes] = useState<Scene[]>([]);
@@ -44,11 +49,12 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   const [sceneWorkspaceScene, setSceneWorkspaceScene] = useState<Scene | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isSaveVersionDialogOpen, setIsSaveVersionDialogOpen] = useState(false);
+  const [compareTwoVersions, setCompareTwoVersions] = useState<{from: ScreenplayVersion, to: ScreenplayVersion} | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [sceneInfos, setSceneInfos] = useState<SceneInfo[]>([]);
   const [charInfos, setCharInfos] = useState<CharacterInfo[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_currentScene, setCurrentScene] = useState<SceneInfo | null>(null);
+  const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const versionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastVersionContentRef = useRef<string>("");
@@ -64,6 +70,15 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   });
 
   const isSaving = isSyncing || syncStatus === 'syncing';
+
+  // Timelapse recording hook
+  const {
+    recordContentChange,
+    initializeWithContent: initializeTimelapse,
+  } = useTimelapseRecorder({
+    screenplayId,
+    enabled: true, // Always enabled - users can disable via settings
+  });
 
   // TV/Episode fields
   const [screenplayType, setScreenplayType] = useState<ScreenplayType>('FEATURE');
@@ -138,6 +153,9 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           setLogline(screenplay.logline || null);
           setGenre(screenplay.genre || null);
           setAuthor(screenplay.author || null);
+
+          // Initialize timelapse with current content
+          initializeTimelapse(screenplay.content || "");
         }
       } catch (error) {
         console.error("Error loading screenplay:", error);
@@ -153,7 +171,8 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   // Create a version snapshot
   const createVersion = useCallback(async (
     content: string,
-    reason: "manual" | "auto" | "interval" | "restore"
+    reason: "manual" | "auto" | "interval" | "restore",
+    message?: string
   ) => {
     // Skip if content hasn't changed since last version
     if (content === lastVersionContentRef.current && reason !== "manual") {
@@ -172,6 +191,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           reason,
           wordCount,
           sceneCount,
+          message: message || undefined,
         }),
       });
 
@@ -192,19 +212,28 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
       // Use offline-capable save
       await offlineSave(content, screenplayTitle);
 
-      // Create version on manual save
+      // Show dialog for manual save to get commit message
       if (createVersionSnapshot) {
-        await createVersion(content, "manual");
+        setIsSaveVersionDialogOpen(true);
       }
     } catch (error) {
       console.error("Error saving screenplay:", error);
     }
-  }, [offlineSave, screenplayTitle, createVersion]);
+  }, [offlineSave, screenplayTitle]);
+
+  // Handle save with message from dialog
+  const handleSaveVersionWithMessage = useCallback(async (message?: string) => {
+    const currentContent = screenplayTextRef.current;
+    await createVersion(currentContent, "manual", message);
+  }, [createVersion]);
 
   // Debounced auto-save with ref pattern to prevent re-renders
   const handleTextChange = useCallback((text: string) => {
     // Store in ref - no re-render!
     screenplayTextRef.current = text;
+
+    // Record for timelapse (debounced internally by the hook)
+    recordContentChange(text);
 
     // Debounce save AND state updates
     if (saveTimeoutRef.current) {
@@ -232,7 +261,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
       // Save to server
       saveScreenplay(text);
     }, 2000); // Auto-save after 2 seconds of inactivity
-  }, [saveScreenplay, collaboration]);
+  }, [saveScreenplay, collaboration, recordContentChange]);
 
   // Sync ref with state on initial load and version restore
   useEffect(() => {
@@ -366,47 +395,6 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     setCharacters(convertedChars);
   }, []);
 
-  // Track current scene based on cursor position
-  useEffect(() => {
-    if (!editorView || sceneInfos.length === 0) {
-      setCurrentScene(null);
-      return;
-    }
-
-    const updateCurrentScene = () => {
-      const { from } = editorView.state.selection;
-      // Find the scene that contains this position
-      let foundScene: SceneInfo | null = null;
-      for (let i = sceneInfos.length - 1; i >= 0; i--) {
-        if (sceneInfos[i].position <= from) {
-          foundScene = sceneInfos[i];
-          break;
-        }
-      }
-      setCurrentScene(foundScene);
-    };
-
-    // Update on selection changes
-    updateCurrentScene();
-
-    // Listen for transaction updates
-    const handleTransaction = () => {
-      updateCurrentScene();
-    };
-
-    // Add listener via DOM since we can't hook into ProseMirror directly here
-    const container = editorView.dom;
-    container.addEventListener('focus', handleTransaction);
-    container.addEventListener('click', handleTransaction);
-    container.addEventListener('keyup', handleTransaction);
-
-    return () => {
-      container.removeEventListener('focus', handleTransaction);
-      container.removeEventListener('click', handleTransaction);
-      container.removeEventListener('keyup', handleTransaction);
-    };
-  }, [editorView, sceneInfos]);
-
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -433,6 +421,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           scenes={sceneInfos}
           characters={charInfos}
           view={editorView}
+          currentSceneId={currentSceneId}
           screenplayId={screenplayId}
         />
 
@@ -450,6 +439,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           content={screenplayText}
           onContentChange={handleTextChange}
           onScenesChange={handleScenesChange}
+          onCurrentSceneChange={setCurrentSceneId}
           onSave={() => saveScreenplay(screenplayText, true)}
           onViewReady={setEditorView}
           isSaving={isSaving}
@@ -459,6 +449,8 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           scenes={sceneInfos}
           characters={charInfos}
           onShare={() => setIsShareDialogOpen(true)}
+          onTimelapse={() => router.push(`/screenplay/${screenplayId}/timelapse`)}
+          onToggleVersionHistory={() => setIsVersionHistoryOpen(true)}
         />
       </div>
 
@@ -487,6 +479,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         onClose={() => setIsVersionHistoryOpen(false)}
         onRestore={handleRestore}
         onCompare={(version) => setCompareVersion(version)}
+        onCompareTwoVersions={(fromVersion, toVersion) => setCompareTwoVersions({ from: fromVersion, to: toVersion })}
         currentContent={screenplayText}
       />
       <VersionCompareDialog
@@ -513,6 +506,18 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         onOpenChange={setIsShareDialogOpen}
         screenplayId={screenplayId}
         screenplayTitle={screenplayTitle}
+      />
+      <SaveVersionDialog
+        isOpen={isSaveVersionDialogOpen}
+        onClose={() => setIsSaveVersionDialogOpen(false)}
+        onSave={handleSaveVersionWithMessage}
+      />
+      <VersionCompareTwoDialog
+        isOpen={!!compareTwoVersions}
+        onClose={() => setCompareTwoVersions(null)}
+        fromVersion={compareTwoVersions?.from ?? null}
+        toVersion={compareTwoVersions?.to ?? null}
+        onRestore={handleRestore}
       />
       </div>
     </EditorPanelProvider>

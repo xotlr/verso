@@ -24,6 +24,13 @@ export const REVISION_COLOR_MAP: Record<RevisionColor, { name: string; hex: stri
   salmon: { name: 'Salmon', hex: '#fdba74', bg: 'bg-orange-300' },
 };
 
+export interface ChangeStats {
+  wordsAdded: number;
+  wordsRemoved: number;
+  scenesAdded: number;
+  scenesRemoved: number;
+}
+
 export interface ScreenplayVersion {
   id: string;
   screenplayId: string;
@@ -32,8 +39,10 @@ export interface ScreenplayVersion {
   label: string | null;
   reason: "manual" | "auto" | "interval" | "restore";
   revisionColor: RevisionColor | null;
+  message: string | null; // Commit message describing what changed
   wordCount: number;
   sceneCount: number;
+  changeStats: ChangeStats | null; // Calculated diff stats from previous version
   createdAt: string;
   createdBy: string;
   creator?: {

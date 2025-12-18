@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, Loader2, Maximize2, Scroll, FileText, X, Share2 } from 'lucide-react';
+import { Check, Loader2, X } from 'lucide-react';
 import {
   useProseMirrorEditor,
   SceneInfo,
@@ -16,7 +16,8 @@ import { FloatingToolbar } from './FloatingToolbar';
 import { AutocompleteDropdown } from './AutocompleteDropdown';
 import { EditorContextMenu } from './EditorContextMenu';
 import { ElementToolbar } from './ElementToolbar';
-import { ZoomIndicator } from './ZoomIndicator';
+import { LeftToolbar } from '@/components/editor/LeftToolbar';
+import { RightToolbar } from '@/components/editor/RightToolbar';
 import { EditorScrollArea, EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { PageFrameRenderer, PageGapRenderer } from './PageFrameRenderer';
 import { createPageFramesFromWasm, PAGE_GAP_PX } from '@/lib/prosemirror/plugins/page-frames';
@@ -24,10 +25,10 @@ import { applyLayoutCSS, applyLayoutMetadataCSS, DEFAULT_FEATURE_FILM_CONFIG } f
 import { Button } from '@/components/ui/button';
 import { MobileEditorToolbar } from '@/components/mobile-editor-toolbar';
 import { MobileSceneCharacterSheet } from '@/components/editor/MobileSceneCharacterSheet';
-import { ScreenplayStatsMobile } from '@/components/screenplay-stats-mobile';
 import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
 import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plugins/keymap';
 import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
+import { useSettings } from '@/contexts/settings-context';
 import '@/styles/editor/prosemirror.css';
 
 export type ViewMode = 'discrete' | 'continuous';
@@ -36,6 +37,7 @@ export interface ProseMirrorEditorProps {
   content: string | null;
   onContentChange?: (content: string) => void;
   onScenesChange?: (scenes: SceneInfo[], characters: CharacterInfo[]) => void;
+  onCurrentSceneChange?: (sceneId: string | null) => void;
   onSave?: () => void;
   onViewReady?: (view: import('prosemirror-view').EditorView) => void;
   editable?: boolean;
@@ -55,6 +57,7 @@ export interface ProseMirrorEditorProps {
   onToggleLineNumbers?: () => void;
   onTogglePageBreaks?: () => void;
   onShare?: () => void;
+  onTimelapse?: () => void;
 }
 
 /**
@@ -120,6 +123,7 @@ export function ProseMirrorEditor({
   content,
   onContentChange,
   onScenesChange,
+  onCurrentSceneChange,
   onSave,
   onViewReady,
   editable = true,
@@ -138,8 +142,11 @@ export function ProseMirrorEditor({
   onToggleLineNumbers,
   onTogglePageBreaks,
   onShare,
+  onTimelapse,
 }: ProseMirrorEditorProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>(defaultViewMode);
+  const { settings } = useSettings();
+  // Read scroll mode directly from settings
+  const viewMode = settings.editor.scrollMode ?? defaultViewMode;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_currentSpread, setCurrentSpread] = useState(0);
   const [isInFocusMode, setIsInFocusMode] = useState(false);
@@ -189,6 +196,7 @@ export function ProseMirrorEditor({
   const {
     containerRef,
     currentElementType,
+    currentSceneId,
     wordCount,
     pageCount,
     isReady,
@@ -281,6 +289,13 @@ export function ProseMirrorEditor({
     }
   }, [isReady, view, onViewReady]);
 
+  // Notify parent when current scene changes
+  useEffect(() => {
+    if (onCurrentSceneChange) {
+      onCurrentSceneChange(currentSceneId);
+    }
+  }, [currentSceneId, onCurrentSceneChange]);
+
   // Calculate total spreads for dual view
   const totalSpreads = Math.ceil(pageCount / 2);
 
@@ -343,54 +358,30 @@ export function ProseMirrorEditor({
         className
       )}
     >
-      {/* View mode switcher - ghost buttons, hidden in focus mode and on mobile */}
-      {isReady && !isInFocusMode && !isMobile && (
-        <div className="fixed top-20 right-4 z-40 flex items-center gap-0.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setViewMode('discrete')}
-            title="Discrete page view"
-            className={cn(
-              'h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-accent/50',
-              viewMode === 'discrete' && 'text-foreground bg-accent/50'
-            )}
-          >
-            <FileText className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setViewMode('continuous')}
-            title="Continuous scroll view"
-            className={cn(
-              'h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-accent/50',
-              viewMode === 'continuous' && 'text-foreground bg-accent/50'
-            )}
-          >
-            <Scroll className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleFocusMode}
-            title="Focus mode (Cmd+Shift+F)"
-            className="h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-accent/50"
-          >
-            <Maximize2 className="h-4 w-4" />
-          </Button>
-          {onShare && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onShare}
-              title="Share"
-              className="h-8 w-8 text-muted-foreground/40 hover:text-foreground hover:bg-accent/50"
-            >
-              <Share2 className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+      {/* Right toolbar - focus mode, share, timelapse, version history (visible in focus mode) */}
+      {isReady && !isMobile && (
+        <RightToolbar
+          onToggleFocusMode={toggleFocusMode}
+          onShare={onShare}
+          onTimelapse={onTimelapse}
+          onVersionHistory={onToggleVersionHistory}
+          isInFocusMode={isInFocusMode}
+        />
+      )}
+
+      {/* Left toolbar - zoom, undo/redo, settings (visible in focus mode) */}
+      {isReady && !isMobile && (
+        <LeftToolbar
+          zoom={scale}
+          fitToWidthScale={fitToWidthScale}
+          onZoomChange={setZoom}
+          onResetZoom={resetZoom}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          isInFocusMode={isInFocusMode}
+        />
       )}
 
       {/* Focus mode exit button - only on mobile when in focus mode */}
@@ -404,17 +395,6 @@ export function ProseMirrorEditor({
         >
           <X className="h-4 w-4" />
         </Button>
-      )}
-
-      {/* Mobile stats bar - only visible on mobile */}
-      {isMobile && isReady && (
-        <ScreenplayStatsMobile
-          wordCount={wordCount}
-          pageCount={pageCount}
-          sceneCount={scenes?.length ?? 0}
-          characterCount={characters?.length ?? 0}
-          onOpenScenes={() => setScenesSheetOpen(true)}
-        />
       )}
 
       {/* Editor container with page styling */}
@@ -450,8 +430,10 @@ export function ProseMirrorEditor({
               isDiscreteMode && 'pm-content-layer'
             )}
             style={{
-              transform: `scale(${scale})`,
+              transform: `translateX(-50%) scale(${scale})`,
               transformOrigin: 'top center',
+              position: 'relative',
+              left: '50%',
               width: `${PAGE_WIDTH_PX}px`,
               // In discrete mode, set min-height to match total page frames height
               minHeight: isDiscreteMode && discreteTotalHeight > 0
@@ -488,17 +470,6 @@ export function ProseMirrorEditor({
           sceneCount={scenes?.length ?? 0}
           characterCount={characters?.length ?? 0}
           isSaving={isSaving}
-        />
-      )}
-
-      {/* Zoom slider - Procreate style, positioned past sidebar (256px + 16px gap) */}
-      {isReady && (
-        <ZoomIndicator
-          zoom={scale}
-          fitToWidthScale={fitToWidthScale}
-          onZoomChange={setZoom}
-          onResetZoom={resetZoom}
-          className="left-[272px] top-1/2 -translate-y-1/2"
         />
       )}
 
@@ -560,6 +531,7 @@ export function ProseMirrorEditor({
           scenes={scenes}
           characters={characters}
           view={view}
+          currentSceneId={currentSceneId}
         />
       )}
     </div>
