@@ -50,3 +50,6 @@ next-env.d.ts
 CLAUDE.md
 CONVENTIONS.md
 ARCHITECTURE.md
+
+# Rust build artifacts
+verso-engine/target/

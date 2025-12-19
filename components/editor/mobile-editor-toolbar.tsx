@@ -37,6 +37,7 @@ import {
   ZoomIn,
   ZoomOut,
   List,
+  Camera,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
@@ -52,6 +53,7 @@ interface MobileEditorToolbarProps {
   onInsertCharacter: () => void
   onInsertDialogue: () => void
   onInsertAction: () => void
+  onInsertShot: () => void
   onInsertTransition: () => void
   onInsertParenthetical: () => void
   onInsertDualDialogue: () => void
@@ -110,6 +112,7 @@ export function MobileEditorToolbar({
   onInsertCharacter,
   onInsertDialogue,
   onInsertAction,
+  onInsertShot,
   onInsertTransition,
   onInsertParenthetical,
   onInsertDualDialogue,
@@ -257,6 +260,15 @@ export function MobileEditorToolbar({
               description="Scene description"
               onClick={() => {
                 onInsertAction()
+                setInsertSheetOpen(false)
+              }}
+            />
+            <InsertButton
+              icon={Camera}
+              label="Shot"
+              description="Camera direction"
+              onClick={() => {
+                onInsertShot()
                 setInsertSheetOpen(false)
               }}
             />

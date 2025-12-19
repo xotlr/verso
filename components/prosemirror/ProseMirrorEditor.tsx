@@ -539,6 +539,7 @@ export function ProseMirrorEditor({
           onInsertCharacter={() => handleInsertElement('character')}
           onInsertDialogue={() => handleInsertElement('dialogue')}
           onInsertAction={() => handleInsertElement('action')}
+          onInsertShot={() => handleInsertElement('shot')}
           onInsertTransition={() => handleInsertElement('transition')}
           onInsertParenthetical={() => handleInsertElement('parenthetical')}
           onInsertDualDialogue={() => handleInsertElement('dual_dialogue')}

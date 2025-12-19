@@ -250,7 +250,7 @@ export function VersionHistorySidebar({
       <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <SheetContent side="right" className="w-[400px] sm:w-[440px] p-0 flex flex-col">
           {/* Header */}
-          <SheetHeader className="px-4 pt-4 pb-3 border-b space-y-3">
+          <SheetHeader className="px-4 pr-12 pt-4 pb-3 border-b space-y-3">
             <div className="flex items-center justify-between">
               <SheetTitle className="flex items-center gap-2 text-base">
                 <History className="h-4 w-4" />
@@ -392,7 +392,7 @@ export function VersionHistorySidebar({
                           <div className="flex items-start justify-between gap-2 mb-1">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className={`font-medium ${isManualVersion ? 'text-sm' : 'text-xs text-muted-foreground'}`}>
-                                {isManualVersion ? `Version ${version.versionNumber}` : `v${version.versionNumber}`}
+                                {`v${version.versionNumber}`}
                               </span>
                               {/* Show reason badge only in History tab */}
                               {activeTab === 'history' && !isManualVersion && (
