@@ -49,6 +49,13 @@ export interface PageBreak {
   /** Bottom padding from WASM - exact height for pm-page-bottom decoration
    * WASM is single source of truth - TypeScript uses this value directly */
   bottomPaddingPx: number;
+  // Scene-level continuation markers (shooting script feature)
+  /** Scene continuation marker at bottom of previous page (e.g., "(CONTINUED)") */
+  sceneContinuedBottom?: string;
+  /** Scene continuation marker at top of this page (e.g., "CONTINUED:") */
+  sceneContinuedTop?: string;
+  /** The scene number being continued (for markers like "CONTINUED: (42)") */
+  continuedSceneNumber?: number;
 }
 
 /**
@@ -178,6 +185,10 @@ function convertWasmResultToPageBreaks(
       pixelY: page.pixel_y,
       // WASM is single source of truth for bottom padding
       bottomPaddingPx: prevPage.bottom_padding_px,
+      // Scene-level continuation markers from WASM
+      sceneContinuedBottom: prevPage.scene_continued_bottom,
+      sceneContinuedTop: page.scene_continued_top,
+      continuedSceneNumber: page.continued_scene_number,
     });
   }
 
@@ -465,6 +476,14 @@ function createPageBreakDecorations(
           more.textContent = pageBreak.moreMarker;
           pageBottom.appendChild(more);
         }
+
+        // Scene continuation marker at bottom of previous page (shooting script feature)
+        if (pageBreak.sceneContinuedBottom) {
+          const sceneCont = document.createElement('div');
+          sceneCont.className = 'pm-scene-continued-bottom';
+          sceneCont.textContent = pageBreak.sceneContinuedBottom;
+          pageBottom.appendChild(sceneCont);
+        }
         container.appendChild(pageBottom);
 
         // ---- ZONE 2: GAP BETWEEN PAGES ----
@@ -488,6 +507,14 @@ function createPageBreakDecorations(
           pageNum.className = 'pm-page-number';
           pageNum.textContent = `${uiPageNumber}.`;
           pageTop.appendChild(pageNum);
+        }
+
+        // Scene continuation marker at top of next page (shooting script feature)
+        if (pageBreak.sceneContinuedTop) {
+          const sceneCont = document.createElement('div');
+          sceneCont.className = 'pm-scene-continued-top';
+          sceneCont.textContent = pageBreak.sceneContinuedTop;
+          pageTop.appendChild(sceneCont);
         }
 
         // CONT'D indicator (at top of next page)

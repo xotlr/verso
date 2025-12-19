@@ -14,7 +14,7 @@ import {
   GripVertical,
   X,
 } from 'lucide-react';
-import type { SceneInfo } from '@/hooks/editor/useProseMirrorEditor';
+import type { SceneInfo } from '@/hooks/editor/use-prosemirror-editor';
 import type { EditorView } from 'prosemirror-view';
 import { TextSelection } from 'prosemirror-state';
 

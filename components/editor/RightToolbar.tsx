@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Maximize2, Minimize2, Share2, Play, History } from 'lucide-react';
+import { Maximize2, Minimize2, Play, History } from 'lucide-react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { EditorToolbarContainer } from './EditorToolbarContainer';
@@ -11,9 +11,6 @@ import { ToolbarButton } from './ToolbarButton';
 interface RightToolbarProps {
   // Focus mode
   onToggleFocusMode: () => void;
-
-  // Share
-  onShare?: () => void;
 
   // Timelapse
   onTimelapse?: () => void;
@@ -34,7 +31,6 @@ interface RightToolbarProps {
  */
 export function RightToolbar({
   onToggleFocusMode,
-  onShare,
   onTimelapse,
   onVersionHistory,
   isInFocusMode = false,
@@ -66,16 +62,6 @@ export function RightToolbar({
             isActive={isInFocusMode}
             tooltipSide="bottom"
           />
-
-          {/* Share button (conditional) */}
-          {onShare && (
-            <ToolbarButton
-              icon={<Share2 className="h-4 w-4" />}
-              label="Share"
-              onClick={onShare}
-              tooltipSide="bottom"
-            />
-          )}
 
           {/* Timelapse button (conditional) */}
           {onTimelapse && (

@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { IndexCards, IndexCard } from "@/components/index-cards";
-import { ProjectLayout } from "@/components/layouts/project-layout";
+import { PageLayout } from "@/components/layouts/page-layout";
 import { Scene } from "@/types/screenplay";
 
 // Demo scenes for testing
@@ -118,6 +118,15 @@ export default function CardsPage() {
       .catch(() => setTitle("Untitled Screenplay"));
   }, [id]);
 
+  // Dispatch title update for app header
+  useEffect(() => {
+    if (title && title !== "Loading...") {
+      window.dispatchEvent(new CustomEvent('screenplay-title-update', {
+        detail: { title }
+      }));
+    }
+  }, [title]);
+
   const handleCardsChange = useCallback((newCards: IndexCard[]) => {
     setCards(newCards);
   }, []);
@@ -135,10 +144,7 @@ export default function CardsPage() {
   }, [router, id]);
 
   return (
-    <ProjectLayout
-      projectId={id}
-      projectTitle={title}
-    >
+    <PageLayout>
       <IndexCards
         scenes={scenes}
         cards={cards}
@@ -147,6 +153,6 @@ export default function CardsPage() {
         onSceneClick={handleSceneClick}
         onSceneEdit={handleSceneEdit}
       />
-    </ProjectLayout>
+    </PageLayout>
   );
 }

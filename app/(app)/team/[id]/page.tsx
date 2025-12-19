@@ -23,8 +23,8 @@ import {
   UserPlus,
   Settings,
 } from 'lucide-react'
-import { TeamSettingsDialog } from '@/components/team-settings-dialog'
-import { InviteMemberDialog } from '@/components/invite-member-dialog'
+import { TeamSettingsDialog } from '@/components/team/team-settings-dialog'
+import { InviteMemberDialog } from '@/components/team/invite-member-dialog'
 
 interface TeamProfile {
   id: string

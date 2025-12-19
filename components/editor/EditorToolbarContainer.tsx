@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { toolbarStyles } from './toolbar-styles';
 
 interface EditorToolbarContainerProps {
   orientation?: 'vertical' | 'horizontal';
@@ -10,22 +11,23 @@ interface EditorToolbarContainerProps {
 }
 
 /**
- * Procreate-style toolbar container.
- * Pill-shaped container matching ActivityBar styling.
+ * Unified toolbar container component.
+ * Uses shared toolbar styles for consistent look across all toolbars.
  */
 export function EditorToolbarContainer({
   orientation = 'vertical',
   className,
   children,
 }: EditorToolbarContainerProps) {
+  const { container } = toolbarStyles;
+
   return (
     <div
       className={cn(
         'flex items-center',
-        orientation === 'vertical' ? 'flex-col py-2 gap-1' : 'flex-row px-2 gap-1',
-        'bg-background',
-        'rounded-full border border-border/50',
-        'shadow-lg shadow-black/10',
+        orientation === 'vertical' ? `flex-col ${container.padding.vertical}` : container.padding.horizontal,
+        container.base,
+        container.rounded,
         className
       )}
     >
@@ -36,6 +38,7 @@ export function EditorToolbarContainer({
 
 /**
  * Visual separator for toolbar sections.
+ * Uses shared toolbar styles.
  */
 export function ToolbarDivider({
   orientation = 'vertical',
@@ -44,11 +47,13 @@ export function ToolbarDivider({
   orientation?: 'vertical' | 'horizontal';
   className?: string;
 }) {
+  const { divider } = toolbarStyles;
+
   return (
     <div
       className={cn(
-        'bg-border/50',
-        orientation === 'vertical' ? 'h-px w-6 my-1' : 'w-px h-6 mx-1',
+        divider.base,
+        orientation === 'vertical' ? divider.vertical : divider.horizontal,
         className
       )}
     />

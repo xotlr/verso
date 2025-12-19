@@ -20,17 +20,20 @@ export async function GET(request: Request) {
       return NextResponse.json([])
     }
 
-    // Search by name or email (case-insensitive)
+    const limit = Math.min(parseInt(searchParams.get("limit") || "10"), 20)
+
+    // Search by name, email, or username (case-insensitive)
     const users = await prisma.user.findMany({
       where: {
         AND: [
           // Exclude current user
           { id: { not: session.user.id } },
-          // Search in name or email
+          // Search in name, email, or username
           {
             OR: [
               { name: { contains: query, mode: "insensitive" } },
               { email: { contains: query, mode: "insensitive" } },
+              { username: { contains: query, mode: "insensitive" } },
             ],
           },
         ],
@@ -40,12 +43,19 @@ export async function GET(request: Request) {
         name: true,
         email: true,
         image: true,
+        username: true,
       },
-      take: 10,
+      take: limit,
       orderBy: { name: "asc" },
     })
 
-    return NextResponse.json(users)
+    // Mask email for privacy (show partial)
+    const maskedUsers = users.map((user) => ({
+      ...user,
+      email: user.email ? maskEmail(user.email) : null,
+    }))
+
+    return NextResponse.json(maskedUsers)
   } catch (error) {
     console.error("Error searching users:", error)
     return NextResponse.json(
@@ -53,4 +63,14 @@ export async function GET(request: Request) {
       { status: 500 }
     )
   }
+}
+
+// Mask email for privacy: john.doe@example.com -> joh***@example.com
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@")
+  if (!domain) return email
+
+  const visibleChars = Math.min(3, local.length)
+  const masked = local.slice(0, visibleChars) + "***"
+  return `${masked}@${domain}`
 }

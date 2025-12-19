@@ -92,11 +92,22 @@ export function quickDetectFormat(
     if (ext === 'fountain') return 'fountain';
     if (ext === 'highland') return 'highland';
     if (ext === 'fadein') return 'fadein';
+    if (ext === 'pdf') return 'pdf';
+    if (ext === 'docx') return 'docx';
     if (ext === 'txt') return 'txt';
   }
 
-  // Check for ZIP (highland or fadein)
+  // Check for PDF magic number (%PDF-)
+  if (content instanceof ArrayBuffer) {
+    const header = new Uint8Array(content.slice(0, 5));
+    const magic = String.fromCharCode(...header);
+    if (magic === '%PDF-') return 'pdf';
+  }
+
+  // Check for ZIP (highland, fadein, or docx)
   if (isZipFile(content)) {
+    // DOCX files are ZIP archives - check extension for better guess
+    if (filename?.toLowerCase().endsWith('.docx')) return 'docx';
     // Default to highland for ZIP, will be refined by actual parser
     return 'highland';
   }

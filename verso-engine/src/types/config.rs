@@ -2,6 +2,75 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use super::ElementType;
 
+// ============================================================================
+// Scene Numbering Types
+// ============================================================================
+
+/// Scene numbering mode - determines how scene numbers are assigned
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum SceneNumberingMode {
+    /// No scene numbers (spec scripts) - DEFAULT
+    #[default]
+    Disabled,
+    /// Auto-generate sequential numbers starting from starting_number
+    Auto,
+    /// Use numbers from element data (manual assignment)
+    Manual,
+    /// Preserve existing numbers, handle A-pages (47A, 47B) - for locked scripts
+    Locked,
+}
+
+// ============================================================================
+// Locked Page (A-Page) Configuration
+// ============================================================================
+
+/// Configuration for locked page numbering (production script mode).
+///
+/// In production/shooting scripts, page numbers are "locked" after a certain point.
+/// When content is added that would push to a new page, instead of renumbering
+/// all subsequent pages, "A-pages" are inserted (e.g., 47A, 47B).
+/// When pages are removed, they become "OMITTED" markers.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LockedPageConfig {
+    /// Whether page locking is enabled (production script mode).
+    /// When false, normal sequential page numbering is used.
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// The locked page count - pages beyond this get A-page suffixes.
+    /// For example, if locked_page_count is 100 and pagination produces 102 pages,
+    /// the extra pages become 100A and 100B instead of 101 and 102.
+    #[serde(default)]
+    pub locked_page_count: u32,
+
+    /// Omitted page numbers (pages that existed but content was removed).
+    /// These will be represented as "N OMITTED" markers in the output.
+    #[serde(default)]
+    pub omitted_pages: Vec<u32>,
+}
+
+/// Configuration for scene numbering
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SceneNumberingConfig {
+    /// How scene numbers are assigned
+    pub mode: SceneNumberingMode,
+    /// Starting number for auto-generation (for series continuation)
+    pub starting_number: u32,
+    /// Optional prefix for scene numbers (e.g., "A" for episode A -> "A1", "A2")
+    pub prefix: Option<String>,
+}
+
+impl Default for SceneNumberingConfig {
+    fn default() -> Self {
+        Self {
+            mode: SceneNumberingMode::Disabled,
+            starting_number: 1,
+            prefix: None,
+        }
+    }
+}
+
 /// Paper size definitions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -217,6 +286,45 @@ pub struct ContinuationStyle {
 
     /// Whether to use continuation markers at all
     pub enabled: bool,
+
+    // --- Scene-level continuation markers (shooting script feature) ---
+
+    /// Whether to show scene continuation markers when a page breaks mid-scene
+    /// Default: false (typically enabled only for shooting scripts)
+    #[serde(default)]
+    pub scene_continued_enabled: bool,
+
+    /// Marker at bottom of page when scene continues (e.g., "(CONTINUED)")
+    #[serde(default = "default_scene_continued_bottom")]
+    pub scene_continued_bottom: String,
+
+    /// Marker at top of next page when scene continues (e.g., "CONTINUED:")
+    #[serde(default = "default_scene_continued_top")]
+    pub scene_continued_top: String,
+
+    /// Whether to include scene number in continuation markers (e.g., "CONTINUED: (42)")
+    #[serde(default)]
+    pub scene_continued_with_number: bool,
+
+    // --- Character CONT'D (same speaker after intervening action) ---
+
+    /// Whether to auto-detect when the same character speaks after intervening action
+    /// and set auto_contd = true on the Character element.
+    /// Default: true (standard screenplay convention)
+    #[serde(default = "default_auto_contd_enabled")]
+    pub auto_contd_enabled: bool,
+}
+
+fn default_scene_continued_bottom() -> String {
+    "(CONTINUED)".to_string()
+}
+
+fn default_scene_continued_top() -> String {
+    "CONTINUED:".to_string()
+}
+
+fn default_auto_contd_enabled() -> bool {
+    true
 }
 
 impl Default for ContinuationStyle {
@@ -225,6 +333,11 @@ impl Default for ContinuationStyle {
             more_marker: "(MORE)".to_string(),
             contd_marker: "(CONT'D)".to_string(),
             enabled: true,
+            scene_continued_enabled: false,
+            scene_continued_bottom: default_scene_continued_bottom(),
+            scene_continued_top: default_scene_continued_top(),
+            scene_continued_with_number: false,
+            auto_contd_enabled: default_auto_contd_enabled(),
         }
     }
 }
@@ -281,6 +394,21 @@ pub struct PageConfig {
 
     /// Orphan/widow control settings
     pub orphan_control: OrphanControlConfig,
+
+    /// Scene numbering configuration (production scripts)
+    #[serde(default)]
+    pub scene_numbering: SceneNumberingConfig,
+
+    /// Dual dialogue column width in characters.
+    /// Each column in dual dialogue is roughly half the normal dialogue width.
+    /// Default: 17 characters (normal dialogue is 35 chars).
+    #[serde(default)]
+    pub dual_dialogue_column_width: Option<u8>,
+
+    /// Locked page configuration (production script mode for A-pages).
+    /// When enabled, pages beyond locked_page_count get A-page suffixes.
+    #[serde(default)]
+    pub locked_pages: LockedPageConfig,
 }
 
 impl Default for PageConfig {
@@ -314,6 +442,9 @@ impl PageConfig {
             element_styles,
             continuation_style: ContinuationStyle::default(),
             orphan_control: OrphanControlConfig::default(),
+            scene_numbering: SceneNumberingConfig::default(),
+            dual_dialogue_column_width: None, // Uses default (17 chars)
+            locked_pages: LockedPageConfig::default(),
         }
     }
 
@@ -343,6 +474,9 @@ impl PageConfig {
             element_styles,
             continuation_style: ContinuationStyle::default(),
             orphan_control: OrphanControlConfig::default(),
+            scene_numbering: SceneNumberingConfig::default(),
+            dual_dialogue_column_width: None, // Uses default (17 chars)
+            locked_pages: LockedPageConfig::default(),
         }
     }
 
@@ -388,6 +522,9 @@ impl PageConfig {
             element_styles,
             continuation_style: ContinuationStyle::default(),
             orphan_control: OrphanControlConfig::default(),
+            scene_numbering: SceneNumberingConfig::default(),
+            dual_dialogue_column_width: None, // Uses default (17 chars)
+            locked_pages: LockedPageConfig::default(),
         }
     }
 

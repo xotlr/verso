@@ -16,10 +16,11 @@ Tabs.displayName = "Tabs"
 
 const tabsListVariants = cva(
   [
-    "inline-flex h-10 items-center rounded-lg",
-    "bg-muted/50 p-1",
+    "inline-flex items-center rounded-lg",
+    "bg-muted/50 p-1.5",
     "border border-border/50",
     "relative",
+    "gap-1",
   ],
   {
     variants: {
@@ -62,7 +63,8 @@ const TabsTrigger = React.forwardRef<
       "disabled:pointer-events-none disabled:opacity-50",
       "data-[state=inactive]:text-muted-foreground",
       "data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-background/50",
-      "data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+      "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm",
+      "active:scale-[0.98]",
       "relative z-10",
       className
     )}

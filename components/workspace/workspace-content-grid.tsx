@@ -1,37 +1,37 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Tv } from 'lucide-react';
+import { Plus, Layers } from 'lucide-react';
 import { PiFilmScript } from 'react-icons/pi';
 import { RiFolder6Line } from 'react-icons/ri';
 import { EmptyState } from '@/components/ui/empty-state';
 import type { ImportResult } from '@/components/import-drop-zone';
 import {
-  ScreenplayListCard,
   ScreenplayListCardSkeleton,
-} from '@/components/screenplay-list-card';
+} from '@/components/screenplay/screenplay-list-card';
 import {
   ScreenplayListRow,
   ScreenplayListRowSkeleton,
-} from '@/components/screenplay-list-row';
+} from '@/components/screenplay/screenplay-list-row';
 import {
   ProjectFolderCard,
   ProjectFolderCardSkeleton,
-} from '@/components/project-folder-card';
+} from '@/components/project/project-folder-card';
 import {
   ProjectListRow,
   ProjectListRowSkeleton,
-} from '@/components/project-list-row';
+} from '@/components/project/project-list-row';
 import {
   SeriesCard,
   SeriesCardSkeleton,
-} from '@/components/series-card';
-import {
   SeriesListRow,
   SeriesListRowSkeleton,
-} from '@/components/series-list-row';
-import type { ScreenplayItem, ProjectItem, SeriesItem } from '@/hooks/use-workspace-data';
+} from '@/components/series';
+import { StackCard } from '@/components/stack-card';
+import { WorkspaceDndContext } from './workspace-dnd-context';
+import { DraggableScreenplayCard } from './draggable-screenplay-card';
+import { DroppableStackCard } from './droppable-stack-card';
+import type { ScreenplayItem, ProjectItem, SeriesItem, StackItem } from '@/hooks/use-workspace-data';
 import type { ViewMode } from '@/hooks/use-view-mode';
 
 type TabValue = 'screenplays' | 'series' | 'projects';
@@ -42,10 +42,11 @@ interface WorkspaceContentGridProps {
   screenplays: ScreenplayItem[];
   projects: ProjectItem[];
   series: SeriesItem[];
+  stacks: StackItem[];
   searchQuery: string;
   showFavorites: boolean;
   viewMode: ViewMode;
-  onDelete: (id: string, type: 'screenplay' | 'project' | 'series') => void;
+  onDelete: (id: string, type: 'screenplay' | 'project' | 'series' | 'stack') => void;
   onExport: (screenplay: ScreenplayItem) => void;
   onImportComplete: (result: ImportResult) => void;
   onCreateScreenplay: () => void;
@@ -53,6 +54,10 @@ interface WorkspaceContentGridProps {
   onCreateSeries: () => void;
   onMoveToProject?: (screenplay: ScreenplayItem) => void;
   onCreateProjectFromScreenplay?: (screenplay: ScreenplayItem) => void;
+  // Stack operations
+  onCreateStack: (draggedId: string, targetId: string) => Promise<StackItem | null>;
+  onAddToStack: (screenplayId: string, stackId: string) => Promise<void>;
+  onDissolveStack: (stackId: string) => Promise<void>;
 }
 
 export function WorkspaceContentGrid({
@@ -61,6 +66,7 @@ export function WorkspaceContentGrid({
   screenplays,
   projects,
   series,
+  stacks,
   searchQuery,
   showFavorites,
   viewMode,
@@ -72,15 +78,17 @@ export function WorkspaceContentGrid({
   onCreateSeries,
   onMoveToProject,
   onCreateProjectFromScreenplay,
+  onCreateStack,
+  onAddToStack,
+  onDissolveStack,
 }: WorkspaceContentGridProps) {
   const router = useRouter();
-  const [hoveredScreenplay, setHoveredScreenplay] = useState<ScreenplayItem | null>(null);
-  const [hoveredProject, setHoveredProject] = useState<ProjectItem | null>(null);
-  const [hoveredSeries, setHoveredSeries] = useState<SeriesItem | null>(null);
 
-  // Filter and sort screenplays
+  // Filter and sort screenplays (exclude those in stacks - they appear inside stack cards)
   const filteredScreenplays = screenplays
     .filter((screenplay) => {
+      // Exclude screenplays that are in stacks
+      if (screenplay.stackId) return false;
       const matchesSearch =
         screenplay.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         screenplay.content.toLowerCase().includes(searchQuery.toLowerCase());
@@ -117,6 +125,20 @@ export function WorkspaceContentGrid({
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
 
+  // Filter and sort stacks
+  const filteredStacks = stacks
+    .filter(
+      (stack) =>
+        stack.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        stack.screenplays?.some((s) =>
+          s.title.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+
   // Loading state
   if (isLoading) {
     if (viewMode === 'grid') {
@@ -137,9 +159,11 @@ export function WorkspaceContentGrid({
     );
   }
 
-  // Screenplays tab
+  // Screenplays tab - includes stacks (grouped screenplays)
   if (activeTab === 'screenplays') {
-    if (filteredScreenplays.length === 0) {
+    const hasContent = filteredScreenplays.length > 0 || filteredStacks.length > 0;
+
+    if (!hasContent) {
       return (
         <EmptyState
           icon={
@@ -166,9 +190,82 @@ export function WorkspaceContentGrid({
 
     if (viewMode === 'grid') {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+        <WorkspaceDndContext
+          onCreateStack={onCreateStack}
+          onAddToStack={onAddToStack}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+            {/* Render stacks first */}
+            {filteredStacks.map((stack) => (
+              <DroppableStackCard
+                key={`stack-${stack.id}`}
+                stack={stack}
+                href={`/stack/${stack.id}`}
+                onUngroup={() => onDissolveStack(stack.id)}
+                onDelete={() => onDelete(stack.id, 'stack')}
+              />
+            ))}
+            {/* Then render standalone screenplays */}
+            {filteredScreenplays.map((screenplay) => (
+              <DraggableScreenplayCard
+                key={screenplay.id}
+                fullScreenplay={screenplay}
+                screenplay={{
+                  id: screenplay.id,
+                  title: screenplay.title,
+                  logline: screenplay.logline,
+                  synopsis: screenplay.synopsis,
+                  updatedAt: screenplay.updatedAt,
+                  wordCount: screenplay.wordCount,
+                  genre: screenplay.genre,
+                  isFavorite: screenplay.isFavorite,
+                  project: screenplay.project,
+                  author: screenplay.author,
+                  user: screenplay.user,
+                  type: screenplay.type || undefined,
+                  season: screenplay.season,
+                  episode: screenplay.episode,
+                  episodeTitle: screenplay.episodeTitle,
+                  series: screenplay.series,
+                }}
+                href={`/editor/${screenplay.id}`}
+                showFavorite={true}
+                showGenre={true}
+                showProject={true}
+                showWordCount={true}
+                onEdit={() => router.push(`/editor/${screenplay.id}`)}
+                onExport={() => onExport(screenplay)}
+                onDelete={() => onDelete(screenplay.id, 'screenplay')}
+                onMoveToProject={onMoveToProject ? () => onMoveToProject(screenplay) : undefined}
+                onCreateProject={onCreateProjectFromScreenplay ? () => onCreateProjectFromScreenplay(screenplay) : undefined}
+              />
+            ))}
+          </div>
+        </WorkspaceDndContext>
+      );
+    }
+
+    // List view for screenplays - simple rows (no DnD in list view)
+    return (
+      <div className="space-y-4">
+        {/* Stacks section */}
+        {filteredStacks.length > 0 && (
+          <div className="space-y-2">
+            {filteredStacks.map((stack) => (
+              <StackCard
+                key={`stack-${stack.id}`}
+                stack={stack}
+                href={`/stack/${stack.id}`}
+                onUngroup={() => onDissolveStack(stack.id)}
+                onDelete={() => onDelete(stack.id, 'stack')}
+              />
+            ))}
+          </div>
+        )}
+        {/* Screenplays list */}
+        <div className="space-y-2">
           {filteredScreenplays.map((screenplay) => (
-            <ScreenplayListCard
+            <ScreenplayListRow
               key={screenplay.id}
               screenplay={{
                 id: screenplay.id,
@@ -189,53 +286,9 @@ export function WorkspaceContentGrid({
                 series: screenplay.series,
               }}
               href={`/editor/${screenplay.id}`}
-              showFavorite={true}
-              showGenre={true}
-              showProject={true}
-              showWordCount={true}
-              onEdit={() => router.push(`/editor/${screenplay.id}`)}
-              onExport={() => onExport(screenplay)}
-              onDelete={() => onDelete(screenplay.id, 'screenplay')}
-              onMoveToProject={onMoveToProject ? () => onMoveToProject(screenplay) : undefined}
-              onCreateProject={onCreateProjectFromScreenplay ? () => onCreateProjectFromScreenplay(screenplay) : undefined}
             />
           ))}
         </div>
-      );
-    }
-
-    // List view for screenplays - filing cabinet style
-    return (
-      <div className="relative pb-[350px]">
-        {filteredScreenplays.map((screenplay, index) => (
-          <ScreenplayListRow
-            key={screenplay.id}
-            screenplay={{
-              id: screenplay.id,
-              title: screenplay.title,
-              logline: screenplay.logline,
-              synopsis: screenplay.synopsis,
-              updatedAt: screenplay.updatedAt,
-              wordCount: screenplay.wordCount,
-              genre: screenplay.genre,
-              isFavorite: screenplay.isFavorite,
-              project: screenplay.project,
-              author: screenplay.author,
-              user: screenplay.user,
-              type: screenplay.type || undefined,
-              season: screenplay.season,
-              episode: screenplay.episode,
-              episodeTitle: screenplay.episodeTitle,
-              series: screenplay.series,
-            }}
-            href={`/editor/${screenplay.id}`}
-            isHovered={hoveredScreenplay?.id === screenplay.id}
-            onHover={() => setHoveredScreenplay(screenplay)}
-            onLeave={() => setHoveredScreenplay(null)}
-            index={index}
-            totalCount={filteredScreenplays.length}
-          />
-        ))}
       </div>
     );
   }
@@ -246,7 +299,7 @@ export function WorkspaceContentGrid({
       return (
         <EmptyState
           icon={
-            <Tv className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
+            <Layers className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
           }
           title={searchQuery ? 'No series found' : 'No series yet'}
           description={
@@ -305,9 +358,6 @@ export function WorkspaceContentGrid({
               updatedAt: s.updatedAt,
               _count: s._count,
             }}
-            isHovered={hoveredSeries?.id === s.id}
-            onHover={() => setHoveredSeries(s)}
-            onLeave={() => setHoveredSeries(null)}
             onEdit={() => router.push(`/series/${s.id}`)}
             onDelete={() => onDelete(s.id, 'series')}
           />
@@ -352,6 +402,7 @@ export function WorkspaceContentGrid({
               id: project.id,
               name: project.name,
               description: project.description,
+              status: project.status ?? undefined,
               updatedAt: project.updatedAt,
               roles: project.roles,
               screenplays: project.screenplays,
@@ -365,10 +416,10 @@ export function WorkspaceContentGrid({
     );
   }
 
-  // List view for projects - filing cabinet style
+  // List view for projects - simple rows
   return (
-    <div className="relative pb-[350px]">
-      {filteredProjects.map((project, index) => (
+    <div className="space-y-2">
+      {filteredProjects.map((project) => (
         <ProjectListRow
           key={project.id}
           project={{
@@ -380,11 +431,6 @@ export function WorkspaceContentGrid({
             screenplays: project.screenplays,
             _count: project._count,
           }}
-          isHovered={hoveredProject?.id === project.id}
-          onHover={() => setHoveredProject(project)}
-          onLeave={() => setHoveredProject(null)}
-          index={index}
-          totalCount={filteredProjects.length}
         />
       ))}
     </div>

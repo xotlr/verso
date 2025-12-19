@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 import { SettingsPanel } from '@/components/settings-panel';
 import { CommandPalette } from '@/components/command-palette';
 import { TemplateSelector } from '@/components/template-selector';
-import { NewProjectDialog } from '@/components/new-project-dialog';
+import { NewProjectDialog } from '@/components/project/new-project-dialog';
 import { MoveToProjectDialog } from '@/components/move-to-project-dialog';
 import { toast } from 'sonner';
 import {
@@ -21,17 +21,18 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { ListPageToolbar, FilterPill } from '@/components/ui/list-page-toolbar';
-import { Star, Tv } from 'lucide-react';
-import { PiFilmScript } from 'react-icons/pi';
-import { RiFolder6Line } from 'react-icons/ri';
+import { Star } from 'lucide-react';
+import { PiFilmScript, PiFilmScriptFill } from 'react-icons/pi';
+import { RiFolder6Line, RiFolder6Fill, RiStackLine, RiStackFill } from 'react-icons/ri';
 import { CreateSeriesDialog } from '@/components/series/create-series-dialog';
 import { PendingInviteBanner } from '@/components/pending-invite-banner';
 import { PendingProjectRoleInviteBanner } from '@/components/pending-project-role-invite-banner';
 import { PageLayout } from '@/components/layouts/page-layout';
-import { ImportResult } from '@/components/import-drop-zone';
+import { ImportResult, ImportDropZoneOverlay, useFileImport } from '@/components/import-drop-zone';
 
 import { useGreeting } from '@/hooks/use-greeting';
 import { useWorkspaceData, type ProjectItem, type ScreenplayItem } from '@/hooks/use-workspace-data';
+import { useStackOperations } from '@/hooks/use-stack-operations';
 import { WorkspaceHeader, WorkspaceContentGrid, type TabValue } from '@/components/workspace';
 import { useViewMode } from '@/hooks/use-view-mode';
 
@@ -44,11 +45,27 @@ function WorkspacePageContent() {
     screenplays,
     projects,
     series,
+    stacks,
     dashboardStats,
     isLoading,
     loadData,
     deleteItem,
+    setScreenplays,
+    setStacks,
   } = useWorkspaceData();
+
+  // Stack operations (drag-to-stack functionality)
+  const {
+    createStackFromDrop,
+    addToStack,
+    dissolveStack,
+  } = useStackOperations({
+    screenplays,
+    stacks,
+    setScreenplays,
+    setStacks,
+    loadData,
+  });
 
   // Contextual greeting via custom hook
   const greeting = useGreeting({
@@ -74,12 +91,18 @@ function WorkspacePageContent() {
   const [newSeriesOpen, setNewSeriesOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
-    type: 'screenplay' | 'project' | 'series';
+    type: 'screenplay' | 'project' | 'series' | 'stack';
   } | null>(null);
   const [activeTab, setActiveTab] = useState<TabValue>('screenplays');
   const [showFavorites, setShowFavorites] = useState(false);
   const [moveTarget, setMoveTarget] = useState<ScreenplayItem | null>(null);
   const [viewMode, setViewMode] = useViewMode('home');
+
+  // File import hook for the Import button
+  const { importFile } = useFileImport({
+    onSuccess: (result) => handleImportComplete(result),
+    onError: (error) => toast.error(error),
+  });
 
   // Command palette keyboard shortcut
   useEffect(() => {
@@ -123,7 +146,7 @@ function WorkspacePageContent() {
     router.push(`/project/${project.id}`);
   };
 
-  const handleDelete = (id: string, type: 'screenplay' | 'project' | 'series') => {
+  const handleDelete = (id: string, type: 'screenplay' | 'project' | 'series' | 'stack') => {
     setDeleteTarget({ id, type });
   };
 
@@ -199,13 +222,16 @@ function WorkspacePageContent() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create screenplay');
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to create screenplay');
       }
 
       const screenplay = await response.json();
+      toast.success('Screenplay imported');
       router.push(`/editor/${screenplay.id}`);
     } catch (error) {
       console.error('Error importing screenplay:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to import screenplay');
     }
   };
 
@@ -257,18 +283,27 @@ function WorkspacePageContent() {
         onSuccess={loadData}
       />
 
+      {/* Drag-drop import overlay */}
+      <ImportDropZoneOverlay
+        enabled={true}
+        onImportComplete={handleImportComplete}
+        onImportError={(error) => toast.error(error)}
+      />
+
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Delete {deleteTarget?.type === 'screenplay' ? 'Screenplay' : deleteTarget?.type === 'series' ? 'Series' : 'Project'}
+              Delete {deleteTarget?.type === 'screenplay' ? 'Screenplay' : deleteTarget?.type === 'series' ? 'Series' : deleteTarget?.type === 'stack' ? 'Stack' : 'Project'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget?.type === 'project'
                 ? 'Are you sure? Screenplays in this project will become standalone. This action cannot be undone.'
                 : deleteTarget?.type === 'series'
                 ? 'Are you sure? Episodes in this series will become standalone screenplays. This action cannot be undone.'
+                : deleteTarget?.type === 'stack'
+                ? 'Are you sure? Screenplays in this stack will become standalone. This action cannot be undone.'
                 : 'Are you sure you want to delete this screenplay? This action cannot be undone.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -310,6 +345,7 @@ function WorkspacePageContent() {
             screenplayCount={screenplays.length}
             onCreateProject={createNewProject}
             onCreateScreenplay={createNewScreenplay}
+            onImportFile={importFile}
           />
 
           {/* Tabs, Search, and Filters */}
@@ -320,18 +356,21 @@ function WorkspacePageContent() {
                   value: 'screenplays',
                   label: 'Screenplays',
                   icon: <PiFilmScript className="h-4 w-4" />,
+                  activeIcon: <PiFilmScriptFill className="h-4 w-4" />,
                   count: filteredScreenplayCount,
                 },
                 {
                   value: 'series',
                   label: 'Series',
-                  icon: <Tv className="h-4 w-4" />,
+                  icon: <RiStackLine className="h-4 w-4" />,
+                  activeIcon: <RiStackFill className="h-4 w-4" />,
                   count: filteredSeriesCount,
                 },
                 {
                   value: 'projects',
                   label: 'Projects',
                   icon: <RiFolder6Line className="h-4 w-4" />,
+                  activeIcon: <RiFolder6Fill className="h-4 w-4" />,
                   count: filteredProjectCount,
                 },
               ],
@@ -373,6 +412,7 @@ function WorkspacePageContent() {
             screenplays={screenplays}
             projects={projects}
             series={series}
+            stacks={stacks}
             searchQuery={searchQuery}
             showFavorites={showFavorites}
             viewMode={viewMode}
@@ -384,6 +424,9 @@ function WorkspacePageContent() {
             onCreateSeries={createNewSeries}
             onMoveToProject={(screenplay) => setMoveTarget(screenplay)}
             onCreateProjectFromScreenplay={createProjectFromScreenplay}
+            onCreateStack={createStackFromDrop}
+            onAddToStack={addToStack}
+            onDissolveStack={dissolveStack}
           />
         </div>
 

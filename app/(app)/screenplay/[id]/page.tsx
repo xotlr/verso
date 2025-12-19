@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { ScreenplayEditorWrapper } from "@/components/screenplay-editor-wrapper";
+import { ScreenplayEditorWrapper } from "@/components/screenplay/screenplay-editor-wrapper";
 import { SettingsPanel } from "@/components/settings-panel";
 import { CommandPalette } from "@/components/command-palette";
 import { ProjectLayout } from "@/components/layouts/project-layout";

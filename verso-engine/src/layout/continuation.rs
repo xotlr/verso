@@ -141,6 +141,8 @@ mod tests {
             character_name: Some(character.to_string()),
             dual_dialogue_position: None,
             force_page_break_after: false,
+            auto_contd: false,
+            scene_number: None,
         }
     }
 

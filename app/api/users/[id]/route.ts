@@ -9,18 +9,37 @@ const updateProfileSchema = z.object({
   username: z.string().max(20).nullable().optional(),
   image: z.string().url().nullable().optional(),
   banner: z.string().url().nullable().optional(),
-  bio: z.string().max(500).nullable().optional(),
-  title: z.string().max(100).nullable().optional(),
   location: z.string().max(100).nullable().optional(),
   website: z.string().max(200).nullable().optional(),
   twitter: z.string().max(50).nullable().optional(),
   linkedin: z.string().max(100).nullable().optional(),
   imdb: z.string().max(50).nullable().optional(),
   isPublic: z.boolean().optional(),
-  // Bento blocks
+
+  // Core Profile (NEW)
+  oneLiner: z.string().max(100).nullable().optional(),
+  roles: z.array(z.string().max(50)).max(5).optional(),
+  reelUrl: z.string().url().max(500).nullable().optional(),
+  availability: z.enum(['AVAILABLE', 'BUSY', 'NOT_LOOKING']).optional(),
+
+  // The Work
+  featuredProjectId: z.string().cuid().nullable().optional(),
+  showcaseTimelapse: z.string().nullable().optional(),
+
+  // Trust Layer
+  responseRate: z.enum(['UNKNOWN', 'WITHIN_HOURS', 'WITHIN_DAY', 'WITHIN_WEEK', 'SLOW']).optional(),
+
+  // The Vibe
+  influences: z.array(z.string().max(50)).max(3).optional(),
+  lookingFor: z.string().max(500).nullable().optional(),
+  gear: z.string().max(500).nullable().optional(),
+  languages: z.array(z.string().max(30)).max(10).optional(),
+
+  // LEGACY - keeping for backwards compatibility during migration
+  bio: z.string().max(500).nullable().optional(),
+  title: z.string().max(100).nullable().optional(),
   interests: z.array(z.string().max(50)).max(20).optional(),
   skills: z.array(z.string().max(50)).max(20).optional(),
-  lookingFor: z.string().max(500).nullable().optional(),
 })
 
 // GET /api/users/[id] - Get user profile
@@ -40,10 +59,9 @@ export async function GET(
         name: true,
         username: true,
         email: isOwnProfile, // Only show email for own profile
+        emailVerified: true, // For verified badge
         image: true,
         banner: true,
-        bio: true,
-        title: true,
         location: true,
         website: true,
         twitter: true,
@@ -52,12 +70,57 @@ export async function GET(
         isPublic: true,
         createdAt: true,
         plan: true,
-        // Bento blocks
+
+        // Core Profile (NEW)
+        oneLiner: true,
+        roles: true,
+        reelUrl: true,
+        availability: true,
+
+        // The Work
+        featuredProjectId: true,
+        featuredProject: {
+          select: {
+            id: true,
+            name: true,
+            coverImage: true,
+            description: true,
+          },
+        },
+        showcaseTimelapse: true,
+        credits: {
+          orderBy: [{ displayOrder: 'asc' }, { year: 'desc' }],
+          take: 10,
+          select: {
+            id: true,
+            title: true,
+            role: true,
+            year: true,
+            projectId: true,
+            isManual: true,
+            displayOrder: true,
+          },
+        },
+
+        // Trust Layer
+        responseRate: true,
+        projectsCompleted: true,
+
+        // The Vibe
+        influences: true,
+        lookingFor: true,
+        gear: true,
+        languages: true,
+
+        // LEGACY - keeping for migration
+        bio: true,
+        title: true,
         interests: true,
         skills: true,
-        lookingFor: true,
+
+        // Projects (for dropdown selections, reduced)
         projects: {
-          where: isOwnProfile ? {} : { team: null }, // Only personal projects for public view
+          where: isOwnProfile ? {} : { team: null },
           select: {
             id: true,
             name: true,
@@ -71,12 +134,14 @@ export async function GET(
           orderBy: { updatedAt: 'desc' },
           take: 12,
         },
+        // Screenplays with timelapse for dropdown
         screenplays: {
-          where: isOwnProfile ? {} : { team: null },
+          where: isOwnProfile ? { timelapseShareId: { not: null } } : { team: null, timelapseShareId: { not: null } },
           select: {
             id: true,
             title: true,
             synopsis: true,
+            timelapseShareId: true,
             createdAt: true,
             updatedAt: true,
           },
@@ -185,8 +250,6 @@ export async function PATCH(
         email: true,
         image: true,
         banner: true,
-        bio: true,
-        title: true,
         location: true,
         website: true,
         twitter: true,
@@ -195,10 +258,27 @@ export async function PATCH(
         isPublic: true,
         createdAt: true,
         plan: true,
-        // Bento blocks
+        // Core Profile (NEW)
+        oneLiner: true,
+        roles: true,
+        reelUrl: true,
+        availability: true,
+        // The Work
+        featuredProjectId: true,
+        showcaseTimelapse: true,
+        // Trust Layer
+        responseRate: true,
+        projectsCompleted: true,
+        // The Vibe
+        influences: true,
+        lookingFor: true,
+        gear: true,
+        languages: true,
+        // LEGACY
+        bio: true,
+        title: true,
         interests: true,
         skills: true,
-        lookingFor: true,
       },
     })
 

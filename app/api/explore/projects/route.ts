@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
           description: true,
           banner: true,
           logo: true,
+          status: true,
           publishedAt: true,
           user: {
             select: {
@@ -61,6 +62,20 @@ export async function GET(request: NextRequest) {
               name: true,
               image: true,
             },
+          },
+          roles: {
+            select: {
+              id: true,
+              role: true,
+              name: true,
+              user: {
+                select: {
+                  id: true,
+                  image: true,
+                },
+              },
+            },
+            take: 10,
           },
           _count: {
             select: {

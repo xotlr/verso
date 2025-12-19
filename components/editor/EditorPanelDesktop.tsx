@@ -5,11 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useEditorPanel, EDITOR_PANEL_WIDTH } from './EditorPanelContext';
 import { ActivityBar } from './ActivityBar';
+import { useSettings } from '@/contexts/settings-context';
 import { ScenesPanel } from './panels/ScenesPanel';
 import { CharactersPanel } from './panels/CharactersPanel';
 import { ShotlistPanel } from './panels/ShotlistPanel';
 import { NotesPanel } from './panels/NotesPanel';
-import type { SceneInfo, CharacterInfo } from '@/hooks/editor/useProseMirrorEditor';
+import type { SceneInfo, CharacterInfo } from '@/hooks/editor/use-prosemirror-editor';
 import type { EditorView } from 'prosemirror-view';
 import type { SceneWithShots, Shot } from '@/types/shotlist';
 
@@ -60,7 +61,11 @@ export function EditorPanelDesktop({
   onAddShot,
 }: EditorPanelDesktopProps) {
   const { open, activePanel, setActivePanel, position, isMobile } = useEditorPanel();
+  const { settings } = useSettings();
   const [isInFocusMode, setIsInFocusMode] = useState(false);
+
+  // Check if using Maelle layout (activity bar is in the top toolbar)
+  const isMaelleLayout = settings.layout.toolbarLayout === 'maelle';
 
   // Listen for focus mode toggle events
   useEffect(() => {
@@ -91,23 +96,25 @@ export function EditorPanelDesktop({
 
   return (
     <>
-      {/* Activity Bar - Fixed position, never moves */}
-      <div
-        className={cn(
-          'fixed top-1/2 -translate-y-1/2 z-30',
-          isRight ? 'right-3' : 'left-3'
-        )}
-      >
-        <ActivityBar
-          activePanel={activePanel}
-          onPanelChange={setActivePanel}
-          scenesCount={scenes.length}
-          charactersCount={characters.length}
-          shotlistCount={shotCount}
-          notesCount={0}
-          position={position}
-        />
-      </div>
+      {/* Activity Bar - Fixed position, hidden in Maelle layout (icons in top toolbar) */}
+      {!isMaelleLayout && (
+        <div
+          className={cn(
+            'fixed top-1/2 -translate-y-1/2 z-30',
+            isRight ? 'right-3' : 'left-3'
+          )}
+        >
+          <ActivityBar
+            activePanel={activePanel}
+            onPanelChange={setActivePanel}
+            scenesCount={scenes.length}
+            charactersCount={characters.length}
+            shotlistCount={shotCount}
+            notesCount={0}
+            position={position}
+          />
+        </div>
+      )}
 
       {/* Expandable Panel - Slides in/out with Framer Motion */}
       <AnimatePresence mode="wait">

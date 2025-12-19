@@ -7,7 +7,7 @@
 import { Scene, SceneElement } from '@/types/screenplay';
 
 // Supported parser formats
-export type ParserFormat = 'fdx' | 'fountain' | 'highland' | 'fadein' | 'txt';
+export type ParserFormat = 'fdx' | 'fountain' | 'highland' | 'fadein' | 'txt' | 'pdf' | 'docx' | 'markdown-screenplay';
 
 // Title page metadata
 export interface TitlePage {
@@ -101,4 +101,131 @@ export interface ImportResult {
   scenes?: number;
   wordCount?: number;
   error?: string;
+}
+
+// ============================================================================
+// ENHANCED IMPORT TYPES (for preview workflow)
+// ============================================================================
+
+// Detailed import statistics
+export interface ImportStats {
+  scenes: number;
+  characters: string[];
+  pages: number;
+  dialogueBlocks: number;
+  actionBlocks: number;
+  transitions: number;
+  dualDialogues: number;
+  revisionMarks: number;
+}
+
+// Enhanced warning with location tracking
+export interface ImportWarning {
+  type: 'element' | 'formatting' | 'character' | 'structure';
+  message: string;
+  location: {
+    page?: number;
+    scene?: number;
+    line?: number;
+  };
+  suggestion?: string;
+}
+
+// Import error codes
+export type ImportErrorCode =
+  | 'INVALID_FILE_TYPE'
+  | 'CORRUPTED_FILE'
+  | 'UNSUPPORTED_FDX_VERSION'
+  | 'PARSE_FAILED'
+  | 'EMPTY_DOCUMENT'
+  | 'TOO_LARGE'
+  | 'INVALID_FORMAT'
+  | 'EXTRACTION_ERROR';
+
+// Import error with code
+export interface ImportError {
+  code: ImportErrorCode;
+  message: string;
+  details?: string;
+  recoverable: boolean;
+}
+
+// Text run with styling (for FDX parsing)
+export interface StyledTextRun {
+  text: string;
+  style?: {
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+  };
+  revisionId?: string;
+}
+
+// Character with extension parsed
+export interface ParsedCharacter {
+  name: string;
+  extension?: string | null; // (V.O.), (O.S.), (CONT'D), etc.
+  dialogueCount?: number;
+}
+
+// Dual dialogue group
+export interface DualDialogueGroup {
+  left: {
+    character: string;
+    extension?: string;
+    dialogue: string[];
+    parentheticals?: string[];
+  };
+  right: {
+    character: string;
+    extension?: string;
+    dialogue: string[];
+    parentheticals?: string[];
+  };
+}
+
+// Enhanced parse result with full stats and warnings
+export interface EnhancedParseResult {
+  success: true;
+  format: ParserFormat;
+  titlePage: TitlePage;
+  content: string;
+  scenes: Scene[];
+  elements: SceneElement[];
+  rawContent: string;
+  stats: ImportStats;
+  warnings: ImportWarning[];
+  characters: ParsedCharacter[];
+  dualDialogues: DualDialogueGroup[];
+}
+
+// Enhanced parse error
+export interface EnhancedParseError {
+  success: false;
+  format: ParserFormat | 'unknown';
+  error: ImportError;
+  partialContent?: string;
+  warnings: ImportWarning[];
+}
+
+// Combined enhanced result
+export type EnhancedParseOutcome = EnhancedParseResult | EnhancedParseError;
+
+// Progress stages for detailed tracking
+export type ImportStage =
+  | 'reading'
+  | 'validating'
+  | 'extracting'
+  | 'parsing'
+  | 'mapping'
+  | 'complete';
+
+// Enhanced progress with element counts
+export interface ImportProgress {
+  stage: ImportStage;
+  percent: number;
+  message: string;
+  currentItem?: number;
+  totalItems?: number;
+  itemType?: 'scenes' | 'elements' | 'characters' | 'pages';
 }

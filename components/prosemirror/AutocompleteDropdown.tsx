@@ -193,7 +193,7 @@ export function AutocompleteDropdown({
     >
       {state.suggestions.map((suggestion, index) => (
         <button
-          key={`${suggestion.category}-${suggestion.value}`}
+          key={`${suggestion.category}-${suggestion.value}-${index}`}
           ref={index === state.selectedIndex ? selectedRef : null}
           className={cn(
             'w-full flex items-center gap-2 px-2.5 py-1.5',

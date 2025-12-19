@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useMounted } from "@/hooks/use-mobile";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
+import { EditorHeader } from "@/components/editor/editor-header";
 import { BottomNav } from "@/components/bottom-nav";
+import { EditorBottomNav } from "@/components/editor/editor-bottom-nav";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { cn } from "@/lib/utils";
 import { ProductivityProvider } from "@/contexts/productivity-context";
@@ -15,8 +18,12 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
+  const pathname = usePathname();
   const mounted = useMounted();
   const [focusMode, setFocusMode] = useState(false);
+
+  // Check if we're on a screenplay editor page (but not timelapse)
+  const isEditorPage = pathname.startsWith("/screenplay/") && !pathname.includes("/timelapse");
 
   // Ref for keyboard accessibility
   const focusContainerRef = useRef<HTMLDivElement>(null);
@@ -94,9 +101,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
           {/* Header - slides up in focus mode */}
           <div className={cn(
             "transition-all duration-500 ease-out overflow-hidden",
-            focusMode ? "opacity-0 -translate-y-full h-0" : "h-14"
+            focusMode ? "opacity-0 -translate-y-full h-0" : "h-11"
           )}>
-            <AppHeader />
+            {isEditorPage ? (
+              <>
+                {/* Mobile: EditorHeader with back, title, share */}
+                <div className="md:hidden h-full">
+                  <EditorHeader />
+                </div>
+                {/* Desktop: AppHeader (unified, Google Docs/Arc style) */}
+                <div className="hidden md:block h-full">
+                  <AppHeader />
+                </div>
+              </>
+            ) : (
+              <AppHeader />
+            )}
           </div>
 
           <main
@@ -116,8 +136,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </div>
           )}
 
-          {/* Bottom Navigation - mobile only, hidden in focus mode, always rendered during SSR */}
-          {(!mounted || !focusMode) && <BottomNav />}
+          {/* Bottom Navigation - mobile only, hidden in focus mode */}
+          {/* Editor pages get EditorBottomNav, other pages get BottomNav */}
+          {(!mounted || !focusMode) && (
+            isEditorPage ? <EditorBottomNav /> : <BottomNav />
+          )}
         </SidebarInset>
 
         {/* PWA Install Prompt */}

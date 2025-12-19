@@ -146,6 +146,23 @@ pub struct Page {
     /// WASM is single source of truth for this value - TypeScript uses it directly
     #[serde(default)]
     pub bottom_padding_px: f32,
+
+    // --- Scene-level continuation markers (shooting script feature) ---
+
+    /// Scene continuation marker at bottom of page (e.g., "(CONTINUED)")
+    /// Set when page breaks mid-scene and scene_continued_enabled is true
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene_continued_bottom: Option<String>,
+
+    /// Scene continuation marker at top of page (e.g., "CONTINUED:")
+    /// Set when this page continues a scene from the previous page
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene_continued_top: Option<String>,
+
+    /// The scene number being continued (for markers like "CONTINUED: (42)")
+    /// Only set when scene_continued_with_number is true
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continued_scene_number: Option<u32>,
 }
 
 impl Page {
@@ -157,6 +174,9 @@ impl Page {
             lines_used: 0,
             pixel_y: 0.0,
             bottom_padding_px: 0.0,
+            scene_continued_bottom: None,
+            scene_continued_top: None,
+            continued_scene_number: None,
         }
     }
 
@@ -168,6 +188,9 @@ impl Page {
             lines_used: 0,
             pixel_y,
             bottom_padding_px: 0.0,
+            scene_continued_bottom: None,
+            scene_continued_top: None,
+            continued_scene_number: None,
         }
     }
 

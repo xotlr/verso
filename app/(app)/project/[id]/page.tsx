@@ -8,6 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import { TemplateSelector } from '@/components/template-selector';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
@@ -49,10 +57,13 @@ import {
 import { ExternalLinkCard, ExternalLinkData } from '@/components/external-link-card';
 import { AddLinkDialog } from '@/components/add-link-dialog';
 import { AddExistingScreenplayDialog } from '@/components/add-existing-screenplay-dialog';
-import { ProjectRolesManager, type ProjectRole } from '@/components/project-roles-manager';
-import { ProjectRoleNeedsManager } from '@/components/project-role-needs-manager';
+import { ProjectRolesManager, type ProjectRole } from '@/components/project/project-roles-manager';
+import { ProjectRoleNeedsManager } from '@/components/project/project-role-needs-manager';
 import { useSession } from 'next-auth/react';
 import type { EmbedType } from '@/lib/embed-utils';
+import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
+import type { ImportResult } from '@/components/import-drop-zone/types';
+import { toast } from 'sonner';
 
 type ResourceFilter = 'all' | 'videos' | 'docs' | 'visual' | 'other';
 
@@ -87,10 +98,13 @@ interface Budget {
   createdAt: string;
 }
 
+type ProjectStatus = 'DEVELOPMENT' | 'PRE_PRODUCTION' | 'PRODUCTION' | 'POST_PRODUCTION' | 'COMPLETED';
+
 interface ProjectData {
   id: string;
   name: string;
   description: string | null;
+  status: ProjectStatus | null;
   budget: number | null;
   userId: string;
   createdAt: string;
@@ -107,6 +121,14 @@ interface ProjectData {
     budgets: number;
   };
 }
+
+const STATUS_CONFIG: Record<ProjectStatus, { label: string; color: string }> = {
+  DEVELOPMENT: { label: 'Development', color: 'bg-blue-500' },
+  PRE_PRODUCTION: { label: 'Pre-Production', color: 'bg-yellow-500' },
+  PRODUCTION: { label: 'Production', color: 'bg-green-500' },
+  POST_PRODUCTION: { label: 'Post-Production', color: 'bg-purple-500' },
+  COMPLETED: { label: 'Completed', color: 'bg-emerald-600' },
+};
 
 type TabValue = 'screenplays' | 'notes' | 'schedules' | 'budgets' | 'resources' | 'crew';
 
@@ -187,6 +209,23 @@ export default function ProjectPage() {
       console.error('Error loading project:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const updateStatus = async (status: ProjectStatus) => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (response.ok) {
+        setProject((prev) => prev ? { ...prev, status } : null);
+        toast.success('Status updated');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Failed to update status');
     }
   };
 
@@ -310,6 +349,34 @@ export default function ProjectPage() {
     }
   };
 
+  const handleImportComplete = async (result: ImportResult) => {
+    if (!result.success || !result.content) return;
+
+    try {
+      const response = await fetch('/api/screenplays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: result.title || 'Imported Screenplay',
+          content: result.content,
+          projectId: projectId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create screenplay');
+      }
+
+      const screenplay = await response.json();
+      toast.success('Screenplay imported to project');
+      loadProject();
+      router.push(`/editor/${screenplay.id}`);
+    } catch (error) {
+      console.error('Error importing screenplay:', error);
+      toast.error('Failed to import screenplay');
+    }
+  };
+
   if (isLoading) {
     return (
       <main className="flex-1 overflow-auto bg-background">
@@ -357,6 +424,13 @@ export default function ProjectPage() {
         />
       )}
 
+      {/* Drag-drop import overlay */}
+      <ImportDropZoneOverlay
+        enabled={true}
+        onImportComplete={handleImportComplete}
+        onImportError={(error) => toast.error(error)}
+      />
+
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -384,9 +458,11 @@ export default function ProjectPage() {
                 Back
               </Button>
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">{project.name}</h1>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-3xl font-bold text-foreground">{project.name}</h1>
+                </div>
                 {project.description && (
                   <p className="text-muted-foreground">{project.description}</p>
                 )}
@@ -420,6 +496,37 @@ export default function ProjectPage() {
                   <span>&middot;</span>
                   <span>Updated {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}</span>
                 </div>
+              </div>
+
+              {/* Status Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</span>
+                <Select
+                  value={project.status || 'DEVELOPMENT'}
+                  onValueChange={(value) => updateStatus(value as ProjectStatus)}
+                >
+                  <SelectTrigger className="w-[160px] h-8">
+                    <SelectValue>
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          'h-2 w-2 rounded-full',
+                          STATUS_CONFIG[project.status || 'DEVELOPMENT'].color
+                        )} />
+                        {STATUS_CONFIG[project.status || 'DEVELOPMENT'].label}
+                      </div>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(STATUS_CONFIG) as ProjectStatus[]).map((status) => (
+                      <SelectItem key={status} value={status}>
+                        <div className="flex items-center gap-2">
+                          <span className={cn('h-2 w-2 rounded-full', STATUS_CONFIG[status].color)} />
+                          {STATUS_CONFIG[status].label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

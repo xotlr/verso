@@ -21,7 +21,7 @@
   --pm-page-height: 1056px;
   --pm-page-min-height: 1056px;
   --pm-page-padding-top: 96px;
-  --pm-page-padding-bottom: 48px;
+  --pm-page-padding-bottom: 96px;
   --pm-page-padding-left: 144px;
   --pm-page-padding-right: 96px;
 
@@ -472,6 +472,128 @@
   pointer-events: none;
 }
 
+/* Super - on-screen text (centered, cyan) */
+.ProseMirror .pm-super {
+  padding-top: var(--pm-space-action);
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+
+  text-align: center;
+  text-transform: uppercase;
+  color: hsl(195 70% 45%);
+  font-weight: 500;
+}
+
+.pm-super:empty::before {
+  content: 'SUPER:';
+  color: hsl(var(--muted-foreground) / 0.3);
+  pointer-events: none;
+}
+
+/* Chyron - lower-third text (left-aligned, purple, underlined) */
+.ProseMirror .pm-chyron {
+  padding-top: var(--pm-space-action);
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: 0;
+  margin-right: 0;
+  width: 576px;
+
+  text-align: left;
+  text-transform: uppercase;
+  color: hsl(280 65% 50%);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.pm-chyron:empty::before {
+  content: 'CHYRON:';
+  color: hsl(var(--muted-foreground) / 0.3);
+  pointer-events: none;
+}
+
+/* Flashback - temporal marker (centered, amber, em-dash decorations) */
+.ProseMirror .pm-flashback {
+  padding-top: var(--pm-space-scene-heading);
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+
+  text-align: center;
+  text-transform: uppercase;
+  color: hsl(35 90% 50%);
+  font-weight: 600;
+}
+
+.ProseMirror .pm-flashback::before {
+  content: '— ';
+  color: hsl(35 90% 50%);
+}
+
+.ProseMirror .pm-flashback::after {
+  content: ' —';
+  color: hsl(35 90% 50%);
+}
+
+.pm-flashback:empty::before {
+  content: '— FLASHBACK —';
+  color: hsl(var(--muted-foreground) / 0.3);
+  pointer-events: none;
+}
+
+/* Montage - sequence container (full width, magenta, left border) */
+.ProseMirror .pm-montage {
+  padding-top: var(--pm-space-scene-heading);
+  padding-left: 16px;
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: 0;
+  margin-right: 0;
+  width: 100%;
+
+  text-align: left;
+  text-transform: uppercase;
+  color: hsl(320 70% 50%);
+  font-weight: 600;
+  border-left: 4px solid hsl(320 70% 50%);
+}
+
+.pm-montage:empty::before {
+  content: 'MONTAGE';
+  color: hsl(var(--muted-foreground) / 0.3);
+  pointer-events: none;
+}
+
+/* Intercut - parallel action (centered, green, double-line) */
+.ProseMirror .pm-intercut {
+  padding-top: var(--pm-space-scene-heading);
+  margin-top: 0;
+  margin-bottom: 0;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+
+  text-align: center;
+  text-transform: uppercase;
+  color: hsl(160 70% 45%);
+  font-weight: 600;
+  border-top: 2px solid hsl(160 70% 45%);
+  border-bottom: 2px solid hsl(160 70% 45%);
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.pm-intercut:empty::before {
+  content: 'INTERCUT';
+  color: hsl(var(--muted-foreground) / 0.3);
+  pointer-events: none;
+}
+
 /* Dual Dialogue - .ProseMirror prefix for higher specificity than reset */
 .ProseMirror .pm-dual-dialogue {
   display: flex;
@@ -769,6 +891,36 @@
   color: var(--pm-text-color);
   margin-left: var(--pm-margin-character); /* 211px = 2.2" */
   padding-bottom: 0; /* No space after - dialogue follows immediately */
+}
+
+/* ============================================
+   Scene Continuation Markers (Shooting Script)
+   ============================================ */
+
+/* Scene continuation marker at bottom of page (right-aligned) */
+/* Industry standard: "(CONTINUED)" at bottom-right when scene continues */
+.pm-page-bottom .pm-scene-continued-bottom {
+  font-family: var(--pm-font-family);
+  font-size: var(--pm-font-size);
+  line-height: var(--pm-line-height);
+  text-transform: uppercase;
+  color: var(--pm-text-color);
+  width: 100%;
+  text-align: right;
+  padding-right: var(--pm-page-padding-right, 96px);
+  padding-top: 16px; /* One line spacing before marker */
+}
+
+/* Scene continuation marker at top of page (left-aligned) */
+/* Industry standard: "CONTINUED:" at top-left when scene continues from previous page */
+.pm-page-top .pm-scene-continued-top {
+  font-family: var(--pm-font-family);
+  font-size: var(--pm-font-size);
+  line-height: var(--pm-line-height);
+  text-transform: uppercase;
+  color: var(--pm-text-color);
+  margin-left: 0; /* Full width, left-aligned like scene headings */
+  padding-bottom: 16px; /* One line spacing after marker */
 }
 
 /* Legacy class support - hide old elements */
@@ -1093,6 +1245,21 @@
   border-radius: 2px;
 }
 
+/* Plain page style - clean off-white regardless of theme */
+.pm-page-frames-container[data-page-style="plain"] .pm-page-frame {
+  background: hsl(40 30% 96%); /* Warm off-white/cream */
+}
+
+/* Plain page style in dark mode - slightly warmer white for better contrast */
+.dark .pm-page-frames-container[data-page-style="plain"] .pm-page-frame {
+  background: hsl(40 20% 94%); /* Warm off-white that stands out on dark background */
+}
+
+/* Plain page style - dark text for contrast on cream background */
+.pm-editor-page[data-page-style="plain"] {
+  color: hsl(0 0% 15%);
+}
+
 /* Dark mode handled by CSS variables (--page) */
 
 /* Page number - industry standard top-right position */
@@ -1233,8 +1400,32 @@
   color: var(--pm-text-color);
 }
 
+/* Scene continuation (CONTINUED) at bottom-right of page */
+.pm-page-frame .pm-scene-continued-bottom {
+  position: absolute;
+  bottom: 96px; /* 1" from bottom edge */
+  right: 96px; /* 1" from right edge */
+  font-family: var(--pm-font-family);
+  font-size: var(--pm-font-size);
+  line-height: var(--pm-line-height);
+  color: var(--pm-text-color);
+}
+
+/* Scene continuation (CONTINUED:) at top-left of page */
+.pm-page-frame .pm-scene-continued-top {
+  position: absolute;
+  top: 80px; /* Slightly above content start (96px - 16px) */
+  left: 144px; /* 1.5" from left edge (same as content) */
+  font-family: var(--pm-font-family);
+  font-size: var(--pm-font-size);
+  line-height: var(--pm-line-height);
+  color: var(--pm-text-color);
+}
+
 .dark .pm-page-frame .pm-more-indicator,
-.dark .pm-page-frame .pm-contd-indicator {
+.dark .pm-page-frame .pm-contd-indicator,
+.dark .pm-page-frame .pm-scene-continued-bottom,
+.dark .pm-page-frame .pm-scene-continued-top {
   color: var(--pm-text-color-dark);
 }
 
@@ -1310,6 +1501,69 @@
 
 .pm-title-page-logline:empty::before {
   content: 'Logline (optional)';
+  color: hsl(var(--muted-foreground) / 0.4);
+  pointer-events: none;
+}
+
+/* Contact info - positioned bottom left (industry standard) */
+.pm-title-page-contact {
+  position: absolute;
+  bottom: 96px; /* 1" bottom margin */
+  left: 144px; /* 1.5" left margin */
+  font-size: 12px;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  white-space: pre-line;
+  line-height: 18px;
+  text-align: left;
+  min-height: 1.2em;
+  outline: none;
+  cursor: text;
+}
+
+.pm-title-page-contact:empty::before {
+  content: 'Contact info';
+  color: hsl(var(--muted-foreground) / 0.4);
+  pointer-events: none;
+}
+
+/* Copyright - positioned bottom right (industry standard) */
+.pm-title-page-copyright {
+  position: absolute;
+  bottom: 96px; /* 1" bottom margin */
+  right: 96px; /* 1" right margin */
+  font-size: 12px;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  white-space: pre-line;
+  line-height: 18px;
+  text-align: right;
+  min-height: 1.2em;
+  outline: none;
+  cursor: text;
+}
+
+.pm-title-page-copyright:empty::before {
+  content: '© Copyright';
+  color: hsl(var(--muted-foreground) / 0.4);
+  pointer-events: none;
+}
+
+/* Draft info - positioned top right (WGA standard) */
+.pm-title-page-draft {
+  position: absolute;
+  top: 96px; /* 1" top margin */
+  right: 96px; /* 1" right margin */
+  font-size: 12px;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  white-space: pre-line;
+  line-height: 18px;
+  text-align: right;
+  min-height: 1.2em;
+  outline: none;
+  cursor: text;
+}
+
+.pm-title-page-draft:empty::before {
+  content: 'Draft';
   color: hsl(var(--muted-foreground) / 0.4);
   pointer-events: none;
 }

@@ -15,7 +15,7 @@ export function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <div className="flex items-center bg-muted rounded-lg p-1 border border-border/60 h-9 w-[108px]" />
+      <div className="flex items-center bg-muted rounded-md p-0.5 border border-border/60 h-7 w-[84px]" />
     );
   }
 
@@ -27,7 +27,7 @@ export function ThemeToggle() {
 
   return (
     <div
-      className="flex items-center bg-muted rounded-lg p-1 border border-border/60"
+      className="flex items-center bg-muted rounded-md p-0.5 border border-border/60"
       role="radiogroup"
       aria-label="Theme selection"
     >
@@ -38,7 +38,7 @@ export function ThemeToggle() {
           role="radio"
           aria-checked={theme === value}
           className={cn(
-            "p-1.5 rounded-md transition-colors duration-200",
+            "p-1 rounded transition-colors duration-200",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
             theme === value
               ? "bg-background shadow-sm text-foreground"
@@ -47,7 +47,7 @@ export function ThemeToggle() {
           title={label}
           aria-label={label}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-3.5 w-3.5" />
         </button>
       ))}
     </div>

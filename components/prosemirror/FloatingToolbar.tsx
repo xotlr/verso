@@ -85,6 +85,11 @@ const ELEMENT_ICONS: Record<ElementType, React.ReactNode> = {
   parenthetical: <span className="text-xs font-mono">()</span>,
   transition: <ArrowRight className="h-4 w-4" />,
   shot: <Camera className="h-4 w-4" />,
+  super: <Heading className="h-4 w-4" />,
+  chyron: <Heading className="h-4 w-4" />,
+  flashback: <Heading className="h-4 w-4" />,
+  montage: <Heading className="h-4 w-4" />,
+  intercut: <Heading className="h-4 w-4" />,
   dual_dialogue: <User className="h-4 w-4" />,
   ending: <Heading className="h-4 w-4" />,
 };

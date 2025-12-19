@@ -4,6 +4,7 @@
  * ImportDropZone - Core Component
  *
  * A drag-and-drop file import zone supporting multiple screenplay formats.
+ * Optionally shows a preview dialog before confirming the import.
  */
 
 import { useCallback, useRef, useState, DragEvent } from 'react';
@@ -13,29 +14,78 @@ import { getSupportedExtensions, getAcceptString } from '@/lib/parsers';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { useFileImport } from './use-file-import';
+import { useImportPreview } from './use-import-preview';
+import { ImportPreviewDialog } from '@/components/import-preview-dialog';
 import { ImportDropZoneProps } from './types';
+import type { ParserFormat, ImportWarning, ParseWarning } from '@/lib/parsers/types';
+
+/**
+ * Convert ParseWarning to ImportWarning format
+ */
+function convertToImportWarnings(warnings: ParseWarning[]): ImportWarning[] {
+  return warnings.map(w => ({
+    type: w.severity === 'warning' ? 'structure' : 'formatting',
+    message: w.message,
+    location: { line: w.line },
+  }));
+}
+
+interface ExtendedImportDropZoneProps extends ImportDropZoneProps {
+  /** Show preview dialog before importing */
+  showPreview?: boolean;
+}
 
 export function ImportDropZone({
   onImportComplete,
   onImportError,
   disabled = false,
   className,
-}: ImportDropZoneProps) {
+  showPreview = false,
+}: ExtendedImportDropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
 
-  const { state, progress, error, result, importFile, reset, isProcessing } =
-    useFileImport({
-      onSuccess: onImportComplete,
-      onError: onImportError,
-    });
+  // Use preview hook if showPreview is enabled, otherwise use direct import
+  const previewHook = useImportPreview({
+    onSuccess: onImportComplete,
+    onError: onImportError,
+    skipPreview: !showPreview,
+  });
+
+  const directHook = useFileImport({
+    onSuccess: onImportComplete,
+    onError: onImportError,
+  });
+
+  // Select appropriate hook based on showPreview prop
+  const {
+    state,
+    progress,
+    error,
+    result,
+    importFile,
+    reset,
+    isProcessing,
+  } = showPreview ? {
+    state: previewHook.state === 'preview' ? 'idle' as const : previewHook.state as 'idle' | 'processing' | 'success' | 'error',
+    progress: previewHook.progress,
+    error: previewHook.error,
+    result: previewHook.result,
+    importFile: previewHook.importFile,
+    reset: previewHook.reset,
+    isProcessing: previewHook.isProcessing,
+  } : directHook;
 
   const handleDragEnter = useCallback(
     (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
       if (!disabled && !isProcessing) {
-        setIsDragging(true);
+        dragCounterRef.current++;
+        if (dragCounterRef.current === 1) {
+          setIsDragging(true);
+        }
       }
     },
     [disabled, isProcessing]
@@ -44,7 +94,10 @@ export function ImportDropZone({
   const handleDragLeave = useCallback((e: DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(false);
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
   }, []);
 
   const handleDragOver = useCallback((e: DragEvent) => {
@@ -56,6 +109,7 @@ export function ImportDropZone({
     async (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      dragCounterRef.current = 0;
       setIsDragging(false);
 
       if (disabled || isProcessing) return;
@@ -205,6 +259,25 @@ export function ImportDropZone({
             Try again
           </Button>
         </>
+      )}
+
+      {/* Import Preview Dialog */}
+      {showPreview && previewHook.previewData && (
+        <ImportPreviewDialog
+          isOpen={previewHook.isPreviewOpen}
+          onClose={previewHook.cancelPreview}
+          onConfirm={previewHook.confirmImport}
+          content={previewHook.previewData.content}
+          rawContent={previewHook.previewData.rawContent}
+          title={previewHook.previewData.title}
+          format={previewHook.previewData.format as ParserFormat}
+          scenes={previewHook.previewData.scenes}
+          elements={previewHook.previewData.elements}
+          warnings={convertToImportWarnings(previewHook.previewData.warnings)}
+          wordCount={previewHook.previewData.wordCount}
+          filename={previewHook.previewData.filename}
+          isConfirming={previewHook.state === 'confirming'}
+        />
       )}
     </div>
   );

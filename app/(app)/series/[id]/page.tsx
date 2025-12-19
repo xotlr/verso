@@ -2,7 +2,6 @@
 
 import React, { useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import useSWR from 'swr';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,13 +30,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -45,27 +37,24 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  ArrowLeft,
   Tv,
   FileText,
   Users,
   Link as LinkIcon,
   Loader2,
   Plus,
-  MoreHorizontal,
-  Edit3,
-  Trash2,
   Clock,
-  Camera,
-  Image as ImageIcon,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 // Import series components
 import { SeasonSection } from '@/components/series/season-section';
-import { EditSeriesDialog } from '@/components/series/edit-series-dialog';
 import { SeriesCharactersTab } from '@/components/series/series-characters-tab';
 import { SeriesResourcesTab } from '@/components/series/series-resources-tab';
+import { SeriesBreadcrumb } from '@/components/series/series-breadcrumb';
+import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
+import type { ImportResult } from '@/components/import-drop-zone/types';
+import { toast } from 'sonner';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -120,16 +109,12 @@ interface SeriesData {
 export default function SeriesPage() {
   const params = useParams();
   const router = useRouter();
-  const { data: session } = useSession();
   const seriesId = params.id as string;
 
   const { data: series, error, mutate } = useSWR<SeriesData>(
     `/api/series/${seriesId}`,
     fetcher
   );
-
-  // Edit series dialog state
-  const [isEditingSeriesDialog, setIsEditingSeriesDialog] = useState(false);
 
   // Dialog states
   const [isAddingSeason, setIsAddingSeason] = useState(false);
@@ -153,8 +138,6 @@ export default function SeriesPage() {
 
   const [deleteEpisodeId, setDeleteEpisodeId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteSeriesConfirm, setDeleteSeriesConfirm] = useState(false);
-  const [isDeletingSeries, setIsDeletingSeries] = useState(false);
 
   // Tab state
   const [activeTab, setActiveTab] = useState('episodes');
@@ -322,40 +305,33 @@ export default function SeriesPage() {
     }
   };
 
-  const handleDeleteSeries = async () => {
-    setIsDeletingSeries(true);
+  // Import handler - creates episode in this series
+  const handleImportComplete = async (result: ImportResult) => {
+    if (!result.success || !result.content) return;
+
     try {
-      const res = await fetch(`/api/series/${seriesId}`, {
-        method: 'DELETE',
+      const response = await fetch('/api/screenplays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: result.title || 'Imported Episode',
+          content: result.content,
+          seriesId: seriesId,
+          type: 'TV',
+        }),
       });
 
-      if (res.ok) {
-        router.push('/series');
+      if (!response.ok) {
+        throw new Error('Failed to create episode');
       }
-    } catch (error) {
-      console.error('Failed to delete series:', error);
-    } finally {
-      setIsDeletingSeries(false);
-    }
-  };
 
-  const handleSaveSeries = async (updates: {
-    title?: string;
-    logline?: string;
-    genre?: string;
-    format?: string;
-    banner?: string | null;
-  }) => {
-    const res = await fetch(`/api/series/${seriesId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-
-    if (res.ok) {
+      const screenplay = await response.json();
+      toast.success('Episode imported to series');
       mutate();
-    } else {
-      throw new Error('Failed to save');
+      router.push(`/editor/${screenplay.id}`);
+    } catch (error) {
+      console.error('Error importing episode:', error);
+      toast.error('Failed to import episode');
     }
   };
 
@@ -367,32 +343,15 @@ export default function SeriesPage() {
   // Error state
   if (error || !series) {
     return (
-      <div className="min-h-screen">
-        <div className="h-48 md:h-64 bg-muted" />
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.back()}
-            className="mb-6"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <EmptyState
-            icon={<Tv className="h-6 w-6 text-muted-foreground" />}
-            title="Series not found"
-            description="This series doesn't exist or you don't have access to it."
-          />
-        </div>
+      <div className="flex-1 flex items-center justify-center p-8">
+        <EmptyState
+          icon={<Tv className="h-6 w-6 text-muted-foreground" />}
+          title="Series not found"
+          description="This series doesn't exist or you don't have access to it."
+        />
       </div>
     );
   }
-
-  // Parse genres from comma-separated string
-  const genres = series.genre
-    ? series.genre.split(',').map(g => g.trim()).filter(Boolean)
-    : [];
 
   // Format display
   const formatDisplay = series.format
@@ -402,101 +361,21 @@ export default function SeriesPage() {
   const totalEpisodes = series.seasons.reduce((sum, s) => sum + s._count.episodes, 0) || series._count.episodes;
 
   return (
-    <div className="min-h-screen">
-      {/* Full-width Banner */}
-      <div className="relative h-48 md:h-64 group">
-        {series.banner ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={series.banner}
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full bg-muted" />
-        )}
-        {/* Edit banner overlay on hover */}
-        <button
-          onClick={() => setIsEditingSeriesDialog(true)}
-          className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-        >
-          {series.banner ? (
-            <Camera className="h-8 w-8 text-white" />
-          ) : (
-            <div className="flex flex-col items-center gap-2 text-white">
-              <ImageIcon className="h-8 w-8" />
-              <span className="text-sm font-medium">Add Banner</span>
-            </div>
-          )}
-        </button>
-      </div>
+    <>
+      {/* Drag-drop import overlay */}
+      <ImportDropZoneOverlay
+        enabled={true}
+        onImportComplete={handleImportComplete}
+        onImportError={(error) => toast.error(error)}
+      />
 
       {/* Content Wrapper */}
       <ScrollArea className="flex-1">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Series Header - overlaps banner */}
-          <div className="-mt-12 sm:-mt-16 mb-6 relative z-10">
-            {/* Back button */}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => router.back()}
-              className="mb-4 shadow-sm"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-
-            {/* Top row: Type badge + Actions */}
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-background/90 backdrop-blur-sm text-primary border border-primary/20 shadow-sm">
-                  <Tv className="h-3.5 w-3.5" />
-                  Series
-                </span>
-              </div>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="icon" className="h-9 w-9 shadow-sm">
-                    <MoreHorizontal className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setIsEditingSeriesDialog(true)}>
-                    <Edit3 className="h-4 w-4 mr-2" />
-                    Edit Series
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={() => setDeleteSeriesConfirm(true)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Series
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            {/* Title */}
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3 drop-shadow-sm">
-              {series.title}
-            </h1>
-
-            {/* Genre Pills */}
-            {genres.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {genres.map(genre => (
-                  <span
-                    key={genre}
-                    className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-background/80 backdrop-blur-sm text-muted-foreground border border-border/50 shadow-sm"
-                  >
-                    {genre}
-                  </span>
-                ))}
-              </div>
-            )}
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Series Header */}
+          <div className="mb-6">
+            {/* Breadcrumb */}
+            <SeriesBreadcrumb series={{ id: series.id, title: series.title }} />
 
             {/* Logline */}
             {series.logline && (
@@ -532,10 +411,6 @@ export default function SeriesPage() {
               <Button onClick={openAddSeason} className="gap-2">
                 <Plus className="h-4 w-4" />
                 Add Season
-              </Button>
-              <Button variant="outline" onClick={() => setIsEditingSeriesDialog(true)} className="gap-2">
-                <Edit3 className="h-4 w-4" />
-                Edit Series
               </Button>
             </div>
           </div>
@@ -609,15 +484,6 @@ export default function SeriesPage() {
           </Tabs>
         </div>
       </ScrollArea>
-
-      {/* Edit Series Dialog */}
-      <EditSeriesDialog
-        open={isEditingSeriesDialog}
-        onOpenChange={setIsEditingSeriesDialog}
-        series={series}
-        userId={session?.user?.id || ''}
-        onSave={handleSaveSeries}
-      />
 
       {/* Add Season Dialog */}
       <Dialog open={isAddingSeason} onOpenChange={setIsAddingSeason}>
@@ -849,55 +715,25 @@ export default function SeriesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Delete Series Confirmation */}
-      <AlertDialog open={deleteSeriesConfirm} onOpenChange={setDeleteSeriesConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Series</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete &quot;{series.title}&quot;? The episodes will be unlinked but not deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingSeries}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteSeries}
-              disabled={isDeletingSeries}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeletingSeries ? 'Deleting...' : 'Delete Series'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+    </>
   );
 }
 
 function SeriesPageSkeleton() {
   return (
-    <div className="min-h-screen">
-      <Skeleton className="h-48 md:h-64 w-full" />
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="-mt-12 sm:-mt-16 mb-6">
-          <Skeleton className="h-9 w-20 mb-4" />
-          <div className="bg-background rounded-2xl border shadow-sm p-6 sm:p-8 space-y-4">
-            <Skeleton className="h-6 w-20" />
-            <Skeleton className="h-10 w-64" />
-            <div className="flex gap-2">
-              <Skeleton className="h-7 w-20 rounded-full" />
-              <Skeleton className="h-7 w-20 rounded-full" />
-            </div>
-            <Skeleton className="h-6 w-full max-w-xl" />
-            <Skeleton className="h-5 w-64" />
-            <div className="flex gap-3">
-              <Skeleton className="h-10 w-32" />
-              <Skeleton className="h-10 w-28" />
-            </div>
-          </div>
-        </div>
-        <Skeleton className="h-10 w-96 mb-6" />
+    <div className="flex-1 p-6">
+      <div className="max-w-5xl mx-auto space-y-6">
+        {/* Breadcrumb skeleton */}
+        <Skeleton className="h-5 w-48" />
+        {/* Logline skeleton */}
+        <Skeleton className="h-6 w-full max-w-2xl" />
+        {/* Stats skeleton */}
+        <Skeleton className="h-5 w-64" />
+        {/* Action button skeleton */}
+        <Skeleton className="h-10 w-32" />
+        {/* Tabs skeleton */}
+        <Skeleton className="h-10 w-96" />
+        {/* Content skeleton */}
         <div className="space-y-4">
           <Skeleton className="h-32 w-full rounded-xl" />
           <Skeleton className="h-32 w-full rounded-xl" />

@@ -19,11 +19,17 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { ListPageToolbar } from '@/components/ui/list-page-toolbar';
 import { ListWithPreview } from '@/components/ui/list-preview-panel';
-import { SeriesCard, SeriesCardSkeleton } from '@/components/series-card';
-import { SeriesListRow, SeriesListRowSkeleton } from '@/components/series-list-row';
-import { CreateSeriesDialog } from '@/components/series/create-series-dialog';
+import {
+  SeriesCard,
+  SeriesCardSkeleton,
+  SeriesListRow,
+  SeriesListRowSkeleton,
+  CreateSeriesDialog,
+} from '@/components/series';
 import { useViewMode } from '@/hooks/use-view-mode';
 import { Plus, Tv } from 'lucide-react';
+import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
+import type { ImportResult } from '@/components/import-drop-zone/types';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -69,6 +75,33 @@ export default function SeriesListPage() {
     }
   };
 
+  // Import handler - creates standalone screenplay
+  const handleImportComplete = async (result: ImportResult) => {
+    if (!result.success || !result.content) return;
+
+    try {
+      const response = await fetch('/api/screenplays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: result.title || 'Imported Screenplay',
+          content: result.content,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create screenplay');
+      }
+
+      const screenplay = await response.json();
+      toast.success('Screenplay imported successfully');
+      router.push(`/editor/${screenplay.id}`);
+    } catch (error) {
+      console.error('Error importing screenplay:', error);
+      toast.error('Failed to import screenplay');
+    }
+  };
+
   // Filter series by search query
   const filteredSeries = seriesList?.filter(series =>
     series.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -97,6 +130,13 @@ export default function SeriesListPage() {
         open={isCreating}
         onOpenChange={setIsCreating}
         onSuccess={() => mutate()}
+      />
+
+      {/* Drag-drop import overlay */}
+      <ImportDropZoneOverlay
+        enabled={true}
+        onImportComplete={handleImportComplete}
+        onImportError={(error) => toast.error(error)}
       />
 
       {/* Delete Confirmation Dialog */}

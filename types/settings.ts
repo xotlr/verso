@@ -107,12 +107,15 @@ export interface AutocompleteSettings {
   delayMs: number; // 0 = immediate, 5000 = 5 seconds
 }
 
+export type PageStyle = 'themed' | 'plain';
+
 export interface EditorSettings {
   autocomplete: AutocompleteSettings;
   textContrast: number; // 15-35, default 25 (lightness percentage)
   typewriterMode: boolean;
   focusLineHighlight: boolean;
   scrollMode: 'discrete' | 'continuous';
+  pageStyle: PageStyle; // 'themed' uses theme colors, 'plain' uses off-white
 }
 
 export interface InterfaceSettings {
@@ -122,9 +125,11 @@ export interface InterfaceSettings {
   highContrast: boolean;
 }
 
+export type ToolbarLayout = 'verso' | 'maelle';
+
 export interface LayoutSettings {
   layoutMode: LayoutMode;
-  toolbarPosition: 'left' | 'right';
+  toolbarLayout: ToolbarLayout;
 }
 
 export interface ExportSettings {
@@ -259,6 +264,7 @@ export const defaultSettings: AppSettings = {
     typewriterMode: false,
     focusLineHighlight: false,
     scrollMode: 'discrete',
+    pageStyle: 'themed', // Use theme-colored pages by default
   },
   interface: {
     showStatsBar: true,
@@ -268,7 +274,7 @@ export const defaultSettings: AppSettings = {
   },
   layout: {
     layoutMode: 'classic',
-    toolbarPosition: 'left',
+    toolbarLayout: 'verso',
   },
   export: {
     defaultFormat: 'pdf',

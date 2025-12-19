@@ -9,7 +9,7 @@ import {
   genreOptions,
   Template,
 } from '@/types/templates';
-import { useCreateScreenplay } from '@/hooks/useCreateScreenplay';
+import { useCreateScreenplay } from '@/hooks/use-create-screenplay';
 import { Film, Tv, FileText, Check, Loader2, Plus } from 'lucide-react';
 import {
   Dialog,

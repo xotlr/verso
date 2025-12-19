@@ -36,7 +36,7 @@ function setElementType(type: ElementType): Command {
 
     if (dispatch) {
       const tr = state.tr.setBlockType($from.pos, $to.pos, nodeType);
-      dispatch(tr.scrollIntoView());
+      dispatch(tr);
 
       // Apply flash animation for visual feedback
       if (view) {
@@ -358,6 +358,12 @@ export const elementCommands = {
   setParenthetical: setElementType('parenthetical'),
   setTransition: setElementType('transition'),
   setShot: setElementType('shot'),
+  setSuper: setElementType('super'),
+  setChyron: setElementType('chyron'),
+  setEnding: setElementType('ending'),
+  setFlashback: setElementType('flashback'),
+  setMontage: setElementType('montage'),
+  setIntercut: setElementType('intercut'),
 };
 
 export { handleTab, handleShiftTab, handleEnter, handleShiftEnter, setElementType };

@@ -15,7 +15,7 @@ import { Schema, NodeSpec, MarkSpec, DOMOutputSpec } from 'prosemirror-model';
 
 // Title page (cover page) container - holds editable child nodes
 const title_page: NodeSpec = {
-  content: 'title_page_title title_page_author title_page_logline?',
+  content: 'title_page_title title_page_author title_page_logline? title_page_contact? title_page_copyright? title_page_draft?',
   group: 'block',
   defining: true,
   parseDOM: [{ tag: 'div.pm-title-page' }],
@@ -51,6 +51,36 @@ const title_page_logline: NodeSpec = {
   parseDOM: [{ tag: 'div.pm-title-page-logline' }],
   toDOM(): DOMOutputSpec {
     return ['div', { class: 'pm-title-page-logline' }, 0];
+  },
+};
+
+// Optional contact info field within title page (bottom left)
+const title_page_contact: NodeSpec = {
+  content: 'text*',
+  defining: true,
+  parseDOM: [{ tag: 'div.pm-title-page-contact' }],
+  toDOM(): DOMOutputSpec {
+    return ['div', { class: 'pm-title-page-contact' }, 0];
+  },
+};
+
+// Optional copyright field within title page (bottom right)
+const title_page_copyright: NodeSpec = {
+  content: 'text*',
+  defining: true,
+  parseDOM: [{ tag: 'div.pm-title-page-copyright' }],
+  toDOM(): DOMOutputSpec {
+    return ['div', { class: 'pm-title-page-copyright' }, 0];
+  },
+};
+
+// Optional draft info field within title page (top right)
+const title_page_draft: NodeSpec = {
+  content: 'text*',
+  defining: true,
+  parseDOM: [{ tag: 'div.pm-title-page-draft' }],
+  toDOM(): DOMOutputSpec {
+    return ['div', { class: 'pm-title-page-draft' }, 0];
   },
 };
 
@@ -266,6 +296,56 @@ const shot: NodeSpec = {
   },
 };
 
+// Super node (on-screen text)
+const super_node: NodeSpec = {
+  content: 'text*',
+  group: 'block',
+  parseDOM: [{ tag: 'p.pm-super' }],
+  toDOM(): DOMOutputSpec {
+    return ['p', { class: 'pm-super' }, 0];
+  },
+};
+
+// Chyron node (lower-third text)
+const chyron: NodeSpec = {
+  content: 'text*',
+  group: 'block',
+  parseDOM: [{ tag: 'p.pm-chyron' }],
+  toDOM(): DOMOutputSpec {
+    return ['p', { class: 'pm-chyron' }, 0];
+  },
+};
+
+// Flashback node (temporal marker)
+const flashback: NodeSpec = {
+  content: 'text*',
+  group: 'block',
+  parseDOM: [{ tag: 'p.pm-flashback' }],
+  toDOM(): DOMOutputSpec {
+    return ['p', { class: 'pm-flashback' }, 0];
+  },
+};
+
+// Montage node (sequence container)
+const montage: NodeSpec = {
+  content: 'text*',
+  group: 'block',
+  parseDOM: [{ tag: 'p.pm-montage' }],
+  toDOM(): DOMOutputSpec {
+    return ['p', { class: 'pm-montage' }, 0];
+  },
+};
+
+// Intercut node (parallel action)
+const intercut: NodeSpec = {
+  content: 'text*',
+  group: 'block',
+  parseDOM: [{ tag: 'p.pm-intercut' }],
+  toDOM(): DOMOutputSpec {
+    return ['p', { class: 'pm-intercut' }, 0];
+  },
+};
+
 // Dual dialogue container (two characters speaking simultaneously)
 const dual_dialogue: NodeSpec = {
   content: 'dual_dialogue_column dual_dialogue_column',
@@ -308,6 +388,9 @@ const nodes: Record<string, NodeSpec> = {
   title_page_title,
   title_page_author,
   title_page_logline,
+  title_page_contact,
+  title_page_copyright,
+  title_page_draft,
 
   // Block-level screenplay elements
   scene_heading,
@@ -318,6 +401,11 @@ const nodes: Record<string, NodeSpec> = {
   transition,
   ending,
   shot,
+  super: super_node,
+  chyron,
+  flashback,
+  montage,
+  intercut,
   dual_dialogue,
   dual_dialogue_column,
 
@@ -379,6 +467,11 @@ export type ElementType =
   | 'transition'
   | 'ending'
   | 'shot'
+  | 'super'
+  | 'chyron'
+  | 'flashback'
+  | 'montage'
+  | 'intercut'
   | 'dual_dialogue';
 
 /**
@@ -392,6 +485,8 @@ export const ELEMENT_CYCLE_ORDER: ElementType[] = [
   'dialogue',
   'parenthetical',
   'transition',
+  'super',
+  'chyron',
 ];
 
 /**
@@ -425,6 +520,11 @@ export const ELEMENT_DISPLAY_NAMES: Record<ElementType, string> = {
   transition: 'Transition',
   ending: 'The End',
   shot: 'Shot',
+  super: 'Super',
+  chyron: 'Chyron',
+  flashback: 'Flashback',
+  montage: 'Montage',
+  intercut: 'Intercut',
   dual_dialogue: 'Dual Dialogue',
 };
 
@@ -439,6 +539,12 @@ export const ELEMENT_SHORTCUTS: Record<string, ElementType> = {
   'Mod-5': 'parenthetical',
   'Mod-6': 'transition',
   'Mod-7': 'shot',
+  'Mod-8': 'super',
+  'Mod-9': 'chyron',
+  'Mod-0': 'ending',
+  'Mod-Shift-f': 'flashback',
+  'Mod-Shift-m': 'montage',
+  'Mod-Shift-i': 'intercut',
 };
 
 /**
@@ -454,5 +560,10 @@ export const ELEMENT_PLACEHOLDERS: Record<ElementType, string> = {
   transition: 'CUT TO:',
   ending: 'THE END',
   shot: '',
+  super: 'SUPER:',
+  chyron: 'CHYRON:',
+  flashback: 'FLASHBACK',
+  montage: 'MONTAGE',
+  intercut: 'INTERCUT',
   dual_dialogue: '',
 };

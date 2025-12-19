@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { parseScreenplayText } from '@/lib/screenplay-utils';
 import { Screenplay } from '@/types/screenplay';
+import { PageLayout } from '@/components/layouts/page-layout';
+import { cn } from '@/lib/utils';
 
 interface CharacterMovement {
   characterId: string;
@@ -53,20 +54,29 @@ export default function VisualizationPage() {
     }
   }, [id]);
 
+  // Dispatch title update for app header
+  useEffect(() => {
+    if (title) {
+      window.dispatchEvent(new CustomEvent('screenplay-title-update', {
+        detail: { title }
+      }));
+    }
+  }, [title]);
+
   const calculateCharacterMovements = (screenplay: Screenplay) => {
     const movements: CharacterMovement[] = [];
-    
+
     // Track each character's appearances
     screenplay.characters.forEach(character => {
       const characterScenes: CharacterMovement['scenes'] = [];
-      
+
       screenplay.scenes.forEach((scene, index) => {
         const hasCharacter = scene.characters.includes(character.id);
         if (hasCharacter) {
           const dialogueCount = scene.elements.filter(
             el => el.type === 'dialogue' && el.characterId === character.id
           ).length;
-          
+
           characterScenes.push({
             sceneId: scene.id,
             sceneNumber: index + 1,
@@ -76,7 +86,7 @@ export default function VisualizationPage() {
           });
         }
       });
-      
+
       if (characterScenes.length > 0) {
         movements.push({
           characterId: character.id,
@@ -85,7 +95,7 @@ export default function VisualizationPage() {
         });
       }
     });
-    
+
     // Sort by number of appearances
     movements.sort((a, b) => b.scenes.length - a.scenes.length);
     setCharacterMovements(movements);
@@ -102,236 +112,213 @@ export default function VisualizationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href={`/screenplay/${id}`} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </Link>
-            <div>
-              <h1 className="text-xl font-medium text-gray-900">{title}</h1>
-              <p className="text-sm text-gray-500">Character Movement Visualization</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Character List */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold mb-4">Characters</h2>
-          <div className="flex flex-wrap gap-2">
+    <PageLayout>
+      {/* Character List */}
+      <div className="mb-8">
+        <h2 className="text-lg font-semibold mb-4">Characters</h2>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setSelectedCharacter(null)}
+            className={cn(
+              "px-4 py-2 rounded-full text-sm font-medium transition-colors",
+              selectedCharacter === null
+                ? "bg-foreground text-background"
+                : "bg-card text-foreground hover:bg-accent border border-input"
+            )}
+          >
+            All Characters
+          </button>
+          {characterMovements.map(char => (
             <button
-              onClick={() => setSelectedCharacter(null)}
+              key={char.characterId}
+              onClick={() => setSelectedCharacter(char.characterId)}
               className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium transition-colors",
-                selectedCharacter === null
-                  ? "bg-gray-900 text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
+                "px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2",
+                selectedCharacter === char.characterId
+                  ? "bg-foreground text-background"
+                  : "bg-card text-foreground hover:bg-accent border border-input"
               )}
             >
-              All Characters
+              <span
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: getCharacterColor(char.characterName) }}
+              />
+              {char.characterName}
+              <span className="text-xs opacity-70">({char.scenes.length} scenes)</span>
             </button>
-            {characterMovements.map(char => (
-              <button
-                key={char.characterId}
-                onClick={() => setSelectedCharacter(char.characterId)}
-                className={cn(
-                  "px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2",
-                  selectedCharacter === char.characterId
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-300"
-                )}
+          ))}
+        </div>
+      </div>
+
+      {/* Timeline Visualization */}
+      <div className="bg-card rounded-lg shadow-sm border border-border p-6">
+        <h3 className="text-lg font-semibold mb-6">Character Timeline</h3>
+
+        {/* Scene numbers header */}
+        <div className="flex items-center mb-4">
+          <div className="w-32 shrink-0"></div>
+          <div className="flex-1 flex gap-2 overflow-x-auto pb-2">
+            {screenplay.scenes.map((scene, index) => (
+              <div
+                key={scene.id}
+                className="flex-shrink-0 w-12 text-center text-xs text-muted-foreground"
               >
-                <span
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: getCharacterColor(char.characterName) }}
-                />
-                {char.characterName}
-                <span className="text-xs opacity-70">({char.scenes.length} scenes)</span>
-              </button>
+                {index + 1}
+              </div>
             ))}
           </div>
         </div>
 
-        {/* Timeline Visualization */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold mb-6">Character Timeline</h3>
-          
-          {/* Scene numbers header */}
-          <div className="flex items-center mb-4">
-            <div className="w-32 shrink-0"></div>
-            <div className="flex-1 flex gap-2 overflow-x-auto pb-2">
-              {screenplay.scenes.map((scene, index) => (
-                <div
-                  key={scene.id}
-                  className="flex-shrink-0 w-12 text-center text-xs text-gray-500"
-                >
-                  {index + 1}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Character timelines */}
-          <div className="space-y-3">
-            {characterMovements
-              .filter(char => !selectedCharacter || char.characterId === selectedCharacter)
-              .map(char => (
-                <div key={char.characterId} className="flex items-center">
-                  <div className="w-32 shrink-0 pr-4">
-                    <div className="text-sm font-medium text-gray-900 truncate">
-                      {char.characterName}
-                    </div>
-                  </div>
-                  <div className="flex-1 flex gap-2 overflow-x-auto">
-                    {screenplay.scenes.map((scene, sceneIndex) => {
-                      const appearance = char.scenes.find(s => s.sceneNumber === sceneIndex + 1);
-                      
-                      return (
-                        <div
-                          key={scene.id}
-                          className="flex-shrink-0 w-12 h-8 relative group"
-                        >
-                          {appearance ? (
-                            <div
-                              className="absolute inset-0 rounded flex items-center justify-center text-xs font-medium text-white cursor-pointer"
-                              style={{ backgroundColor: getCharacterColor(char.characterName) }}
-                              title={`${scene.heading} - ${appearance.lineCount} lines`}
-                            >
-                              {appearance.lineCount > 0 ? appearance.lineCount : '•'}
-                            </div>
-                          ) : (
-                            <div className="absolute inset-0 bg-gray-100 rounded" />
-                          )}
-                        </div>
-                      );
-                    })}
+        {/* Character timelines */}
+        <div className="space-y-3">
+          {characterMovements
+            .filter(char => !selectedCharacter || char.characterId === selectedCharacter)
+            .map(char => (
+              <div key={char.characterId} className="flex items-center">
+                <div className="w-32 shrink-0 pr-4">
+                  <div className="text-sm font-medium text-foreground truncate">
+                    {char.characterName}
                   </div>
                 </div>
-              ))}
-          </div>
+                <div className="flex-1 flex gap-2 overflow-x-auto">
+                  {screenplay.scenes.map((scene, sceneIndex) => {
+                    const appearance = char.scenes.find(s => s.sceneNumber === sceneIndex + 1);
 
-          {/* Legend */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <div className="flex items-center gap-6 text-sm text-gray-600">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-xs text-white font-medium">
-                  5
+                    return (
+                      <div
+                        key={scene.id}
+                        className="flex-shrink-0 w-12 h-8 relative group"
+                      >
+                        {appearance ? (
+                          <div
+                            className="absolute inset-0 rounded flex items-center justify-center text-xs font-medium text-white cursor-pointer"
+                            style={{ backgroundColor: getCharacterColor(char.characterName) }}
+                            title={`${scene.heading} - ${appearance.lineCount} lines`}
+                          >
+                            {appearance.lineCount > 0 ? appearance.lineCount : '•'}
+                          </div>
+                        ) : (
+                          <div className="absolute inset-0 bg-muted rounded" />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <span>Number indicates dialogue lines</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-xs text-white font-medium">
-                  •
-                </div>
-                <span>Present but no dialogue</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gray-100 rounded" />
-                <span>Not in scene</span>
-              </div>
-            </div>
-          </div>
+            ))}
         </div>
 
-        {/* Character Journey Details */}
-        {selectedCharacter && (
-          <div className="mt-8 bg-card rounded-lg shadow-sm border border-border p-6">
-            <h3 className="text-lg font-semibold mb-4">
-              {characterMovements.find(c => c.characterId === selectedCharacter)?.characterName}&apos;s Journey
-            </h3>
-            <div className="space-y-4">
-              {characterMovements
-                .find(c => c.characterId === selectedCharacter)
-                ?.scenes.map((scene) => (
-                  <div key={scene.sceneId} className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 bg-muted rounded-full flex items-center justify-center text-sm font-medium">
-                      {scene.sceneNumber}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-foreground">{scene.location}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {scene.hasDialogue
-                          ? `${scene.lineCount} line${scene.lineCount > 1 ? 's' : ''} of dialogue`
-                          : 'Present in scene (no dialogue)'}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+        {/* Legend */}
+        <div className="mt-8 pt-6 border-t border-border">
+          <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-xs text-white font-medium">
+                5
+              </div>
+              <span>Number indicates dialogue lines</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-xs text-white font-medium">
+                •
+              </div>
+              <span>Present but no dialogue</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-muted rounded" />
+              <span>Not in scene</span>
             </div>
           </div>
-        )}
-
-        {/* Character Interactions Matrix */}
-        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold mb-4">Character Interactions</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr>
-                  <th className="text-left text-sm font-medium text-gray-900 p-2">Character</th>
-                  {characterMovements.map(char => (
-                    <th key={char.characterId} className="text-center text-sm font-medium text-gray-900 p-2 min-w-[100px]">
-                      <div className="truncate">{char.characterName}</div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {characterMovements.map(char1 => (
-                  <tr key={char1.characterId}>
-                    <td className="text-sm font-medium text-gray-900 p-2">{char1.characterName}</td>
-                    {characterMovements.map(char2 => {
-                      if (char1.characterId === char2.characterId) {
-                        return (
-                          <td key={char2.characterId} className="text-center p-2">
-                            <div className="w-8 h-8 bg-gray-200 rounded mx-auto" />
-                          </td>
-                        );
-                      }
-                      
-                      // Count shared scenes
-                      const sharedScenes = char1.scenes.filter(s1 =>
-                        char2.scenes.some(s2 => s2.sceneId === s1.sceneId)
-                      ).length;
-                      
-                      return (
-                        <td key={char2.characterId} className="text-center p-2">
-                          {sharedScenes > 0 ? (
-                            <div
-                              className="w-8 h-8 rounded mx-auto flex items-center justify-center text-xs font-medium text-white"
-                              style={{
-                                backgroundColor: getCharacterColor(char1.characterName),
-                                opacity: Math.min(0.3 + (sharedScenes * 0.1), 1)
-                              }}
-                            >
-                              {sharedScenes}
-                            </div>
-                          ) : (
-                            <div className="w-8 h-8 bg-gray-100 rounded mx-auto" />
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-sm text-gray-500 mt-4">
-            Numbers indicate how many scenes characters share together
-          </p>
         </div>
       </div>
-    </div>
-  );
-}
 
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(' ');
+      {/* Character Journey Details */}
+      {selectedCharacter && (
+        <div className="mt-8 bg-card rounded-lg shadow-sm border border-border p-6">
+          <h3 className="text-lg font-semibold mb-4">
+            {characterMovements.find(c => c.characterId === selectedCharacter)?.characterName}&apos;s Journey
+          </h3>
+          <div className="space-y-4">
+            {characterMovements
+              .find(c => c.characterId === selectedCharacter)
+              ?.scenes.map((scene) => (
+                <div key={scene.sceneId} className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-12 h-12 bg-muted rounded-full flex items-center justify-center text-sm font-medium">
+                    {scene.sceneNumber}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-foreground">{scene.location}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {scene.hasDialogue
+                        ? `${scene.lineCount} line${scene.lineCount > 1 ? 's' : ''} of dialogue`
+                        : 'Present in scene (no dialogue)'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Character Interactions Matrix */}
+      <div className="mt-8 bg-card rounded-lg shadow-sm border border-border p-6">
+        <h3 className="text-lg font-semibold mb-4">Character Interactions</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr>
+                <th className="text-left text-sm font-medium text-foreground p-2">Character</th>
+                {characterMovements.map(char => (
+                  <th key={char.characterId} className="text-center text-sm font-medium text-foreground p-2 min-w-[100px]">
+                    <div className="truncate">{char.characterName}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {characterMovements.map(char1 => (
+                <tr key={char1.characterId}>
+                  <td className="text-sm font-medium text-foreground p-2">{char1.characterName}</td>
+                  {characterMovements.map(char2 => {
+                    if (char1.characterId === char2.characterId) {
+                      return (
+                        <td key={char2.characterId} className="text-center p-2">
+                          <div className="w-8 h-8 bg-muted rounded mx-auto" />
+                        </td>
+                      );
+                    }
+
+                    // Count shared scenes
+                    const sharedScenes = char1.scenes.filter(s1 =>
+                      char2.scenes.some(s2 => s2.sceneId === s1.sceneId)
+                    ).length;
+
+                    return (
+                      <td key={char2.characterId} className="text-center p-2">
+                        {sharedScenes > 0 ? (
+                          <div
+                            className="w-8 h-8 rounded mx-auto flex items-center justify-center text-xs font-medium text-white"
+                            style={{
+                              backgroundColor: getCharacterColor(char1.characterName),
+                              opacity: Math.min(0.3 + (sharedScenes * 0.1), 1)
+                            }}
+                          >
+                            {sharedScenes}
+                          </div>
+                        ) : (
+                          <div className="w-8 h-8 bg-muted rounded mx-auto" />
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-sm text-muted-foreground mt-4">
+          Numbers indicate how many scenes characters share together
+        </p>
+      </div>
+    </PageLayout>
+  );
 }

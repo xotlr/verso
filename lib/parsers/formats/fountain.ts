@@ -16,7 +16,7 @@ import { registerParser } from '../registry';
 class FountainParser implements ScreenplayParser {
   readonly format = 'fountain' as const;
   readonly name = 'Fountain';
-  readonly extensions = ['fountain', 'txt', 'spmd'];
+  readonly extensions = ['fountain', 'txt', 'spmd', 'md'];
   readonly mimeTypes = ['text/plain', 'text/x-fountain'];
 
   /**
@@ -148,6 +148,13 @@ class FountainParser implements ScreenplayParser {
         notes: result.titlePage.notes,
       };
 
+      // Convert ImportWarning to ParseWarning for backwards compatibility
+      const parseWarnings = (result.warnings || []).map(w => ({
+        line: w.location.line,
+        message: w.message,
+        severity: w.type === 'structure' ? 'warning' as const : 'info' as const,
+      }));
+
       return {
         success: true,
         format: 'fountain',
@@ -156,7 +163,7 @@ class FountainParser implements ScreenplayParser {
         scenes: result.scenes,
         elements: result.elements,
         rawContent: result.rawText,
-        warnings: [],
+        warnings: parseWarnings,
       };
     } catch (error) {
       return {

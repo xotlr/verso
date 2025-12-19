@@ -1,0 +1,270 @@
+'use client';
+
+/**
+ * Main hook for ProseMirror screenplay editor.
+ * Coordinates initialization, state management, and WASM pagination.
+ */
+
+import { useEffect, useRef, useState } from 'react';
+import { EditorState, Transaction } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
+import { Node as ProseMirrorNode } from 'prosemirror-model';
+import { undo, redo } from 'prosemirror-history';
+
+import {
+  screenplaySchema,
+  ElementType,
+  ELEMENT_DISPLAY_NAMES,
+  deserializeFromStorage,
+  serializeForStorage,
+} from '@/lib/prosemirror';
+
+import {
+  createAllPlugins,
+  autocompletePluginKey,
+  updatePaginationState,
+} from '@/lib/prosemirror/plugins';
+import type { AutocompleteState } from '@/lib/prosemirror/plugins';
+
+import { usePagination } from './use-pagination';
+import { useEditorCommands } from './use-editor-commands';
+import {
+  calculateWordCount,
+  calculatePageCount,
+  extractScenes,
+  extractCharacters,
+  extractShots,
+} from './document-extractors';
+import type {
+  UseProseMirrorEditorOptions,
+  UseProseMirrorEditorReturn,
+  SceneInfo,
+} from './types';
+
+// Re-export types for external use
+export type { UseProseMirrorEditorOptions, UseProseMirrorEditorReturn, SceneInfo };
+export type { CharacterInfo, ShotInfo } from './types';
+
+// Re-export extractShots for use by other components
+export { extractShots };
+
+/**
+ * Main hook for ProseMirror screenplay editor.
+ */
+export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseProseMirrorEditorReturn {
+  const { initialContent, onUpdate, onScenesChange, editable = true } = options;
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  const isInitializedRef = useRef(false);
+
+  // Editor state
+  const [currentElementType, setCurrentElementTypeState] = useState<ElementType>('action');
+  const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
+  const [wordCount, setWordCount] = useState(0);
+  const [pageCount, setPageCount] = useState(1);
+  const [isReady, setIsReady] = useState(false);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [autocompleteState, setAutocompleteState] = useState<AutocompleteState | null>(null);
+  const [currentDoc, setCurrentDoc] = useState<ProseMirrorNode | null>(null);
+
+  // Track characters and locations for autocomplete
+  const charactersRef = useRef<string[]>([]);
+  const locationsRef = useRef<string[]>([]);
+  const scenesRef = useRef<SceneInfo[]>([]);
+
+  // Debounce refs
+  const extractionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const statsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Callback refs to avoid dependency issues
+  const onUpdateRef = useRef(onUpdate);
+  const onScenesChangeRef = useRef(onScenesChange);
+
+  useEffect(() => { onUpdateRef.current = onUpdate; }, [onUpdate]);
+  useEffect(() => { onScenesChangeRef.current = onScenesChange; }, [onScenesChange]);
+
+  // WASM pagination engine
+  const pagination = usePagination(currentDoc, {
+    debounceMs: 150,
+    enabled: true,
+  });
+
+  // Editor commands
+  const commands = useEditorCommands(viewRef);
+
+  // Update pagination plugin state when WASM results arrive
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !pagination.result) return;
+
+    const positionMap = pagination.getPositionMap();
+    updatePaginationState(view, pagination.result, positionMap);
+    setPageCount(pagination.pageCount);
+  }, [pagination.result, pagination.pageCount, pagination.getPositionMap]);
+
+  // Create the editor state and view
+  useEffect(() => {
+    if (!containerRef.current || isInitializedRef.current) return;
+
+    const doc = deserializeFromStorage(initialContent);
+
+    // Create all plugins with autocomplete callback
+    const plugins = createAllPlugins({
+      autocomplete: true,
+      autocompleteOptions: {
+        characters: charactersRef.current,
+        locations: locationsRef.current,
+        onStateChange: setAutocompleteState,
+      },
+      onCoverPageDetected: (coverPage) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[ProseMirror] Cover page detected:', coverPage);
+        }
+      },
+    });
+
+    // Create state
+    const state = EditorState.create({
+      doc,
+      schema: screenplaySchema,
+      plugins,
+    });
+
+    // Create view with dispatch handler
+    const view = new EditorView(containerRef.current, {
+      state,
+      editable: () => editable,
+      dispatchTransaction(tr: Transaction) {
+        const newState = view.state.apply(tr);
+        view.updateState(newState);
+
+        if (tr.docChanged) {
+          const doc = newState.doc;
+          setCurrentDoc(doc);
+
+          // Debounce stats calculations
+          if (statsTimeoutRef.current) clearTimeout(statsTimeoutRef.current);
+          statsTimeoutRef.current = setTimeout(() => {
+            setWordCount(calculateWordCount(doc));
+            setPageCount(calculatePageCount(doc));
+          }, 300);
+
+          // Notify parent of content change
+          if (onUpdateRef.current) {
+            onUpdateRef.current(serializeForStorage(doc));
+          }
+
+          // Debounce scene/character extraction
+          if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
+          extractionTimeoutRef.current = setTimeout(() => {
+            const scenes = extractScenes(doc);
+            const characters = extractCharacters(doc);
+
+            charactersRef.current = characters.map(c => c.name);
+            locationsRef.current = scenes.map(s => s.location).filter((v, i, a) => v && a.indexOf(v) === i);
+            scenesRef.current = scenes;
+
+            if (onScenesChangeRef.current) {
+              onScenesChangeRef.current(scenes, characters);
+            }
+          }, 300);
+        }
+
+        // Update autocomplete state
+        const autocomplete = autocompletePluginKey.getState(newState) as AutocompleteState | undefined;
+        if (autocomplete) setAutocompleteState(autocomplete);
+
+        // Update current element type based on selection
+        const { $head } = newState.selection;
+        const parentType = $head.parent.type.name as ElementType;
+        if (ELEMENT_DISPLAY_NAMES[parentType]) {
+          setCurrentElementTypeState(parentType);
+        }
+
+        // Update current scene based on cursor position
+        const cursorPos = newState.selection.from;
+        let activeSceneId: string | null = null;
+        for (const scene of scenesRef.current) {
+          if (scene.position <= cursorPos) activeSceneId = scene.id;
+          else break;
+        }
+        setCurrentSceneId(activeSceneId);
+
+        // Update undo/redo state
+        setCanUndo(undo(newState));
+        setCanRedo(redo(newState));
+      },
+    });
+
+    viewRef.current = view;
+    isInitializedRef.current = true;
+
+    // Initial stats and extraction
+    setWordCount(calculateWordCount(doc));
+    setPageCount(calculatePageCount(doc));
+    setCurrentDoc(doc);
+    setIsReady(true);
+
+    const scenes = extractScenes(doc);
+    const characters = extractCharacters(doc);
+    scenesRef.current = scenes;
+    if (onScenesChangeRef.current) {
+      onScenesChangeRef.current(scenes, characters);
+    }
+
+    return () => {
+      if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
+      if (statsTimeoutRef.current) clearTimeout(statsTimeoutRef.current);
+      view.destroy();
+      viewRef.current = null;
+      isInitializedRef.current = false;
+    };
+  }, [initialContent, editable]);
+
+  return {
+    containerRef: containerRef as React.RefObject<HTMLDivElement>,
+    view: viewRef.current,
+
+    // State
+    currentElementType,
+    currentSceneId,
+    wordCount,
+    pageCount,
+    isReady,
+    canUndo,
+    canRedo,
+    isWasmReady: pagination.isWasmReady,
+    paginationTiming: pagination.timing?.lastDurationMs ?? null,
+    paginationError: pagination.error,
+    paginationResult: pagination.result,
+
+    // Autocomplete
+    autocompleteState,
+    applyAutocompleteSuggestion: commands.applyAutocompleteSuggestion,
+
+    // Commands
+    undo: commands.undo,
+    redo: commands.redo,
+    focus: commands.focus,
+
+    // Element commands
+    setElementType: commands.setElementType,
+    insertSceneHeading: commands.insertSceneHeading,
+    insertAction: commands.insertAction,
+    insertCharacter: commands.insertCharacter,
+    insertDialogue: commands.insertDialogue,
+    insertParenthetical: commands.insertParenthetical,
+    insertTransition: commands.insertTransition,
+
+    // Formatting
+    toggleBold: commands.toggleBold,
+    toggleItalic: commands.toggleItalic,
+    toggleUnderline: commands.toggleUnderline,
+
+    // Content
+    getContent: commands.getContent,
+    getPlainText: commands.getPlainText,
+  };
+}

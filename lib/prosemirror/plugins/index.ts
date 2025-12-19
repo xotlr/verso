@@ -12,6 +12,7 @@ import { createSmartClickPlugin } from './smart-click';
 import { createAutocompletePlugin, AutocompletePluginOptions } from './autocomplete';
 import { createCollaborationPlugin, CollaborationPluginOptions } from './collaboration';
 import { createPastePlugin, CoverPageData } from './paste-handler';
+import { createTypewriterScrollPlugin } from './typewriter-scroll';
 
 export interface CreatePluginsOptions {
   // Enable input rules for auto-formatting
@@ -40,6 +41,10 @@ export interface CreatePluginsOptions {
   collaborationOptions?: CollaborationPluginOptions;
   // Callback when cover page is detected in pasted content
   onCoverPageDetected?: (coverPage: CoverPageData) => void;
+  // Enable typewriter scroll (keeps cursor centered)
+  typewriterScroll?: boolean;
+  // Initial enabled state for typewriter scroll
+  typewriterScrollEnabled?: boolean;
 }
 
 const defaultOptions: CreatePluginsOptions = {
@@ -53,6 +58,8 @@ const defaultOptions: CreatePluginsOptions = {
   sceneNumbering: true,
   autocomplete: true,
   collaboration: false, // Disabled by default, enabled when collaboration is active
+  typewriterScroll: true,
+  typewriterScrollEnabled: false, // Off by default, user can enable in settings
 };
 
 /**
@@ -108,6 +115,11 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
     plugins.push(createCollaborationPlugin(opts.collaborationOptions || {}));
   }
 
+  // Typewriter scroll (keeps cursor centered)
+  if (opts.typewriterScroll) {
+    plugins.push(createTypewriterScrollPlugin({ enabled: opts.typewriterScrollEnabled ?? false }));
+  }
+
   // Drop cursor
   if (opts.dropCursor) {
     plugins.push(dropCursor());
@@ -150,3 +162,13 @@ export type { PaginationState, PageBreak } from './pagination';
 // Paste handler plugin exports
 export { createPastePlugin, pastePluginKey, extractCoverPage } from './paste-handler';
 export type { CoverPageData, PastePluginOptions } from './paste-handler';
+
+// Typewriter scroll plugin exports
+export {
+  createTypewriterScrollPlugin,
+  typewriterScrollPluginKey,
+  updateTypewriterScrollSettings,
+  toggleTypewriterScroll,
+  getTypewriterScrollState,
+} from './typewriter-scroll';
+export type { TypewriterScrollOptions } from './typewriter-scroll';

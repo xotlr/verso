@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { ProjectLayout } from "@/components/layouts/project-layout";
+import { PageLayout } from "@/components/layouts/page-layout";
 import { Shotlist } from "@/components/shotlist/shotlist";
 import { parseScreenplayText } from "@/lib/screenplay-utils";
 import { Shot, SceneWithShots } from "@/types/shotlist";
@@ -60,6 +60,15 @@ export default function ShotlistPage() {
     loadData();
   }, [id]);
 
+  // Dispatch title update for app header
+  useEffect(() => {
+    if (documentTitle && documentTitle !== "Untitled Screenplay") {
+      window.dispatchEvent(new CustomEvent('screenplay-title-update', {
+        detail: { title: documentTitle }
+      }));
+    }
+  }, [documentTitle]);
+
   const handleShotsChange = useCallback((newShots: Shot[]) => {
     setShots(newShots);
   }, []);
@@ -82,17 +91,17 @@ export default function ShotlistPage() {
 
   if (loading) {
     return (
-      <ProjectLayout projectId={id} projectTitle={documentTitle}>
+      <PageLayout>
         <div className="flex items-center justify-center h-full">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      </ProjectLayout>
+      </PageLayout>
     );
   }
 
   if (error) {
     return (
-      <ProjectLayout projectId={id} projectTitle={documentTitle}>
+      <PageLayout>
         <div className="flex flex-col items-center justify-center h-full gap-4">
           <p className="text-destructive">{error}</p>
           <button
@@ -102,12 +111,12 @@ export default function ShotlistPage() {
             Try again
           </button>
         </div>
-      </ProjectLayout>
+      </PageLayout>
     );
   }
 
   return (
-    <ProjectLayout projectId={id} projectTitle={documentTitle}>
+    <PageLayout>
       <Shotlist
         screenplayId={id}
         scenesWithShots={scenesWithShots}
@@ -115,6 +124,6 @@ export default function ShotlistPage() {
         onSceneClick={handleSceneClick}
         onBackToEditor={handleBackToEditor}
       />
-    </ProjectLayout>
+    </PageLayout>
   );
 }

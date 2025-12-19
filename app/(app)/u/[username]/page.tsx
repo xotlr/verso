@@ -16,6 +16,10 @@ import {
   ExternalLink,
   Camera,
   AtSign,
+  Play,
+  MapPin,
+  Calendar,
+  Globe,
 } from 'lucide-react'
 import { EditProfileDialog } from '@/components/edit-profile-dialog'
 import { ConnectButton } from '@/components/connect-button'
@@ -23,31 +27,31 @@ import {
   ProfileBanner,
   ProfileAvatar,
   ProfileStats,
-  ProfileMeta,
   ProfileSocialLinks,
-  ProfileBento,
+  ProfileAvailability,
+  ProfileRolesBadges,
+  ProfileTrustBadges,
+  ProfileFeaturedProject,
+  ProfileCredits,
+  ProfileReplayShowcase,
+  ProfileInfluences,
+  ProfileGear,
+  ProfileLanguages,
+  ProfileResponseRate,
 } from '@/components/profile'
+import type { UserProfile, Availability, ResponseRate } from '@/types/profile'
+import { format } from 'date-fns'
 
-interface UserProfile {
-  id: string
-  name: string | null
-  username: string | null
-  email: string | null
-  image: string | null
-  banner: string | null
-  bio: string | null
-  title: string | null
-  location: string | null
-  website: string | null
-  twitter: string | null
-  linkedin: string | null
-  imdb: string | null
-  isPublic: boolean
-  createdAt: string
-  plan: string
-  interests: string[]
-  skills: string[]
-  lookingFor: string | null
+// Extended UserProfile type for API response (includes projects/screenplays)
+interface UserProfileResponse extends Omit<UserProfile, 'verifiedBadges'> {
+  // Legacy fields for backwards compatibility
+  bio?: string | null
+  title?: string | null
+  interests?: string[]
+  skills?: string[]
+  // API returns these as separate fields
+  emailVerified?: boolean
+  imdbLinked?: boolean
   projects: Array<{
     id: string
     name: string
@@ -63,16 +67,12 @@ interface UserProfile {
     createdAt: string
     updatedAt: string
   }>
-  _count: {
-    projects: number
-    screenplays: number
-  }
 }
 
 export default function UsernameProfilePage() {
   const params = useParams()
   const { data: session } = useSession()
-  const [user, setUser] = useState<UserProfile | null>(null)
+  const [user, setUser] = useState<UserProfileResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -115,7 +115,7 @@ export default function UsernameProfilePage() {
     }
   }, [user])
 
-  const handleProfileUpdate = (updatedUser: Partial<UserProfile>) => {
+  const handleProfileUpdate = (updatedUser: Partial<UserProfileResponse>) => {
     if (user) {
       setUser({ ...user, ...updatedUser })
     }
@@ -136,6 +136,13 @@ export default function UsernameProfilePage() {
     )
   }
 
+  // Normalize data - support both new and legacy fields
+  const displayOneLiner = user.oneLiner || user.bio || null
+  const displayRoles = user.roles?.length > 0 ? user.roles : (user.skills || [])
+  const displayInfluences = user.influences?.length > 0 ? user.influences : (user.interests?.slice(0, 3) || [])
+  const availability = (user.availability || 'NOT_LOOKING') as Availability
+  const responseRate = (user.responseRate || 'UNKNOWN') as ResponseRate
+
   return (
     <div className="min-h-screen">
       {/* Banner with edit overlay for owner */}
@@ -155,10 +162,11 @@ export default function UsernameProfilePage() {
         )}
       </div>
 
-      {/* Profile Header */}
+      {/* Profile Content */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative mb-4">
-          {/* Avatar - positioned to overlap banner by ~50% */}
+        {/* Header Section */}
+        <div className="relative mb-6">
+          {/* Avatar - positioned to overlap banner */}
           <div className="-mt-16 sm:-mt-[68px] mb-3 relative w-fit group/avatar">
             <ProfileAvatar
               userId={user.id}
@@ -177,28 +185,39 @@ export default function UsernameProfilePage() {
             )}
           </div>
 
-          {/* Name, Title, Username, and Edit Button row */}
+          {/* Name, Username, Availability, Edit Button */}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
+            <div className="space-y-2">
+              {/* Name row with availability */}
+              <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-bold text-foreground">
                   {user.name || 'Anonymous'}
                 </h1>
+                <ProfileAvailability availability={availability} />
                 {user.plan !== 'FREE' && (
                   <Badge variant="secondary" className="text-xs">
                     {user.plan}
                   </Badge>
                 )}
               </div>
+
+              {/* Username */}
               {user.username && (
-                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <AtSign className="h-3.5 w-3.5" />
                   {user.username}
                 </p>
               )}
-              {user.title && (
-                <p className="text-base text-muted-foreground mt-0.5">{user.title}</p>
+
+              {/* One-liner */}
+              {displayOneLiner && (
+                <p className="text-base text-foreground/80 max-w-lg">
+                  &ldquo;{displayOneLiner}&rdquo;
+                </p>
               )}
+
+              {/* Role badges */}
+              <ProfileRolesBadges roles={displayRoles} className="pt-1" />
             </div>
 
             {/* Edit Button or Connect Button */}
@@ -206,56 +225,118 @@ export default function UsernameProfilePage() {
               <Button
                 onClick={() => setEditDialogOpen(true)}
                 variant="outline"
-                className="rounded-full px-5 font-semibold"
+                className="rounded-full px-5 font-semibold shrink-0"
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Edit profile
               </Button>
             ) : user ? (
-              <ConnectButton userId={user.id} className="rounded-full px-5" />
+              <ConnectButton userId={user.id} className="rounded-full px-5 shrink-0" />
             ) : null}
           </div>
         </div>
 
-        {/* Bio & Info */}
-        <div className="mb-8 space-y-4">
-          {user.bio && (
-            <p className="text-foreground/90 max-w-2xl">{user.bio}</p>
+        {/* Meta Info Row */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground mb-4">
+          {user.location && (
+            <span className="flex items-center gap-1">
+              <MapPin className="h-3.5 w-3.5" />
+              {user.location}
+            </span>
           )}
-
-          {/* Meta Info */}
-          <ProfileMeta
-            location={user.location}
-            website={user.website}
-            createdAt={user.createdAt}
-            size="md"
-          />
-
-          {/* Social Links */}
-          <ProfileSocialLinks
-            twitter={user.twitter}
-            linkedin={user.linkedin}
-            imdb={user.imdb}
-          />
-
-          {/* Stats */}
-          <ProfileStats
-            projectCount={user._count.projects}
-            scriptCount={user._count.screenplays}
-            className="pt-2"
-          />
+          <span className="flex items-center gap-1">
+            <Calendar className="h-3.5 w-3.5" />
+            Joined {format(new Date(user.createdAt), 'MMMM yyyy')}
+          </span>
+          {user.reelUrl && (
+            <a
+              href={user.reelUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-primary hover:underline"
+            >
+              <Play className="h-3.5 w-3.5" />
+              View Reel
+            </a>
+          )}
+          {user.website && (
+            <a
+              href={user.website.startsWith('http') ? user.website : `https://${user.website}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 hover:text-foreground"
+            >
+              <Globe className="h-3.5 w-3.5" />
+              Website
+            </a>
+          )}
         </div>
 
-        {/* Bento Blocks */}
-        <ProfileBento
-          interests={user.interests || []}
-          skills={user.skills || []}
-          lookingFor={user.lookingFor}
-          isOwnProfile={isOwnProfile}
-          onEdit={() => setEditDialogOpen(true)}
-        />
+        {/* Trust badges + Response rate */}
+        <div className="flex flex-wrap items-center gap-4 mb-6">
+          <ProfileTrustBadges
+            emailVerified={user.emailVerified || false}
+            imdbLinked={Boolean(user.imdb)}
+            projectsCompleted={user.projectsCompleted || 0}
+          />
+          <ProfileResponseRate responseRate={responseRate} />
+        </div>
 
-        {/* Tabs */}
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Left Column - Featured Project, Credits, Showcase */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Featured Project */}
+            {user.featuredProject && (
+              <ProfileFeaturedProject project={user.featuredProject} />
+            )}
+
+            {/* Credits */}
+            {user.credits && user.credits.length > 0 && (
+              <ProfileCredits credits={user.credits} />
+            )}
+
+            {/* Replay Showcase */}
+            {user.showcaseTimelapse && (
+              <ProfileReplayShowcase timelapseShareId={user.showcaseTimelapse} />
+            )}
+
+            {/* Looking For */}
+            {user.lookingFor && (
+              <div className="space-y-2">
+                <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Looking For
+                </h3>
+                <p className="text-sm text-foreground/80 bg-card rounded-lg border p-3">
+                  {user.lookingFor}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Vibe Section */}
+          <div className="space-y-4">
+            <ProfileInfluences influences={displayInfluences} />
+            {user.gear && <ProfileGear gear={user.gear} />}
+            <ProfileLanguages languages={user.languages || []} />
+
+            {/* Social Links */}
+            <ProfileSocialLinks
+              twitter={user.twitter}
+              linkedin={user.linkedin}
+              imdb={user.imdb}
+            />
+
+            {/* Stats */}
+            <ProfileStats
+              projectCount={user._count?.projects || 0}
+              scriptCount={user._count?.screenplays || 0}
+              className="pt-2"
+            />
+          </div>
+        </div>
+
+        {/* Projects/Scripts Tabs */}
         <Tabs defaultValue="projects" className="pb-8">
           <TabsList className="mb-6">
             <TabsTrigger value="projects" className="gap-2">
@@ -348,8 +429,10 @@ export default function UsernameProfilePage() {
         <EditProfileDialog
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}
-          user={user}
-          onSave={handleProfileUpdate}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          user={user as any}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          onSave={handleProfileUpdate as any}
         />
       )}
     </div>
@@ -381,29 +464,45 @@ function ProfileSkeleton() {
     <div className="min-h-screen">
       <Skeleton className="h-48 md:h-52 w-full" />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative mb-4">
+        <div className="relative mb-6">
           <div className="-mt-16 sm:-mt-[68px] mb-3">
             <Skeleton className="h-32 w-32 sm:h-[134px] sm:w-[134px] rounded-md" />
           </div>
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-            <div className="space-y-2">
-              <Skeleton className="h-7 w-48" />
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-7 w-48" />
+                <Skeleton className="h-5 w-20" />
+              </div>
               <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-64" />
+              <div className="flex gap-2">
+                <Skeleton className="h-6 w-16 rounded-full" />
+                <Skeleton className="h-6 w-16 rounded-full" />
+              </div>
             </div>
             <Skeleton className="h-10 w-32 rounded-full" />
           </div>
         </div>
-        <div className="space-y-4 mb-8">
-          <Skeleton className="h-4 w-full max-w-2xl" />
-          <Skeleton className="h-4 w-2/3 max-w-xl" />
-          <div className="flex gap-6">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-4 w-32" />
+        <div className="flex gap-4 mb-4">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+        <div className="flex gap-4 mb-6">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-40" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton className="h-24 w-full rounded-lg" />
+            <Skeleton className="h-32 w-full rounded-lg" />
           </div>
-          <div className="flex gap-5 pt-2">
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-4 w-20" />
+          <div className="space-y-4">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
           </div>
         </div>
         <Skeleton className="h-10 w-64 mb-6" />

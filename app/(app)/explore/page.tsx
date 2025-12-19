@@ -61,12 +61,19 @@ interface PublicProject {
   description: string | null;
   banner: string | null;
   logo: string | null;
+  status: string;
   publishedAt: string | null;
   user: {
     id: string;
     name: string | null;
     image: string | null;
   };
+  roles: Array<{
+    id: string;
+    role: string;
+    name: string;
+    user?: { id: string; image: string | null } | null;
+  }>;
   _count: {
     screenplays: number;
   };

@@ -8,6 +8,12 @@
  */
 
 import { Scene, SceneElement } from '@/types/screenplay';
+import type {
+  ImportStats,
+  ImportWarning,
+  ParsedCharacter,
+  DualDialogueGroup,
+} from '@/lib/parsers/types';
 
 // Alias for clarity
 type ScreenplayElement = SceneElement;
@@ -31,6 +37,11 @@ export interface FountainParseResult {
   scenes: Scene[];
   elements: ScreenplayElement[];
   rawText: string;
+  // Enhanced fields
+  stats?: ImportStats;
+  warnings?: ImportWarning[];
+  characters?: ParsedCharacter[];
+  dualDialogues?: DualDialogueGroup[];
 }
 
 // Fountain syntax patterns
@@ -94,6 +105,9 @@ export function parseFountain(fountainText: string): FountainParseResult {
   const titlePage: FountainTitlePage = {};
   const elements: ScreenplayElement[] = [];
   const scenes: Scene[] = [];
+  const warnings: ImportWarning[] = [];
+  const characterMap = new Map<string, ParsedCharacter>();
+  const dualDialogues: DualDialogueGroup[] = [];
 
   let inTitlePage = true;
   let inBoneyard = false;
@@ -103,6 +117,17 @@ export function parseFountain(fountainText: string): FountainParseResult {
   let elementId = 0;
   let previousLineWasBlank = true;
   let previousElement: ScreenplayElement | null = null;
+
+  // Stats tracking
+  let dialogueCount = 0;
+  let actionCount = 0;
+  let transitionCount = 0;
+  const dualDialogueCount = 0; // Fountain dual dialogue counted via ^ marker
+
+  // Dual dialogue state
+  let pendingDualDialogue: {
+    left: { character: string; extension?: string; dialogue: string[]; parentheticals: string[] };
+  } | null = null;
 
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
@@ -238,6 +263,8 @@ export function parseFountain(fountainText: string): FountainParseResult {
     )) {
       const transition = trimmedLine.startsWith('>') ? trimmedLine.substring(1).trim() : trimmedLine;
 
+      transitionCount++;
+
       const element: ScreenplayElement = {
         id: `elem-${++elementId}`,
         type: 'transition',
@@ -272,6 +299,25 @@ export function parseFountain(fountainText: string): FountainParseResult {
         characterName = characterName.slice(0, -1).trim();
       }
 
+      // Parse character name and extension
+      const { name: baseName, extension } = parseCharacterExtension(characterName);
+
+      // Track character for stats
+      if (!characterMap.has(baseName)) {
+        characterMap.set(baseName, { name: baseName, extension, dialogueCount: 0 });
+      }
+
+      // Handle dual dialogue tracking
+      if (isDual && pendingDualDialogue) {
+        // This is the right side of dual dialogue
+        pendingDualDialogue = null; // Will be completed when dialogue ends
+      } else if (!isDual) {
+        // Start tracking for potential dual dialogue
+        pendingDualDialogue = {
+          left: { character: baseName, extension: extension || undefined, dialogue: [], parentheticals: [] },
+        };
+      }
+
       const element: ScreenplayElement = {
         id: `elem-${++elementId}`,
         type: 'character',
@@ -282,7 +328,6 @@ export function parseFountain(fountainText: string): FountainParseResult {
       if (currentScene) {
         currentScene.elements.push(element);
         // Track character appearances
-        const baseName = characterName.replace(/\s*\([^)]+\)\s*$/, '').trim();
         if (!currentScene.characters.includes(baseName)) {
           currentScene.characters.push(baseName);
         }
@@ -317,6 +362,17 @@ export function parseFountain(fountainText: string): FountainParseResult {
       // Apply emphasis formatting
       const formatted = applyEmphasis(dialogueContent);
 
+      dialogueCount++;
+
+      // Update character dialogue count
+      if (currentScene && currentScene.characters.length > 0) {
+        const lastChar = currentScene.characters[currentScene.characters.length - 1];
+        const charData = characterMap.get(lastChar);
+        if (charData) {
+          charData.dialogueCount = (charData.dialogueCount || 0) + 1;
+        }
+      }
+
       const element: ScreenplayElement = {
         id: `elem-${++elementId}`,
         type: 'dialogue',
@@ -334,6 +390,8 @@ export function parseFountain(fountainText: string): FountainParseResult {
     // Action (default)
     if (!isBlankLine) {
       const formatted = applyEmphasis(trimmedLine);
+
+      actionCount++;
 
       const element: ScreenplayElement = {
         id: `elem-${++elementId}`,
@@ -361,13 +419,64 @@ export function parseFountain(fountainText: string): FountainParseResult {
     scenes.push(currentScene);
   }
 
+  // Build stats
+  const stats: ImportStats = {
+    scenes: scenes.length,
+    characters: Array.from(characterMap.keys()),
+    pages: Math.ceil(elements.length / 55), // Rough estimate: ~55 elements per page
+    dialogueBlocks: dialogueCount,
+    actionBlocks: actionCount,
+    transitions: transitionCount,
+    dualDialogues: dualDialogueCount,
+    revisionMarks: 0, // Fountain doesn't have revision tracking
+  };
+
+  // Add warnings for potential issues
+  if (scenes.length === 0) {
+    warnings.push({
+      type: 'structure',
+      message: 'No scene headings detected',
+      location: {},
+      suggestion: 'Consider adding scene headings (INT./EXT.) for proper formatting',
+    });
+  }
+
+  if (characterMap.size === 0 && elements.length > 10) {
+    warnings.push({
+      type: 'character',
+      message: 'No character names detected',
+      location: {},
+      suggestion: 'Character names should be in ALL CAPS',
+    });
+  }
+
   return {
     titlePage,
     content: contentLines.join(''),
     scenes,
     elements,
     rawText: fountainText,
+    stats,
+    warnings,
+    characters: Array.from(characterMap.values()),
+    dualDialogues,
   };
+}
+
+/**
+ * Parse character name and extension (V.O., O.S., CONT'D, etc.)
+ */
+function parseCharacterExtension(text: string): { name: string; extension: string | null } {
+  // Match patterns: "FELIX", "FELIX (V.O.)", "FELIX (CONT'D)", "FELIX (O.S.) (CONT'D)"
+  const extensionPattern = /^(.+?)\s*(\([^)]+\))?\s*(\([^)]+\))?$/;
+  const match = text.trim().match(extensionPattern);
+
+  if (!match) return { name: text.trim(), extension: null };
+
+  const name = match[1].trim();
+  const extensions = [match[2], match[3]].filter(Boolean).join(' ');
+
+  return { name, extension: extensions || null };
 }
 
 /**

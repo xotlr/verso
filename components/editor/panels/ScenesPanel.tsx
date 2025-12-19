@@ -3,16 +3,13 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
   Film,
   ChevronDown,
   ChevronUp,
   Clapperboard,
-  Search,
   X,
-  Plus,
   MoreHorizontal,
   Trash2,
   Copy,
@@ -34,27 +31,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
+import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
 import {
   SortableContext,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { SceneInfo } from '@/hooks/editor/useProseMirrorEditor';
+import type { SceneInfo } from '@/hooks/editor/use-prosemirror-editor';
 import type { EditorView } from 'prosemirror-view';
 import { TextSelection } from 'prosemirror-state';
 import { FilterPill } from '@/components/ui/list-page-toolbar';
 import { Badge } from '@/components/ui/badge';
+import { PanelHeader } from './PanelHeader';
+import { PanelSearch } from './PanelSearch';
+import { PanelEmptyState } from './PanelEmptyState';
+import { usePanelDndSensors } from './use-panel-dnd';
 
 interface Act {
   id: string;
@@ -258,16 +250,7 @@ export function ScenesPanel({
   const activeFilterCount = sceneTypeFilters.size + timeOfDayFilters.size + (searchQuery ? 1 : 0);
 
   // Sensors for drag & drop
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  const sensors = usePanelDndSensors();
 
   // Group scenes into acts (every 10 scenes)
   const acts = useMemo(() => {
@@ -383,41 +366,21 @@ export function ScenesPanel({
 
   return (
     <div className={cn('flex flex-col h-full', className)}>
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-        <h2 className="font-semibold text-sm">Scenes</h2>
-        <span className="text-[10px] text-muted-foreground ml-auto">
-          {scenes.length}
-        </span>
-        {onAddScene && (
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddScene}>
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-        )}
-      </div>
+      <PanelHeader
+        title="Scenes"
+        count={scenes.length}
+        onAdd={onAddScene}
+        addLabel="Add scene"
+      />
 
       {/* Search & Filters */}
       {scenes.length > 5 && (
         <div className="px-3 py-2 border-b border-border space-y-2 shrink-0">
-          {/* Search input */}
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search scenes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 pr-8 text-xs"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
+          <PanelSearch
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search scenes..."
+          />
 
           {/* Scene Type Filters - Compact */}
           <div className="flex flex-wrap gap-1">
@@ -510,25 +473,14 @@ export function ScenesPanel({
       <ScrollArea className="flex-1">
         <div className="p-3">
           {filteredActs.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Film className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p className="font-medium text-xs">
-                {activeFilterCount > 0 ? 'No matching scenes' : 'No scenes yet'}
-              </p>
-              <p className="text-[10px] mt-1">
-                {activeFilterCount > 0
-                  ? 'Try adjusting your filters or search term'
-                  : 'Start writing to see your story structure.'}
-              </p>
-              {activeFilterCount > 0 && (
-                <button
-                  onClick={clearFilters}
-                  className="mt-2 text-[10px] text-primary hover:underline"
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
+            <PanelEmptyState
+              icon={Film}
+              title={activeFilterCount > 0 ? 'No matching scenes' : 'No scenes yet'}
+              description={activeFilterCount > 0
+                ? 'Try adjusting your filters or search term'
+                : 'Start writing to see your story structure.'}
+              action={activeFilterCount > 0 ? { label: 'Clear filters', onClick: clearFilters } : undefined}
+            />
           ) : (
             <div className="space-y-2">
               {filteredActs.map((act) => (

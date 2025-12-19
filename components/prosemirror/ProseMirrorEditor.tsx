@@ -7,9 +7,9 @@ import {
   useProseMirrorEditor,
   SceneInfo,
   CharacterInfo,
-} from '@/hooks/editor/useProseMirrorEditor';
-import { useResponsiveScale } from '@/hooks/editor/useResponsiveScale';
-import { useEditorZoom } from '@/hooks/editor/useEditorZoom';
+} from '@/hooks/editor/use-prosemirror-editor';
+import { useResponsiveScale } from '@/hooks/editor/use-responsive-scale';
+import { useEditorZoom } from '@/hooks/editor/use-editor-zoom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PAGE_WIDTH_PX, PAGE_HEIGHT_PX } from '@/lib/constants';
 import { FloatingToolbar } from './FloatingToolbar';
@@ -18,15 +18,17 @@ import { EditorContextMenu } from './EditorContextMenu';
 import { ElementToolbar } from './ElementToolbar';
 import { LeftToolbar } from '@/components/editor/LeftToolbar';
 import { RightToolbar } from '@/components/editor/RightToolbar';
+import { EditorUnifiedToolbar } from '@/components/editor/EditorUnifiedToolbar';
 import { EditorScrollArea, EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { PageFrameRenderer, PageGapRenderer } from './PageFrameRenderer';
 import { createPageFramesFromWasm, PAGE_GAP_PX } from '@/lib/prosemirror/plugins/page-frames';
 import { applyLayoutCSS, applyLayoutMetadataCSS, DEFAULT_FEATURE_FILM_CONFIG } from '@/lib/verso';
 import { Button } from '@/components/ui/button';
-import { MobileEditorToolbar } from '@/components/mobile-editor-toolbar';
+import { MobileEditorToolbar } from '@/components/editor/mobile-editor-toolbar';
 import { MobileSceneCharacterSheet } from '@/components/editor/MobileSceneCharacterSheet';
 import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
 import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plugins/keymap';
+import { updateTypewriterScrollSettings } from '@/lib/prosemirror/plugins';
 import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
 import { useSettings } from '@/contexts/settings-context';
 import '@/styles/editor/prosemirror.css';
@@ -56,8 +58,12 @@ export interface ProseMirrorEditorProps {
   showPageBreaks?: boolean;
   onToggleLineNumbers?: () => void;
   onTogglePageBreaks?: () => void;
-  onShare?: () => void;
   onTimelapse?: () => void;
+  // Activity bar counts for Maelle toolbar
+  scenesCount?: number;
+  charactersCount?: number;
+  shotlistCount?: number;
+  notesCount?: number;
 }
 
 /**
@@ -141,12 +147,19 @@ export function ProseMirrorEditor({
   showPageBreaks = true,
   onToggleLineNumbers,
   onTogglePageBreaks,
-  onShare,
   onTimelapse,
+  scenesCount = 0,
+  charactersCount = 0,
+  shotlistCount = 0,
+  notesCount = 0,
 }: ProseMirrorEditorProps) {
   const { settings } = useSettings();
   // Read scroll mode directly from settings
   const viewMode = settings.editor.scrollMode ?? defaultViewMode;
+  // Toolbar layout: 'verso' (separate floating) or 'inverso' (unified header)
+  const toolbarLayout = settings.layout.toolbarLayout ?? 'verso';
+  // Page style: 'themed' uses theme colors, 'plain' uses off-white
+  const pageStyle = settings.editor.pageStyle ?? 'themed';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_currentSpread, setCurrentSpread] = useState(0);
   const [isInFocusMode, setIsInFocusMode] = useState(false);
@@ -296,6 +309,13 @@ export function ProseMirrorEditor({
     }
   }, [currentSceneId, onCurrentSceneChange]);
 
+  // Sync typewriter mode setting with plugin
+  useEffect(() => {
+    if (view) {
+      updateTypewriterScrollSettings(view, { enabled: settings.editor.typewriterMode });
+    }
+  }, [view, settings.editor.typewriterMode]);
+
   // Calculate total spreads for dual view
   const totalSpreads = Math.ceil(pageCount / 2);
 
@@ -358,30 +378,50 @@ export function ProseMirrorEditor({
         className
       )}
     >
-      {/* Right toolbar - focus mode, share, timelapse, version history (visible in focus mode) */}
+      {/* Desktop toolbars - conditional based on layout setting */}
       {isReady && !isMobile && (
-        <RightToolbar
-          onToggleFocusMode={toggleFocusMode}
-          onShare={onShare}
-          onTimelapse={onTimelapse}
-          onVersionHistory={onToggleVersionHistory}
-          isInFocusMode={isInFocusMode}
-        />
-      )}
-
-      {/* Left toolbar - zoom, undo/redo, settings (visible in focus mode) */}
-      {isReady && !isMobile && (
-        <LeftToolbar
-          zoom={scale}
-          fitToWidthScale={fitToWidthScale}
-          onZoomChange={setZoom}
-          onResetZoom={resetZoom}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          isInFocusMode={isInFocusMode}
-        />
+        toolbarLayout === 'maelle' ? (
+          // Maelle: Unified floating header (Google Docs style)
+          <EditorUnifiedToolbar
+            zoom={scale}
+            fitToWidthScale={fitToWidthScale}
+            onZoomChange={setZoom}
+            onResetZoom={resetZoom}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            onToggleFocusMode={toggleFocusMode}
+            onTimelapse={onTimelapse}
+            onVersionHistory={onToggleVersionHistory}
+            scenesCount={scenesCount}
+            charactersCount={charactersCount}
+            shotlistCount={shotlistCount}
+            notesCount={notesCount}
+            isInFocusMode={isInFocusMode}
+          />
+        ) : (
+          // Verso: Separate floating toolbars (Procreate style)
+          <>
+            <RightToolbar
+              onToggleFocusMode={toggleFocusMode}
+              onTimelapse={onTimelapse}
+              onVersionHistory={onToggleVersionHistory}
+              isInFocusMode={isInFocusMode}
+            />
+            <LeftToolbar
+              zoom={scale}
+              fitToWidthScale={fitToWidthScale}
+              onZoomChange={setZoom}
+              onResetZoom={resetZoom}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              isInFocusMode={isInFocusMode}
+            />
+          </>
+        )
       )}
 
       {/* Focus mode exit button - only on mobile when in focus mode */}
@@ -401,7 +441,7 @@ export function ProseMirrorEditor({
       <EditorScrollArea
         ref={scrollContainerRef}
         className={cn(
-          'pm-editor-scroll-area h-full',
+          'pm-editor-scroll-area pm-editor-scroll-container h-full',
           viewMode === 'continuous' && 'pm-continuous-mode'
         )}
       >
@@ -411,6 +451,8 @@ export function ProseMirrorEditor({
             frames={pageFrames}
             scale={scale}
             discreteMode={isDiscreteMode}
+            pageStyle={pageStyle}
+            showPageNumbers={settings.interface.showPageNumbers}
           />
         )}
 
@@ -449,6 +491,7 @@ export function ProseMirrorEditor({
                 !isReady && 'opacity-0',
                 'transition-opacity duration-200'
               )}
+              data-page-style={pageStyle}
             />
           </div>
         </EditorContextMenu>
@@ -463,7 +506,7 @@ export function ProseMirrorEditor({
       )}
 
       {/* Stats bar - hidden on mobile */}
-      {showStats && isReady && !isMobile && (
+      {showStats && settings.interface.showStatsBar && isReady && !isMobile && (
         <StatsBar
           wordCount={wordCount}
           pageCount={pageCount}

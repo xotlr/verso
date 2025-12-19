@@ -21,10 +21,9 @@ export async function GET(
         name: true,
         username: true,
         email: false, // Never expose email via username lookup
+        emailVerified: true, // For verified badge
         image: true,
         banner: true,
-        bio: true,
-        title: true,
         location: true,
         website: true,
         twitter: true,
@@ -33,10 +32,55 @@ export async function GET(
         isPublic: true,
         createdAt: true,
         plan: true,
-        // Bento blocks
+
+        // Core Profile (NEW)
+        oneLiner: true,
+        roles: true,
+        reelUrl: true,
+        availability: true,
+
+        // The Work
+        featuredProjectId: true,
+        featuredProject: {
+          select: {
+            id: true,
+            name: true,
+            coverImage: true,
+            description: true,
+          },
+        },
+        showcaseTimelapse: true,
+        credits: {
+          orderBy: [{ displayOrder: 'asc' }, { year: 'desc' }],
+          take: 10,
+          select: {
+            id: true,
+            title: true,
+            role: true,
+            year: true,
+            projectId: true,
+            isManual: true,
+            displayOrder: true,
+          },
+        },
+
+        // Trust Layer
+        responseRate: true,
+        projectsCompleted: true,
+
+        // The Vibe
+        influences: true,
+        lookingFor: true,
+        gear: true,
+        languages: true,
+
+        // LEGACY - keeping for migration
+        bio: true,
+        title: true,
         interests: true,
         skills: true,
-        lookingFor: true,
+
+        // Projects (for featured selection)
         projects: {
           where: { isPublic: true },
           select: {
@@ -52,12 +96,14 @@ export async function GET(
           orderBy: { updatedAt: 'desc' },
           take: 12,
         },
+        // Screenplays with timelapse
         screenplays: {
-          where: { isPublic: true },
+          where: { isPublic: true, timelapseShareId: { not: null } },
           select: {
             id: true,
             title: true,
             synopsis: true,
+            timelapseShareId: true,
             createdAt: true,
             updatedAt: true,
           },

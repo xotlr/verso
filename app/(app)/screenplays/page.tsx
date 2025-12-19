@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -11,9 +11,13 @@ import { MoveToProjectDialog } from '@/components/move-to-project-dialog';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { ListPageToolbar, FilterPill } from '@/components/ui/list-page-toolbar';
 import { ListWithPreview } from '@/components/ui/list-preview-panel';
-import { ScreenplayListCard, ScreenplayListCardSkeleton } from '@/components/screenplay-list-card';
-import { ScreenplayListRow, ScreenplayListRowSkeleton } from '@/components/screenplay-list-row';
+import { ScreenplayListCard, ScreenplayListCardSkeleton } from '@/components/screenplay/screenplay-list-card';
+import { ScreenplayListRow, ScreenplayListRowSkeleton } from '@/components/screenplay/screenplay-list-row';
+import { WorkspaceDndContext, DraggableScreenplayData } from '@/components/workspace/workspace-dnd-context';
+import { DraggableScreenplayCard } from '@/components/workspace/draggable-screenplay-card';
+import { DroppableStackCard } from '@/components/workspace/droppable-stack-card';
 import { useViewMode } from '@/hooks/use-view-mode';
+import type { StackItem } from '@/hooks/use-workspace-data';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,11 +54,13 @@ interface Screenplay {
   isFavorite: boolean;
   lastOpenedAt: string | null;
   genre: string | null;
-  wordCount?: number;
+  wordCount: number;
   project: { id: string; name: string } | null;
   team: { id: string; name: string } | null;
   author?: string | null;
   user?: { id: string; name: string | null } | null;
+  stackId?: string | null;
+  content?: string;
 }
 
 interface Filters {
@@ -70,9 +76,10 @@ function ScreenplaysContent() {
   const searchParams = useSearchParams();
 
   const [screenplays, setScreenplays] = useState<Screenplay[]>([]);
+  const [stacks, setStacks] = useState<StackItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: 'screenplay' | 'stack' } | null>(null);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [moveTarget, setMoveTarget] = useState<Screenplay | null>(null);
   const [viewMode, setViewMode] = useViewMode('screenplays');
@@ -88,60 +95,162 @@ function ScreenplaysContent() {
     genre: searchParams.get('genre'),
   }));
 
-  useEffect(() => {
-    loadScreenplays();
-  }, []);
-
-  const loadScreenplays = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/screenplays');
-      if (response.ok) {
-        const data = await response.json();
+      const [screenplaysRes, stacksRes] = await Promise.all([
+        fetch('/api/screenplays'),
+        fetch('/api/stacks'),
+      ]);
+      if (screenplaysRes.ok) {
+        const data = await screenplaysRes.json();
         setScreenplays(data.screenplays);
       }
+      if (stacksRes.ok) {
+        const data = await stacksRes.json();
+        setStacks(data || []);
+      }
     } catch (error) {
-      console.error('Error loading screenplays:', error);
+      console.error('Error loading data:', error);
       toast.error('Failed to load screenplays');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const deleteScreenplay = async () => {
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Stack operations
+  const createStackFromDrop = useCallback(async (draggedId: string, targetId: string): Promise<StackItem | null> => {
+    const draggedScreenplay = screenplays.find((s) => s.id === draggedId);
+    const targetScreenplay = screenplays.find((s) => s.id === targetId);
+
+    if (!draggedScreenplay || !targetScreenplay) return null;
+
+    // Optimistic update
+    const tempStackId = `temp-${Date.now()}`;
+    const tempStack: StackItem = {
+      id: tempStackId,
+      name: `${targetScreenplay.title} Stack`,
+      updatedAt: new Date().toISOString(),
+      screenplays: [
+        { id: draggedId, title: draggedScreenplay.title, wordCount: draggedScreenplay.wordCount },
+        { id: targetId, title: targetScreenplay.title, wordCount: targetScreenplay.wordCount },
+      ],
+      _count: { screenplays: 2 },
+    };
+
+    setScreenplays((prev) => prev.filter((s) => s.id !== draggedId && s.id !== targetId));
+    setStacks((prev) => [tempStack, ...prev]);
+
+    try {
+      const response = await fetch('/api/stacks/create-from-drop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draggedId, targetId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create stack');
+      }
+
+      const result = await response.json();
+      setStacks((prev) => prev.map((s) => (s.id === tempStackId ? result.stack : s)));
+      toast.success('Stack created');
+      return result.stack;
+    } catch {
+      // Rollback
+      setStacks((prev) => prev.filter((s) => s.id !== tempStackId));
+      setScreenplays((prev) => [...prev, draggedScreenplay, targetScreenplay]);
+      toast.error('Failed to create stack');
+      return null;
+    }
+  }, [screenplays]);
+
+  const addToStack = useCallback(async (screenplayId: string, stackId: string): Promise<void> => {
+    const screenplay = screenplays.find((s) => s.id === screenplayId);
+    if (!screenplay) return;
+
+    // Optimistic update
+    setScreenplays((prev) => prev.filter((s) => s.id !== screenplayId));
+    setStacks((prev) =>
+      prev.map((stack) => {
+        if (stack.id === stackId) {
+          return {
+            ...stack,
+            screenplays: [
+              ...(stack.screenplays || []),
+              { id: screenplayId, title: screenplay.title, wordCount: screenplay.wordCount },
+            ],
+            _count: { screenplays: (stack._count?.screenplays || 0) + 1 },
+          };
+        }
+        return stack;
+      })
+    );
+
+    try {
+      const response = await fetch(`/api/stacks/${stackId}/screenplays`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ screenplayIds: [screenplayId] }),
+      });
+
+      if (!response.ok) throw new Error('Failed to add to stack');
+      toast.success('Added to stack');
+    } catch {
+      // Rollback
+      setScreenplays((prev) => [...prev, screenplay]);
+      setStacks((prev) =>
+        prev.map((stack) => {
+          if (stack.id === stackId) {
+            return {
+              ...stack,
+              screenplays: (stack.screenplays || []).filter((s) => s.id !== screenplayId),
+              _count: { screenplays: Math.max((stack._count?.screenplays || 1) - 1, 0) },
+            };
+          }
+          return stack;
+        })
+      );
+      toast.error('Failed to add to stack');
+    }
+  }, [screenplays]);
+
+  const dissolveStack = useCallback(async (stackId: string): Promise<void> => {
+    try {
+      const response = await fetch(`/api/stacks/${stackId}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to dissolve stack');
+      await loadData();
+      toast.success('Stack dissolved');
+    } catch {
+      toast.error('Failed to dissolve stack');
+    }
+  }, [loadData]);
+
+  const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const response = await fetch(`/api/screenplays/${deleteTarget}`, {
-        method: 'DELETE',
-      });
+      const endpoint = deleteTarget.type === 'stack'
+        ? `/api/stacks/${deleteTarget.id}`
+        : `/api/screenplays/${deleteTarget.id}`;
+      const response = await fetch(endpoint, { method: 'DELETE' });
       if (response.ok) {
-        setScreenplays((prev) => prev.filter((s) => s.id !== deleteTarget));
-        toast.success('Screenplay deleted');
+        if (deleteTarget.type === 'stack') {
+          await loadData();
+          toast.success('Stack deleted');
+        } else {
+          setScreenplays((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+          toast.success('Screenplay deleted');
+        }
       }
     } catch (error) {
-      console.error('Error deleting screenplay:', error);
-      toast.error('Failed to delete screenplay');
+      console.error('Error deleting:', error);
+      toast.error(`Failed to delete ${deleteTarget.type}`);
     } finally {
       setDeleteTarget(null);
-    }
-  };
-
-  const toggleFavorite = async (id: string, currentFavorite: boolean) => {
-    try {
-      const response = await fetch(`/api/screenplays/${id}/favorite`, {
-        method: 'POST',
-      });
-      if (response.ok) {
-        setScreenplays((prev) =>
-          prev.map((s) =>
-            s.id === id ? { ...s, isFavorite: !currentFavorite } : s
-          )
-        );
-        toast.success(currentFavorite ? 'Removed from favorites' : 'Added to favorites');
-      }
-    } catch (error) {
-      console.error('Error toggling favorite:', error);
-      toast.error('Failed to update favorite');
     }
   };
 
@@ -211,9 +320,9 @@ function ScreenplaysContent() {
     return Array.from(genreSet).sort();
   }, [screenplays]);
 
-  // Apply filters
+  // Apply filters (exclude screenplays in stacks - they appear inside stack cards)
   const filteredScreenplays = useMemo(() => {
-    let result = screenplays;
+    let result = screenplays.filter((s) => !s.stackId);
 
     // Search filter
     if (searchQuery) {
@@ -257,6 +366,17 @@ function ScreenplaysContent() {
 
     return result;
   }, [screenplays, searchQuery, filters]);
+
+  // Filter stacks
+  const filteredStacks = useMemo(() => {
+    if (!searchQuery) return stacks;
+    const query = searchQuery.toLowerCase();
+    return stacks.filter(
+      (stack) =>
+        stack.name.toLowerCase().includes(query) ||
+        stack.screenplays?.some((s) => s.title.toLowerCase().includes(query))
+    );
+  }, [stacks, searchQuery]);
 
   // Update URL when filters change
   useEffect(() => {
@@ -308,15 +428,19 @@ function ScreenplaysContent() {
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Screenplay</AlertDialogTitle>
+            <AlertDialogTitle>
+              Delete {deleteTarget?.type === 'stack' ? 'Stack' : 'Screenplay'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure? This action cannot be undone.
+              {deleteTarget?.type === 'stack'
+                ? 'Are you sure? Screenplays in this stack will become standalone. This action cannot be undone.'
+                : 'Are you sure? This action cannot be undone.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={deleteScreenplay}
+              onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
@@ -332,7 +456,7 @@ function ScreenplaysContent() {
           screenplayId={moveTarget.id}
           screenplayTitle={moveTarget.title}
           currentProjectId={moveTarget.project?.id}
-          onSuccess={loadScreenplays}
+          onSuccess={loadData}
         />
       )}
 
@@ -467,7 +591,7 @@ function ScreenplaysContent() {
               ))}
             </div>
           )
-        ) : filteredScreenplays.length === 0 ? (
+        ) : filteredScreenplays.length === 0 && filteredStacks.length === 0 ? (
           <EmptyState
             icon={<PiFilmScript className="h-8 w-8 text-muted-foreground" />}
             title={searchQuery || activeFilterCount > 0 ? 'No screenplays found' : 'No screenplays yet'}
@@ -487,37 +611,53 @@ function ScreenplaysContent() {
             }
           />
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
-            {filteredScreenplays.map((screenplay) => (
-              <ScreenplayListCard
-                key={screenplay.id}
-                screenplay={{
-                  id: screenplay.id,
-                  title: screenplay.title,
-                  logline: screenplay.logline,
-                  synopsis: screenplay.synopsis,
-                  updatedAt: screenplay.updatedAt,
-                  wordCount: screenplay.wordCount,
-                  genre: screenplay.genre,
-                  isFavorite: screenplay.isFavorite,
-                  project: screenplay.project,
-                  author: screenplay.author,
-                  user: screenplay.user,
-                }}
-                href={`/screenplay/${screenplay.id}`}
-                showFavorite={true}
-                showGenre={true}
-                showProject={false}
-                showWordCount={true}
-                onEdit={() => router.push(`/screenplay/${screenplay.id}`)}
-                onToggleFavorite={() => toggleFavorite(screenplay.id, screenplay.isFavorite)}
-                onExport={() => exportScreenplay(screenplay)}
-                onMoveToProject={() => setMoveTarget(screenplay)}
-                onCreateProject={() => createProjectFromScreenplay(screenplay)}
-                onDelete={() => setDeleteTarget(screenplay.id)}
-              />
-            ))}
-          </div>
+          <WorkspaceDndContext
+            onCreateStack={createStackFromDrop}
+            onAddToStack={addToStack}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+              {/* Render stacks first */}
+              {filteredStacks.map((stack) => (
+                <DroppableStackCard
+                  key={`stack-${stack.id}`}
+                  stack={stack}
+                  href={`/stack/${stack.id}`}
+                  onUngroup={() => dissolveStack(stack.id)}
+                  onDelete={() => setDeleteTarget({ id: stack.id, type: 'stack' })}
+                />
+              ))}
+              {/* Then render standalone screenplays */}
+              {filteredScreenplays.map((screenplay) => (
+                <DraggableScreenplayCard
+                  key={screenplay.id}
+                  fullScreenplay={screenplay as DraggableScreenplayData}
+                  screenplay={{
+                    id: screenplay.id,
+                    title: screenplay.title,
+                    logline: screenplay.logline,
+                    synopsis: screenplay.synopsis,
+                    updatedAt: screenplay.updatedAt,
+                    wordCount: screenplay.wordCount,
+                    genre: screenplay.genre,
+                    isFavorite: screenplay.isFavorite,
+                    project: screenplay.project,
+                    author: screenplay.author,
+                    user: screenplay.user,
+                  }}
+                  href={`/screenplay/${screenplay.id}`}
+                  showFavorite={true}
+                  showGenre={true}
+                  showProject={false}
+                  showWordCount={true}
+                  onEdit={() => router.push(`/screenplay/${screenplay.id}`)}
+                  onExport={() => exportScreenplay(screenplay)}
+                  onMoveToProject={() => setMoveTarget(screenplay)}
+                  onCreateProject={() => createProjectFromScreenplay(screenplay)}
+                  onDelete={() => setDeleteTarget({ id: screenplay.id, type: 'screenplay' })}
+                />
+              ))}
+            </div>
+          </WorkspaceDndContext>
         ) : (
           <ListWithPreview
             preview={

@@ -59,6 +59,11 @@ const ELEMENT_ICONS: Record<ElementType, React.ReactNode> = {
   transition: <ArrowRight className="h-4 w-4" />,
   ending: <Type className="h-4 w-4" />,
   shot: <Camera className="h-4 w-4" />,
+  super: <Type className="h-4 w-4" />,
+  chyron: <Type className="h-4 w-4" />,
+  flashback: <Type className="h-4 w-4" />,
+  montage: <Type className="h-4 w-4" />,
+  intercut: <Type className="h-4 w-4" />,
   dual_dialogue: <MessageSquare className="h-4 w-4" />,
 };
 

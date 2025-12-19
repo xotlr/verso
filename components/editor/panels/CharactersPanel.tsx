@@ -3,13 +3,9 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
   Users,
-  Search,
-  X,
-  Plus,
   MoreHorizontal,
   Edit2,
   Trash2,
@@ -34,23 +30,18 @@ import {
 import { toast } from 'sonner';
 import type { EditorView } from 'prosemirror-view';
 import { TextSelection } from 'prosemirror-state';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
+import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
 import {
   SortableContext,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { CharacterInfo } from '@/hooks/editor/useProseMirrorEditor';
+import type { CharacterInfo } from '@/hooks/editor/use-prosemirror-editor';
+import { PanelHeader } from './PanelHeader';
+import { PanelSearch } from './PanelSearch';
+import { PanelEmptyState } from './PanelEmptyState';
+import { usePanelDndSensors } from './use-panel-dnd';
 
 export type CharacterRole = 'Protagonist' | 'Antagonist' | 'Supporting' | 'Minor';
 
@@ -513,16 +504,7 @@ export function CharactersPanel({
   };
 
   // Sensors for drag & drop
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  const sensors = usePanelDndSensors();
 
   // Handle drag end - log reorder for now
   const handleDragEnd = useCallback((event: DragEndEvent) => {
@@ -541,50 +523,29 @@ export function CharactersPanel({
 
   return (
     <div className={cn('flex flex-col h-full', className)}>
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-        <h2 className="font-semibold text-sm">Characters</h2>
-        <span className="text-[10px] text-muted-foreground ml-auto">
-          {characters.length}
-        </span>
-        {onAddCharacter && (
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddCharacter}>
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-        )}
-      </div>
+      <PanelHeader
+        title="Characters"
+        count={characters.length}
+        onAdd={onAddCharacter}
+        addLabel="Add character"
+      />
 
       {/* Content */}
       {characters.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground p-3">
-          <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p className="font-medium text-xs">No characters yet</p>
-          <p className="text-[10px] mt-1">
-            Characters appear as you add dialogue.
-          </p>
-        </div>
+        <PanelEmptyState
+          icon={Users}
+          title="No characters yet"
+          description="Characters appear as you add dialogue."
+        />
       ) : (
         <>
           {/* Search and Filter - Fixed at top */}
           <div className="p-3 space-y-2 border-b border-border shrink-0">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search characters..."
-                value={characterFilter}
-                onChange={(e) => setCharacterFilter(e.target.value)}
-                className="h-8 pl-8 pr-8 text-xs"
-              />
-              {characterFilter && (
-                <button
-                  onClick={() => setCharacterFilter('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+            <PanelSearch
+              value={characterFilter}
+              onChange={setCharacterFilter}
+              placeholder="Search characters..."
+            />
             <div className="flex gap-1 flex-wrap">
               {(['all', 'Protagonist', 'Antagonist', 'Supporting', 'Minor'] as const).map((role) => (
                 <button

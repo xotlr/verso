@@ -167,6 +167,36 @@ function version() {
 }
 
 /**
+ * Export elements to Fountain format
+ *
+ * @param {string} elements_json - JSON string of Element array
+ * @param {string} metadata_json - Optional JSON string of DocumentMetadata
+ * @returns {string} - Fountain-formatted string
+ */
+function export_fountain(elements_json, metadata_json) {
+  let deferred4_0;
+  let deferred4_1;
+  try {
+    const ptr0 = passStringToWasm0(elements_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passStringToWasm0(metadata_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.export_fountain(ptr0, len0, ptr1, len1);
+    var ptr3 = ret[0];
+    var len3 = ret[1];
+    if (ret[3]) {
+      ptr3 = 0; len3 = 0;
+      throw takeFromExternrefTable0(ret[2]);
+    }
+    deferred4_0 = ptr3;
+    deferred4_1 = len3;
+    return getStringFromWasm0(ptr3, len3);
+  } finally {
+    wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+  }
+}
+
+/**
  * Pagination with title page awareness - RECOMMENDED FUNCTION
  *
  * When has_title_page is true:
@@ -378,6 +408,34 @@ self.onmessage = async (event) => {
           type: 'paginate',
           requestId: request.requestId,
           result,
+        });
+      } catch (error) {
+        self.postMessage({
+          type: 'error',
+          requestId: request.requestId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      break;
+    }
+
+    case 'export_fountain': {
+      try {
+        if (!wasm) {
+          await initWasm();
+        }
+
+        // Serialize inputs to JSON
+        const elementsJson = JSON.stringify(request.elements);
+        const metadataJson = request.metadata ? JSON.stringify(request.metadata) : '';
+
+        // Call WASM export function
+        const fountain = export_fountain(elementsJson, metadataJson);
+
+        self.postMessage({
+          type: 'export_fountain',
+          requestId: request.requestId,
+          result: fountain,
         });
       } catch (error) {
         self.postMessage({

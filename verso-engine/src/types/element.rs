@@ -21,6 +21,11 @@ pub enum ElementType {
     Parenthetical,
     Transition,
     Shot,
+    Super,
+    Chyron,
+    Flashback,
+    Montage,
+    Intercut,
     DualDialogueLeft,
     DualDialogueRight,
     ActBreak,
@@ -52,6 +57,17 @@ pub struct Element {
     /// Whether this element forces a page break after it
     #[serde(default)]
     pub force_page_break_after: bool,
+
+    /// Set by engine when same character speaks after intervening action
+    /// Frontend should append "(CONT'D)" to character name when true
+    #[serde(default)]
+    pub auto_contd: bool,
+
+    /// Scene number assigned by engine (for SceneHeading elements)
+    /// Format: "1", "2", or with prefix: "A1", "A2"
+    /// Set by scene numbering pass when mode is Auto
+    #[serde(default)]
+    pub scene_number: Option<String>,
 }
 
 impl Element {
@@ -63,6 +79,8 @@ impl Element {
             character_name: None,
             dual_dialogue_position: None,
             force_page_break_after: false,
+            auto_contd: false,
+            scene_number: None,
         }
     }
 

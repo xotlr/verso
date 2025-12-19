@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import type { EditorPanelType } from './EditorPanelContext';
+import { toolbarStyles } from './toolbar-styles';
 
 export type ActivityBarPanel = EditorPanelType | null;
 
@@ -44,6 +45,7 @@ function ActivityBarButton({
   indicatorPosition,
 }: ActivityBarButtonProps) {
   const isActive = activePanel === panel;
+  const { button, badge } = toolbarStyles;
 
   return (
     <Tooltip>
@@ -51,20 +53,17 @@ function ActivityBarButton({
         <button
           onClick={() => onClick(panel)}
           className={cn(
-            'relative flex items-center justify-center',
-            'w-9 h-9 rounded-full',
-            'transition-all duration-150',
-            'hover:scale-110 active:scale-95',
-            isActive
-              ? 'bg-primary/10 text-primary'
-              : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+            button.base,
+            button.size,
+            button.rounded,
+            isActive ? button.states.active : button.states.inactive
           )}
         >
           {icon}
           {count > 0 && (
             <span
               key={count}
-              className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground px-1 animate-[badge-pop_300ms_ease-out]"
+              className={cn(badge.base, badge.size, badge.style, 'animate-[badge-pop_300ms_ease-out]')}
             >
               {count > 99 ? '99+' : count}
             </span>
@@ -108,14 +107,17 @@ export function ActivityBar({
   // (indicator shows on the side facing the panel content)
   const indicatorPosition = position === 'right' ? 'left' : 'right';
 
+  const { container } = toolbarStyles;
+
   return (
     <TooltipProvider delayDuration={300}>
       <div
         className={cn(
-          'flex flex-col items-center py-2 gap-1',
-          'w-12 bg-background',
-          'rounded-full border border-border/50',
-          'shadow-lg shadow-black/10',
+          'flex flex-col items-center',
+          container.padding.vertical,
+          'w-12',
+          container.base,
+          container.rounded,
           'shrink-0',
           className
         )}

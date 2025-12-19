@@ -63,6 +63,7 @@ export async function GET(request: Request, { params }: RouteParams) {
         coverImage: true,
         banner: true,
         logo: true,
+        status: true,
         budget: true,
         isPublic: true,
         publishedAt: true,
@@ -156,6 +157,7 @@ const updateProjectSchema = z.object({
   coverImage: z.string().optional().nullable(),
   banner: z.string().url().optional().nullable(),
   logo: z.string().url().optional().nullable(),
+  status: z.enum(['DEVELOPMENT', 'PRE_PRODUCTION', 'PRODUCTION', 'POST_PRODUCTION', 'COMPLETED']).optional(),
   budget: z.number().min(0).optional().nullable(),
 })
 

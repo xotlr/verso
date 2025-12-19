@@ -26,12 +26,10 @@ import {
   Clapperboard,
   Mail,
   Users,
-  Layers,
 } from "lucide-react";
 import { TbHome, TbHomeFilled } from 'react-icons/tb';
 import { PiFilmScript, PiFilmScriptFill } from 'react-icons/pi';
-import { RiFolder6Line, RiFolder6Fill } from 'react-icons/ri';
-import { MdOutlineExplore, MdExplore } from 'react-icons/md';
+import { RiFolder6Line, RiFolder6Fill, RiStackLine, RiStackFill } from 'react-icons/ri';
 import { Logo } from "@/components/logo";
 
 import { cn } from '@/lib/utils';
@@ -64,7 +62,7 @@ import { NavMenuItem } from "@/components/nav-menu-item";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
 import { FormattingGuideDialog } from "@/components/formatting-guide-dialog";
 import { TemplateSelector } from "@/components/template-selector";
-import { NewProjectDialog } from "@/components/new-project-dialog";
+import { NewProjectDialog } from "@/components/project/new-project-dialog";
 import { PendingInvitesDialog } from "@/components/pending-invites-dialog";
 import { UpgradeDialog } from "@/components/upgrade-dialog";
 import { usePendingInvites } from "@/hooks/use-pending-invites";
@@ -181,14 +179,8 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
     {
       title: "Series",
       url: "/series",
-      icon: Layers,
-    },
-    {
-      title: "Explore",
-      url: "/explore",
-      icon: MdOutlineExplore,
-      activeIcon: MdExplore,
-      notification: true, // Show dot to indicate new content to discover
+      icon: RiStackLine,
+      activeIcon: RiStackFill,
     },
   ];
 
@@ -231,7 +223,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
       {/* Header */}
       <SidebarHeader className="gap-3">
         {/* Logo - matches header height for alignment */}
-        <div className="flex h-14 items-center justify-center">
+        <div className="flex h-11 items-center justify-center">
           <Link href="/home" className="flex items-center justify-center">
             <Logo size={28} className="text-primary" />
           </Link>
@@ -360,7 +352,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
       </SidebarContent>
 
       {/* Footer */}
-      <SidebarFooter className="border-t border-border/50 p-2 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:py-2">
+      <SidebarFooter className="p-2 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:py-2">
         <SidebarMenu className="group-data-[collapsible=icon]:px-0">
           {/* User Account */}
           {user && (
@@ -381,10 +373,10 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                     )}
                   >
                     <div className="relative sidebar-avatar-animated">
-                      <Avatar className="h-8 w-8 rounded-md sidebar-avatar-ring">
-                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="rounded-md object-cover" />
+                      <Avatar className="h-8 w-8 rounded-none sidebar-avatar-ring">
+                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="rounded-none object-cover" />
                         <AvatarFallback
-                          className="rounded-md text-white font-medium"
+                          className="rounded-none text-white font-medium"
                           style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
                         >
                           {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U"}
@@ -415,10 +407,10 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                 >
                   <DropdownMenuLabel className="px-3 py-3">
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9 rounded-md ring-1 ring-border/10">
-                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="rounded-md object-cover" />
+                      <Avatar className="h-9 w-9 rounded-none ring-1 ring-border/10">
+                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="rounded-none object-cover" />
                         <AvatarFallback
-                          className="rounded-md text-white font-medium"
+                          className="rounded-none text-white font-medium"
                           style={session?.user?.id ? getSimpleGradientStyle(session.user.id) : undefined}
                         >
                           {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U"}

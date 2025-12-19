@@ -4,7 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { Film, User } from 'lucide-react';
 import { TimelapseControls } from './timelapse-controls';
 import { TimelapseTimeline } from './timelapse-timeline';
-import { usePublicTimelapse } from '@/hooks/use-public-timelapse';
+import { usePublicTimelapse } from '@/hooks/timelapse';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';

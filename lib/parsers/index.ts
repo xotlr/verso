@@ -20,6 +20,9 @@ import './formats/fountain';
 import './formats/highland';
 import './formats/fadein';
 import './formats/txt';
+import './formats/pdf';
+import './formats/docx';
+import './formats/markdown-screenplay';
 
 // Re-export individual parsers
 export { fdxParser, FDXParser } from './formats/fdx';
@@ -27,6 +30,9 @@ export { fountainParser, FountainParser } from './formats/fountain';
 export { highlandParser, HighlandParser } from './formats/highland';
 export { fadeInParser, FadeInParser } from './formats/fadein';
 export { txtParser, TxtParser } from './formats/txt';
+export { pdfParser, PDFParser } from './formats/pdf';
+export { docxParser, DocxParser } from './formats/docx';
+export { markdownScreenplayParser, MarkdownScreenplayParser } from './formats/markdown-screenplay';
 
 import { getParserRegistry } from './registry';
 import { detectFormat } from './detector';

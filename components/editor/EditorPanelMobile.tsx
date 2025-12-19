@@ -14,7 +14,7 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { Film, Users, Clapperboard, StickyNote } from 'lucide-react';
-import type { SceneInfo, CharacterInfo } from '@/hooks/editor/useProseMirrorEditor';
+import type { SceneInfo, CharacterInfo } from '@/hooks/editor/use-prosemirror-editor';
 import type { EditorView } from 'prosemirror-view';
 import type { SceneWithShots, Shot } from '@/types/shotlist';
 
@@ -164,6 +164,31 @@ export function EditorPanelMobile({
       window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [isMobile, handleTouchStart, handleTouchMove, handleTouchEnd]);
+
+  // Listen for panel open events from EditorBottomNav
+  useEffect(() => {
+    const handlePanelOpen = (e: Event) => {
+      const customEvent = e as CustomEvent<{ panel: EditorPanelType; close?: boolean }>;
+      const { panel, close } = customEvent.detail;
+
+      if (close) {
+        setMobileOpen(false);
+      } else {
+        setActivePanel(panel);
+        setMobileOpen(true);
+      }
+    };
+
+    window.addEventListener('editor-panel-open', handlePanelOpen);
+    return () => window.removeEventListener('editor-panel-open', handlePanelOpen);
+  }, [setActivePanel, setMobileOpen]);
+
+  // Notify EditorBottomNav of panel state changes
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('editor-panel-state-change', {
+      detail: { panel: activePanel, open: mobileOpen }
+    }));
+  }, [activePanel, mobileOpen]);
 
   // Only render on mobile
   if (!isMobile) return null;

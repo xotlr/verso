@@ -49,10 +49,20 @@ export function ImportDropZoneOverlay({
 
     const handleDragLeave = (e: DragEvent) => {
       e.preventDefault();
+
+      // Only decrement if we're actually leaving the document
+      // relatedTarget is null when dragging out of the browser window
+      const relatedTarget = e.relatedTarget as Node | null;
+      if (relatedTarget && document.documentElement.contains(relatedTarget)) {
+        // Still inside the document, don't hide
+        return;
+      }
+
       setDragCounter((prev) => {
         const newCount = prev - 1;
-        if (newCount === 0) {
+        if (newCount <= 0) {
           setIsVisible(false);
+          return 0;
         }
         return newCount;
       });
@@ -73,11 +83,21 @@ export function ImportDropZoneOverlay({
     window.addEventListener('drop', handleDrop);
     window.addEventListener('dragover', handleDragOver);
 
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsVisible(false);
+        setDragCounter(0);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+
     return () => {
       window.removeEventListener('dragenter', handleDragEnter);
       window.removeEventListener('dragleave', handleDragLeave);
       window.removeEventListener('drop', handleDrop);
       window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('keydown', handleEscape);
     };
   }, [enabled]);
 

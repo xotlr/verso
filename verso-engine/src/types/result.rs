@@ -1,6 +1,37 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use super::{ElementId, Page, PageIdentifier};
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
+use super::{DocumentMetadata, ElementId, Page, PageIdentifier, PageConfig};
+
+/// Document-level statistics calculated during pagination.
+///
+/// These statistics help writers understand their screenplay at a glance,
+/// including runtime estimates, scene counts, and character dialogue distribution.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DocumentStats {
+    /// Total page count
+    pub page_count: u32,
+
+    /// Estimated runtime in minutes (industry standard: 1 page ≈ 1 minute)
+    pub estimated_runtime_minutes: f32,
+
+    /// Total scene count (number of SceneHeading elements)
+    pub scene_count: u32,
+
+    /// Total dialogue blocks (CHARACTER + DIALOGUE pairs)
+    pub dialogue_block_count: u32,
+
+    /// Unique character names that have dialogue, sorted alphabetically
+    pub speaking_characters: Vec<String>,
+
+    /// Character dialogue stats: character name -> number of dialogue lines
+    pub character_dialogue_lines: HashMap<String, u32>,
+
+    /// Action vs dialogue ratio (0.0 = all dialogue, 1.0 = all action)
+    /// Calculated as: action_lines / (action_lines + dialogue_lines)
+    pub action_dialogue_ratio: f32,
+}
 
 /// Complete layout metadata - SINGLE SOURCE OF TRUTH for all positioning
 /// JavaScript should use these values directly without any offset calculations
@@ -44,6 +75,161 @@ impl Default for LayoutMetadata {
             title_page_offset_px: 0.0,
             content_area_px: 912.0,  // 1056 - 96 - 48
         }
+    }
+}
+
+// ============================================================================
+// Pagination Cache for Incremental Pagination
+// ============================================================================
+
+/// Cache of pagination results for incremental re-pagination.
+///
+/// This cache stores information about the previous pagination run,
+/// allowing subsequent paginations to skip unchanged pages and only
+/// recalculate from the point where changes occurred.
+///
+/// # Performance Benefits
+///
+/// For a 120-page script where only page 100 changed:
+/// - Without cache: Must recalculate all 120 pages (~50ms)
+/// - With cache: Reuse pages 1-99, recalculate 100+ (~10ms)
+///
+/// # Important Considerations
+///
+/// Page breaks ripple forward, so a change on page 5 may affect all
+/// subsequent pages. The optimization is in skipping pages BEFORE the
+/// first change, not after.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaginationCache {
+    /// Element ID to page number mapping from last pagination.
+    /// Key is element ID, value is the 1-indexed page number.
+    pub element_pages: HashMap<String, u32>,
+
+    /// Page boundaries: index i contains the element index where page i+1 starts.
+    /// For example, if page_boundaries = [0, 52, 108], then:
+    /// - Page 1 starts at element 0
+    /// - Page 2 starts at element 52
+    /// - Page 3 starts at element 108
+    pub page_boundaries: Vec<usize>,
+
+    /// Hash of the PageConfig used for the last pagination.
+    /// If the config changes, we must do a full re-pagination.
+    pub config_hash: u64,
+
+    /// Total number of elements in the last pagination.
+    /// Used to detect structural changes.
+    pub element_count: usize,
+
+    /// Whether the last pagination had a title page.
+    pub has_title_page: bool,
+}
+
+impl PaginationCache {
+    /// Create a new empty cache.
+    pub fn new() -> Self {
+        Self {
+            element_pages: HashMap::new(),
+            page_boundaries: Vec::new(),
+            config_hash: 0,
+            element_count: 0,
+            has_title_page: false,
+        }
+    }
+
+    /// Create a cache from pagination results.
+    pub fn from_result(
+        result: &PaginationResult,
+        elements: &[super::Element],
+        config: &PageConfig,
+        has_title_page: bool,
+    ) -> Self {
+        let mut element_pages = HashMap::new();
+        let mut page_boundaries = Vec::new();
+
+        // Build element-to-page mapping from element_positions
+        for (element_id, position) in &result.element_positions {
+            if let Some(page_id) = position.pages.first() {
+                let page_num = match page_id {
+                    PageIdentifier::Sequential(n) => *n,
+                    PageIdentifier::Inserted { base, .. } => *base,
+                    PageIdentifier::Omitted(n) => *n,
+                };
+                element_pages.insert(element_id.clone(), page_num);
+            }
+        }
+
+        // Build page boundaries from pages
+        // For each page, find the first element index on that page
+        for page in &result.pages {
+            if let Some(first_elem) = page.elements.first() {
+                // Find the index of this element in the original elements array
+                let elem_idx = elements
+                    .iter()
+                    .position(|e| e.id.0 == first_elem.element_id.0)
+                    .unwrap_or(0);
+                page_boundaries.push(elem_idx);
+            }
+        }
+
+        Self {
+            element_pages,
+            page_boundaries,
+            config_hash: Self::hash_config(config),
+            element_count: elements.len(),
+            has_title_page,
+        }
+    }
+
+    /// Compute a hash of the PageConfig for change detection.
+    /// If the config changes, incremental pagination is not possible.
+    pub fn hash_config(config: &PageConfig) -> u64 {
+        let mut hasher = DefaultHasher::new();
+
+        // Hash key config values that affect pagination
+        config.lines_per_page.hash(&mut hasher);
+        config.line_height_pt.to_bits().hash(&mut hasher);
+
+        // Hash margins
+        config.margins.top.to_bits().hash(&mut hasher);
+        config.margins.bottom.to_bits().hash(&mut hasher);
+
+        // Hash continuation settings
+        config.continuation_style.enabled.hash(&mut hasher);
+        config.continuation_style.scene_continued_enabled.hash(&mut hasher);
+
+        // Hash orphan control
+        config.orphan_control.scene_heading_min_following.hash(&mut hasher);
+        config.orphan_control.character_min_dialogue_lines.hash(&mut hasher);
+        config.orphan_control.dialogue_min_before_split.hash(&mut hasher);
+        config.orphan_control.dialogue_min_after_split.hash(&mut hasher);
+
+        // Hash locked pages config
+        config.locked_pages.enabled.hash(&mut hasher);
+        config.locked_pages.locked_page_count.hash(&mut hasher);
+
+        hasher.finish()
+    }
+
+    /// Check if this cache is valid for the given config.
+    pub fn is_valid_for_config(&self, config: &PageConfig) -> bool {
+        self.config_hash == Self::hash_config(config)
+    }
+
+    /// Find the page number where a given element index would appear.
+    /// Returns None if the element index is beyond cached boundaries.
+    pub fn page_for_element_index(&self, element_index: usize) -> Option<u32> {
+        // Binary search to find which page contains this element
+        match self.page_boundaries.binary_search(&element_index) {
+            Ok(page_idx) => Some(page_idx as u32 + 1),
+            Err(0) => Some(1), // Before first boundary means page 1
+            Err(page_idx) => Some(page_idx as u32),
+        }
+    }
+}
+
+impl Default for PaginationCache {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -148,6 +334,21 @@ pub struct PaginationResult {
 
     /// Statistics
     pub stats: PaginationStats,
+
+    /// Document-level statistics (scene count, character stats, etc.)
+    #[serde(default)]
+    pub document_stats: DocumentStats,
+
+    /// Document metadata (title, author, draft info, etc.)
+    /// Passed through from input for frontend rendering of title pages and exports
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<DocumentMetadata>,
+
+    /// Cache for incremental pagination.
+    /// Store this and pass it back on the next pagination call for faster updates.
+    /// Only populated when using incremental pagination functions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache: Option<PaginationCache>,
 }
 
 impl PaginationResult {
@@ -171,7 +372,24 @@ impl PaginationResult {
                 page_gap_px: layout.page_gap_px,
                 layout,
             },
+            document_stats: DocumentStats::default(),
+            metadata: None,
+            cache: None,
         }
+    }
+
+    /// Create a new PaginationResult with metadata
+    pub fn with_metadata(metadata: Option<DocumentMetadata>) -> Self {
+        let mut result = Self::new();
+        result.metadata = metadata;
+        result
+    }
+
+    /// Create a new PaginationResult with cache
+    pub fn with_cache(cache: Option<PaginationCache>) -> Self {
+        let mut result = Self::new();
+        result.cache = cache;
+        result
     }
 
     /// Get the page for a given element ID

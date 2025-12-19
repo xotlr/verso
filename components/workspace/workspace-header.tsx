@@ -1,8 +1,10 @@
 'use client';
 
+import { useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
+import { getAcceptString } from '@/lib/parsers';
 import type { GreetingResult } from '@/lib/greeting';
 
 interface WorkspaceHeaderProps {
@@ -11,6 +13,7 @@ interface WorkspaceHeaderProps {
   screenplayCount: number;
   onCreateProject: () => void;
   onCreateScreenplay: () => void;
+  onImportFile?: (file: File) => void;
 }
 
 export function WorkspaceHeader({
@@ -19,7 +22,27 @@ export function WorkspaceHeader({
   screenplayCount,
   onCreateProject,
   onCreateScreenplay,
+  onImportFile,
 }: WorkspaceHeaderProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file && onImportFile) {
+        onImportFile(file);
+      }
+      // Reset input so the same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    },
+    [onImportFile]
+  );
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
       <div className="flex-1 min-w-0">
@@ -38,6 +61,25 @@ export function WorkspaceHeader({
         </p>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Hidden file input for import */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={getAcceptString()}
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        {onImportFile && (
+          <Button
+            onClick={handleImportClick}
+            variant="outline"
+            size="sm"
+            className="touch-manipulation"
+          >
+            <Upload className="h-4 w-4 mr-1.5 sm:mr-2" />
+            <span className="text-xs sm:text-sm">Import</span>
+          </Button>
+        )}
         <Button
           onClick={onCreateProject}
           variant="outline"

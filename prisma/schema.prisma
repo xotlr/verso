@@ -69,10 +69,29 @@ model User {
   linkedin String?
   imdb     String?
 
-  // Bento Blocks - Profile showcase
-  interests  String[] @default([]) // Genres, movies, directors they like
-  skills     String[] @default([]) // Director, Writer, DOP, Editor, etc.
-  lookingFor String?  @db.Text // "Looking for a DOP in LA"
+  // Core Profile (NEW - glanceable)
+  oneLiner     String?      @db.VarChar(100) // "Screenwriter. Horror. Vienna." - replaces bio
+  roles        String[]     @default([]) // Multi-select: writer, director, cinematographer, etc.
+  reelUrl      String? // Primary portfolio link (Vimeo, YouTube, website)
+  availability Availability @default(NOT_LOOKING) // Green/yellow/red status
+
+  // The Work
+  featuredProjectId String? // Pinned project FK
+  showcaseTimelapse String? // Timelapse shareId for replay showcase
+
+  // Trust Layer
+  responseRate      ResponseRate @default(UNKNOWN)
+  projectsCompleted Int          @default(0)
+
+  // The Vibe
+  influences String[] @default([]) // Max 3 directors/writers/films
+  gear       String?  @db.Text // Equipment for crew: "RED Komodo, Ronin 4D"
+  languages  String[] @default([]) // Languages spoken
+
+  // LEGACY - keeping for migration, will be removed
+  interests  String[] @default([]) // -> migrated to influences
+  skills     String[] @default([]) // -> migrated to roles
+  lookingFor String?  @db.Text // "Looking for a DOP in LA" (keep this one)
 
   // Profile visibility
   isPublic Boolean @default(true)
@@ -128,6 +147,24 @@ model User {
 
   // Series owned by this user
   series Series[]
+
+  // Stacks owned by this user (lightweight screenplay groups)
+  stacks Stack[]
+
+  // Profile credits (work history)
+  credits Credit[]
+
+  // Featured project relation
+  featuredProject Project? @relation("FeaturedProject", fields: [featuredProjectId], references: [id], onDelete: SetNull)
+
+  // User-level sharing relations
+  screenplaySharesReceived ScreenplayShare[] @relation("ScreenplaySharesReceived")
+  screenplaySharesGiven    ScreenplayShare[] @relation("ScreenplaySharesGiven")
+  projectSharesReceived    ProjectShare[]    @relation("ProjectSharesReceived")
+  projectSharesGiven       ProjectShare[]    @relation("ProjectSharesGiven")
+  seriesSharesReceived     SeriesShare[]     @relation("SeriesSharesReceived")
+  seriesSharesGiven        SeriesShare[]     @relation("SeriesSharesGiven")
+  shareInvitesSent         ShareInvite[]     @relation("ShareInvitesSent")
 
   @@index([plan]) // Used in limit checks
   @@index([username])
@@ -194,16 +231,36 @@ model TeamMember {
   @@index([userId]) // For "all teams user belongs to" queries
 }
 
+// Project status enum
+enum ProjectStatus {
+  DEVELOPMENT
+  PRE_PRODUCTION
+  PRODUCTION
+  POST_PRODUCTION
+  COMPLETED
+}
+
+// Project type enum
+enum ProjectType {
+  FEATURE_FILM
+  SHORT_FILM
+  TV_SERIES
+  STAGE_PLAY
+  OTHER
+}
+
 // Project = Production workspace container (like Supabase projects)
 model Project {
-  id          String   @id @default(cuid())
+  id          String        @id @default(cuid())
   name        String
-  description String?  @db.Text
+  description String?       @db.Text
   coverImage  String?
-  banner      String? // Banner image URL
-  logo        String? // Project logo/icon URL
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  banner      String?       // Banner image URL
+  logo        String?       // Project logo/icon URL
+  type        ProjectType   @default(FEATURE_FILM)
+  status      ProjectStatus @default(DEVELOPMENT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   // Production info
   budget Float? // Total project budget
@@ -231,9 +288,44 @@ model Project {
   // Series that belong to this project
   series Series[]
 
+  // Stacks that belong to this project
+  stacks Stack[]
+
+  // Users who have this as their featured project
+  featuredByUsers User[] @relation("FeaturedProject")
+
+  // Credits referencing this project
+  projectCredits Credit[] @relation("CreditProject")
+
+  // User-level sharing (Google Drive-like)
+  shares       ProjectShare[]
+  shareInvites ShareInvite[]
+
   @@index([userId])
   @@index([teamId])
   @@index([isPublic, publishedAt])
+}
+
+// Stack = Lightweight grouping of screenplays (simpler than Series, like Procreate stacks)
+model Stack {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Ownership
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Optional: Stack can belong to a Project (one level nesting max)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  // Screenplays in this stack
+  screenplays Screenplay[] @relation("StackScreenplays")
+
+  @@index([userId])
+  @@index([projectId])
 }
 
 // Series = TV Series container (holds seasons and episodes)
@@ -260,6 +352,10 @@ model Series {
 
   // Legacy: Direct episodes relation (kept for migration, will be removed)
   episodes Screenplay[] @relation("SeriesEpisodes")
+
+  // User-level sharing (Google Drive-like)
+  shares       SeriesShare[]
+  shareInvites ShareInvite[]
 
   @@index([userId])
   @@index([projectId])
@@ -384,12 +480,30 @@ model Screenplay {
   seriesId String? // Legacy: Direct link to Series (kept for migration)
   seasonId String? // New: Link to Season (episodes belong to seasons)
 
+  // Stack relation (lightweight grouping)
+  stackId String?
+  stack   Stack?  @relation("StackScreenplays", fields: [stackId], references: [id], onDelete: SetNull)
+
   // Screenplay type
   type         ScreenplayType @default(FILM)
   format       String         @default("feature-film") // 'feature-film' | 'tv-one-hour' | 'tv-half-hour' | 'tv-multi-cam'
   season       Int? // Legacy: Season number (kept for migration, use seasonId instead)
   episode      Int? // Episode number within the season
   episodeTitle String? // Episode title
+
+  // Title page metadata
+  contactName          String? // Contact name for title page
+  contactEmail         String? // Contact email
+  contactPhone         String? // Contact phone number
+  contactAddress       String? @db.Text // Contact address (multi-line)
+  copyrightYear        Int? // Copyright year
+  copyrightHolder      String? // Copyright holder name
+  registrationNumber   String? // WGA/copyright registration number
+  draftLabel           String? // "First Draft", "Shooting Draft", etc.
+  draftDate            DateTime? // Draft date
+  showTitlePageContact Boolean  @default(true) // Whether to show contact on title page
+  showTitlePageCopyright Boolean @default(true) // Whether to show copyright on title page
+  showTitlePageDraft   Boolean  @default(true) // Whether to show draft info on title page
 
   // Quick Access fields
   isFavorite   Boolean   @default(false)
@@ -431,11 +545,16 @@ model Screenplay {
   // Share link relation
   shareLink ShareLink?
 
+  // User-level sharing (Google Drive-like)
+  shares       ScreenplayShare[]
+  shareInvites ShareInvite[]
+
   @@index([userId])
   @@index([projectId])
   @@index([teamId])
   @@index([seriesId])
   @@index([seasonId])
+  @@index([stackId])
   @@index([isPublic, publishedAt])
   @@index([userId, lastOpenedAt])
   @@index([timelapseShareId])
@@ -463,6 +582,96 @@ model ShareLink {
 
   @@index([token])
   @@index([screenplayId])
+}
+
+// User-level sharing permission roles
+enum ShareRole {
+  VIEWER    // Can view only
+  COMMENTER // Can view and comment
+  EDITOR    // Can edit content
+  ADMIN     // Can edit and manage sharing
+}
+
+// User-level screenplay sharing (Google Drive-like)
+model ScreenplayShare {
+  id           String    @id @default(cuid())
+  screenplayId String
+  userId       String
+  role         ShareRole @default(VIEWER)
+  sharedBy     String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  user       User       @relation("ScreenplaySharesReceived", fields: [userId], references: [id], onDelete: Cascade)
+  sharer     User       @relation("ScreenplaySharesGiven", fields: [sharedBy], references: [id], onDelete: Cascade)
+
+  @@unique([screenplayId, userId])
+  @@index([userId])
+  @@index([screenplayId])
+}
+
+// User-level project sharing
+model ProjectShare {
+  id        String    @id @default(cuid())
+  projectId String
+  userId    String
+  role      ShareRole @default(VIEWER)
+  sharedBy  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation("ProjectSharesReceived", fields: [userId], references: [id], onDelete: Cascade)
+  sharer  User    @relation("ProjectSharesGiven", fields: [sharedBy], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@index([projectId])
+}
+
+// User-level series sharing
+model SeriesShare {
+  id        String    @id @default(cuid())
+  seriesId  String
+  userId    String
+  role      ShareRole @default(VIEWER)
+  sharedBy  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  series Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  user   User   @relation("SeriesSharesReceived", fields: [userId], references: [id], onDelete: Cascade)
+  sharer User   @relation("SeriesSharesGiven", fields: [sharedBy], references: [id], onDelete: Cascade)
+
+  @@unique([seriesId, userId])
+  @@index([userId])
+  @@index([seriesId])
+}
+
+// Pending share invites (for email-based invites to non-users)
+model ShareInvite {
+  id        String    @id @default(cuid())
+  email     String
+  token     String    @unique @default(cuid())
+  role      ShareRole @default(VIEWER)
+
+  // Polymorphic: one of these will be set
+  screenplayId String?
+  projectId    String?
+  seriesId     String?
+
+  invitedBy String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  screenplay Screenplay? @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  project    Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  series     Series?     @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  inviter    User        @relation("ShareInvitesSent", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([token])
 }
 
 // Version history for screenplays
@@ -666,6 +875,20 @@ enum Plan {
   MAX
 }
 
+enum Availability {
+  AVAILABLE // Green - open for work
+  BUSY // Yellow - limited availability
+  NOT_LOOKING // Red - not seeking work
+}
+
+enum ResponseRate {
+  UNKNOWN
+  WITHIN_HOURS // "Usually responds within hours"
+  WITHIN_DAY // "Usually responds within 24 hours"
+  WITHIN_WEEK // "Usually responds within a week"
+  SLOW // "May take a while to respond"
+}
+
 enum TeamRole {
   OWNER
   ADMIN
@@ -846,6 +1069,27 @@ enum ConnectionStatus {
   DECLINED
 }
 
+// Profile credits (work history for filmmaker profiles)
+model Credit {
+  id           String   @id @default(cuid())
+  userId       String
+  title        String // Project/film title
+  role         String // "Director", "Writer", etc.
+  year         Int
+  projectId    String? // Optional link to Verso project (auto-populated)
+  isManual     Boolean  @default(true) // Manual entry vs auto-populated from Verso
+  displayOrder Int      @default(0) // For custom ordering
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project? @relation("CreditProject", fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, title, role, year]) // Prevent duplicates
+  @@index([userId])
+  @@index([projectId])
+}
+
 // Processed webhook events for idempotency
 model ProcessedWebhookEvent {
   id          String   @id // Stripe event ID
@@ -868,4 +1112,66 @@ model GreetingHistory {
 
   @@index([userId, shownAt])
   @@index([userId, category])
+}
+
+// ============================================
+// Status Page Models
+// ============================================
+
+// Service health snapshots (recorded every 5 minutes by cron)
+model ServiceHealthCheck {
+  id           String   @id @default(cuid())
+  service      String // "api", "database", "auth", "wasm"
+  status       String   @default("operational") // "operational", "degraded", "outage"
+  responseTime Int? // Response time in milliseconds
+  errorMessage String?  @db.Text
+  checkedAt    DateTime @default(now())
+
+  @@index([service, checkedAt(sort: Desc)])
+  @@index([checkedAt(sort: Desc)])
+}
+
+// Daily uptime aggregations (for 90-day history)
+model UptimeRecord {
+  id              String   @id @default(cuid())
+  service         String // "api", "database", "auth", "wasm"
+  date            DateTime // Normalized to midnight UTC
+  uptimePercent   Float // 0-100
+  downtimeMinutes Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([service, date])
+  @@index([service, date(sort: Desc)])
+}
+
+// Incidents/Outages for public communication
+model Incident {
+  id               String           @id @default(cuid())
+  title            String
+  description      String           @db.Text
+  status           String           @default("investigating") // "investigating", "identified", "monitoring", "resolved"
+  severity         String           @default("minor") // "critical", "major", "minor"
+  affectedServices String[]         @default([])
+  startedAt        DateTime
+  resolvedAt       DateTime?
+  updates          IncidentUpdate[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([status, startedAt(sort: Desc)])
+  @@index([startedAt(sort: Desc)])
+}
+
+// Incident timeline updates
+model IncidentUpdate {
+  id         String   @id @default(cuid())
+  incidentId String
+  message    String   @db.Text
+  status     String // Status at time of update
+  createdAt  DateTime @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId, createdAt])
 }

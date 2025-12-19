@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { BeatBoard, Beat } from "@/components/beat-board";
-import { ProjectLayout } from "@/components/layouts/project-layout";
+import { PageLayout } from "@/components/layouts/page-layout";
 import { Scene } from "@/types/screenplay";
 
 // Demo scenes for testing
@@ -125,6 +125,15 @@ export default function BoardPage() {
       .catch(() => setTitle("Untitled Screenplay"));
   }, [id]);
 
+  // Dispatch title update for app header
+  useEffect(() => {
+    if (title && title !== "Loading...") {
+      window.dispatchEvent(new CustomEvent('screenplay-title-update', {
+        detail: { title }
+      }));
+    }
+  }, [title]);
+
   const handleBeatsChange = useCallback((newBeats: Beat[]) => {
     setBeats(newBeats);
   }, []);
@@ -138,10 +147,7 @@ export default function BoardPage() {
   }, [router, id]);
 
   return (
-    <ProjectLayout
-      projectId={id}
-      projectTitle={title}
-    >
+    <PageLayout>
       <BeatBoard
         scenes={scenes}
         beats={beats}
@@ -149,6 +155,6 @@ export default function BoardPage() {
         onSceneClick={handleSceneClick}
         onBackToEditor={handleBackToEditor}
       />
-    </ProjectLayout>
+    </PageLayout>
   );
 }

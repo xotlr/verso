@@ -5,8 +5,18 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { EditableTitle } from "@/components/editable-title";
-import { Search, Bell, ArrowLeft } from "lucide-react";
+import { SeriesBreadcrumb } from "@/components/series/series-breadcrumb";
+import { Search, Bell, ChevronLeft, Share2 } from "lucide-react";
+import { Logo } from "@/components/logo";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
+
+// Breadcrumb data type for series episodes
+interface BreadcrumbData {
+  series: { id: string; title: string };
+  season?: { id: string; number: number; title?: string | null } | null;
+  episode?: { episode: number | null; episodeTitle: string | null } | null;
+}
 
 // Get active item label from pathname
 function getActiveItem(pathname: string, dynamicTitle: string | null): {
@@ -19,7 +29,6 @@ function getActiveItem(pathname: string, dynamicTitle: string | null): {
     screenplays: "Screenplays",
     projects: "Projects",
     series: "Series",
-    explore: "Explore",
     editor: "Editor",
     board: "Beat Board",
     cards: "Index Cards",
@@ -59,7 +68,6 @@ function getPageTitle(pathname: string): string {
     "/home": "Home",
     "/screenplays": "Screenplays",
     "/projects": "Projects",
-    "/explore": "Explore",
     "/settings": "Settings",
   };
 
@@ -89,6 +97,25 @@ export function AppHeader({ className }: AppHeaderProps) {
   const pathname = usePathname();
   const [dynamicTitle, setDynamicTitle] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
+  const [breadcrumbData, setBreadcrumbData] = useState<BreadcrumbData | null>(null);
+
+  // Clear breadcrumb when navigating away from screenplay routes
+  useEffect(() => {
+    if (!pathname.startsWith('/screenplay/')) {
+      setBreadcrumbData(null);
+    }
+  }, [pathname]);
+
+  // Listen for breadcrumb updates from screenplay editor
+  useEffect(() => {
+    const handleBreadcrumbUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<BreadcrumbData>;
+      setBreadcrumbData(customEvent.detail);
+    };
+
+    window.addEventListener('screenplay-breadcrumb-update', handleBreadcrumbUpdate);
+    return () => window.removeEventListener('screenplay-breadcrumb-update', handleBreadcrumbUpdate);
+  }, []);
 
   // Track online/offline status
   useEffect(() => {
@@ -141,12 +168,18 @@ export function AppHeader({ className }: AppHeaderProps) {
 
   return (
     <header className={cn(
-      "sticky top-0 z-40 flex h-14 shrink-0 items-center gap-2 bg-sidebar px-4",
+      "sticky top-0 z-40 flex h-11 shrink-0 items-center gap-2 bg-sidebar px-4",
       className
     )}>
-      {/* Desktop: Active item display */}
+      {/* Desktop: Active item display or breadcrumb */}
       <div className="hidden md:flex items-center">
-        {activeItem.isTitle ? (
+        {breadcrumbData ? (
+          <SeriesBreadcrumb
+            series={breadcrumbData.series}
+            season={breadcrumbData.season}
+            episode={breadcrumbData.episode}
+          />
+        ) : activeItem.isTitle ? (
           <EditableTitle
             value={activeItem.label}
             onSave={handleTitleSave}
@@ -158,16 +191,21 @@ export function AppHeader({ className }: AppHeaderProps) {
         )}
       </div>
 
-      {/* Mobile: Back button on left for detail pages */}
-      {isDetailPage && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden h-9 w-9 -ml-1"
+      {/* Mobile: Back button on detail pages, Logo on main pages */}
+      {isDetailPage ? (
+        <button
           onClick={() => window.history.back()}
+          className="md:hidden flex items-center justify-center h-9 w-9 -ml-2 rounded-md hover:bg-accent"
         >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+      ) : (
+        <Link
+          href="/home"
+          className="md:hidden flex items-center -ml-1"
+        >
+          <Logo size={28} className="text-foreground" />
+        </Link>
       )}
 
       {/* Mobile: Page title */}
@@ -182,6 +220,16 @@ export function AppHeader({ className }: AppHeaderProps) {
         )}
       </div>
 
+      {/* Mobile: Search button on right */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="md:hidden h-9 w-9 -mr-1"
+        onClick={() => window.dispatchEvent(new CustomEvent('command-palette-open'))}
+      >
+        <Search className="h-5 w-5" />
+      </Button>
+
       {/* Desktop: Individual action buttons */}
       <div className="ml-auto hidden md:flex items-center gap-1">
         {/* Offline indicator - only shows when disconnected */}
@@ -191,19 +239,31 @@ export function AppHeader({ className }: AppHeaderProps) {
             <span className="text-xs font-medium">Offline</span>
           </div>
         )}
+        {/* Share button for screenplay pages */}
+        {pathname.startsWith('/screenplay/') && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => window.dispatchEvent(new CustomEvent('editor-open-share'))}
+            title="Share"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8"
+          className="h-7 w-7"
           onClick={() => window.dispatchEvent(new CustomEvent('command-palette-open'))}
           title="Search (⌘K)"
         >
-          <Search className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <Bell className="h-4 w-4" />
+          <Search className="h-3.5 w-3.5" />
         </Button>
         <ThemeToggle />
+        <Button variant="ghost" size="icon" className="h-7 w-7">
+          <Bell className="h-3.5 w-3.5" />
+        </Button>
       </div>
     </header>
   );

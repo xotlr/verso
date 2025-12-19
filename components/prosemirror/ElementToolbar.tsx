@@ -33,6 +33,11 @@ const ELEMENT_ICONS: Record<ElementType, React.ReactNode> = {
   parenthetical: <Parentheses size={14} />,
   transition: <ArrowRight size={14} />,
   shot: <Camera size={14} />,
+  super: <Type size={14} />,
+  chyron: <Type size={14} />,
+  flashback: <Type size={14} />,
+  montage: <Type size={14} />,
+  intercut: <Type size={14} />,
   dual_dialogue: <MessageSquare size={14} />,
   ending: <Type size={14} />,
 };
@@ -47,6 +52,11 @@ const SHORT_LABELS: Record<ElementType, string> = {
   parenthetical: 'Paren',
   transition: 'Trans',
   shot: 'Shot',
+  super: 'Super',
+  chyron: 'Chyron',
+  flashback: 'Flash',
+  montage: 'Mont',
+  intercut: 'Inter',
   dual_dialogue: 'Dual',
   ending: 'End',
 };

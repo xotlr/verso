@@ -17,6 +17,7 @@ export interface TabItem {
   value: string;
   label: string;
   icon?: React.ReactNode;
+  activeIcon?: React.ReactNode;
   count?: number;
 }
 
@@ -83,17 +84,21 @@ export function ListPageToolbar({
         mounted ? (
           <Tabs value={tabs.value} onValueChange={tabs.onChange}>
             <TabsList className="w-full sm:w-auto grid sm:inline-flex" style={{ gridTemplateColumns: `repeat(${tabs.items.length}, 1fr)` }}>
-              {tabs.items.map((tab) => (
-                <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
-                  {tab.icon}
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  {tab.count !== undefined && (
-                    <Badge variant="secondary" className="text-xs">
-                      {tab.count}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              ))}
+              {tabs.items.map((tab) => {
+                const isActive = tabs.value === tab.value;
+                const icon = isActive && tab.activeIcon ? tab.activeIcon : tab.icon;
+                return (
+                  <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
+                    {icon}
+                    <span className="hidden sm:inline">{tab.label}</span>
+                    {tab.count !== undefined && (
+                      <Badge variant="secondary" className="text-xs">
+                        {tab.count}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
           </Tabs>
         ) : (

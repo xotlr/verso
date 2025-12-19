@@ -77,6 +77,8 @@ export async function GET(request: Request) {
         coverImage: true,
         banner: true,
         logo: true,
+        type: true,
+        status: true,
         budget: true,
         createdAt: true,
         updatedAt: true,
@@ -132,6 +134,8 @@ const createProjectSchema = z.object({
   name: z.string().min(1, "Name is required").max(255),
   description: z.string().optional(),
   teamId: z.string().optional(),
+  type: z.enum(['FEATURE_FILM', 'SHORT_FILM', 'TV_SERIES', 'STAGE_PLAY', 'OTHER']).optional().default('FEATURE_FILM'),
+  creatorRole: z.enum(['writer', 'director', 'producer']).optional().default('writer'),
 })
 
 // POST /api/projects - Create a new project (workspace)
@@ -176,7 +180,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { name, description, teamId } = result.data
+    const { name, description, teamId, type, creatorRole } = result.data
 
     // Enforce plan limits for personal projects
     if (!teamId) {
@@ -228,18 +232,25 @@ export async function POST(request: Request) {
       data: {
         name,
         description,
+        type,
         userId: session.user.id,
         teamId: teamId || null,
       },
     })
 
-    // Create default unfilled role slots for the project
+    // Get creator's name for role assignment
+    const creator = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { name: true },
+    })
+
+    // Create default role slots, assigning creator to their selected role
     await prisma.projectRole.createMany({
       data: DEFAULT_PROJECT_ROLES.map((role) => ({
         projectId: project.id,
         role,
-        name: "Unfilled",
-        userId: null,
+        name: role === creatorRole ? (creator?.name || 'Unknown') : 'Unfilled',
+        userId: role === creatorRole ? session.user.id : null,
       })),
     })
 

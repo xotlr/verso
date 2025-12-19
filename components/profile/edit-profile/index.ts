@@ -1,0 +1,8 @@
+export { EditProfileDialog } from './EditProfileDialog'
+export { ImagesTab } from './ImagesTab'
+export { CoreTab } from './CoreTab'
+export { WorkTab } from './WorkTab'
+export { VibeTab } from './VibeTab'
+export { LinksTab } from './LinksTab'
+export { PrivacyTab } from './PrivacyTab'
+export type { UserProfile, ProfileFormData, TabContentProps } from './types'

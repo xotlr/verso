@@ -56,17 +56,17 @@ export function ProfileAvatar({
       className={cn(
         sizeClasses[size],
         borderClasses[size],
-        'border-background shadow-lg ring-1 ring-black/5 rounded-md',
+        'border-background shadow-lg ring-1 ring-black/5 rounded-none',
         className
       )}
     >
       <AvatarImage
         src={imageUrl || undefined}
         alt={name || ''}
-        className="object-cover rounded-md"
+        className="object-cover rounded-none"
       />
       <AvatarFallback
-        className={cn(textClasses[size], 'text-white font-semibold rounded-md')}
+        className={cn(textClasses[size], 'text-white font-semibold rounded-none')}
         style={getSimpleGradientStyle(userId)}
       >
         {initials}

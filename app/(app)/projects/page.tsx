@@ -4,13 +4,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { NewProjectDialog } from '@/components/new-project-dialog';
+import { NewProjectDialog } from '@/components/project/new-project-dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { ListPageToolbar, SORT_OPTIONS } from '@/components/ui/list-page-toolbar';
 import { ListWithPreview } from '@/components/ui/list-preview-panel';
-import { ProjectFolderCard, ProjectFolderCardSkeleton } from '@/components/project-folder-card';
-import { ProjectListRow, ProjectListRowSkeleton } from '@/components/project-list-row';
+import { ProjectFolderCard, ProjectFolderCardSkeleton } from '@/components/project/project-folder-card';
+import { ProjectListRow, ProjectListRowSkeleton } from '@/components/project/project-list-row';
 import { useViewMode } from '@/hooks/use-view-mode';
 import {
   AlertDialog,
@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Plus } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
+import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
+import type { ImportResult } from '@/components/import-drop-zone/types';
 
 interface ProjectRole {
   id: string;
@@ -41,6 +43,8 @@ interface ProjectItem {
   id: string;
   name: string;
   description: string | null;
+  type?: 'FEATURE_FILM' | 'SHORT_FILM' | 'TV_SERIES' | 'STAGE_PLAY' | 'OTHER' | null;
+  status?: 'DEVELOPMENT' | 'PRE_PRODUCTION' | 'PRODUCTION' | 'POST_PRODUCTION' | 'COMPLETED' | null;
   banner: string | null;
   logo: string | null;
   budget: number | null;
@@ -110,6 +114,32 @@ export default function ProjectsPage() {
     }
   };
 
+  const handleImportComplete = async (result: ImportResult) => {
+    if (!result.success || !result.content) return;
+
+    try {
+      const response = await fetch('/api/screenplays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: result.title || 'Imported Screenplay',
+          content: result.content,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create screenplay');
+      }
+
+      const screenplay = await response.json();
+      toast.success('Screenplay imported successfully');
+      router.push(`/editor/${screenplay.id}`);
+    } catch (error) {
+      console.error('Error importing screenplay:', error);
+      toast.error('Failed to import screenplay');
+    }
+  };
+
   const filteredProjects = useMemo(() => {
     return projects
       .filter(
@@ -134,6 +164,13 @@ export default function ProjectsPage() {
         isOpen={newProjectOpen}
         onClose={() => setNewProjectOpen(false)}
         onCreated={handleProjectCreated}
+      />
+
+      {/* Drag-drop import overlay */}
+      <ImportDropZoneOverlay
+        enabled={true}
+        onImportComplete={handleImportComplete}
+        onImportError={(error) => toast.error(error)}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -225,6 +262,8 @@ export default function ProjectsPage() {
                   id: project.id,
                   name: project.name,
                   description: project.description,
+                  type: project.type ?? undefined,
+                  status: project.status ?? undefined,
                   updatedAt: project.updatedAt,
                   roles: project.roles,
                   screenplays: project.screenplays,
@@ -244,6 +283,8 @@ export default function ProjectsPage() {
                     id: hoveredProject.id,
                     name: hoveredProject.name,
                     description: hoveredProject.description,
+                    type: hoveredProject.type ?? undefined,
+                    status: hoveredProject.status ?? undefined,
                     updatedAt: hoveredProject.updatedAt,
                     roles: hoveredProject.roles,
                     screenplays: hoveredProject.screenplays,

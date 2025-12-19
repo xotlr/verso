@@ -61,7 +61,7 @@ export function NavMenuItem({
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                     "hover:bg-accent hover:text-accent-foreground active:scale-[0.98]",
                     isActive
-                      ? "bg-primary/10 text-primary font-medium"
+                      ? "bg-primary text-primary-foreground font-medium"
                       : "text-muted-foreground"
                   )}
                   aria-current={isActive ? "page" : undefined}
@@ -69,7 +69,7 @@ export function NavMenuItem({
                   <div className="relative mr-2 group-data-[collapsible=icon]:mr-0 flex-shrink-0">
                     <CurrentIcon className={cn(
                       "h-4 w-4 transition-colors duration-150 sidebar-menu-icon",
-                      isActive ? "text-primary" : "text-muted-foreground group-hover/item:text-foreground"
+                      isActive ? "text-primary-foreground" : "text-muted-foreground group-hover/item:text-foreground"
                     )} />
                     {notification && (
                       <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-primary rounded-full" />

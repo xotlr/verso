@@ -17,7 +17,7 @@ import {
   User,
   MessageSquare,
 } from 'lucide-react';
-import type { SceneInfo, CharacterInfo } from '@/hooks/editor/useProseMirrorEditor';
+import type { SceneInfo, CharacterInfo } from '@/hooks/editor/use-prosemirror-editor';
 
 interface SceneInspectorProps {
   currentScene: SceneInfo | null;

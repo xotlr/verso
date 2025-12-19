@@ -20,7 +20,7 @@ import {
   TitlePageMetadata,
   RevisionColor,
 } from '@/lib/classic-editor/types';
-import { useHistory } from '@/hooks/classic-editor/useHistory';
+import { useHistory } from '@/hooks/classic-editor/use-history';
 import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
 
 interface ClassicEditorProps {

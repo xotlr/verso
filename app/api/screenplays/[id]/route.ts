@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
 // Helper to check screenplay access
-async function checkScreenplayAccess(screenplayId: string, userId: string) {
+async function checkScreenplayAccess(screenplayId: string, userId: string, requiredRole?: 'VIEWER' | 'COMMENTER' | 'EDITOR' | 'ADMIN') {
   const screenplay = await prisma.screenplay.findUnique({
     where: { id: screenplayId },
     include: {
@@ -19,7 +19,7 @@ async function checkScreenplayAccess(screenplayId: string, userId: string) {
 
   // Check if user owns it directly
   if (screenplay.userId === userId) {
-    return { allowed: true, screenplay }
+    return { allowed: true, screenplay, isOwner: true }
   }
 
   // Check team access
@@ -35,7 +35,30 @@ async function checkScreenplayAccess(screenplayId: string, userId: string) {
     })
 
     if (membership) {
-      return { allowed: true, screenplay }
+      return { allowed: true, screenplay, isOwner: false }
+    }
+  }
+
+  // Check share access
+  const share = await prisma.screenplayShare.findUnique({
+    where: {
+      screenplayId_userId: {
+        screenplayId,
+        userId,
+      },
+    },
+  })
+
+  if (share) {
+    // Role hierarchy: ADMIN > EDITOR > COMMENTER > VIEWER
+    const roleHierarchy = ['VIEWER', 'COMMENTER', 'EDITOR', 'ADMIN']
+    const userRoleLevel = roleHierarchy.indexOf(share.role)
+    const requiredRoleLevel = requiredRole ? roleHierarchy.indexOf(requiredRole) : 0
+
+    if (userRoleLevel >= requiredRoleLevel) {
+      return { allowed: true, screenplay, isOwner: false, shareRole: share.role }
+    } else {
+      return { allowed: false, error: "Insufficient permissions", status: 403 }
     }
   }
 
@@ -73,6 +96,8 @@ export async function GET(
       include: {
         project: { select: { id: true, name: true } },
         team: { select: { id: true, name: true } },
+        series: { select: { id: true, title: true } },
+        seasonRef: { select: { id: true, number: true, title: true } },
       },
     })
 
@@ -99,6 +124,19 @@ const updateScreenplaySchema = z.object({
   season: z.number().int().positive().nullable().optional(),
   episode: z.number().int().positive().nullable().optional(),
   episodeTitle: z.string().max(255).nullable().optional(),
+  // Title page fields
+  contactName: z.string().max(255).nullable().optional(),
+  contactEmail: z.string().email().max(255).nullable().optional(),
+  contactPhone: z.string().max(50).nullable().optional(),
+  contactAddress: z.string().max(500).nullable().optional(),
+  copyrightYear: z.number().int().min(1900).max(2100).nullable().optional(),
+  copyrightHolder: z.string().max(255).nullable().optional(),
+  registrationNumber: z.string().max(100).nullable().optional(),
+  draftLabel: z.string().max(100).nullable().optional(),
+  draftDate: z.string().nullable().optional(), // ISO date string
+  showTitlePageContact: z.boolean().optional(),
+  showTitlePageCopyright: z.boolean().optional(),
+  showTitlePageDraft: z.boolean().optional(),
   // For optimistic locking - client sends expected timestamp
   expectedUpdatedAt: z.number().optional(),
 })
@@ -118,7 +156,8 @@ async function updateScreenplay(
     }
 
     const { id } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
+    // Require EDITOR role for updates
+    const access = await checkScreenplayAccess(id, session.user.id, 'EDITOR')
 
     if (!access.allowed) {
       return NextResponse.json(
@@ -137,7 +176,14 @@ async function updateScreenplay(
       )
     }
 
-    const { title, content, synopsis, logline, genre, author, type, season, episode, episodeTitle, expectedUpdatedAt } = result.data
+    const {
+      title, content, synopsis, logline, genre, author, type, season, episode, episodeTitle,
+      contactName, contactEmail, contactPhone, contactAddress,
+      copyrightYear, copyrightHolder, registrationNumber,
+      draftLabel, draftDate,
+      showTitlePageContact, showTitlePageCopyright, showTitlePageDraft,
+      expectedUpdatedAt
+    } = result.data
 
     // Validate content size if provided
     if (content !== undefined) {
@@ -188,6 +234,19 @@ async function updateScreenplay(
         ...(season !== undefined && { season }),
         ...(episode !== undefined && { episode }),
         ...(episodeTitle !== undefined && { episodeTitle }),
+        // Title page fields
+        ...(contactName !== undefined && { contactName }),
+        ...(contactEmail !== undefined && { contactEmail }),
+        ...(contactPhone !== undefined && { contactPhone }),
+        ...(contactAddress !== undefined && { contactAddress }),
+        ...(copyrightYear !== undefined && { copyrightYear }),
+        ...(copyrightHolder !== undefined && { copyrightHolder }),
+        ...(registrationNumber !== undefined && { registrationNumber }),
+        ...(draftLabel !== undefined && { draftLabel }),
+        ...(draftDate !== undefined && { draftDate: draftDate ? new Date(draftDate) : null }),
+        ...(showTitlePageContact !== undefined && { showTitlePageContact }),
+        ...(showTitlePageCopyright !== undefined && { showTitlePageCopyright }),
+        ...(showTitlePageDraft !== undefined && { showTitlePageDraft }),
       },
     })
 
@@ -238,6 +297,14 @@ export async function DELETE(
       return NextResponse.json(
         { error: access.error },
         { status: access.status }
+      )
+    }
+
+    // Only owner can delete (not shared users, even with ADMIN role)
+    if (!access.isOwner) {
+      return NextResponse.json(
+        { error: "Only the owner can delete this screenplay" },
+        { status: 403 }
       )
     }
 

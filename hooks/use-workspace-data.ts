@@ -21,6 +21,9 @@ export interface ScreenplayItem {
   episodeTitle?: string | null;
   seriesId?: string | null;
   series?: { id: string; title: string } | null;
+  // Stack fields
+  stackId?: string | null;
+  stack?: { id: string; name: string } | null;
 }
 
 export interface ProjectRole {
@@ -34,6 +37,7 @@ export interface ProjectItem {
   id: string;
   name: string;
   description: string | null;
+  status?: 'DEVELOPMENT' | 'PRE_PRODUCTION' | 'PRODUCTION' | 'POST_PRODUCTION' | 'COMPLETED' | null;
   banner: string | null;
   logo: string | null;
   updatedAt: string;
@@ -57,6 +61,16 @@ export interface SeriesItem {
   _count?: { episodes: number };
 }
 
+export interface StackItem {
+  id: string;
+  name: string;
+  updatedAt: string;
+  projectId?: string | null;
+  project?: { id: string; name: string } | null;
+  screenplays?: { id: string; title: string; wordCount?: number }[];
+  _count?: { screenplays: number };
+}
+
 export interface DashboardStats {
   screenplayCount: number;
   projectCount: number;
@@ -75,13 +89,15 @@ export interface UseWorkspaceDataReturn {
   screenplays: ScreenplayItem[];
   projects: ProjectItem[];
   series: SeriesItem[];
+  stacks: StackItem[];
   dashboardStats: DashboardStats | null;
   isLoading: boolean;
   loadData: () => Promise<void>;
-  deleteItem: (id: string, type: 'screenplay' | 'project' | 'series') => Promise<void>;
+  deleteItem: (id: string, type: 'screenplay' | 'project' | 'series' | 'stack') => Promise<void>;
   setScreenplays: React.Dispatch<React.SetStateAction<ScreenplayItem[]>>;
   setProjects: React.Dispatch<React.SetStateAction<ProjectItem[]>>;
   setSeries: React.Dispatch<React.SetStateAction<SeriesItem[]>>;
+  setStacks: React.Dispatch<React.SetStateAction<StackItem[]>>;
 }
 
 /**
@@ -91,16 +107,18 @@ export function useWorkspaceData(): UseWorkspaceDataReturn {
   const [screenplays, setScreenplays] = useState<ScreenplayItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [series, setSeries] = useState<SeriesItem[]>([]);
+  const [stacks, setStacks] = useState<StackItem[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [screenplaysRes, projectsRes, seriesRes, statsRes] = await Promise.all([
+      const [screenplaysRes, projectsRes, seriesRes, stacksRes, statsRes] = await Promise.all([
         fetch('/api/screenplays'),
         fetch('/api/projects'),
         fetch('/api/series'),
+        fetch('/api/stacks'),
         fetch('/api/dashboard/stats'),
       ]);
 
@@ -119,6 +137,11 @@ export function useWorkspaceData(): UseWorkspaceDataReturn {
         setSeries(data || []);
       }
 
+      if (stacksRes.ok) {
+        const data = await stacksRes.json();
+        setStacks(data || []);
+      }
+
       if (statsRes.ok) {
         setDashboardStats(await statsRes.json());
       }
@@ -129,11 +152,12 @@ export function useWorkspaceData(): UseWorkspaceDataReturn {
     }
   }, []);
 
-  const deleteItem = useCallback(async (id: string, type: 'screenplay' | 'project' | 'series') => {
+  const deleteItem = useCallback(async (id: string, type: 'screenplay' | 'project' | 'series' | 'stack') => {
     const endpoints = {
       screenplay: `/api/screenplays/${id}`,
       project: `/api/projects/${id}`,
       series: `/api/series/${id}`,
+      stack: `/api/stacks/${id}`,
     };
     const endpoint = endpoints[type];
 
@@ -171,6 +195,7 @@ export function useWorkspaceData(): UseWorkspaceDataReturn {
     screenplays,
     projects,
     series,
+    stacks,
     dashboardStats,
     isLoading,
     loadData,
@@ -178,5 +203,6 @@ export function useWorkspaceData(): UseWorkspaceDataReturn {
     setScreenplays,
     setProjects,
     setSeries,
+    setStacks,
   };
 }

@@ -21,6 +21,12 @@ export type ShortcutId =
   | 'setParenthetical'
   | 'setTransition'
   | 'setShot'
+  | 'setSuper'
+  | 'setChyron'
+  | 'setEnding'
+  | 'setFlashback'
+  | 'setMontage'
+  | 'setIntercut'
   // Element cycling
   | 'cycleElementNext'
   | 'cycleElementPrev'
@@ -39,6 +45,7 @@ export type ShortcutId =
   // View
   | 'toggleSidebar'
   | 'centerLine'
+  | 'toggleTypewriter'
   // Block manipulation (Classic Editor)
   | 'moveBlockUp'
   | 'moveBlockDown';
@@ -84,6 +91,12 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
   setParenthetical: shortcut('setParenthetical', ['Mod', '5'], 'Parenthetical', 'elements'),
   setTransition: shortcut('setTransition', ['Mod', '6'], 'Transition', 'elements'),
   setShot: shortcut('setShot', ['Mod', '7'], 'Shot', 'elements'),
+  setSuper: shortcut('setSuper', ['Mod', '8'], 'Super (on-screen text)', 'elements'),
+  setChyron: shortcut('setChyron', ['Mod', '9'], 'Chyron (lower-third)', 'elements'),
+  setEnding: shortcut('setEnding', ['Mod', '0'], 'The End', 'elements'),
+  setFlashback: shortcut('setFlashback', ['Mod', 'Shift', 'F'], 'Flashback', 'elements'),
+  setMontage: shortcut('setMontage', ['Mod', 'Shift', 'M'], 'Montage', 'elements'),
+  setIntercut: shortcut('setIntercut', ['Mod', 'Shift', 'I'], 'Intercut', 'elements'),
 
   // Element cycling - these are core to the editor flow and not editable
   cycleElementNext: shortcut('cycleElementNext', ['Tab'], 'Cycle through element types', 'elements', false),
@@ -106,6 +119,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
   // View
   toggleSidebar: shortcut('toggleSidebar', ['Mod', '\\'], 'Toggle sidebar', 'view'),
   centerLine: shortcut('centerLine', ['Shift', 'Ctrl', 'E'], 'Center current line', 'view'),
+  toggleTypewriter: shortcut('toggleTypewriter', ['Mod', 'Shift', 'T'], 'Toggle typewriter scroll', 'view'),
 
   // Block manipulation (Classic Editor only)
   moveBlockUp: shortcut('moveBlockUp', ['Alt', 'ArrowUp'], 'Move block up', 'elements'),

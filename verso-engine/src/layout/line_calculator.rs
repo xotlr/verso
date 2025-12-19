@@ -229,6 +229,8 @@ mod tests {
             character_name: None,
             dual_dialogue_position: None,
             force_page_break_after: false,
+            auto_contd: false,
+            scene_number: None,
         }
     }
 

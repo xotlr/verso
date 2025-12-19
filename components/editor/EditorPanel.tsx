@@ -3,7 +3,7 @@
 import React from 'react';
 import { EditorPanelDesktop } from './EditorPanelDesktop';
 import { EditorPanelMobile } from './EditorPanelMobile';
-import type { SceneInfo, CharacterInfo } from '@/hooks/editor/useProseMirrorEditor';
+import type { SceneInfo, CharacterInfo } from '@/hooks/editor/use-prosemirror-editor';
 import type { EditorView } from 'prosemirror-view';
 import type { SceneWithShots, Shot } from '@/types/shotlist';
 

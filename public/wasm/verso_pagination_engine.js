@@ -112,6 +112,116 @@ export function calculate_element_lines(element_json, config_json) {
 }
 
 /**
+ * Export elements to FDX (Final Draft) format
+ *
+ * FDX is Final Draft's XML-based screenplay format, widely used in the
+ * professional screenwriting industry. This function converts the internal
+ * element representation to valid FDX syntax.
+ *
+ * # Arguments
+ *
+ * * `elements_json` - JSON string of Element array
+ * * `metadata_json` - Optional JSON string of DocumentMetadata (pass empty string or "null" to skip)
+ *
+ * # Returns
+ *
+ * FDX-formatted XML string
+ *
+ * # Example
+ *
+ * ```javascript
+ * const elements = [
+ *     { id: "1", element_type: "scene_heading", content: "INT. OFFICE - DAY" },
+ *     { id: "2", element_type: "action", content: "A busy office." },
+ *     { id: "3", element_type: "character", content: "JOHN" },
+ *     { id: "4", element_type: "dialogue", content: "Hello, is anyone here?" },
+ * ];
+ * const metadata = { title: "My Script", author: "John Smith" };
+ *
+ * const fdx = export_fdx(JSON.stringify(elements), JSON.stringify(metadata));
+ * // Save as .fdx file for Final Draft
+ * ```
+ * @param {string} elements_json
+ * @param {string} metadata_json
+ * @returns {string}
+ */
+export function export_fdx(elements_json, metadata_json) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(elements_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(metadata_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.export_fdx(ptr0, len0, ptr1, len1);
+        var ptr3 = ret[0];
+        var len3 = ret[1];
+        if (ret[3]) {
+            ptr3 = 0; len3 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred4_0 = ptr3;
+        deferred4_1 = len3;
+        return getStringFromWasm0(ptr3, len3);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
+}
+
+/**
+ * Export elements to Fountain format
+ *
+ * Fountain is a plain-text screenplay format widely supported by screenplay editors.
+ * This function converts the internal element representation to valid Fountain syntax.
+ *
+ * # Arguments
+ *
+ * * `elements_json` - JSON string of Element array
+ * * `metadata_json` - Optional JSON string of DocumentMetadata (pass empty string or "null" to skip)
+ *
+ * # Returns
+ *
+ * Fountain-formatted string
+ *
+ * # Example
+ *
+ * ```javascript
+ * const elements = [
+ *     { id: "1", element_type: "scene_heading", content: "INT. OFFICE - DAY" },
+ *     { id: "2", element_type: "action", content: "A busy office." },
+ * ];
+ * const metadata = { title: "My Script", author: "John Smith" };
+ *
+ * const fountain = export_fountain(JSON.stringify(elements), JSON.stringify(metadata));
+ * ```
+ * @param {string} elements_json
+ * @param {string} metadata_json
+ * @returns {string}
+ */
+export function export_fountain(elements_json, metadata_json) {
+    let deferred4_0;
+    let deferred4_1;
+    try {
+        const ptr0 = passStringToWasm0(elements_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(metadata_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.export_fountain(ptr0, len0, ptr1, len1);
+        var ptr3 = ret[0];
+        var len3 = ret[1];
+        if (ret[3]) {
+            ptr3 = 0; len3 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred4_0 = ptr3;
+        deferred4_1 = len3;
+        return getStringFromWasm0(ptr3, len3);
+    } finally {
+        wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
+}
+
+/**
  * Get the default Feature Film configuration as JSON
  * @returns {string}
  */
@@ -249,6 +359,81 @@ export function paginate_document(elements_json, config_json) {
 }
 
 /**
+ * Incremental pagination with caching support - PERFORMANCE OPTIMIZED ENTRY POINT
+ *
+ * This function extends paginate_document_v3 with incremental pagination support.
+ * When a cache and changes are provided, it can skip recalculating pages that
+ * haven't changed, significantly improving performance for large documents.
+ *
+ * # Arguments
+ *
+ * * `elements_json` - JSON string of Element array (content elements)
+ * * `config_json` - JSON string of PageConfig
+ * * `has_title_page` - Whether the document has a title page
+ * * `metadata_json` - Optional JSON string of DocumentMetadata (pass empty string or "null" to skip)
+ * * `changes_json` - Optional JSON string of DocumentChange array (pass empty string or "null" to skip)
+ * * `cache_json` - Optional JSON string of PaginationCache from previous result (pass empty string or "null" for first call)
+ *
+ * # Returns
+ *
+ * JSON string of PaginationResult with `cache` field populated for subsequent incremental calls.
+ *
+ * # Performance
+ *
+ * - First call (no cache): Same as paginate_document_v3
+ * - Subsequent calls with cache: Up to 5-10x faster for end-of-document edits
+ *
+ * # Example
+ *
+ * ```javascript
+ * // First pagination - no cache
+ * const result1 = paginate_document_incremental(elements, config, true, metadata, null, null);
+ * const cache = result1.cache;
+ *
+ * // User edits element at index 500
+ * const changes = [{ start_index: 500, end_index: 501, change_type: "modify" }];
+ *
+ * // Incremental pagination - reuses earlier pages
+ * const result2 = paginate_document_incremental(elements, config, true, metadata, changes, cache);
+ * ```
+ * @param {string} elements_json
+ * @param {string} config_json
+ * @param {boolean} has_title_page
+ * @param {string} metadata_json
+ * @param {string} changes_json
+ * @param {string} cache_json
+ * @returns {string}
+ */
+export function paginate_document_incremental(elements_json, config_json, has_title_page, metadata_json, changes_json, cache_json) {
+    let deferred7_0;
+    let deferred7_1;
+    try {
+        const ptr0 = passStringToWasm0(elements_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(metadata_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(changes_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len3 = WASM_VECTOR_LEN;
+        const ptr4 = passStringToWasm0(cache_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len4 = WASM_VECTOR_LEN;
+        const ret = wasm.paginate_document_incremental(ptr0, len0, ptr1, len1, has_title_page, ptr2, len2, ptr3, len3, ptr4, len4);
+        var ptr6 = ret[0];
+        var len6 = ret[1];
+        if (ret[3]) {
+            ptr6 = 0; len6 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred7_0 = ptr6;
+        deferred7_1 = len6;
+        return getStringFromWasm0(ptr6, len6);
+    } finally {
+        wasm.__wbindgen_free(deferred7_0, deferred7_1, 1);
+    }
+}
+
+/**
  * Pagination with title page awareness - RECOMMENDED ENTRY POINT
  *
  * This function makes WASM the single source of truth for all positioning.
@@ -294,6 +479,123 @@ export function paginate_document_v2(elements_json, config_json, has_title_page)
         return getStringFromWasm0(ptr3, len3);
     } finally {
         wasm.__wbindgen_free(deferred4_0, deferred4_1, 1);
+    }
+}
+
+/**
+ * Pagination with title page awareness and document metadata - FULL FEATURED ENTRY POINT
+ *
+ * This function extends paginate_document_v2 with document metadata support.
+ * Metadata is passed through to the result for frontend rendering of title pages
+ * and export headers.
+ *
+ * # Arguments
+ *
+ * * `elements_json` - JSON string of Element array (content elements, NOT including title page)
+ * * `config_json` - JSON string of PageConfig
+ * * `has_title_page` - Whether the document has a title page
+ * * `metadata_json` - Optional JSON string of DocumentMetadata (pass empty string or "null" to skip)
+ *
+ * # Returns
+ *
+ * JSON string of PaginationResult with absolute pixel positions and metadata
+ * @param {string} elements_json
+ * @param {string} config_json
+ * @param {boolean} has_title_page
+ * @param {string} metadata_json
+ * @returns {string}
+ */
+export function paginate_document_v3(elements_json, config_json, has_title_page, metadata_json) {
+    let deferred5_0;
+    let deferred5_1;
+    try {
+        const ptr0 = passStringToWasm0(elements_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(metadata_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.paginate_document_v3(ptr0, len0, ptr1, len1, has_title_page, ptr2, len2);
+        var ptr4 = ret[0];
+        var len4 = ret[1];
+        if (ret[3]) {
+            ptr4 = 0; len4 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred5_0 = ptr4;
+        deferred5_1 = len4;
+        return getStringFromWasm0(ptr4, len4);
+    } finally {
+        wasm.__wbindgen_free(deferred5_0, deferred5_1, 1);
+    }
+}
+
+/**
+ * Render paginated screenplay to a structure ready for PDF/print export
+ *
+ * This function transforms PaginationResult into a RenderedDocument containing
+ * all positions, text, and styling information needed by a PDF renderer.
+ * The JavaScript side uses pdf-lib to create the actual PDF from this data.
+ *
+ * # Arguments
+ *
+ * * `elements_json` - JSON string of Element array
+ * * `config_json` - JSON string of PageConfig used for pagination
+ * * `pagination_result_json` - JSON string of PaginationResult from pagination
+ * * `metadata_json` - Optional JSON string of DocumentMetadata (pass empty string to skip)
+ *
+ * # Returns
+ *
+ * JSON string of RenderedDocument with all positions and text ready for PDF rendering
+ *
+ * # Example
+ *
+ * ```javascript
+ * // First paginate the document
+ * const paginationResultJson = paginate_document_v3(elements, config, hasTitlePage, metadata);
+ *
+ * // Then render for export
+ * const renderedJson = render_for_export(
+ *     JSON.stringify(elements),
+ *     JSON.stringify(config),
+ *     paginationResultJson,
+ *     JSON.stringify(metadata)
+ * );
+ *
+ * // Use pdf-lib in JavaScript to create PDF from rendered data
+ * const rendered = JSON.parse(renderedJson);
+ * const pdf = await createPdfFromRendered(rendered);
+ * ```
+ * @param {string} elements_json
+ * @param {string} config_json
+ * @param {string} pagination_result_json
+ * @param {string} metadata_json
+ * @returns {string}
+ */
+export function render_for_export(elements_json, config_json, pagination_result_json, metadata_json) {
+    let deferred6_0;
+    let deferred6_1;
+    try {
+        const ptr0 = passStringToWasm0(elements_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(config_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(pagination_result_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(metadata_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len3 = WASM_VECTOR_LEN;
+        const ret = wasm.render_for_export(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+        var ptr5 = ret[0];
+        var len5 = ret[1];
+        if (ret[3]) {
+            ptr5 = 0; len5 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred6_0 = ptr5;
+        deferred6_1 = len5;
+        return getStringFromWasm0(ptr5, len5);
+    } finally {
+        wasm.__wbindgen_free(deferred6_0, deferred6_1, 1);
     }
 }
 

@@ -391,6 +391,73 @@ const ellipsisRule = new InputRule(/\.\.\.$/, (state, match, start, end) => {
 });
 
 /**
+ * Super input rules.
+ * Triggers on SUPER: at start of line.
+ */
+const superRules = [
+  nodeInputRule(
+    /^SUPER:\s$/i,
+    screenplaySchema.nodes.super
+  ),
+];
+
+/**
+ * Chyron input rules.
+ * Triggers on CHYRON: at start of line.
+ */
+const chyronRules = [
+  nodeInputRule(
+    /^CHYRON:\s$/i,
+    screenplaySchema.nodes.chyron
+  ),
+];
+
+/**
+ * Flashback input rules.
+ * Triggers on FLASHBACK or BEGIN FLASHBACK at start of line.
+ */
+const flashbackRules = [
+  nodeInputRule(
+    /^FLASHBACK\.?\s$/i,
+    screenplaySchema.nodes.flashback
+  ),
+  nodeInputRule(
+    /^BEGIN FLASHBACK\.?\s$/i,
+    screenplaySchema.nodes.flashback
+  ),
+];
+
+/**
+ * Montage input rules.
+ * Triggers on MONTAGE or BEGIN MONTAGE at start of line.
+ */
+const montageRules = [
+  nodeInputRule(
+    /^MONTAGE\.?\s$/i,
+    screenplaySchema.nodes.montage
+  ),
+  nodeInputRule(
+    /^BEGIN MONTAGE\.?\s$/i,
+    screenplaySchema.nodes.montage
+  ),
+];
+
+/**
+ * Intercut input rules.
+ * Triggers on INTERCUT or INTERCUT BETWEEN: at start of line.
+ */
+const intercutRules = [
+  nodeInputRule(
+    /^INTERCUT\.?\s$/i,
+    screenplaySchema.nodes.intercut
+  ),
+  nodeInputRule(
+    /^INTERCUT BETWEEN:\s$/i,
+    screenplaySchema.nodes.intercut
+  ),
+];
+
+/**
  * All input rules for the screenplay editor.
  */
 export function createInputRulesPlugin(): Plugin {
@@ -402,6 +469,11 @@ export function createInputRulesPlugin(): Plugin {
       ...shotRules,
       smartShotRule,
       parentheticalRule,
+      ...superRules,
+      ...chyronRules,
+      ...flashbackRules,
+      ...montageRules,
+      ...intercutRules,
       ...smartQuotesRules,
       emDashRule,
       ellipsisRule,

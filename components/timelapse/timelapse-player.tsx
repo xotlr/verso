@@ -5,7 +5,7 @@ import { ArrowLeft, Share2, Download, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TimelapseControls } from './timelapse-controls';
 import { TimelapseTimeline } from './timelapse-timeline';
-import { useTimelapsePlayback } from '@/hooks/use-timelapse-playback';
+import { useTimelapsePlayback } from '@/hooks/timelapse';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';

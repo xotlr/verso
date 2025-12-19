@@ -350,9 +350,8 @@ export function BottomNav() {
           )}
         >
           <div className={cn(
-            "transition-all duration-300 rounded-full",
-            "ring-2 ring-border",
-            isActive('/settings') && "scale-105 ring-primary",
+            "transition-all duration-300",
+            isActive('/settings') && "scale-105",
             "group-active:scale-90"
           )}>
             <ProfileAvatar

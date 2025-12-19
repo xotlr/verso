@@ -1,5 +1,5 @@
-export * from './screenplay-editor-wrapper';
-export * from './screenplay-sidebar';
+export * from './screenplay/screenplay-editor-wrapper';
+export * from './screenplay/screenplay-sidebar';
 export * from './character-timeline';
 export * from './scene-flow';
 export * from './theme-provider';
