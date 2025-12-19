@@ -18,7 +18,7 @@ import {
   FolderInput,
   Pencil,
 } from 'lucide-react';
-import { RiFolder6Line, RiFolder6Fill } from 'react-icons/ri';
+import { RiFolder6Line } from 'react-icons/ri';
 import { cn } from '@/lib/utils';
 import { ProfileAvatar } from '@/components/profile/profile-avatar';
 

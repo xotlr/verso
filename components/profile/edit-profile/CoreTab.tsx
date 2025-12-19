@@ -1,13 +1,13 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, Check, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PROFILE_ROLES, AVAILABILITY_CONFIG, type Availability } from '@/types/profile'
-import type { TabContentProps, ProfileFormData } from './types'
+import type { TabContentProps } from './types'
 
 interface CoreTabProps extends TabContentProps {
   usernameStatus: 'idle' | 'checking' | 'available' | 'taken' | 'invalid'

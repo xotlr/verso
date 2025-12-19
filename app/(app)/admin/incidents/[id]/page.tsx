@@ -80,8 +80,8 @@ export default function AdminIncidentDetailPage() {
       } else if (res.status === 404) {
         router.push('/admin/incidents');
       }
-    } catch (error) {
-      console.error('Failed to fetch incident:', error);
+    } catch (err) {
+      console.error('Failed to fetch incident:', err);
     } finally {
       setLoading(false);
     }
@@ -102,7 +102,7 @@ export default function AdminIncidentDetailPage() {
       } else {
         throw new Error('Failed to delete');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete incident');
       setDeleting(false);
     }

@@ -39,7 +39,7 @@ export function UptimeChart({ data, label, overallPercent }: UptimeChartProps) {
         </span>
       </div>
       <div className="flex gap-px h-8">
-        {filledData.map((day, i) => (
+        {filledData.map((day) => (
           <div
             key={day.date}
             className="flex-1 rounded-sm transition-colors"

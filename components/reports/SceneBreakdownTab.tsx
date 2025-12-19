@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { FileText, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Scene, Character } from '@/types/screenplay';
