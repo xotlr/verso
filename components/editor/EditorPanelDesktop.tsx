@@ -12,7 +12,7 @@ import { ShotlistPanel } from './panels/ShotlistPanel';
 import { NotesPanel } from './panels/NotesPanel';
 import type { SceneInfo, CharacterInfo } from '@/hooks/editor/use-prosemirror-editor';
 import type { EditorView } from 'prosemirror-view';
-import type { SceneWithShots, Shot } from '@/types/shotlist';
+import type { SceneWithShots, Shot, DetectedShot } from '@/types/shotlist';
 
 interface EditorPanelDesktopProps {
   scenes: SceneInfo[];
@@ -21,9 +21,11 @@ interface EditorPanelDesktopProps {
   currentSceneId?: string | null;
   screenplayId?: string;
   scenesWithShots?: SceneWithShots[];
+  detectedShots?: DetectedShot[];
   onShotsChange?: (shots: Shot[]) => void;
   onEditShot?: (shot: Shot) => void;
   onAddShot?: (sceneId: string) => void;
+  onAddDetectedShot?: (shot: DetectedShot) => void;
 }
 
 // Panel animation variants - using y: '-50%' for vertical centering
@@ -56,9 +58,11 @@ export function EditorPanelDesktop({
   currentSceneId,
   screenplayId,
   scenesWithShots = [],
+  detectedShots = [],
   onShotsChange,
   onEditShot,
   onAddShot,
+  onAddDetectedShot,
 }: EditorPanelDesktopProps) {
   const { open, activePanel, setActivePanel, position, isMobile } = useEditorPanel();
   const { settings } = useSettings();
@@ -202,9 +206,12 @@ export function EditorPanelDesktop({
                       <ShotlistPanel
                         screenplayId={screenplayId}
                         scenesWithShots={scenesWithShots}
+                        detectedShots={detectedShots}
+                        currentSceneId={currentSceneId}
                         onShotsChange={onShotsChange}
                         onEditShot={onEditShot}
                         onAddShot={onAddShot}
+                        onAddDetectedShot={onAddDetectedShot}
                         className="h-full"
                       />
                     </motion.div>

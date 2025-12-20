@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
 import { cn } from '@/lib/utils';
-import { ProfileAvatar } from '@/components/profile/profile-avatar';
+import { ProfileHoverCard } from '@/components/profile-hover-card';
 
 // ============================================================================
 // TYPES
@@ -201,7 +201,7 @@ export function ProjectFolderCard({
           'group relative flex flex-col z-10',
           'bg-card rounded-xl',
           'border border-border/60',
-          'hover:border-primary hover:shadow-md',
+          'hover:shadow-md',
           'transition-all duration-300 ease-out',
           'touch-manipulation cursor-pointer overflow-hidden',
           cardHeight
@@ -330,43 +330,67 @@ export function ProjectFolderCard({
                 {keyRoles.director && (
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground w-16 uppercase tracking-wide">Directed by</span>
-                    <div className="flex items-center gap-1.5">
-                      <ProfileAvatar
-                        userId={keyRoles.director.user?.id || keyRoles.director.name}
-                        imageUrl={keyRoles.director.user?.image}
-                        name={keyRoles.director.user?.name || keyRoles.director.name}
-                        size="xs"
-                      />
+                    {keyRoles.director.user ? (
+                      <ProfileHoverCard
+                        user={{
+                          id: keyRoles.director.user.id,
+                          name: keyRoles.director.user.name,
+                          email: null,
+                          image: keyRoles.director.user.image,
+                          createdAt: new Date(),
+                        }}
+                      >
+                        <span className="text-foreground font-medium truncate hover:underline cursor-pointer">
+                          {keyRoles.director.name}
+                        </span>
+                      </ProfileHoverCard>
+                    ) : (
                       <span className="text-foreground font-medium truncate">{keyRoles.director.name}</span>
-                    </div>
+                    )}
                   </div>
                 )}
                 {keyRoles.writer && (
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground w-16 uppercase tracking-wide">Written by</span>
-                    <div className="flex items-center gap-1.5">
-                      <ProfileAvatar
-                        userId={keyRoles.writer.user?.id || keyRoles.writer.name}
-                        imageUrl={keyRoles.writer.user?.image}
-                        name={keyRoles.writer.user?.name || keyRoles.writer.name}
-                        size="xs"
-                      />
+                    {keyRoles.writer.user ? (
+                      <ProfileHoverCard
+                        user={{
+                          id: keyRoles.writer.user.id,
+                          name: keyRoles.writer.user.name,
+                          email: null,
+                          image: keyRoles.writer.user.image,
+                          createdAt: new Date(),
+                        }}
+                      >
+                        <span className="text-foreground font-medium truncate hover:underline cursor-pointer">
+                          {keyRoles.writer.name}
+                        </span>
+                      </ProfileHoverCard>
+                    ) : (
                       <span className="text-foreground font-medium truncate">{keyRoles.writer.name}</span>
-                    </div>
+                    )}
                   </div>
                 )}
                 {keyRoles.producer && (
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground w-16 uppercase tracking-wide">Produced by</span>
-                    <div className="flex items-center gap-1.5">
-                      <ProfileAvatar
-                        userId={keyRoles.producer.user?.id || keyRoles.producer.name}
-                        imageUrl={keyRoles.producer.user?.image}
-                        name={keyRoles.producer.user?.name || keyRoles.producer.name}
-                        size="xs"
-                      />
+                    {keyRoles.producer.user ? (
+                      <ProfileHoverCard
+                        user={{
+                          id: keyRoles.producer.user.id,
+                          name: keyRoles.producer.user.name,
+                          email: null,
+                          image: keyRoles.producer.user.image,
+                          createdAt: new Date(),
+                        }}
+                      >
+                        <span className="text-foreground font-medium truncate hover:underline cursor-pointer">
+                          {keyRoles.producer.name}
+                        </span>
+                      </ProfileHoverCard>
+                    ) : (
                       <span className="text-foreground font-medium truncate">{keyRoles.producer.name}</span>
-                    </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -34,6 +34,7 @@ import {
   extractScenes,
   extractCharacters,
   extractShots,
+  extractDetectedShotsFromDocument,
 } from './document-extractors';
 import type {
   UseProseMirrorEditorOptions,
@@ -161,13 +162,14 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
           extractionTimeoutRef.current = setTimeout(() => {
             const scenes = extractScenes(doc);
             const characters = extractCharacters(doc);
+            const detectedShots = extractDetectedShotsFromDocument(doc, scenes);
 
             charactersRef.current = characters.map(c => c.name);
             locationsRef.current = scenes.map(s => s.location).filter((v, i, a) => v && a.indexOf(v) === i);
             scenesRef.current = scenes;
 
             if (onScenesChangeRef.current) {
-              onScenesChangeRef.current(scenes, characters);
+              onScenesChangeRef.current(scenes, characters, detectedShots);
             }
           }, 300);
         }
@@ -209,9 +211,10 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
 
     const scenes = extractScenes(doc);
     const characters = extractCharacters(doc);
+    const detectedShots = extractDetectedShotsFromDocument(doc, scenes);
     scenesRef.current = scenes;
     if (onScenesChangeRef.current) {
-      onScenesChangeRef.current(scenes, characters);
+      onScenesChangeRef.current(scenes, characters, detectedShots);
     }
 
     return () => {

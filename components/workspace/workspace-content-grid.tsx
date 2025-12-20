@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Layers } from 'lucide-react';
 import { PiFilmScript } from 'react-icons/pi';
@@ -28,6 +29,7 @@ import {
   SeriesListRowSkeleton,
 } from '@/components/series';
 import { StackCard } from '@/components/stack-card';
+import { StackDialog, AddToStackDialog } from '@/components/stack';
 import { WorkspaceDndContext } from './workspace-dnd-context';
 import { DraggableScreenplayCard } from './draggable-screenplay-card';
 import { DroppableStackCard } from './droppable-stack-card';
@@ -58,6 +60,8 @@ interface WorkspaceContentGridProps {
   onCreateStack: (draggedId: string, targetId: string) => Promise<StackItem | null>;
   onAddToStack: (screenplayId: string, stackId: string) => Promise<void>;
   onDissolveStack: (stackId: string) => Promise<void>;
+  onRenameStack?: (stackId: string, name: string) => Promise<void>;
+  onRemoveFromStack?: (screenplayId: string, stackId: string) => Promise<void>;
 }
 
 export function WorkspaceContentGrid({
@@ -81,8 +85,79 @@ export function WorkspaceContentGrid({
   onCreateStack,
   onAddToStack,
   onDissolveStack,
+  onRenameStack,
+  onRemoveFromStack,
 }: WorkspaceContentGridProps) {
   const router = useRouter();
+
+  // Stack dialog state
+  const [selectedStack, setSelectedStack] = useState<StackItem | null>(null);
+  const [stackDialogOpen, setStackDialogOpen] = useState(false);
+
+  // Add to stack dialog state
+  const [screenplayToAddToStack, setScreenplayToAddToStack] = useState<ScreenplayItem | null>(null);
+  const [addToStackDialogOpen, setAddToStackDialogOpen] = useState(false);
+
+  const handleOpenStack = (stack: StackItem) => {
+    setSelectedStack(stack);
+    setStackDialogOpen(true);
+  };
+
+  const handleRenameStack = async (stackId: string, name: string) => {
+    if (onRenameStack) {
+      await onRenameStack(stackId, name);
+      // Update local state
+      if (selectedStack && selectedStack.id === stackId) {
+        setSelectedStack({ ...selectedStack, name });
+      }
+    }
+  };
+
+  const handleRemoveFromStack = async (screenplayId: string, stackId: string) => {
+    if (onRemoveFromStack) {
+      await onRemoveFromStack(screenplayId, stackId);
+      // Update local state to remove the screenplay from the dialog
+      if (selectedStack && selectedStack.id === stackId) {
+        const updatedScreenplays = selectedStack.screenplays?.filter(s => s.id !== screenplayId) || [];
+        if (updatedScreenplays.length === 0) {
+          // Stack is now empty, close dialog
+          setStackDialogOpen(false);
+          setSelectedStack(null);
+        } else {
+          setSelectedStack({
+            ...selectedStack,
+            screenplays: updatedScreenplays,
+            _count: { screenplays: updatedScreenplays.length },
+          });
+        }
+      }
+    }
+  };
+
+  const handleOpenAddToStack = (screenplay: ScreenplayItem) => {
+    setScreenplayToAddToStack(screenplay);
+    setAddToStackDialogOpen(true);
+  };
+
+  const handleAddScreenplayToStack = async (stackId: string) => {
+    if (screenplayToAddToStack) {
+      await onAddToStack(screenplayToAddToStack.id, stackId);
+      setAddToStackDialogOpen(false);
+      setScreenplayToAddToStack(null);
+    }
+  };
+
+  const handleCreateNewStackForScreenplay = async (_name: string) => {
+    if (screenplayToAddToStack) {
+      // Create a new stack with this screenplay
+      // We need another screenplay to create a stack, so we'll use the createStack with the same screenplay
+      // Actually for mobile, we might want a different API that creates a stack with just one screenplay
+      // For now, we'll just close the dialog - the user needs to drag another screenplay or use desktop
+      // TODO: Add API to create a stack with a single screenplay
+      setAddToStackDialogOpen(false);
+      setScreenplayToAddToStack(null);
+    }
+  };
 
   // Filter and sort screenplays (exclude those in stacks - they appear inside stack cards)
   const filteredScreenplays = screenplays
@@ -190,26 +265,111 @@ export function WorkspaceContentGrid({
 
     if (viewMode === 'grid') {
       return (
-        <WorkspaceDndContext
-          onCreateStack={onCreateStack}
-          onAddToStack={onAddToStack}
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
-            {/* Render stacks first */}
-            {filteredStacks.map((stack) => (
-              <DroppableStackCard
-                key={`stack-${stack.id}`}
-                stack={stack}
-                href={`/stack/${stack.id}`}
-                onUngroup={() => onDissolveStack(stack.id)}
-                onDelete={() => onDelete(stack.id, 'stack')}
-              />
-            ))}
-            {/* Then render standalone screenplays */}
+        <>
+          <WorkspaceDndContext
+            onCreateStack={onCreateStack}
+            onAddToStack={onAddToStack}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+              {/* Render stacks first */}
+              {filteredStacks.map((stack) => (
+                <DroppableStackCard
+                  key={`stack-${stack.id}`}
+                  stack={stack}
+                  onClick={() => handleOpenStack(stack)}
+                  onUngroup={() => onDissolveStack(stack.id)}
+                  onDelete={() => onDelete(stack.id, 'stack')}
+                />
+              ))}
+              {/* Then render standalone screenplays */}
+              {filteredScreenplays.map((screenplay) => (
+                <DraggableScreenplayCard
+                  key={screenplay.id}
+                  fullScreenplay={screenplay}
+                  screenplay={{
+                    id: screenplay.id,
+                    title: screenplay.title,
+                    logline: screenplay.logline,
+                    synopsis: screenplay.synopsis,
+                    updatedAt: screenplay.updatedAt,
+                    wordCount: screenplay.wordCount,
+                    genre: screenplay.genre,
+                    isFavorite: screenplay.isFavorite,
+                    project: screenplay.project,
+                    author: screenplay.author,
+                    user: screenplay.user,
+                    type: screenplay.type || undefined,
+                    season: screenplay.season,
+                    episode: screenplay.episode,
+                    episodeTitle: screenplay.episodeTitle,
+                    series: screenplay.series,
+                  }}
+                  href={`/editor/${screenplay.id}`}
+                  showFavorite={true}
+                  showGenre={true}
+                  showProject={true}
+                  showWordCount={true}
+                  onEdit={() => router.push(`/editor/${screenplay.id}`)}
+                  onExport={() => onExport(screenplay)}
+                  onDelete={() => onDelete(screenplay.id, 'screenplay')}
+                  onMoveToProject={onMoveToProject ? () => onMoveToProject(screenplay) : undefined}
+                  onCreateProject={onCreateProjectFromScreenplay ? () => onCreateProjectFromScreenplay(screenplay) : undefined}
+                  onAddToStack={stacks.length > 0 ? () => handleOpenAddToStack(screenplay) : undefined}
+                />
+              ))}
+            </div>
+          </WorkspaceDndContext>
+          <StackDialog
+            stack={selectedStack}
+            open={stackDialogOpen}
+            onOpenChange={setStackDialogOpen}
+            onRename={handleRenameStack}
+            onUngroup={(stackId) => {
+              onDissolveStack(stackId);
+              setStackDialogOpen(false);
+              setSelectedStack(null);
+            }}
+            onRemoveFromStack={handleRemoveFromStack}
+          />
+          <AddToStackDialog
+            open={addToStackDialogOpen}
+            onOpenChange={setAddToStackDialogOpen}
+            screenplayTitle={screenplayToAddToStack?.title || ''}
+            stacks={stacks.map(s => ({
+              id: s.id,
+              name: s.name,
+              screenplayCount: s._count?.screenplays || s.screenplays?.length || 0,
+            }))}
+            onAddToStack={handleAddScreenplayToStack}
+            onCreateNewStack={handleCreateNewStackForScreenplay}
+          />
+        </>
+      );
+    }
+
+    // List view for screenplays - simple rows (no DnD in list view)
+    return (
+      <>
+        <div className="space-y-4">
+          {/* Stacks section */}
+          {filteredStacks.length > 0 && (
+            <div className="space-y-2">
+              {filteredStacks.map((stack) => (
+                <StackCard
+                  key={`stack-${stack.id}`}
+                  stack={stack}
+                  onClick={() => handleOpenStack(stack)}
+                  onUngroup={() => onDissolveStack(stack.id)}
+                  onDelete={() => onDelete(stack.id, 'stack')}
+                />
+              ))}
+            </div>
+          )}
+          {/* Screenplays list */}
+          <div className="space-y-2">
             {filteredScreenplays.map((screenplay) => (
-              <DraggableScreenplayCard
+              <ScreenplayListRow
                 key={screenplay.id}
-                fullScreenplay={screenplay}
                 screenplay={{
                   id: screenplay.id,
                   title: screenplay.title,
@@ -229,67 +389,35 @@ export function WorkspaceContentGrid({
                   series: screenplay.series,
                 }}
                 href={`/editor/${screenplay.id}`}
-                showFavorite={true}
-                showGenre={true}
-                showProject={true}
-                showWordCount={true}
-                onEdit={() => router.push(`/editor/${screenplay.id}`)}
-                onExport={() => onExport(screenplay)}
-                onDelete={() => onDelete(screenplay.id, 'screenplay')}
-                onMoveToProject={onMoveToProject ? () => onMoveToProject(screenplay) : undefined}
-                onCreateProject={onCreateProjectFromScreenplay ? () => onCreateProjectFromScreenplay(screenplay) : undefined}
               />
             ))}
           </div>
-        </WorkspaceDndContext>
-      );
-    }
-
-    // List view for screenplays - simple rows (no DnD in list view)
-    return (
-      <div className="space-y-4">
-        {/* Stacks section */}
-        {filteredStacks.length > 0 && (
-          <div className="space-y-2">
-            {filteredStacks.map((stack) => (
-              <StackCard
-                key={`stack-${stack.id}`}
-                stack={stack}
-                href={`/stack/${stack.id}`}
-                onUngroup={() => onDissolveStack(stack.id)}
-                onDelete={() => onDelete(stack.id, 'stack')}
-              />
-            ))}
-          </div>
-        )}
-        {/* Screenplays list */}
-        <div className="space-y-2">
-          {filteredScreenplays.map((screenplay) => (
-            <ScreenplayListRow
-              key={screenplay.id}
-              screenplay={{
-                id: screenplay.id,
-                title: screenplay.title,
-                logline: screenplay.logline,
-                synopsis: screenplay.synopsis,
-                updatedAt: screenplay.updatedAt,
-                wordCount: screenplay.wordCount,
-                genre: screenplay.genre,
-                isFavorite: screenplay.isFavorite,
-                project: screenplay.project,
-                author: screenplay.author,
-                user: screenplay.user,
-                type: screenplay.type || undefined,
-                season: screenplay.season,
-                episode: screenplay.episode,
-                episodeTitle: screenplay.episodeTitle,
-                series: screenplay.series,
-              }}
-              href={`/editor/${screenplay.id}`}
-            />
-          ))}
         </div>
-      </div>
+        <StackDialog
+          stack={selectedStack}
+          open={stackDialogOpen}
+          onOpenChange={setStackDialogOpen}
+          onRename={handleRenameStack}
+          onUngroup={(stackId) => {
+            onDissolveStack(stackId);
+            setStackDialogOpen(false);
+            setSelectedStack(null);
+          }}
+          onRemoveFromStack={handleRemoveFromStack}
+        />
+        <AddToStackDialog
+          open={addToStackDialogOpen}
+          onOpenChange={setAddToStackDialogOpen}
+          screenplayTitle={screenplayToAddToStack?.title || ''}
+          stacks={stacks.map(s => ({
+            id: s.id,
+            name: s.name,
+            screenplayCount: s._count?.screenplays || s.screenplays?.length || 0,
+          }))}
+          onAddToStack={handleAddScreenplayToStack}
+          onCreateNewStack={handleCreateNewStackForScreenplay}
+        />
+      </>
     );
   }
 

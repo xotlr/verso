@@ -18,6 +18,7 @@ interface DraggableScreenplayCardProps {
   onDelete?: () => void;
   onMoveToProject?: () => void;
   onCreateProject?: () => void;
+  onAddToStack?: () => void;
 }
 
 export function DraggableScreenplayCard({
@@ -33,6 +34,7 @@ export function DraggableScreenplayCard({
   onDelete,
   onMoveToProject,
   onCreateProject,
+  onAddToStack,
 }: DraggableScreenplayCardProps) {
   const { activeId, activeType } = useWorkspaceDndState();
 
@@ -119,6 +121,7 @@ export function DraggableScreenplayCard({
         onDelete={onDelete}
         onMoveToProject={onMoveToProject}
         onCreateProject={onCreateProject}
+        onAddToStack={onAddToStack}
       />
     </div>
   );

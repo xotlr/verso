@@ -6,6 +6,7 @@ import type { EditorView } from 'prosemirror-view';
 import type { ElementType } from '@/lib/prosemirror';
 import type { AutocompleteState, AutocompleteSuggestion } from '@/lib/prosemirror/plugins';
 import type { PaginationResult } from '@/lib/verso';
+import type { DetectedShot } from '@/types/shotlist';
 
 /**
  * Options for initializing the ProseMirror editor.
@@ -13,7 +14,7 @@ import type { PaginationResult } from '@/lib/verso';
 export interface UseProseMirrorEditorOptions {
   initialContent: string | null;
   onUpdate?: (content: string) => void;
-  onScenesChange?: (scenes: SceneInfo[], characters: CharacterInfo[]) => void;
+  onScenesChange?: (scenes: SceneInfo[], characters: CharacterInfo[], detectedShots: DetectedShot[]) => void;
   editable?: boolean;
 }
 

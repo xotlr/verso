@@ -36,8 +36,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Minus, Plus } from "lucide-react";
+import { Minus, Plus, Upload, Link2, X, ImageIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import Image from "next/image";
 
 interface ShotEditorProps {
   open: boolean;
@@ -65,6 +66,9 @@ export function ShotEditor({
   const [audio, setAudio] = useState("");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<ShotStatus>("planned");
+  const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [thumbnailType, setThumbnailType] = useState<'upload' | 'url' | null>(null);
+  const [imageInputMode, setImageInputMode] = useState<'upload' | 'url'>('upload');
 
   // Reset form when shot changes
   useEffect(() => {
@@ -80,6 +84,9 @@ export function ShotEditor({
       setAudio(shot.audio || "");
       setNotes(shot.notes || "");
       setStatus(shot.status);
+      setThumbnailUrl(shot.thumbnailUrl || "");
+      setThumbnailType(shot.thumbnailType || null);
+      setImageInputMode(shot.thumbnailType || 'upload');
     } else {
       // Reset for new shot
       setDescription("");
@@ -93,6 +100,9 @@ export function ShotEditor({
       setAudio("");
       setNotes("");
       setStatus("planned");
+      setThumbnailUrl("");
+      setThumbnailType(null);
+      setImageInputMode('upload');
     }
   }, [shot, open]);
 
@@ -110,8 +120,20 @@ export function ShotEditor({
       lighting: lighting.trim() || null,
       audio: audio.trim() || null,
       notes: notes.trim() || null,
+      thumbnailUrl: thumbnailUrl.trim() || null,
+      thumbnailType: thumbnailUrl.trim() ? thumbnailType : null,
       status,
     });
+  };
+
+  const handleClearImage = () => {
+    setThumbnailUrl("");
+    setThumbnailType(null);
+  };
+
+  const handleUrlPaste = (url: string) => {
+    setThumbnailUrl(url);
+    setThumbnailType('url');
   };
 
   const adjustDuration = (delta: number) => {
@@ -130,10 +152,11 @@ export function ShotEditor({
 
         <ScrollArea className="flex-1 -mx-6 px-6">
         <Tabs defaultValue="basic" className="mt-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="basic">Basic</TabsTrigger>
             <TabsTrigger value="camera">Camera</TabsTrigger>
             <TabsTrigger value="production">Production</TabsTrigger>
+            <TabsTrigger value="storyboard">Storyboard</TabsTrigger>
           </TabsList>
 
           {/* Basic Tab */}
@@ -327,6 +350,92 @@ export function ShotEditor({
                 placeholder="Audio/sound requirements..."
                 rows={2}
               />
+            </div>
+          </TabsContent>
+
+          {/* Storyboard Tab */}
+          <TabsContent value="storyboard" className="space-y-4 mt-4">
+            <div className="space-y-4">
+              <Label>Storyboard Image</Label>
+
+              {/* Image Preview */}
+              {thumbnailUrl ? (
+                <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border">
+                  <Image
+                    src={thumbnailUrl}
+                    alt="Storyboard frame"
+                    fill
+                    className="object-contain"
+                    unoptimized={thumbnailType === 'url'}
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-8 w-8"
+                    onClick={handleClearImage}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="aspect-video bg-muted rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                  <ImageIcon className="h-10 w-10 opacity-50" />
+                  <p className="text-sm">No storyboard image</p>
+                </div>
+              )}
+
+              {/* Input Mode Selector */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={imageInputMode === 'url' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setImageInputMode('url')}
+                  className="flex-1"
+                >
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Paste URL
+                </Button>
+                <Button
+                  type="button"
+                  variant={imageInputMode === 'upload' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setImageInputMode('upload')}
+                  className="flex-1"
+                  disabled
+                  title="Upload coming soon"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload
+                </Button>
+              </div>
+
+              {/* URL Input */}
+              {imageInputMode === 'url' && (
+                <div className="space-y-2">
+                  <Label htmlFor="imageUrl">Image URL</Label>
+                  <Input
+                    id="imageUrl"
+                    type="url"
+                    value={thumbnailUrl}
+                    onChange={(e) => handleUrlPaste(e.target.value)}
+                    placeholder="https://example.com/storyboard.jpg"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Paste a direct link to an image (JPG, PNG, GIF)
+                  </p>
+                </div>
+              )}
+
+              {/* Upload placeholder - disabled for now */}
+              {imageInputMode === 'upload' && (
+                <div className="p-4 border-2 border-dashed rounded-lg text-center text-muted-foreground">
+                  <Upload className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Image upload coming soon</p>
+                  <p className="text-xs mt-1">Use URL paste for now</p>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>

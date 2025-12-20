@@ -578,10 +578,38 @@ model ShareLink {
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
-  screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  screenplay     Screenplay      @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  accessRequests AccessRequest[]
 
   @@index([token])
   @@index([screenplayId])
+}
+
+// Access request status for share links
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+// Access requests for shared screenplays
+model AccessRequest {
+  id            String              @id @default(cuid())
+  shareLinkId   String
+  email         String
+  name          String?
+  message       String?             @db.Text
+  requestedRole SharePermission     @default(VIEW)
+  status        AccessRequestStatus @default(PENDING)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  respondedAt   DateTime?
+
+  shareLink ShareLink @relation(fields: [shareLinkId], references: [id], onDelete: Cascade)
+
+  @@unique([shareLinkId, email])
+  @@index([shareLinkId])
+  @@index([email])
 }
 
 // User-level sharing permission roles
@@ -799,6 +827,10 @@ model Shot {
   lighting  String? @db.Text // Lighting setup notes
   audio     String? @db.Text // Audio/sound notes
   notes     String? @db.Text // General notes
+
+  // Storyboard
+  thumbnailUrl  String? // Image URL for storyboard frame
+  thumbnailType String? // "upload" | "url" - indicates image source
 
   // Status
   status String @default("planned") // planned, setup, shot, approved

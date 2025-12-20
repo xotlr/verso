@@ -57,6 +57,8 @@ export interface Shot {
   lighting: string | null;
   audio: string | null;
   notes: string | null;
+  thumbnailUrl: string | null;
+  thumbnailType: 'upload' | 'url' | null;
   status: ShotStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -130,3 +132,17 @@ export const COMMON_LENSES = [
   '135mm',
   '200mm',
 ] as const;
+
+/**
+ * A shot detected from screenplay text (not yet saved to DB).
+ * These are suggestions that can be added to the shotlist.
+ */
+export interface DetectedShot {
+  id: string; // Temporary ID based on position
+  sceneId: string | null;
+  shotType: string; // From DetectedShotType in screenplay-patterns.ts
+  subject: string | null;
+  lineContent: string; // The full line of text
+  position: number; // Position in document
+  lineNumber: number; // Approximate line number for display
+}

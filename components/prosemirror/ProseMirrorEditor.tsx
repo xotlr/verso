@@ -8,6 +8,7 @@ import {
   SceneInfo,
   CharacterInfo,
 } from '@/hooks/editor/use-prosemirror-editor';
+import type { DetectedShot } from '@/types/shotlist';
 import { useResponsiveScale } from '@/hooks/editor/use-responsive-scale';
 import { useEditorZoom } from '@/hooks/editor/use-editor-zoom';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -38,7 +39,7 @@ export type ViewMode = 'discrete' | 'continuous';
 export interface ProseMirrorEditorProps {
   content: string | null;
   onContentChange?: (content: string) => void;
-  onScenesChange?: (scenes: SceneInfo[], characters: CharacterInfo[]) => void;
+  onScenesChange?: (scenes: SceneInfo[], characters: CharacterInfo[], detectedShots: DetectedShot[]) => void;
   onCurrentSceneChange?: (sceneId: string | null) => void;
   onSave?: () => void;
   onViewReady?: (view: import('prosemirror-view').EditorView) => void;

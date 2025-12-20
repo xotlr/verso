@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ import {
   Camera,
   Film,
   GripVertical,
+  Sparkles,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -47,19 +48,24 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   Shot,
   SceneWithShots,
+  DetectedShot,
   SHOT_TYPE_LABELS,
   SHOT_STATUS_COLORS,
   ShotType,
   ShotStatus,
 } from '@/types/shotlist';
+import { getShotDisplayName } from '@/lib/screenplay-patterns';
 
 interface ShotlistPanelProps {
   screenplayId: string;
   scenesWithShots: SceneWithShots[];
+  detectedShots?: DetectedShot[];
+  currentSceneId?: string | null;
   onShotsChange?: (shots: Shot[]) => void;
   onSceneClick?: (sceneId: string) => void;
   onEditShot?: (shot: Shot) => void;
   onAddShot?: (sceneId: string) => void;
+  onAddDetectedShot?: (shot: DetectedShot) => void;
   className?: string;
 }
 
@@ -194,10 +200,13 @@ function SortableShotItem({
 export function ShotlistPanel({
   screenplayId,
   scenesWithShots,
+  detectedShots = [],
+  currentSceneId,
   onShotsChange,
   onSceneClick: _onSceneClick,
   onEditShot,
   onAddShot,
+  onAddDetectedShot,
   className,
 }: ShotlistPanelProps) {
   const [expandedScenes, setExpandedScenes] = useState<Set<string>>(
@@ -205,6 +214,7 @@ export function ShotlistPanel({
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ShotStatus | 'all'>('all');
+  const sceneRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Expand first scene when data loads
   useEffect(() => {
@@ -212,6 +222,30 @@ export function ShotlistPanel({
       setExpandedScenes(new Set([scenesWithShots[0].sceneId]));
     }
   }, [scenesWithShots, expandedScenes.size]);
+
+  // Auto-expand and scroll to current scene when cursor moves in editor
+  useEffect(() => {
+    if (!currentSceneId) return;
+
+    // Expand the current scene if not already expanded
+    setExpandedScenes((prev) => {
+      if (!prev.has(currentSceneId)) {
+        const next = new Set(prev);
+        next.add(currentSceneId);
+        return next;
+      }
+      return prev;
+    });
+
+    // Scroll to the current scene
+    const sceneElement = sceneRefs.current.get(currentSceneId);
+    if (sceneElement) {
+      sceneElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [currentSceneId]);
 
   const toggleScene = useCallback((sceneId: string) => {
     setExpandedScenes((prev) => {
@@ -303,6 +337,19 @@ export function ShotlistPanel({
     (acc, scene) => acc + scene.shots.length,
     0
   );
+
+  // Get detected shots grouped by scene
+  const getDetectedShotsForScene = useCallback((sceneId: string) => {
+    return detectedShots.filter(s => s.sceneId === sceneId);
+  }, [detectedShots]);
+
+  // Check if a detected shot is already in the saved shots (by comparing content)
+  const isAlreadySaved = useCallback((detected: DetectedShot, savedShots: Shot[]) => {
+    return savedShots.some(saved =>
+      saved.description?.toLowerCase().includes(detected.lineContent.toLowerCase().slice(0, 30)) ||
+      detected.lineContent.toLowerCase().includes(saved.description?.toLowerCase() || '')
+    );
+  }, []);
 
   const getStatusBadge = useCallback((status: ShotStatus) => {
     const colors = SHOT_STATUS_COLORS[status] || SHOT_STATUS_COLORS.planned;
@@ -412,7 +459,18 @@ export function ShotlistPanel({
                 </div>
               ) : (
                 filteredScenes.map((scene) => (
-                  <div key={scene.sceneId} className="rounded-lg border">
+                  <div
+                    key={scene.sceneId}
+                    ref={(el) => {
+                      if (el) sceneRefs.current.set(scene.sceneId, el);
+                    }}
+                    className={cn(
+                      'rounded-lg border transition-all duration-200',
+                      currentSceneId === scene.sceneId
+                        ? 'border-primary/50 ring-1 ring-primary/20 bg-primary/5'
+                        : 'border-border'
+                    )}
+                  >
                     {/* Scene header */}
                     <button
                       onClick={() => toggleScene(scene.sceneId)}
@@ -457,7 +515,7 @@ export function ShotlistPanel({
                     {/* Shots list with Drag & Drop */}
                     {expandedScenes.has(scene.sceneId) && (
                       <div className="border-t space-y-1 p-2">
-                        {scene.shots.length === 0 ? (
+                        {scene.shots.length === 0 && getDetectedShotsForScene(scene.sceneId).length === 0 ? (
                           <button
                             onClick={() => onAddShot?.(scene.sceneId)}
                             className={cn(
@@ -471,27 +529,93 @@ export function ShotlistPanel({
                             <span>Add shot</span>
                           </button>
                         ) : (
-                          <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleDragEnd}
-                          >
-                            <SortableContext
-                              items={scene.shots.map(s => s.id)}
-                              strategy={verticalListSortingStrategy}
-                            >
-                              {scene.shots.map((shot) => (
-                                <SortableShotItem
-                                  key={shot.id}
-                                  shot={shot}
-                                  onEditShot={onEditShot}
-                                  handleDuplicateShot={handleDuplicateShot}
-                                  handleDeleteShot={handleDeleteShot}
-                                  getStatusBadge={getStatusBadge}
-                                />
-                              ))}
-                            </SortableContext>
-                          </DndContext>
+                          <>
+                            {/* Saved shots */}
+                            {scene.shots.length > 0 && (
+                              <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={handleDragEnd}
+                              >
+                                <SortableContext
+                                  items={scene.shots.map(s => s.id)}
+                                  strategy={verticalListSortingStrategy}
+                                >
+                                  {scene.shots.map((shot) => (
+                                    <SortableShotItem
+                                      key={shot.id}
+                                      shot={shot}
+                                      onEditShot={onEditShot}
+                                      handleDuplicateShot={handleDuplicateShot}
+                                      handleDeleteShot={handleDeleteShot}
+                                      getStatusBadge={getStatusBadge}
+                                    />
+                                  ))}
+                                </SortableContext>
+                              </DndContext>
+                            )}
+
+                            {/* Detected shots (suggestions) */}
+                            {getDetectedShotsForScene(scene.sceneId).filter(
+                              detected => !isAlreadySaved(detected, scene.shots)
+                            ).length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-dashed border-border/50">
+                                <div className="flex items-center gap-1.5 px-2 py-1 mb-1">
+                                  <Sparkles className="h-3 w-3 text-amber-500" />
+                                  <span className="text-[10px] font-medium text-muted-foreground">
+                                    Detected from script
+                                  </span>
+                                </div>
+                                {getDetectedShotsForScene(scene.sceneId)
+                                  .filter(detected => !isAlreadySaved(detected, scene.shots))
+                                  .map((detected) => (
+                                    <div
+                                      key={detected.id}
+                                      className={cn(
+                                        'flex items-start gap-2 p-2 rounded-lg',
+                                        'border border-dashed border-amber-500/30',
+                                        'bg-amber-500/5 hover:bg-amber-500/10',
+                                        'transition-colors group'
+                                      )}
+                                    >
+                                      {/* Shot type badge */}
+                                      <div className="w-5 h-5 rounded bg-amber-500/20 flex items-center justify-center shrink-0">
+                                        <Camera className="h-2.5 w-2.5 text-amber-600" />
+                                      </div>
+
+                                      {/* Shot content */}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs break-words line-clamp-2">
+                                          {detected.subject || detected.lineContent}
+                                        </p>
+                                        <div className="flex items-center gap-1.5 mt-1">
+                                          <Badge
+                                            variant="outline"
+                                            className="text-[9px] px-1 py-0 border-amber-500/30 text-amber-600"
+                                          >
+                                            {getShotDisplayName(detected.shotType as Parameters<typeof getShotDisplayName>[0])}
+                                          </Badge>
+                                        </div>
+                                      </div>
+
+                                      {/* Add button */}
+                                      {onAddDetectedShot && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 hover:bg-amber-500/20"
+                                          onClick={() => onAddDetectedShot(detected)}
+                                          title="Add to shotlist"
+                                        >
+                                          <Plus className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))
+                                }
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     )}

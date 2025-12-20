@@ -5,7 +5,7 @@ import { EditorPanelDesktop } from './EditorPanelDesktop';
 import { EditorPanelMobile } from './EditorPanelMobile';
 import type { SceneInfo, CharacterInfo } from '@/hooks/editor/use-prosemirror-editor';
 import type { EditorView } from 'prosemirror-view';
-import type { SceneWithShots, Shot } from '@/types/shotlist';
+import type { SceneWithShots, Shot, DetectedShot } from '@/types/shotlist';
 
 interface EditorPanelProps {
   scenes: SceneInfo[];
@@ -14,9 +14,11 @@ interface EditorPanelProps {
   currentSceneId?: string | null;
   screenplayId?: string;
   scenesWithShots?: SceneWithShots[];
+  detectedShots?: DetectedShot[];
   onShotsChange?: (shots: Shot[]) => void;
   onEditShot?: (shot: Shot) => void;
   onAddShot?: (sceneId: string) => void;
+  onAddDetectedShot?: (shot: DetectedShot) => void;
 }
 
 /**
@@ -31,9 +33,11 @@ export function EditorPanel({
   currentSceneId,
   screenplayId,
   scenesWithShots,
+  detectedShots,
   onShotsChange,
   onEditShot,
   onAddShot,
+  onAddDetectedShot,
 }: EditorPanelProps) {
   const sharedProps = {
     scenes,
@@ -42,9 +46,11 @@ export function EditorPanel({
     currentSceneId,
     screenplayId,
     scenesWithShots,
+    detectedShots,
     onShotsChange,
     onEditShot,
     onAddShot,
+    onAddDetectedShot,
   };
 
   return (

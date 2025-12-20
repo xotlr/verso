@@ -5,7 +5,9 @@
 
 import { Node as ProseMirrorNode } from 'prosemirror-model';
 import { detectTimeOfDay, type TimeOfDay } from '@/lib/prosemirror/utils/time-detection';
+import { detectShot, getShotDisplayName } from '@/lib/screenplay-patterns';
 import type { SceneInfo, CharacterInfo, ShotInfo } from './types';
+import type { DetectedShot } from '@/types/shotlist';
 
 /**
  * Calculate word count from a ProseMirror document.
@@ -144,3 +146,63 @@ export function extractShots(doc: ProseMirrorNode, scenes: SceneInfo[]): ShotInf
 
   return shots;
 }
+
+/**
+ * Extract detected shots from document text content.
+ * Scans action blocks, shot elements, and other text for shot patterns
+ * like "CLOSE-UP:", "WIDE SHOT:", "POV", etc.
+ *
+ * Returns shots that can be suggested to the user for adding to the shotlist.
+ */
+export function extractDetectedShotsFromDocument(
+  doc: ProseMirrorNode,
+  scenes: SceneInfo[]
+): DetectedShot[] {
+  const detectedShots: DetectedShot[] = [];
+  let lineNumber = 0;
+
+  doc.forEach((node, offset) => {
+    lineNumber++;
+    const text = node.textContent.trim();
+
+    // Skip empty lines
+    if (!text) return;
+
+    // Try to detect shot pattern in the text
+    const detected = detectShot(text);
+
+    if (detected) {
+      // Find which scene this belongs to
+      let currentSceneId: string | null = null;
+      for (const scene of scenes) {
+        if (scene.position < offset) {
+          currentSceneId = scene.id;
+        } else {
+          break;
+        }
+      }
+
+      // Generate unique ID based on position and content
+      const contentHash = text.slice(0, 20).replace(/[^a-z0-9]/gi, '').toLowerCase();
+      const id = `detected-${offset}-${contentHash}`;
+
+      detectedShots.push({
+        id,
+        sceneId: currentSceneId,
+        shotType: detected.shotType,
+        subject: detected.subject,
+        lineContent: text,
+        position: offset,
+        lineNumber,
+      });
+    }
+  });
+
+  return detectedShots;
+}
+
+/**
+ * Get display name for a detected shot type.
+ * Re-exports from screenplay-patterns for convenience.
+ */
+export { getShotDisplayName };

@@ -16,7 +16,7 @@ import {
 import { Film, Users, Clapperboard, StickyNote } from 'lucide-react';
 import type { SceneInfo, CharacterInfo } from '@/hooks/editor/use-prosemirror-editor';
 import type { EditorView } from 'prosemirror-view';
-import type { SceneWithShots, Shot } from '@/types/shotlist';
+import type { SceneWithShots, Shot, DetectedShot } from '@/types/shotlist';
 
 interface EditorPanelMobileProps {
   scenes: SceneInfo[];
@@ -25,9 +25,11 @@ interface EditorPanelMobileProps {
   currentSceneId?: string | null;
   screenplayId?: string;
   scenesWithShots?: SceneWithShots[];
+  detectedShots?: DetectedShot[];
   onShotsChange?: (shots: Shot[]) => void;
   onEditShot?: (shot: Shot) => void;
   onAddShot?: (sceneId: string) => void;
+  onAddDetectedShot?: (shot: DetectedShot) => void;
 }
 
 interface TabButtonProps {
@@ -96,9 +98,11 @@ export function EditorPanelMobile({
   currentSceneId,
   screenplayId,
   scenesWithShots = [],
+  detectedShots = [],
   onShotsChange,
   onEditShot,
   onAddShot,
+  onAddDetectedShot,
 }: EditorPanelMobileProps) {
   const { mobileOpen, setMobileOpen, activePanel, setActivePanel, isMobile } =
     useEditorPanel();
@@ -287,9 +291,12 @@ export function EditorPanelMobile({
             <ShotlistPanel
               screenplayId={screenplayId}
               scenesWithShots={scenesWithShots}
+              detectedShots={detectedShots}
+              currentSceneId={currentSceneId}
               onShotsChange={onShotsChange}
               onEditShot={onEditShot}
               onAddShot={onAddShot}
+              onAddDetectedShot={onAddDetectedShot}
               className="h-full"
             />
           )}

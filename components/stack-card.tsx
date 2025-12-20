@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +8,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Layers, Clock, MoreVertical, Edit3, Trash2, Ungroup } from 'lucide-react';
+import { Clock, MoreVertical, Edit3, Trash2 } from 'lucide-react';
+import { HiRectangleGroup, HiOutlineRectangleGroup } from 'react-icons/hi2';
 import { cn } from '@/lib/utils';
 
 export interface StackCardData {
@@ -42,14 +42,13 @@ function formatTimeCompact(date: Date): string {
 
 interface StackCardProps {
   stack: StackCardData;
-  href?: string;
+  onClick?: () => void;
   onEdit?: () => void;
   onUngroup?: () => void;
   onDelete?: () => void;
 }
 
-export function StackCard({ stack, href, onEdit, onUngroup, onDelete }: StackCardProps) {
-  const linkHref = href || `/stack/${stack.id}`;
+export function StackCard({ stack, onClick, onEdit, onUngroup, onDelete }: StackCardProps) {
   const screenplayCount = stack._count?.screenplays || stack.screenplays?.length || 0;
   const hasActions = onEdit || onUngroup || onDelete;
 
@@ -108,13 +107,13 @@ export function StackCard({ stack, href, onEdit, onUngroup, onDelete }: StackCar
           'group relative flex flex-col',
           'bg-card rounded-xl',
           'border border-border/60',
-          'hover:border-border hover:shadow-md',
+          'hover:shadow-md',
           'transition-all duration-300 ease-out',
           'touch-manipulation cursor-pointer overflow-hidden',
           cardHeight
         )}
       >
-        <Link href={linkHref} className="flex-1 flex flex-col">
+        <button onClick={onClick} className="flex-1 flex flex-col text-left w-full">
           <div className="p-4 sm:p-5 md:p-6 flex flex-col h-full font-mono">
             {/* Header: Type Badge + Title + Menu */}
             <div className="flex justify-between items-start mb-2">
@@ -122,7 +121,7 @@ export function StackCard({ stack, href, onEdit, onUngroup, onDelete }: StackCar
                 {/* Type badge */}
                 <div className="flex items-center gap-2 mb-1">
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-secondary/80 text-secondary-foreground border border-border/40">
-                    <Layers className="h-2.5 w-2.5" />
+                    <HiRectangleGroup className="h-2.5 w-2.5" />
                     STACK
                   </span>
                 </div>
@@ -181,7 +180,7 @@ export function StackCard({ stack, href, onEdit, onUngroup, onDelete }: StackCar
                           onUngroup();
                         }}
                       >
-                        <Ungroup className="mr-2 h-4 w-4" />
+                        <HiOutlineRectangleGroup className="mr-2 h-4 w-4" />
                         Ungroup
                       </DropdownMenuItem>
                     )}
@@ -235,7 +234,7 @@ export function StackCard({ stack, href, onEdit, onUngroup, onDelete }: StackCar
               </div>
             </div>
           </div>
-        </Link>
+        </button>
       </div>
     </div>
   );

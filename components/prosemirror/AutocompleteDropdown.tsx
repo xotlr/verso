@@ -180,7 +180,7 @@ export function AutocompleteDropdown({
       className={cn(
         'fixed z-50 w-[200px] max-h-[220px]',
         'bg-popover/85 backdrop-blur-sm',
-        'border border-border/50 rounded-[calc(var(--radius)-0.25rem)] shadow-md',
+        'border border-border/50 rounded-2xl shadow-md',
         showDropdown
           ? 'animate-in fade-in-0 duration-200'
           : 'animate-out fade-out-0 duration-150',
@@ -199,7 +199,7 @@ export function AutocompleteDropdown({
             'w-full flex items-center gap-2 px-2.5 py-1.5',
             'text-left text-sm',
             'transition-all duration-150',
-            'focus:outline-none rounded-sm',
+            'focus:outline-none rounded-xl',
             index === state.selectedIndex
               ? 'bg-accent/30 text-accent-foreground translate-x-0.5'
               : 'hover:bg-accent/15 hover:translate-x-0.5'

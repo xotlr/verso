@@ -161,7 +161,7 @@ export function EditorContextMenu({ view, children, onFindReplace }: EditorConte
           'backdrop-blur-xl bg-popover/95',
           'border border-border/50',
           'shadow-lg shadow-black/20',
-          'rounded-lg'
+          'rounded-2xl'
         )}
       >
         {/* Pill group for Cut/Copy/Paste */}

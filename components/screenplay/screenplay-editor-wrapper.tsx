@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import type { SceneInfo, CharacterInfo } from "@/hooks/editor/use-prosemirror-editor";
 import type { EditorView } from "prosemirror-view";
 import type { CollaborationOperation } from "@/types/collaboration";
+import type { DetectedShot } from "@/types/shotlist";
 
 interface ScreenplayEditorWrapperProps {
   projectId: string; // Actually screenplayId - keeping prop name for compatibility
@@ -54,6 +55,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [sceneInfos, setSceneInfos] = useState<SceneInfo[]>([]);
   const [charInfos, setCharInfos] = useState<CharacterInfo[]>([]);
+  const [detectedShots, setDetectedShots] = useState<DetectedShot[]>([]);
   const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const versionIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -419,10 +421,11 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
 
   // Handle scene/character extraction from ProseMirror
   // Must be declared before early return to follow React hooks rules
-  const handleScenesChange = useCallback((newSceneInfos: SceneInfo[], newCharInfos: CharacterInfo[]) => {
+  const handleScenesChange = useCallback((newSceneInfos: SceneInfo[], newCharInfos: CharacterInfo[], newDetectedShots: DetectedShot[]) => {
     // Store ProseMirror scene/char infos for sidebars
     setSceneInfos(newSceneInfos);
     setCharInfos(newCharInfos);
+    setDetectedShots(newDetectedShots);
 
     // Convert ProseMirror SceneInfo to existing Scene type
     const convertedScenes: Scene[] = newSceneInfos.map((s, idx) => ({
@@ -479,6 +482,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           view={editorView}
           currentSceneId={currentSceneId}
           screenplayId={screenplayId}
+          detectedShots={detectedShots}
         />
 
       {/* Main content area - editor */}
@@ -508,7 +512,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           onToggleVersionHistory={() => setIsVersionHistoryOpen(true)}
           scenesCount={sceneInfos.length}
           charactersCount={charInfos.length}
-          shotlistCount={0}
+          shotlistCount={detectedShots.length}
           notesCount={0}
         />
       </div>

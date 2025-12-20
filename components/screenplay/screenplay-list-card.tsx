@@ -21,6 +21,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { PiFilmScript } from 'react-icons/pi';
+import { HiOutlineRectangleGroup } from 'react-icons/hi2';
 import { cn } from '@/lib/utils';
 import type { DisplayScreenplayType } from '@/types/templates';
 
@@ -59,6 +60,7 @@ export interface ScreenplayListCardProps {
   onToggleFavorite?: () => void;
   onMoveToProject?: () => void;
   onCreateProject?: () => void;
+  onAddToStack?: () => void;
 }
 
 // Helper to calculate stacked paper count based on word count
@@ -151,13 +153,14 @@ export function ScreenplayListCard({
   onToggleFavorite,
   onMoveToProject,
   onCreateProject,
+  onAddToStack,
 }: ScreenplayListCardProps) {
   const linkHref = href || `/screenplay/${screenplay.id}`;
   const displayText = screenplay.logline || screenplay.synopsis;
   const isCompact = variant === 'compact';
   const isSeries = screenplay.type === 'TV';
 
-  const hasActions = onEdit || onExport || onDelete || onToggleFavorite || onMoveToProject || onCreateProject;
+  const hasActions = onEdit || onExport || onDelete || onToggleFavorite || onMoveToProject || onCreateProject || onAddToStack;
 
   // Get author display name - prefer custom author field, then user name
   const authorName = screenplay.author || screenplay.user?.name;
@@ -349,6 +352,16 @@ export function ScreenplayListCard({
                     }}>
                       <FolderPlus className="mr-2 h-4 w-4" />
                       Create Project
+                    </DropdownMenuItem>
+                  )}
+                  {onAddToStack && (
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onAddToStack();
+                    }}>
+                      <HiOutlineRectangleGroup className="mr-2 h-4 w-4" />
+                      Add to Stack
                     </DropdownMenuItem>
                   )}
                   {onDelete && (

@@ -31,6 +31,7 @@ import {
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 interface ShotCardProps {
   shot: Shot;
@@ -51,13 +52,30 @@ export function ShotCard({
   return (
     <div
       className={cn(
-        "group flex items-start gap-3 p-3 rounded-lg border",
+        "group flex gap-3 p-3 rounded-lg border",
         "bg-card hover:bg-accent/50 transition-colors"
       )}
     >
-      {/* Shot number */}
-      <div className="flex-shrink-0 w-8 h-8 rounded bg-muted flex items-center justify-center">
-        <span className="text-sm font-medium">{shot.shotNumber}</span>
+      {/* Thumbnail or shot number */}
+      <div className="flex-shrink-0">
+        {shot.thumbnailUrl ? (
+          <div className="relative w-20 h-14 rounded overflow-hidden bg-muted">
+            <Image
+              src={shot.thumbnailUrl}
+              alt={`Shot ${shot.shotNumber}`}
+              fill
+              className="object-cover"
+              unoptimized={shot.thumbnailType === 'url'}
+            />
+            <div className="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[10px] px-1 rounded">
+              {shot.shotNumber}
+            </div>
+          </div>
+        ) : (
+          <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
+            <span className="text-sm font-medium">{shot.shotNumber}</span>
+          </div>
+        )}
       </div>
 
       {/* Shot content */}

@@ -59,6 +59,8 @@ function WorkspacePageContent() {
     createStackFromDrop,
     addToStack,
     dissolveStack,
+    renameStack,
+    removeFromStack,
   } = useStackOperations({
     screenplays,
     stacks,
@@ -427,6 +429,8 @@ function WorkspacePageContent() {
             onCreateStack={createStackFromDrop}
             onAddToStack={addToStack}
             onDissolveStack={dissolveStack}
+            onRenameStack={renameStack}
+            onRemoveFromStack={removeFromStack}
           />
         </div>
 

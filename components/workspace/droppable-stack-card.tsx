@@ -7,7 +7,7 @@ import { useWorkspaceDndState, DraggableData } from './workspace-dnd-context';
 
 interface DroppableStackCardProps {
   stack: StackCardData;
-  href?: string;
+  onClick?: () => void;
   onEdit?: () => void;
   onUngroup?: () => void;
   onDelete?: () => void;
@@ -15,7 +15,7 @@ interface DroppableStackCardProps {
 
 export function DroppableStackCard({
   stack,
-  href,
+  onClick,
   onEdit,
   onUngroup,
   onDelete,
@@ -50,7 +50,7 @@ export function DroppableStackCard({
       )}
       <StackCard
         stack={stack}
-        href={href}
+        onClick={onClick}
         onEdit={onEdit}
         onUngroup={onUngroup}
         onDelete={onDelete}

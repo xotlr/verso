@@ -16,6 +16,7 @@ import { ScreenplayListRow, ScreenplayListRowSkeleton } from '@/components/scree
 import { WorkspaceDndContext, DraggableScreenplayData } from '@/components/workspace/workspace-dnd-context';
 import { DraggableScreenplayCard } from '@/components/workspace/draggable-screenplay-card';
 import { DroppableStackCard } from '@/components/workspace/droppable-stack-card';
+import { StackDialog } from '@/components/stack';
 import { useViewMode } from '@/hooks/use-view-mode';
 import type { StackItem } from '@/hooks/use-workspace-data';
 import {
@@ -84,6 +85,8 @@ function ScreenplaysContent() {
   const [moveTarget, setMoveTarget] = useState<Screenplay | null>(null);
   const [viewMode, setViewMode] = useViewMode('screenplays');
   const [hoveredScreenplay, setHoveredScreenplay] = useState<Screenplay | null>(null);
+  const [selectedStack, setSelectedStack] = useState<StackItem | null>(null);
+  const [stackDialogOpen, setStackDialogOpen] = useState(false);
 
 
   // Initialize filters from URL params
@@ -229,6 +232,58 @@ function ScreenplaysContent() {
       toast.error('Failed to dissolve stack');
     }
   }, [loadData]);
+
+  const handleOpenStack = (stack: StackItem) => {
+    setSelectedStack(stack);
+    setStackDialogOpen(true);
+  };
+
+  const renameStack = useCallback(async (stackId: string, name: string): Promise<void> => {
+    try {
+      const response = await fetch(`/api/stacks/${stackId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) throw new Error('Failed to rename stack');
+      setStacks((prev) => prev.map((s) => (s.id === stackId ? { ...s, name } : s)));
+      if (selectedStack && selectedStack.id === stackId) {
+        setSelectedStack({ ...selectedStack, name });
+      }
+      toast.success('Stack renamed');
+    } catch {
+      toast.error('Failed to rename stack');
+    }
+  }, [selectedStack]);
+
+  const removeFromStack = useCallback(async (screenplayId: string, stackId: string): Promise<void> => {
+    try {
+      const response = await fetch(`/api/stacks/${stackId}/screenplays`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ screenplayId }),
+      });
+      if (!response.ok) throw new Error('Failed to remove from stack');
+      await loadData();
+      // Update dialog state
+      if (selectedStack && selectedStack.id === stackId) {
+        const updatedScreenplays = selectedStack.screenplays?.filter((s) => s.id !== screenplayId) || [];
+        if (updatedScreenplays.length === 0) {
+          setStackDialogOpen(false);
+          setSelectedStack(null);
+        } else {
+          setSelectedStack({
+            ...selectedStack,
+            screenplays: updatedScreenplays,
+            _count: { screenplays: updatedScreenplays.length },
+          });
+        }
+      }
+      toast.success('Removed from stack');
+    } catch {
+      toast.error('Failed to remove from stack');
+    }
+  }, [loadData, selectedStack]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -460,6 +515,19 @@ function ScreenplaysContent() {
         />
       )}
 
+      <StackDialog
+        stack={selectedStack}
+        open={stackDialogOpen}
+        onOpenChange={setStackDialogOpen}
+        onRename={renameStack}
+        onUngroup={(stackId) => {
+          dissolveStack(stackId);
+          setStackDialogOpen(false);
+          setSelectedStack(null);
+        }}
+        onRemoveFromStack={removeFromStack}
+      />
+
       <PageLayout
         title="Screenplays"
         description={`${filteredScreenplays.length} screenplay${filteredScreenplays.length !== 1 ? 's' : ''}${searchQuery || activeFilterCount > 0 ? ' (filtered)' : ''}`}
@@ -621,7 +689,7 @@ function ScreenplaysContent() {
                 <DroppableStackCard
                   key={`stack-${stack.id}`}
                   stack={stack}
-                  href={`/stack/${stack.id}`}
+                  onClick={() => handleOpenStack(stack)}
                   onUngroup={() => dissolveStack(stack.id)}
                   onDelete={() => setDeleteTarget({ id: stack.id, type: 'stack' })}
                 />
