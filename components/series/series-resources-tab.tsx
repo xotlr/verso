@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Plus, Link as LinkIcon, ExternalLink, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 
 interface Resource {
   id: string;
@@ -88,17 +89,19 @@ export function SeriesResourcesTab({
 
       {/* Resources Grid or Empty State */}
       {resources.length === 0 ? (
-        <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-12 text-center">
-          <LinkIcon className="h-10 w-10 mx-auto text-muted-foreground/50 mb-4" />
-          <h4 className="font-semibold mb-1">No resources yet</h4>
-          <p className="text-sm text-muted-foreground mb-4">
-            Add links to reference materials, research, and inspiration.
-          </p>
-          <Button variant="outline" onClick={() => setIsAddingResource(true)} className="gap-2">
+        <Empty border>
+          <EmptyMedia variant="icon">
+            <LinkIcon className="h-6 w-6" />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle>No resources yet</EmptyTitle>
+            <EmptyDescription>Add links to reference materials, research, and inspiration.</EmptyDescription>
+          </EmptyHeader>
+          <Button onClick={() => setIsAddingResource(true)} className="gap-2">
             <Plus className="h-4 w-4" />
             Add Link
           </Button>
-        </div>
+        </Empty>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {resources.map(resource => (

@@ -839,8 +839,8 @@ fn test_locked_pages_with_title_page() {
     if result.pages.len() > 3 {
         assert!(
             matches!(
-                result.pages[3].identifier,
-                PageIdentifier::Inserted { base: 3, suffix: 'A' }
+                &result.pages[3].identifier,
+                PageIdentifier::Inserted { base: 3, suffix } if suffix == "A"
             ),
             "Fourth page should be 3A, got {:?}",
             result.pages[3].identifier

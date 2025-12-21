@@ -471,6 +471,18 @@ function DetailsForm({
               />
             </div>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="author">Written By</Label>
+            <Input
+              id="author"
+              placeholder="Your name (leave blank to use account name)"
+              value={formData.author || ''}
+              onChange={(e) => updateField('author', e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Add co-writers separated by &amp; or &quot;and&quot;
+            </p>
+          </div>
         </motion.div>
       );
 

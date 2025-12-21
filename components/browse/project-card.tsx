@@ -11,8 +11,26 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { RiFolder6Line } from 'react-icons/ri';
-import { formatDistanceToNow } from 'date-fns';
+import { Clock } from 'lucide-react';
 import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
+
+// Format time compactly (matches other cards)
+function formatTimeCompact(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+
+  if (diffMins < 1) return 'now';
+  if (diffMins < 60) return `${diffMins}m`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays < 7) return `${diffDays}d`;
+  if (diffWeeks < 5) return `${diffWeeks}w`;
+  return `${diffMonths}mo`;
+}
 
 interface ProjectCardUser {
   id: string;
@@ -187,8 +205,8 @@ export function ProjectCard({ project, className }: ProjectCardProps) {
     <Link
       href={`/project/${project.id}`}
       className={cn(
-        'group block',
-        'bg-card rounded-xl border border-border/60 overflow-hidden',
+        'group flex flex-col',
+        'bg-card rounded-xl border border-border/60',
         'hover:border-border hover:shadow-md',
         'transition-all duration-200',
         'touch-manipulation',
@@ -197,7 +215,7 @@ export function ProjectCard({ project, className }: ProjectCardProps) {
     >
       {/* Banner */}
       <div className={cn(
-        'h-16 sm:h-20 relative bg-gradient-to-br',
+        'h-16 sm:h-20 relative bg-gradient-to-br overflow-hidden rounded-t-xl',
         gradient
       )}>
         {project.banner && (
@@ -235,23 +253,30 @@ export function ProjectCard({ project, className }: ProjectCardProps) {
       </div>
 
       {/* Content */}
-      <div className="p-3 sm:p-4">
+      <div className="p-3 sm:p-4 pb-0">
         <h3 className="font-semibold text-sm sm:text-base text-foreground truncate group-hover:text-primary transition-colors mb-1">
           {project.name}
         </h3>
         {project.description && (
-          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 mb-3">
+          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
             {project.description}
           </p>
         )}
+      </div>
 
-        {/* Footer: Credits + Date */}
-        <div className="flex items-center justify-between gap-2">
-          <StackedCredits roles={project.roles} owner={project.user} />
+      {/* Footer: Credits + Date - matches other card footers */}
+      <div className="mt-auto border-t border-border/40">
+        <div className="px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex-1 min-w-0 mr-2">
+            <StackedCredits roles={project.roles} owner={project.user} />
+          </div>
           {project.publishedAt && (
-            <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
-              {formatDistanceToNow(new Date(project.publishedAt), { addSuffix: true })}
-            </span>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Clock className="h-3 w-3" />
+              <span className="text-[10px] sm:text-xs">
+                {formatTimeCompact(new Date(project.publishedAt))}
+              </span>
+            </div>
           )}
         </div>
       </div>
@@ -261,21 +286,23 @@ export function ProjectCard({ project, className }: ProjectCardProps) {
 
 export function ProjectCardSkeleton() {
   return (
-    <div className="bg-card rounded-xl border border-border/60 overflow-hidden">
+    <div className="flex flex-col bg-card rounded-xl border border-border/60 overflow-hidden">
       <div className="h-16 sm:h-20 bg-muted animate-pulse" />
-      <div className="p-3 sm:p-4">
+      <div className="p-3 sm:p-4 pb-0">
         <div className="h-4 sm:h-5 w-3/4 bg-muted rounded animate-pulse mb-2" />
-        <div className="space-y-2 mb-3">
+        <div className="space-y-2">
           <div className="h-3 w-full bg-muted rounded animate-pulse" />
           <div className="h-3 w-2/3 bg-muted rounded animate-pulse" />
         </div>
-        <div className="flex items-center justify-between">
+      </div>
+      <div className="mt-auto border-t border-border/40">
+        <div className="px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between">
           <div className="flex -space-x-2">
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-muted animate-pulse border-2 border-background" />
             ))}
           </div>
-          <div className="h-3 w-16 bg-muted rounded animate-pulse" />
+          <div className="h-3 w-12 bg-muted rounded animate-pulse" />
         </div>
       </div>
     </div>

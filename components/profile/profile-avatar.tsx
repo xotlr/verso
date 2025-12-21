@@ -1,7 +1,6 @@
 'use client'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient'
 import { cn } from '@/lib/utils'
 
 interface ProfileAvatarProps {
@@ -22,7 +21,7 @@ const sizeClasses = {
 
 const borderClasses = {
   xs: 'border-0',
-  sm: 'border-2',              // reduced for smaller size
+  sm: 'border-[3px]',          // thicker for mobile navbar
   md: 'border-[4px]',
   lg: 'border-[5px]',
 }
@@ -56,18 +55,17 @@ export function ProfileAvatar({
       className={cn(
         sizeClasses[size],
         borderClasses[size],
-        'border-background shadow-lg ring-1 ring-black/5 rounded-none',
+        'border-background shadow-lg ring-1 ring-black/5 rounded-md',
         className
       )}
     >
       <AvatarImage
         src={imageUrl || undefined}
         alt={name || ''}
-        className="object-cover rounded-none"
+        className="object-cover rounded-md"
       />
       <AvatarFallback
-        className={cn(textClasses[size], 'text-white font-semibold rounded-none')}
-        style={getSimpleGradientStyle(userId)}
+        className={cn(textClasses[size], 'font-semibold rounded-md bg-muted text-muted-foreground')}
       >
         {initials}
       </AvatarFallback>

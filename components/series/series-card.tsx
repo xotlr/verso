@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Layers, Clock, MoreVertical, Edit3, Trash2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, createMenuHandler } from '@/lib/utils';
 
 export interface SeriesCardData {
   id: string;
@@ -65,21 +65,21 @@ export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) 
   // Calculate stack layers based on season count (min 1, max 3)
   const stackLayers = Math.min(Math.max(seasonCount, 1), 3);
 
-  // Card height - matches screenplay card
-  const cardHeight = 'h-[180px] sm:h-[200px] md:h-[220px]';
+  // Card height - use min-h so card can grow to fit content on mobile
+  const cardHeight = 'min-h-[180px] sm:min-h-[200px] md:min-h-[220px]';
 
   return (
     <div className="group/stack relative transition-all duration-300 ease-out hover:-translate-y-1">
-      {/* Stacked paper layers - neutral colors, more layers = more seasons */}
+      {/* Stacked paper layers - vertical only (like a bound book) */}
+      {/* Use inset-0 to match main card height, no explicit cardHeight */}
       {stackLayers >= 3 && (
         <div
           className={cn(
             'absolute inset-0 rounded-xl',
             'bg-muted border border-border shadow-sm',
-            'translate-x-1.5 translate-y-1.5',
-            'group-hover/stack:translate-x-3 group-hover/stack:translate-y-3',
-            'transition-transform duration-300',
-            cardHeight
+            'translate-y-[3px] sm:translate-y-1.5',
+            'group-hover/stack:translate-y-3 sm:group-hover/stack:translate-y-6',
+            'transition-transform duration-300'
           )}
         />
       )}
@@ -88,10 +88,9 @@ export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) 
           className={cn(
             'absolute inset-0 rounded-xl',
             'bg-muted border border-border shadow-sm',
-            'translate-x-1 translate-y-1',
-            'group-hover/stack:translate-x-2 group-hover/stack:translate-y-2',
-            'transition-transform duration-300',
-            cardHeight
+            'translate-y-[2px] sm:translate-y-1',
+            'group-hover/stack:translate-y-2 sm:group-hover/stack:translate-y-4',
+            'transition-transform duration-300'
           )}
         />
       )}
@@ -100,10 +99,9 @@ export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) 
           className={cn(
             'absolute inset-0 rounded-xl',
             'bg-muted border border-border shadow-sm',
-            'translate-x-0.5 translate-y-0.5',
-            'group-hover/stack:translate-x-1 group-hover/stack:translate-y-1',
-            'transition-transform duration-300',
-            cardHeight
+            'translate-y-px sm:translate-y-0.5',
+            'group-hover/stack:translate-y-1 sm:group-hover/stack:translate-y-2.5',
+            'transition-transform duration-300'
           )}
         />
       )}
@@ -138,13 +136,17 @@ export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) 
                   {series.title}
                 </h3>
 
-                {/* Season/Episode info */}
+                {/* Season/Episode info - compact on mobile */}
                 <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide flex items-center gap-1.5">
                   <span className="font-semibold">
-                    {seasonCount} {seasonCount === 1 ? 'Season' : 'Seasons'}
+                    <span className="sm:hidden">S{seasonCount}</span>
+                    <span className="hidden sm:inline">{seasonCount} {seasonCount === 1 ? 'Season' : 'Seasons'}</span>
                   </span>
                   <span className="text-muted-foreground/50">·</span>
-                  <span>{episodeCount} {episodeCount === 1 ? 'Episode' : 'Episodes'}</span>
+                  <span>
+                    <span className="sm:hidden">{episodeCount} EPs</span>
+                    <span className="hidden sm:inline">{episodeCount} {episodeCount === 1 ? 'Episode' : 'Episodes'}</span>
+                  </span>
                   {series.genre && (
                     <>
                       <span className="text-muted-foreground/50">·</span>
@@ -158,10 +160,7 @@ export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
+                      onClick={createMenuHandler()}
                       className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                       aria-label="More options"
                     >
@@ -170,11 +169,7 @@ export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) 
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     {onEdit && (
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        onEdit();
-                      }}>
+                      <DropdownMenuItem onClick={createMenuHandler(onEdit)}>
                         <Edit3 className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
@@ -183,11 +178,7 @@ export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) 
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            onDelete();
-                          }}
+                          onClick={createMenuHandler(onDelete)}
                           className="text-destructive focus:text-destructive"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
@@ -236,12 +227,12 @@ export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) 
 export function SeriesCardSkeleton() {
   return (
     <div className="relative">
-      {/* Shadow layers */}
-      <div className="absolute inset-0 rounded-xl bg-muted border border-border translate-x-1 translate-y-1 h-[180px] sm:h-[200px] md:h-[220px]" />
-      <div className="absolute inset-0 rounded-xl bg-muted border border-border translate-x-0.5 translate-y-0.5 h-[180px] sm:h-[200px] md:h-[220px]" />
+      {/* Shadow layers - vertical only */}
+      <div className="absolute inset-0 rounded-xl bg-muted border border-border translate-y-1 min-h-[180px] sm:min-h-[200px] md:min-h-[220px]" />
+      <div className="absolute inset-0 rounded-xl bg-muted border border-border translate-y-0.5 min-h-[180px] sm:min-h-[200px] md:min-h-[220px]" />
 
       {/* Main card */}
-      <div className="relative bg-card rounded-xl border border-border/60 h-[180px] sm:h-[200px] md:h-[220px] overflow-hidden">
+      <div className="relative bg-card rounded-xl border border-border/60 min-h-[180px] sm:min-h-[200px] md:min-h-[220px]">
         <div className="p-5 sm:p-6 flex flex-col h-full font-mono">
           {/* Header skeleton */}
           <div className="flex items-start justify-between mb-2">

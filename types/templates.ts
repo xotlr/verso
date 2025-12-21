@@ -96,6 +96,8 @@ export interface ScreenplayFormData {
   title: string;
   logline?: string;
   genre?: string;
+  // Author/co-writer names (free-form text)
+  author?: string;
   // TV-specific
   seriesTitle?: string;
   season?: number;

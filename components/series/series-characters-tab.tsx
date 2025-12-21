@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Plus, User, MoreHorizontal, Edit3, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 
 interface Character {
   id: string;
@@ -162,17 +163,19 @@ export function SeriesCharactersTab({
 
       {/* Character Grid or Empty State */}
       {characters.length === 0 ? (
-        <div className="rounded-xl border border-dashed bg-muted/20 px-6 py-12 text-center">
-          <User className="h-10 w-10 mx-auto text-muted-foreground/50 mb-4" />
-          <h4 className="font-semibold mb-1">No characters yet</h4>
-          <p className="text-sm text-muted-foreground mb-4">
-            Start building your cast by adding your first character.
-          </p>
-          <Button variant="outline" onClick={() => setIsAddingCharacter(true)} className="gap-2">
+        <Empty border>
+          <EmptyMedia variant="icon">
+            <User className="h-6 w-6" />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle>No characters yet</EmptyTitle>
+            <EmptyDescription>Start building your cast by adding your first character.</EmptyDescription>
+          </EmptyHeader>
+          <Button onClick={() => setIsAddingCharacter(true)} className="gap-2">
             <Plus className="h-4 w-4" />
             Add Character
           </Button>
-        </div>
+        </Empty>
       ) : (
         <div className="space-y-6">
           {/* Main Cast */}

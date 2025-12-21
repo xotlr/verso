@@ -222,6 +222,52 @@ export function export_fountain(elements_json, metadata_json) {
 }
 
 /**
+ * Get the BBC Standard configuration as JSON
+ * @returns {string}
+ */
+export function get_bbc_standard_config() {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.get_bbc_standard_config();
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * Get the Feature Film A4 (international) configuration as JSON
+ * @returns {string}
+ */
+export function get_feature_film_a4_config() {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ret = wasm.get_feature_film_a4_config();
+        var ptr1 = ret[0];
+        var len1 = ret[1];
+        if (ret[3]) {
+            ptr1 = 0; len1 = 0;
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        deferred2_0 = ptr1;
+        deferred2_1 = len1;
+        return getStringFromWasm0(ptr1, len1);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
  * Get the default Feature Film configuration as JSON
  * @returns {string}
  */

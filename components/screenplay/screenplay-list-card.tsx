@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { PiFilmScript } from 'react-icons/pi';
 import { HiOutlineRectangleGroup } from 'react-icons/hi2';
-import { cn } from '@/lib/utils';
+import { cn, createMenuHandler } from '@/lib/utils';
 import type { DisplayScreenplayType } from '@/types/templates';
 
 export interface ScreenplayListCardData {
@@ -179,37 +179,38 @@ export function ScreenplayListCard({
       className="group/stack relative transition-all duration-300 ease-out hover:-translate-y-1"
     >
       {/* Stacked paper layers - same size, shifted position, spread on hover */}
+      {/* Series: spread downward only (like bound book), Film: spread diagonally */}
+      {/* Use inset-0 to match main card height, no explicit cardHeight */}
       {stackedPaperCount >= 3 && (
         <div
           className={cn(
-            'absolute bg-muted border border-border shadow-sm transition-transform duration-300',
-            'translate-x-1.5 translate-y-1.5 group-hover/stack:translate-x-3 group-hover/stack:translate-y-3',
+            'absolute inset-0 bg-muted border border-border shadow-sm transition-transform duration-300',
+            // Film: diagonal spread (x + y)
+            !isSeries && 'translate-x-[3px] sm:translate-x-1.5 group-hover/stack:translate-x-3 sm:group-hover/stack:translate-x-6',
+            // Both: vertical spread
+            'translate-y-[3px] sm:translate-y-1.5 group-hover/stack:translate-y-3 sm:group-hover/stack:translate-y-6',
             cardRadius,
-            cardHeight,
           )}
-          style={{ inset: 0 }}
         />
       )}
       {stackedPaperCount >= 2 && (
         <div
           className={cn(
-            'absolute bg-muted border border-border shadow-sm transition-transform duration-300',
-            'translate-x-1 translate-y-1 group-hover/stack:translate-x-2 group-hover/stack:translate-y-2',
+            'absolute inset-0 bg-muted border border-border shadow-sm transition-transform duration-300',
+            !isSeries && 'translate-x-[2px] sm:translate-x-1 group-hover/stack:translate-x-2 sm:group-hover/stack:translate-x-4',
+            'translate-y-[2px] sm:translate-y-1 group-hover/stack:translate-y-2 sm:group-hover/stack:translate-y-4',
             cardRadius,
-            cardHeight,
           )}
-          style={{ inset: 0 }}
         />
       )}
       {stackedPaperCount >= 1 && (
         <div
           className={cn(
-            'absolute bg-muted border border-border shadow-sm transition-transform duration-300',
-            'translate-x-0.5 translate-y-0.5 group-hover/stack:translate-x-1 group-hover/stack:translate-y-1',
+            'absolute inset-0 bg-muted border border-border shadow-sm transition-transform duration-300',
+            !isSeries && 'translate-x-px sm:translate-x-0.5 group-hover/stack:translate-x-1 sm:group-hover/stack:translate-x-2.5',
+            'translate-y-px sm:translate-y-0.5 group-hover/stack:translate-y-1 sm:group-hover/stack:translate-y-2.5',
             cardRadius,
-            cardHeight,
           )}
-          style={{ inset: 0 }}
         />
       )}
 
@@ -293,10 +294,7 @@ export function ScreenplayListCard({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
+                    onClick={createMenuHandler()}
                     className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                     aria-label="More options"
                   >
@@ -305,61 +303,37 @@ export function ScreenplayListCard({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {onEdit && (
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      onEdit();
-                    }}>
+                    <DropdownMenuItem onClick={createMenuHandler(onEdit)}>
                       <Edit3 className="mr-2 h-4 w-4" />
                       Edit
                     </DropdownMenuItem>
                   )}
                   {onToggleFavorite && (
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      onToggleFavorite();
-                    }}>
+                    <DropdownMenuItem onClick={createMenuHandler(onToggleFavorite)}>
                       <Star className={cn('mr-2 h-4 w-4', screenplay.isFavorite && 'fill-current')} />
                       {screenplay.isFavorite ? 'Unfavorite' : 'Favorite'}
                     </DropdownMenuItem>
                   )}
                   {onExport && (
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      onExport();
-                    }}>
+                    <DropdownMenuItem onClick={createMenuHandler(onExport)}>
                       <Download className="mr-2 h-4 w-4" />
                       Export
                     </DropdownMenuItem>
                   )}
                   {onMoveToProject && (
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      onMoveToProject();
-                    }}>
+                    <DropdownMenuItem onClick={createMenuHandler(onMoveToProject)}>
                       <FolderInput className="mr-2 h-4 w-4" />
                       Move to Project
                     </DropdownMenuItem>
                   )}
                   {onCreateProject && (
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      onCreateProject();
-                    }}>
+                    <DropdownMenuItem onClick={createMenuHandler(onCreateProject)}>
                       <FolderPlus className="mr-2 h-4 w-4" />
                       Create Project
                     </DropdownMenuItem>
                   )}
                   {onAddToStack && (
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      onAddToStack();
-                    }}>
+                    <DropdownMenuItem onClick={createMenuHandler(onAddToStack)}>
                       <HiOutlineRectangleGroup className="mr-2 h-4 w-4" />
                       Add to Stack
                     </DropdownMenuItem>
@@ -368,11 +342,7 @@ export function ScreenplayListCard({
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          onDelete();
-                        }}
+                        onClick={createMenuHandler(onDelete)}
                         className="text-destructive focus:text-destructive"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
@@ -425,13 +395,13 @@ export function ScreenplayListCard({
         </div>
       </Link>
 
-      {/* Paper corner peel effect - curved */}
+      {/* Paper corner peel effect - top right, always visible */}
       <div
         className={cn(
-          'absolute bottom-0 right-0 pointer-events-none',
-          'w-0 h-0 bg-primary rounded-tl-xl',
+          'absolute top-0 right-0 pointer-events-none',
+          'w-4 h-4 bg-muted rounded-bl-xl',
           'transition-all duration-300 ease-out',
-          'group-hover:w-5 group-hover:h-5',
+          'group-hover:w-6 group-hover:h-6',
         )}
       />
       </div>

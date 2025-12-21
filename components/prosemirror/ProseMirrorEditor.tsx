@@ -161,6 +161,8 @@ export function ProseMirrorEditor({
   const toolbarLayout = settings.layout.toolbarLayout ?? 'verso';
   // Page style: 'themed' uses theme colors, 'plain' uses off-white
   const pageStyle = settings.editor.pageStyle ?? 'themed';
+  // Show scene numbers even when document has title page
+  const showSceneNumbers = settings.editor.showSceneNumbers ?? false;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_currentSpread, setCurrentSpread] = useState(0);
   const [isInFocusMode, setIsInFocusMode] = useState(false);
@@ -227,6 +229,7 @@ export function ProseMirrorEditor({
     onUpdate: onContentChange,
     onScenesChange,
     editable,
+    showSceneNumbers,
   });
 
   // Apply layout metadata CSS from WASM pagination result

@@ -6,6 +6,7 @@ import type { ViewMode } from '@/hooks/use-view-mode';
 import { cn } from '@/lib/utils';
 import { useMounted } from '@/hooks/use-mobile';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -75,7 +76,7 @@ export function ListPageToolbar({
   return (
     <div
       className={cn(
-        'flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4',
+        'flex flex-row flex-wrap items-start gap-3 sm:gap-4',
         className
       )}
     >
@@ -83,7 +84,7 @@ export function ListPageToolbar({
       {tabs && (
         mounted ? (
           <Tabs value={tabs.value} onValueChange={tabs.onChange}>
-            <TabsList className="w-full sm:w-auto grid sm:inline-flex" style={{ gridTemplateColumns: `repeat(${tabs.items.length}, 1fr)` }}>
+            <TabsList className="w-auto inline-flex">
               {tabs.items.map((tab) => {
                 const isActive = tabs.value === tab.value;
                 const icon = isActive && tab.activeIcon ? tab.activeIcon : tab.icon;
@@ -122,12 +123,15 @@ export function ListPageToolbar({
                 className="h-8 pl-8 pr-8 text-sm border-0 bg-transparent focus:ring-0 focus:border-0 focus:bg-transparent hover:bg-transparent"
               />
               {search.value && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => search.onChange('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground z-10"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground z-10"
+                  aria-label="Clear search"
                 >
                   <X className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -172,30 +176,38 @@ export function ListPageToolbar({
           {/* View Mode Toggle */}
           {viewMode && (
             <div className="flex items-center gap-0.5">
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => viewMode.onChange('grid')}
                 className={cn(
-                  'p-1.5 rounded-md transition-colors',
+                  'h-8 w-8',
                   viewMode.value === 'grid'
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                 )}
                 title="Grid view"
+                aria-label="Grid view"
+                aria-pressed={viewMode.value === 'grid'}
               >
                 <LayoutGrid className="h-4 w-4" />
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => viewMode.onChange('list')}
                 className={cn(
-                  'p-1.5 rounded-md transition-colors',
+                  'h-8 w-8',
                   viewMode.value === 'list'
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                 )}
                 title="List view"
+                aria-label="List view"
+                aria-pressed={viewMode.value === 'list'}
               >
                 <List className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -237,12 +249,14 @@ export function FilterPill({
   className,
 }: FilterPillProps) {
   return (
-    <button
+    <Button
+      variant="ghost"
+      size="sm"
       onClick={onClick}
       title={compact ? label : undefined}
       className={cn(
-        'inline-flex items-center rounded-md font-medium transition-colors whitespace-nowrap',
-        compact ? 'gap-0 px-1.5 py-1 text-xs' : 'gap-1.5 px-2.5 py-1.5 text-sm',
+        'whitespace-nowrap',
+        compact ? 'gap-0 px-1.5 h-7' : 'gap-1.5 px-2.5',
         active
           ? colorClasses[activeColor]
           : 'bg-background/50 hover:bg-background/80 text-muted-foreground border border-border/40',
@@ -251,7 +265,7 @@ export function FilterPill({
     >
       {icon}
       {!compact && <span className="hidden sm:inline">{label}</span>}
-    </button>
+    </Button>
   );
 }
 
@@ -275,10 +289,12 @@ export function SortButton({
   className,
 }: SortButtonProps) {
   return (
-    <button
+    <Button
+      variant="ghost"
+      size="sm"
       onClick={onClick}
       className={cn(
-        'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap',
+        'gap-1.5 px-2.5 whitespace-nowrap',
         active
           ? 'bg-background text-foreground shadow-sm border border-border/40'
           : 'bg-background/50 hover:bg-background/80 text-muted-foreground border border-border/40',
@@ -287,7 +303,7 @@ export function SortButton({
     >
       {icon}
       <span className="hidden sm:inline">{label}</span>
-    </button>
+    </Button>
   );
 }
 

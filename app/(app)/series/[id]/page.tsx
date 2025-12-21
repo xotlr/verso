@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { EmptyState } from '@/components/ui/empty-state';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { NumberInput } from '@/components/ui/number-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,12 +39,18 @@ import {
 import {
   Tv,
   FileText,
-  Users,
-  Link as LinkIcon,
   Loader2,
   Plus,
   Clock,
 } from 'lucide-react';
+import {
+  PiFilmScript,
+  PiFilmScriptFill,
+  PiUsers,
+  PiUsersFill,
+  PiLink,
+  PiLinkFill,
+} from 'react-icons/pi';
 import { formatDistanceToNow } from 'date-fns';
 
 // Import series components
@@ -344,11 +350,15 @@ export default function SeriesPage() {
   if (error || !series) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
-        <EmptyState
-          icon={<Tv className="h-6 w-6 text-muted-foreground" />}
-          title="Series not found"
-          description="This series doesn't exist or you don't have access to it."
-        />
+        <Empty>
+          <EmptyMedia variant="icon">
+            <Tv className="h-6 w-6" />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle>Series not found</EmptyTitle>
+            <EmptyDescription>This series doesn&apos;t exist or you don&apos;t have access to it.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       </div>
     );
   }
@@ -419,18 +429,30 @@ export default function SeriesPage() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="pb-8">
             <TabsList className="w-full sm:w-auto flex-wrap h-auto gap-1 p-1">
               <TabsTrigger value="episodes" className="gap-1.5 px-3 py-1.5">
-                <FileText className="h-4 w-4" />
+                {activeTab === 'episodes' ? (
+                  <PiFilmScriptFill className="h-4 w-4" />
+                ) : (
+                  <PiFilmScript className="h-4 w-4" />
+                )}
                 <span className="hidden sm:inline">Episodes</span>
                 <Badge variant="secondary" className="text-xs ml-1">
                   {totalEpisodes}
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="characters" className="gap-1.5 px-3 py-1.5">
-                <Users className="h-4 w-4" />
+                {activeTab === 'characters' ? (
+                  <PiUsersFill className="h-4 w-4" />
+                ) : (
+                  <PiUsers className="h-4 w-4" />
+                )}
                 <span className="hidden sm:inline">Characters</span>
               </TabsTrigger>
               <TabsTrigger value="resources" className="gap-1.5 px-3 py-1.5">
-                <LinkIcon className="h-4 w-4" />
+                {activeTab === 'resources' ? (
+                  <PiLinkFill className="h-4 w-4" />
+                ) : (
+                  <PiLink className="h-4 w-4" />
+                )}
                 <span className="hidden sm:inline">Resources</span>
               </TabsTrigger>
             </TabsList>
@@ -438,15 +460,19 @@ export default function SeriesPage() {
             {/* Episodes Tab */}
             <TabsContent value="episodes" className="mt-6 space-y-6">
               {series.seasons.length === 0 ? (
-                <EmptyState
-                  icon={<FileText className="h-6 w-6 text-muted-foreground" />}
-                  title="No seasons yet"
-                  description="Create your first season to start adding episodes."
-                  action={{
-                    label: 'Add Season',
-                    onClick: openAddSeason,
-                  }}
-                />
+                <Empty border>
+                  <EmptyMedia variant="icon">
+                    <FileText className="h-6 w-6" />
+                  </EmptyMedia>
+                  <EmptyHeader>
+                    <EmptyTitle>No seasons yet</EmptyTitle>
+                    <EmptyDescription>Create your first season to start adding episodes.</EmptyDescription>
+                  </EmptyHeader>
+                  <Button onClick={openAddSeason} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add Season
+                  </Button>
+                </Empty>
               ) : (
                 series.seasons.map(season => (
                   <SeasonSection

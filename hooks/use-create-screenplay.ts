@@ -51,6 +51,7 @@ export function useCreateScreenplay() {
           episodeTitle: formData.type === 'tv-series' ? formData.episodeTitle : null,
           logline: formData.logline || null,
           genre: formData.genre || null,
+          author: formData.author || null,
         }),
       });
 

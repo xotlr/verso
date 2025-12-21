@@ -8,8 +8,9 @@ pub enum PageIdentifier {
     /// Normal sequential page (1, 2, 3...)
     Sequential(u32),
 
-    /// Inserted page after locking (47A, 47B...)
-    Inserted { base: u32, suffix: char },
+    /// Inserted page after locking (47A, 47B... 47Z, 47AA, 47AB...)
+    /// Suffix supports single letters (A-Z) and double letters (AA-ZZ) for overflow
+    Inserted { base: u32, suffix: String },
 
     /// Omitted page marker (page was removed but number preserved)
     Omitted(u32),
@@ -24,12 +25,70 @@ impl PageIdentifier {
         }
     }
 
+    /// Create a new inserted page with a single-letter suffix
+    pub fn inserted(base: u32, suffix: char) -> Self {
+        PageIdentifier::Inserted {
+            base,
+            suffix: suffix.to_string(),
+        }
+    }
+
     /// For sorting: returns (base_number, suffix_ordinal)
-    pub fn sort_key(&self) -> (u32, u8) {
+    /// Single letters A-Z = 1-26, double letters AA-ZZ = 27-702
+    pub fn sort_key(&self) -> (u32, u16) {
         match self {
             PageIdentifier::Sequential(n) => (*n, 0),
-            PageIdentifier::Inserted { base, suffix } => (*base, (*suffix as u8) - b'A' + 1),
+            PageIdentifier::Inserted { base, suffix } => {
+                let ordinal = Self::suffix_to_ordinal(suffix);
+                (*base, ordinal)
+            }
             PageIdentifier::Omitted(n) => (*n, 0),
+        }
+    }
+
+    /// Convert suffix to ordinal (A=1, B=2, ... Z=26, AA=27, AB=28, ... ZZ=702)
+    fn suffix_to_ordinal(suffix: &str) -> u16 {
+        let chars: Vec<char> = suffix.chars().collect();
+        match chars.len() {
+            1 => (chars[0] as u16) - ('A' as u16) + 1,
+            2 => {
+                let first = (chars[0] as u16) - ('A' as u16);
+                let second = (chars[1] as u16) - ('A' as u16) + 1;
+                26 + first * 26 + second
+            }
+            _ => 0, // Invalid suffix
+        }
+    }
+
+    /// Get the next suffix in sequence (A->B, Z->AA, AZ->BA, ZZ wraps to next page)
+    fn next_suffix(suffix: &str) -> Option<String> {
+        let chars: Vec<char> = suffix.chars().collect();
+        match chars.len() {
+            1 => {
+                if chars[0] == 'Z' {
+                    // Single letter overflow: Z -> AA
+                    Some("AA".to_string())
+                } else {
+                    Some(((chars[0] as u8) + 1) as char).map(|c| c.to_string())
+                }
+            }
+            2 => {
+                let first = chars[0];
+                let second = chars[1];
+                if second == 'Z' {
+                    if first == 'Z' {
+                        // ZZ -> None (wrap to next base page)
+                        None
+                    } else {
+                        // AZ -> BA, BZ -> CA, etc.
+                        Some(format!("{}A", ((first as u8) + 1) as char))
+                    }
+                } else {
+                    // AA -> AB, AB -> AC, etc.
+                    Some(format!("{}{}", first, ((second as u8) + 1) as char))
+                }
+            }
+            _ => None,
         }
     }
 
@@ -38,13 +97,15 @@ impl PageIdentifier {
         match self {
             PageIdentifier::Sequential(n) => PageIdentifier::Sequential(n + 1),
             PageIdentifier::Inserted { base, suffix } => {
-                if *suffix == 'Z' {
-                    // Wrap to next number (rare edge case)
-                    PageIdentifier::Sequential(base + 1)
-                } else {
-                    PageIdentifier::Inserted {
+                match Self::next_suffix(suffix) {
+                    Some(next_suffix) => PageIdentifier::Inserted {
                         base: *base,
-                        suffix: ((*suffix as u8) + 1) as char,
+                        suffix: next_suffix,
+                    },
+                    None => {
+                        // Extremely rare: exceeded ZZ (702 A-pages on one base page)
+                        // Fall back to next sequential page
+                        PageIdentifier::Sequential(base + 1)
                     }
                 }
             }
@@ -206,9 +267,10 @@ mod tests {
     #[test]
     fn test_page_identifier_display() {
         assert_eq!(PageIdentifier::Sequential(42).display(), "42");
+        assert_eq!(PageIdentifier::inserted(47, 'A').display(), "47A");
         assert_eq!(
-            PageIdentifier::Inserted { base: 47, suffix: 'A' }.display(),
-            "47A"
+            PageIdentifier::Inserted { base: 47, suffix: "AA".to_string() }.display(),
+            "47AA"
         );
         assert_eq!(PageIdentifier::Omitted(10).display(), "10 OMITTED");
     }
@@ -220,20 +282,78 @@ mod tests {
             PageIdentifier::Sequential(2)
         );
         assert_eq!(
-            PageIdentifier::Inserted { base: 47, suffix: 'A' }.next(),
-            PageIdentifier::Inserted { base: 47, suffix: 'B' }
+            PageIdentifier::inserted(47, 'A').next(),
+            PageIdentifier::Inserted { base: 47, suffix: "B".to_string() }
         );
     }
 
     #[test]
     fn test_page_identifier_sort_key() {
         let p1 = PageIdentifier::Sequential(47);
-        let p2 = PageIdentifier::Inserted { base: 47, suffix: 'A' };
-        let p3 = PageIdentifier::Inserted { base: 47, suffix: 'B' };
+        let p2 = PageIdentifier::inserted(47, 'A');
+        let p3 = PageIdentifier::inserted(47, 'B');
         let p4 = PageIdentifier::Sequential(48);
 
         assert!(p1.sort_key() < p2.sort_key());
         assert!(p2.sort_key() < p3.sort_key());
         assert!(p3.sort_key() < p4.sort_key());
+    }
+
+    #[test]
+    fn test_suffix_overflow() {
+        // Single letter to next single letter
+        assert_eq!(
+            PageIdentifier::inserted(47, 'A').next(),
+            PageIdentifier::Inserted { base: 47, suffix: "B".to_string() }
+        );
+
+        // Z overflows to AA (double letters)
+        assert_eq!(
+            PageIdentifier::inserted(47, 'Z').next(),
+            PageIdentifier::Inserted { base: 47, suffix: "AA".to_string() }
+        );
+
+        // AA -> AB
+        assert_eq!(
+            PageIdentifier::Inserted { base: 47, suffix: "AA".to_string() }.next(),
+            PageIdentifier::Inserted { base: 47, suffix: "AB".to_string() }
+        );
+
+        // AZ -> BA
+        assert_eq!(
+            PageIdentifier::Inserted { base: 47, suffix: "AZ".to_string() }.next(),
+            PageIdentifier::Inserted { base: 47, suffix: "BA".to_string() }
+        );
+
+        // ZZ overflows to next sequential page
+        assert_eq!(
+            PageIdentifier::Inserted { base: 47, suffix: "ZZ".to_string() }.next(),
+            PageIdentifier::Sequential(48)
+        );
+    }
+
+    #[test]
+    fn test_suffix_ordinal() {
+        // Single letters: A=1, B=2, ... Z=26
+        assert_eq!(PageIdentifier::inserted(1, 'A').sort_key(), (1, 1));
+        assert_eq!(PageIdentifier::inserted(1, 'Z').sort_key(), (1, 26));
+
+        // Double letters: AA=27, AB=28, ... AZ=52, BA=53, ... ZZ=702
+        assert_eq!(
+            PageIdentifier::Inserted { base: 1, suffix: "AA".to_string() }.sort_key(),
+            (1, 27)
+        );
+        assert_eq!(
+            PageIdentifier::Inserted { base: 1, suffix: "AZ".to_string() }.sort_key(),
+            (1, 52)
+        );
+        assert_eq!(
+            PageIdentifier::Inserted { base: 1, suffix: "BA".to_string() }.sort_key(),
+            (1, 53)
+        );
+        assert_eq!(
+            PageIdentifier::Inserted { base: 1, suffix: "ZZ".to_string() }.sort_key(),
+            (1, 702)
+        );
     }
 }

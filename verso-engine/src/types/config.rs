@@ -528,6 +528,87 @@ impl PageConfig {
         }
     }
 
+    /// Feature Film format with A4 paper (international)
+    /// Used in: UK, Europe, Australia, and other countries using A4 paper
+    /// A4 is slightly narrower and taller than US Letter
+    pub fn feature_film_a4() -> Self {
+        let mut element_styles = HashMap::new();
+
+        element_styles.insert(ElementType::SceneHeading, ElementStyle::default_for(ElementType::SceneHeading));
+        element_styles.insert(ElementType::Action, ElementStyle::default_for(ElementType::Action));
+        element_styles.insert(ElementType::Character, ElementStyle::default_for(ElementType::Character));
+        element_styles.insert(ElementType::Dialogue, ElementStyle::default_for(ElementType::Dialogue));
+        element_styles.insert(ElementType::Parenthetical, ElementStyle::default_for(ElementType::Parenthetical));
+        element_styles.insert(ElementType::Transition, ElementStyle::default_for(ElementType::Transition));
+        element_styles.insert(ElementType::ActBreak, ElementStyle::default_for(ElementType::ActBreak));
+        element_styles.insert(ElementType::PageBreak, ElementStyle::default_for(ElementType::PageBreak));
+        element_styles.insert(ElementType::Shot, ElementStyle::default_for(ElementType::Shot));
+        element_styles.insert(ElementType::BlankLine, ElementStyle::default_for(ElementType::BlankLine));
+
+        // A4 margins: slightly adjusted for the narrower width
+        let a4_margins = MarginConfig {
+            top: 1.0,      // 1" top margin (same as US)
+            bottom: 0.5,   // 0.5" bottom margin (same as US)
+            left: 1.25,    // Slightly less than US (A4 is narrower)
+            right: 0.75,   // Slightly less than US
+        };
+
+        Self {
+            paper_size: PaperSize::A4,
+            lines_per_page: 58,  // A4 is taller, so more lines (297mm vs 279mm)
+            char_width_pt: 7.2,
+            line_height_pt: 12.0,
+            margins: a4_margins,
+            element_styles,
+            continuation_style: ContinuationStyle::default(),
+            orphan_control: OrphanControlConfig::default(),
+            scene_numbering: SceneNumberingConfig::default(),
+            dual_dialogue_column_width: None,
+            locked_pages: LockedPageConfig::default(),
+        }
+    }
+
+    /// BBC Standard format
+    /// Used for: BBC television productions
+    /// Based on A4 paper with specific BBC formatting conventions
+    pub fn bbc_standard() -> Self {
+        let mut element_styles = HashMap::new();
+
+        element_styles.insert(ElementType::SceneHeading, ElementStyle::default_for(ElementType::SceneHeading));
+        element_styles.insert(ElementType::Action, ElementStyle::default_for(ElementType::Action));
+        element_styles.insert(ElementType::Character, ElementStyle::default_for(ElementType::Character));
+        element_styles.insert(ElementType::Dialogue, ElementStyle::default_for(ElementType::Dialogue));
+        element_styles.insert(ElementType::Parenthetical, ElementStyle::default_for(ElementType::Parenthetical));
+        element_styles.insert(ElementType::Transition, ElementStyle::default_for(ElementType::Transition));
+        element_styles.insert(ElementType::ActBreak, ElementStyle::default_for(ElementType::ActBreak));
+        element_styles.insert(ElementType::PageBreak, ElementStyle::default_for(ElementType::PageBreak));
+        element_styles.insert(ElementType::Shot, ElementStyle::default_for(ElementType::Shot));
+        element_styles.insert(ElementType::BlankLine, ElementStyle::default_for(ElementType::BlankLine));
+
+        // BBC uses metric margins (converted to inches for consistency)
+        // Standard BBC: 25mm left, 20mm right, 25mm top, 25mm bottom
+        let bbc_margins = MarginConfig {
+            top: 0.984,      // ~25mm
+            bottom: 0.984,   // ~25mm
+            left: 0.984,     // ~25mm
+            right: 0.787,    // ~20mm
+        };
+
+        Self {
+            paper_size: PaperSize::A4,
+            lines_per_page: 56,  // BBC standard
+            char_width_pt: 7.2,
+            line_height_pt: 12.0,
+            margins: bbc_margins,
+            element_styles,
+            continuation_style: ContinuationStyle::default(),
+            orphan_control: OrphanControlConfig::default(),
+            scene_numbering: SceneNumberingConfig::default(),
+            dual_dialogue_column_width: None,
+            locked_pages: LockedPageConfig::default(),
+        }
+    }
+
     /// Get the style for an element type
     pub fn style_for(&self, element_type: ElementType) -> &ElementStyle {
         self.element_styles
@@ -638,6 +719,8 @@ mod tests {
             PageConfig::tv_one_hour(),
             PageConfig::tv_half_hour(),
             PageConfig::tv_multi_cam(),
+            PageConfig::feature_film_a4(),
+            PageConfig::bbc_standard(),
         ];
 
         for config in formats {
@@ -648,5 +731,27 @@ mod tests {
             assert!(config.element_styles.contains_key(&ElementType::Dialogue));
             assert!(config.element_styles.contains_key(&ElementType::Parenthetical));
         }
+    }
+
+    #[test]
+    fn test_feature_film_a4_config() {
+        let config = PageConfig::feature_film_a4();
+        assert_eq!(config.paper_size, PaperSize::A4);
+        assert_eq!(config.lines_per_page, 58);  // A4 is taller
+
+        // A4 dimensions
+        assert!((config.paper_size.width_pt() - 595.28).abs() < 0.01);
+        assert!((config.paper_size.height_pt() - 841.89).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_bbc_standard_config() {
+        let config = PageConfig::bbc_standard();
+        assert_eq!(config.paper_size, PaperSize::A4);
+        assert_eq!(config.lines_per_page, 56);  // BBC standard
+
+        // BBC uses metric margins (~25mm = 0.984")
+        assert!((config.margins.top - 0.984).abs() < 0.001);
+        assert!((config.margins.left - 0.984).abs() < 0.001);
     }
 }

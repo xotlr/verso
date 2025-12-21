@@ -4,10 +4,10 @@ import { dropCursor } from 'prosemirror-dropcursor';
 import { gapCursor } from 'prosemirror-gapcursor';
 
 import { createInputRulesPlugin } from './input-rules';
-import { createElementSwitchingPlugin } from './element-switching';
+import { createElementSwitchingPlugin, createTabArrowPlugin } from './element-switching';
 import { createKeymapPlugin, createBaseKeymapPlugin } from './keymap';
 import { createPaginationPlugin } from './pagination';
-import { createSceneNumberingPlugin } from './scene-numbering';
+import { createSceneNumberingPlugin, SceneNumberingOptions } from './scene-numbering';
 import { createSmartClickPlugin } from './smart-click';
 import { createAutocompletePlugin, AutocompletePluginOptions } from './autocomplete';
 import { createCollaborationPlugin, CollaborationPluginOptions } from './collaboration';
@@ -31,6 +31,8 @@ export interface CreatePluginsOptions {
   pagination?: boolean;
   // Enable scene numbering on left margin
   sceneNumbering?: boolean;
+  // Scene numbering options
+  sceneNumberingOptions?: SceneNumberingOptions;
   // Enable autocomplete suggestions
   autocomplete?: boolean;
   // Autocomplete options
@@ -77,6 +79,8 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
   // Element switching (Tab/Enter handling)
   if (opts.elementSwitching) {
     plugins.push(createElementSwitchingPlugin());
+    // Tab+Arrow navigation (hold Tab + Left/Right arrows to cycle elements)
+    plugins.push(createTabArrowPlugin());
   }
 
   // Custom keymap (before base keymap)
@@ -99,7 +103,7 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
 
   // Scene numbering
   if (opts.sceneNumbering) {
-    plugins.push(createSceneNumberingPlugin());
+    plugins.push(createSceneNumberingPlugin(opts.sceneNumberingOptions || {}));
   }
 
   // Smart click-to-focus (nearest editable line)
@@ -140,9 +144,15 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
 
 // Re-export individual plugin creators
 export { createInputRulesPlugin } from './input-rules';
-export { createElementSwitchingPlugin, elementCommands, setElementType } from './element-switching';
+export { createElementSwitchingPlugin, createTabArrowPlugin, tabArrowPluginKey, elementCommands, setElementType } from './element-switching';
 export { createKeymapPlugin, createBaseKeymapPlugin, toggleBold, toggleItalic, toggleUnderline } from './keymap';
-export { createSceneNumberingPlugin, sceneNumberingPluginKey } from './scene-numbering';
+export {
+  createSceneNumberingPlugin,
+  sceneNumberingPluginKey,
+  updateSceneNumberingSettings,
+  getSceneNumberingState,
+} from './scene-numbering';
+export type { SceneNumberingOptions } from './scene-numbering';
 export { createSmartClickPlugin, smartClickPluginKey } from './smart-click';
 export { createAutocompletePlugin, autocompletePluginKey, applySuggestion } from './autocomplete';
 export type { AutocompleteState, AutocompleteSuggestion, AutocompletePluginOptions } from './autocomplete';

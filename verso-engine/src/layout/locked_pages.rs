@@ -63,18 +63,20 @@ pub fn apply_locked_page_numbering(pages: &mut Vec<Page>, config: &LockedPageCon
     }
 }
 
-/// Get the suffix character for a given index (0='A', 1='B', ..., 25='Z').
+/// Get the suffix string for a given index (0='A', 1='B', ..., 25='Z', 26='AA', 27='AB', ...).
 ///
-/// For indices beyond 25, we extend with AA, AB, etc. but for simplicity
-/// in the initial implementation, we wrap at Z and continue with double letters.
-fn get_suffix_for_index(index: u32) -> char {
+/// For indices beyond 25, we use double letters (AA, AB, ... AZ, BA, BB, ... ZZ).
+/// This allows up to 702 A-pages on a single base page number.
+fn get_suffix_for_index(index: u32) -> String {
     if index < 26 {
-        (b'A' + index as u8) as char
+        // Single letter: A-Z
+        ((b'A' + index as u8) as char).to_string()
     } else {
-        // For indices >= 26, wrap around (very rare in practice)
-        // In a real script, having more than 26 extra pages after a locked
-        // page would be extremely unusual
-        (b'A' + (index % 26) as u8) as char
+        // Double letters: AA-ZZ (26-701 = 676 more combinations)
+        let adjusted = index - 26;
+        let first = (b'A' + (adjusted / 26) as u8) as char;
+        let second = (b'A' + (adjusted % 26) as u8) as char;
+        format!("{}{}", first, second)
     }
 }
 
@@ -177,7 +179,7 @@ mod tests {
         // Page 51 becomes 50A
         assert_eq!(
             pages[50].identifier,
-            PageIdentifier::Inserted { base: 50, suffix: 'A' }
+            PageIdentifier::Inserted { base: 50, suffix: "A".to_string() }
         );
     }
 
@@ -198,11 +200,11 @@ mod tests {
         }
 
         // Pages 51-55 become A-pages
-        assert_eq!(pages[50].identifier, PageIdentifier::Inserted { base: 50, suffix: 'A' });
-        assert_eq!(pages[51].identifier, PageIdentifier::Inserted { base: 50, suffix: 'B' });
-        assert_eq!(pages[52].identifier, PageIdentifier::Inserted { base: 50, suffix: 'C' });
-        assert_eq!(pages[53].identifier, PageIdentifier::Inserted { base: 50, suffix: 'D' });
-        assert_eq!(pages[54].identifier, PageIdentifier::Inserted { base: 50, suffix: 'E' });
+        assert_eq!(pages[50].identifier, PageIdentifier::Inserted { base: 50, suffix: "A".to_string() });
+        assert_eq!(pages[51].identifier, PageIdentifier::Inserted { base: 50, suffix: "B".to_string() });
+        assert_eq!(pages[52].identifier, PageIdentifier::Inserted { base: 50, suffix: "C".to_string() });
+        assert_eq!(pages[53].identifier, PageIdentifier::Inserted { base: 50, suffix: "D".to_string() });
+        assert_eq!(pages[54].identifier, PageIdentifier::Inserted { base: 50, suffix: "E".to_string() });
     }
 
     #[test]
@@ -223,11 +225,11 @@ mod tests {
         }
 
         // 10A through 10Z
-        assert_eq!(pages[10].identifier, PageIdentifier::Inserted { base: 10, suffix: 'A' });
-        assert_eq!(pages[35].identifier, PageIdentifier::Inserted { base: 10, suffix: 'Z' });
+        assert_eq!(pages[10].identifier, PageIdentifier::Inserted { base: 10, suffix: "A".to_string() });
+        assert_eq!(pages[35].identifier, PageIdentifier::Inserted { base: 10, suffix: "Z".to_string() });
 
-        // Beyond Z wraps (very rare edge case)
-        assert_eq!(pages[36].identifier, PageIdentifier::Inserted { base: 10, suffix: 'A' });
+        // Beyond Z continues with double letters (AA, AB, etc.)
+        assert_eq!(pages[36].identifier, PageIdentifier::Inserted { base: 10, suffix: "AA".to_string() });
     }
 
     #[test]
@@ -332,11 +334,14 @@ mod tests {
 
     #[test]
     fn test_get_suffix_for_index() {
-        assert_eq!(get_suffix_for_index(0), 'A');
-        assert_eq!(get_suffix_for_index(1), 'B');
-        assert_eq!(get_suffix_for_index(25), 'Z');
-        assert_eq!(get_suffix_for_index(26), 'A'); // Wraps
-        assert_eq!(get_suffix_for_index(27), 'B');
+        assert_eq!(get_suffix_for_index(0), "A");
+        assert_eq!(get_suffix_for_index(1), "B");
+        assert_eq!(get_suffix_for_index(25), "Z");
+        assert_eq!(get_suffix_for_index(26), "AA"); // Double letters start
+        assert_eq!(get_suffix_for_index(27), "AB");
+        assert_eq!(get_suffix_for_index(51), "AZ");
+        assert_eq!(get_suffix_for_index(52), "BA");
+        assert_eq!(get_suffix_for_index(701), "ZZ"); // Max double letter
     }
 
     #[test]
@@ -344,12 +349,16 @@ mod tests {
         // Verify the display strings are correct
         assert_eq!(PageIdentifier::Sequential(42).display(), "42");
         assert_eq!(
-            PageIdentifier::Inserted { base: 50, suffix: 'A' }.display(),
+            PageIdentifier::Inserted { base: 50, suffix: "A".to_string() }.display(),
             "50A"
         );
         assert_eq!(
-            PageIdentifier::Inserted { base: 50, suffix: 'B' }.display(),
+            PageIdentifier::Inserted { base: 50, suffix: "B".to_string() }.display(),
             "50B"
+        );
+        assert_eq!(
+            PageIdentifier::Inserted { base: 50, suffix: "AA".to_string() }.display(),
+            "50AA"
         );
         assert_eq!(PageIdentifier::Omitted(25).display(), "25 OMITTED");
     }

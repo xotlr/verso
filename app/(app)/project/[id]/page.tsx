@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -17,7 +17,22 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { TemplateSelector } from '@/components/template-selector';
-import { EmptyState } from '@/components/ui/empty-state';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
+import { ScreenplayListCard } from '@/components/screenplay/screenplay-list-card';
+import {
+  PiFilmScript,
+  PiFilmScriptFill,
+  PiNotePencil,
+  PiNotePencilFill,
+  PiCalendar,
+  PiCalendarFill,
+  PiCurrencyDollar,
+  PiCurrencyDollarFill,
+  PiLink,
+  PiLinkFill,
+  PiUsers,
+  PiUsersFill,
+} from 'react-icons/pi';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,28 +44,16 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   ArrowLeft,
   Plus,
   Film,
   FileText,
   Calendar,
   DollarSign,
-  Clock,
-  MoreHorizontal,
-  Trash2,
-  Edit3,
   Link as LinkIcon,
   Video,
   Image as ImageIcon,
   Grid3X3,
-  Users,
   Clapperboard,
   PenTool,
 } from 'lucide-react';
@@ -379,8 +382,8 @@ export default function ProjectPage() {
 
   if (isLoading) {
     return (
-      <main className="flex-1 overflow-auto bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <ScrollArea className="flex-1">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center gap-4 mb-8">
             <Skeleton className="h-8 w-8" />
             <Skeleton className="h-8 w-48" />
@@ -391,7 +394,7 @@ export default function ProjectPage() {
             ))}
           </div>
         </div>
-      </main>
+      </ScrollArea>
     );
   }
 
@@ -448,8 +451,8 @@ export default function ProjectPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <main className="flex-1 overflow-auto bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <ScrollArea className="flex-1">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center gap-4 mb-4">
@@ -533,37 +536,61 @@ export default function ProjectPage() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <TabsList className="w-full sm:w-auto flex-wrap h-auto gap-1 p-1">
-                <TabsTrigger value="screenplays" className="gap-1.5 px-3 py-1.5">
-                  <Film className="h-4 w-4" />
-                  <span className="hidden sm:inline">Screenplays</span>
-                  <Badge variant="secondary" className="text-xs">{project._count.screenplays}</Badge>
+            <div className="flex flex-col gap-4 mb-6">
+              <TabsList className="w-full sm:w-auto h-auto grid grid-cols-3 sm:inline-flex gap-1.5 p-1.5">
+                <TabsTrigger value="screenplays" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                  {activeTab === 'screenplays' ? (
+                    <PiFilmScriptFill className="h-4 w-4 flex-shrink-0" />
+                  ) : (
+                    <PiFilmScript className="h-4 w-4 flex-shrink-0" />
+                  )}
+                  <span>Scripts</span>
+                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({project._count.screenplays})</span>
                 </TabsTrigger>
-                <TabsTrigger value="notes" className="gap-1.5 px-3 py-1.5">
-                  <FileText className="h-4 w-4" />
-                  <span className="hidden sm:inline">Notes</span>
-                  <Badge variant="secondary" className="text-xs">{project._count.notes}</Badge>
+                <TabsTrigger value="notes" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                  {activeTab === 'notes' ? (
+                    <PiNotePencilFill className="h-4 w-4 flex-shrink-0" />
+                  ) : (
+                    <PiNotePencil className="h-4 w-4 flex-shrink-0" />
+                  )}
+                  <span>Notes</span>
+                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({project._count.notes})</span>
                 </TabsTrigger>
-                <TabsTrigger value="schedules" className="gap-1.5 px-3 py-1.5">
-                  <Calendar className="h-4 w-4" />
-                  <span className="hidden sm:inline">Schedules</span>
-                  <Badge variant="secondary" className="text-xs">{project._count.schedules}</Badge>
+                <TabsTrigger value="schedules" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                  {activeTab === 'schedules' ? (
+                    <PiCalendarFill className="h-4 w-4 flex-shrink-0" />
+                  ) : (
+                    <PiCalendar className="h-4 w-4 flex-shrink-0" />
+                  )}
+                  <span>Schedule</span>
+                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({project._count.schedules})</span>
                 </TabsTrigger>
-                <TabsTrigger value="budgets" className="gap-1.5 px-3 py-1.5">
-                  <DollarSign className="h-4 w-4" />
-                  <span className="hidden sm:inline">Budgets</span>
-                  <Badge variant="secondary" className="text-xs">{project._count.budgets}</Badge>
+                <TabsTrigger value="budgets" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                  {activeTab === 'budgets' ? (
+                    <PiCurrencyDollarFill className="h-4 w-4 flex-shrink-0" />
+                  ) : (
+                    <PiCurrencyDollar className="h-4 w-4 flex-shrink-0" />
+                  )}
+                  <span>Budget</span>
+                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({project._count.budgets})</span>
                 </TabsTrigger>
-                <TabsTrigger value="resources" className="gap-1.5 px-3 py-1.5">
-                  <LinkIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">Resources</span>
-                  <Badge variant="secondary" className="text-xs">{externalLinks.length}</Badge>
+                <TabsTrigger value="resources" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                  {activeTab === 'resources' ? (
+                    <PiLinkFill className="h-4 w-4 flex-shrink-0" />
+                  ) : (
+                    <PiLink className="h-4 w-4 flex-shrink-0" />
+                  )}
+                  <span>Links</span>
+                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({externalLinks.length})</span>
                 </TabsTrigger>
-                <TabsTrigger value="crew" className="gap-1.5 px-3 py-1.5">
-                  <Users className="h-4 w-4" />
-                  <span className="hidden sm:inline">Crew</span>
-                  <Badge variant="secondary" className="text-xs">{project.roles.length}</Badge>
+                <TabsTrigger value="crew" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                  {activeTab === 'crew' ? (
+                    <PiUsersFill className="h-4 w-4 flex-shrink-0" />
+                  ) : (
+                    <PiUsers className="h-4 w-4 flex-shrink-0" />
+                  )}
+                  <span>Team</span>
+                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({project.roles.length})</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -590,69 +617,37 @@ export default function ProjectPage() {
             {/* Screenplays Tab */}
             <TabsContent value="screenplays">
               {project.screenplays.length === 0 ? (
-                <div className="border border-dashed border-border rounded-xl">
-                  <EmptyState
-                    icon={<Film className="h-8 w-8 text-muted-foreground" />}
-                    title="No screenplays yet"
-                    description="Add a screenplay to this project"
-                    action={{
-                      label: 'Add Screenplay',
-                      onClick: () => setTemplateSelectorOpen(true),
-                      icon: <Plus className="h-4 w-4" />,
-                    }}
-                  />
-                </div>
+                <Empty border>
+                  <EmptyMedia variant="icon">
+                    <Film className="h-6 w-6" />
+                  </EmptyMedia>
+                  <EmptyHeader>
+                    <EmptyTitle>No screenplays yet</EmptyTitle>
+                    <EmptyDescription>Add a screenplay to this project</EmptyDescription>
+                  </EmptyHeader>
+                  <Button onClick={() => setTemplateSelectorOpen(true)} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add Screenplay
+                  </Button>
+                </Empty>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   {project.screenplays.map((screenplay) => (
-                    <div
+                    <ScreenplayListCard
                       key={screenplay.id}
-                      className="group relative bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200"
-                    >
-                      <Link href={`/screenplay/${screenplay.id}`}>
-                        <div className="p-5 cursor-pointer">
-                          <div className="flex items-start justify-between mb-3">
-                            <h3 className="text-base font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-                              {screenplay.title}
-                            </h3>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                  }}
-                                  className="p-1.5 hover:bg-accent rounded-md transition-colors opacity-0 group-hover:opacity-100"
-                                >
-                                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => router.push(`/screenplay/${screenplay.id}`)}>
-                                  <Edit3 className="mr-2 h-4 w-4" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => setDeleteTarget({ id: screenplay.id, type: 'screenplays' })}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                            {screenplay.synopsis || 'No synopsis'}
-                          </p>
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span>{formatDistanceToNow(new Date(screenplay.updatedAt), { addSuffix: true })}</span>
-                          </div>
-                        </div>
-                      </Link>
-                    </div>
+                      screenplay={{
+                        id: screenplay.id,
+                        title: screenplay.title,
+                        synopsis: screenplay.synopsis,
+                        updatedAt: screenplay.updatedAt,
+                      }}
+                      href={`/screenplay/${screenplay.id}`}
+                      onEdit={() => router.push(`/screenplay/${screenplay.id}`)}
+                      onDelete={() => setDeleteTarget({ id: screenplay.id, type: 'screenplays' })}
+                      showProject={false}
+                      showType={false}
+                      showFavorite={false}
+                    />
                   ))}
                 </div>
               )}
@@ -661,11 +656,15 @@ export default function ProjectPage() {
             {/* Notes Tab */}
             <TabsContent value="notes">
               {project.notes.length === 0 ? (
-                <div className="text-center py-16 border border-dashed border-border rounded-xl">
-                  <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No notes yet</h3>
-                  <p className="text-muted-foreground">Notes feature coming soon</p>
-                </div>
+                <Empty border>
+                  <EmptyMedia variant="icon">
+                    <FileText className="h-6 w-6" />
+                  </EmptyMedia>
+                  <EmptyHeader>
+                    <EmptyTitle>No notes yet</EmptyTitle>
+                    <EmptyDescription>Notes feature coming soon</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   {project.notes.map((note) => (
@@ -686,11 +685,15 @@ export default function ProjectPage() {
             {/* Schedules Tab */}
             <TabsContent value="schedules">
               {project.schedules.length === 0 ? (
-                <div className="text-center py-16 border border-dashed border-border rounded-xl">
-                  <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No schedules yet</h3>
-                  <p className="text-muted-foreground">Scheduling feature coming soon</p>
-                </div>
+                <Empty border>
+                  <EmptyMedia variant="icon">
+                    <Calendar className="h-6 w-6" />
+                  </EmptyMedia>
+                  <EmptyHeader>
+                    <EmptyTitle>No schedules yet</EmptyTitle>
+                    <EmptyDescription>Scheduling feature coming soon</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   {project.schedules.map((schedule) => (
@@ -708,11 +711,15 @@ export default function ProjectPage() {
             {/* Budgets Tab */}
             <TabsContent value="budgets">
               {project.budgets.length === 0 ? (
-                <div className="text-center py-16 border border-dashed border-border rounded-xl">
-                  <DollarSign className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No budgets yet</h3>
-                  <p className="text-muted-foreground">Budgeting feature coming soon</p>
-                </div>
+                <Empty border>
+                  <EmptyMedia variant="icon">
+                    <DollarSign className="h-6 w-6" />
+                  </EmptyMedia>
+                  <EmptyHeader>
+                    <EmptyTitle>No budgets yet</EmptyTitle>
+                    <EmptyDescription>Budgeting feature coming soon</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   {project.budgets.map((budget) => (
@@ -733,18 +740,19 @@ export default function ProjectPage() {
             {/* Resources Tab */}
             <TabsContent value="resources">
               {externalLinks.length === 0 ? (
-                <div className="border border-dashed border-border rounded-xl">
-                  <EmptyState
-                    icon={<LinkIcon className="h-8 w-8 text-muted-foreground" />}
-                    title="No resources yet"
-                    description="Add links to Google Docs, research materials, or any external references"
-                    action={{
-                      label: 'Add Link',
-                      onClick: () => setAddLinkDialogOpen(true),
-                      icon: <Plus className="h-4 w-4" />,
-                    }}
-                  />
-                </div>
+                <Empty border>
+                  <EmptyMedia variant="icon">
+                    <LinkIcon className="h-6 w-6" />
+                  </EmptyMedia>
+                  <EmptyHeader>
+                    <EmptyTitle>No resources yet</EmptyTitle>
+                    <EmptyDescription>Add links to Google Docs, research materials, or any external references</EmptyDescription>
+                  </EmptyHeader>
+                  <Button onClick={() => setAddLinkDialogOpen(true)} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add Link
+                  </Button>
+                </Empty>
               ) : (
                 <>
                   {/* Filter buttons */}
@@ -850,7 +858,7 @@ export default function ProjectPage() {
             </TabsContent>
           </Tabs>
         </div>
-      </main>
+      </ScrollArea>
     </>
   );
 }

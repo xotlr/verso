@@ -90,6 +90,30 @@ export function EditorSection({ settings, updateEditorSettings }: EditorSectionP
           </div>
         </CardContent>
       </Card>
+
+      {/* Production Mode Card */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base">Production Mode</CardTitle>
+          <CardDescription>Settings for production/shooting scripts</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between py-0.5">
+            <div>
+              <label className="text-sm font-medium">Show Scene Numbers</label>
+              <p className="text-xs text-muted-foreground">
+                Display scene numbers even with a title page (for shooting scripts)
+              </p>
+            </div>
+            <Checkbox
+              checked={settings.showSceneNumbers ?? false}
+              onCheckedChange={(checked) => updateEditorSettings({
+                showSceneNumbers: checked as boolean
+              })}
+            />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

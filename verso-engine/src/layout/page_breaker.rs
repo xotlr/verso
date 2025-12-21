@@ -371,7 +371,7 @@ pub fn paginate_incremental(
     changes: Option<&[crate::types::DocumentChange]>,
     cache: Option<&PaginationCache>,
 ) -> PaginationResult {
-    use super::{find_dirty_pages, extract_reusable_pages, DirtyReason};
+    use super::{find_dirty_pages, extract_reusable_pages, merge_pages, DirtyReason};
 
     // Determine if we can use incremental pagination
     let dirty_region = match (changes, cache) {
@@ -392,16 +392,40 @@ pub fn paginate_incremental(
 
     // Incremental pagination: reuse pages before the dirty region
     let previous_pages = cache
-        .map(|_c| Vec::new())
-        .unwrap_or_default();
+        .map(|c| &c.pages[..])
+        .unwrap_or(&[]);
 
-    let (_reused_pages, _start_element_idx) = extract_reusable_pages(
-        &previous_pages,
+    let (reused_pages, start_element_idx) = extract_reusable_pages(
+        previous_pages,
         &dirty_region,
         has_title_page,
     );
 
-    // For now, fall back to full pagination but with cache
+    // If we have reusable pages, do incremental pagination
+    if !reused_pages.is_empty() && start_element_idx > 0 && start_element_idx < elements.len() {
+        // Do full pagination but then merge with reused pages
+        // This ensures correctness for auto_contd and scene numbering
+        let mut full_result = paginate_with_title_page(elements, config, has_title_page, metadata);
+
+        // Calculate how many pages to take from new result
+        // (pages from dirty region onward)
+        let pages_to_skip = reused_pages.len();
+
+        if pages_to_skip < full_result.pages.len() {
+            // Take new pages from the dirty region onward
+            let new_pages: Vec<_> = full_result.pages.drain(pages_to_skip..).collect();
+
+            // Merge reused pages with new pages
+            let merged_pages = merge_pages(reused_pages, new_pages, &dirty_region);
+            full_result.pages = merged_pages;
+        }
+
+        // Update cache with the final result
+        full_result.cache = Some(PaginationCache::from_result(&full_result, elements, config, has_title_page));
+        return full_result;
+    }
+
+    // Fall back to full pagination
     let mut result = paginate_with_title_page(elements, config, has_title_page, metadata);
     result.cache = Some(PaginationCache::from_result(&result, elements, config, has_title_page));
 

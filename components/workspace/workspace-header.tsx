@@ -2,7 +2,7 @@
 
 import { useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Upload } from 'lucide-react';
+import { Plus, Upload, Loader2 } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
 import { getAcceptString } from '@/lib/parsers';
 import type { GreetingResult } from '@/lib/greeting';
@@ -14,6 +14,10 @@ interface WorkspaceHeaderProps {
   onCreateProject: () => void;
   onCreateScreenplay: () => void;
   onImportFile?: (file: File) => void;
+  /** Optional loading states for buttons */
+  isCreatingProject?: boolean;
+  isCreatingScreenplay?: boolean;
+  isImporting?: boolean;
 }
 
 export function WorkspaceHeader({
@@ -23,6 +27,9 @@ export function WorkspaceHeader({
   onCreateProject,
   onCreateScreenplay,
   onImportFile,
+  isCreatingProject = false,
+  isCreatingScreenplay = false,
+  isImporting = false,
 }: WorkspaceHeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -75,8 +82,13 @@ export function WorkspaceHeader({
             variant="outline"
             size="sm"
             className="touch-manipulation"
+            disabled={isImporting}
           >
-            <Upload className="h-4 w-4 mr-1.5 sm:mr-2" />
+            {isImporting ? (
+              <Loader2 className="h-4 w-4 mr-1.5 sm:mr-2 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4 mr-1.5 sm:mr-2" />
+            )}
             <span className="text-xs sm:text-sm">Import</span>
           </Button>
         )}
@@ -85,16 +97,26 @@ export function WorkspaceHeader({
           variant="outline"
           size="sm"
           className="touch-manipulation"
+          disabled={isCreatingProject}
         >
-          <RiFolder6Line className="h-4 w-4 mr-1.5 sm:mr-2" />
+          {isCreatingProject ? (
+            <Loader2 className="h-4 w-4 mr-1.5 sm:mr-2 animate-spin" />
+          ) : (
+            <RiFolder6Line className="h-4 w-4 mr-1.5 sm:mr-2" />
+          )}
           <span className="text-xs sm:text-sm">New Project</span>
         </Button>
         <Button
           onClick={onCreateScreenplay}
           size="sm"
           className="touch-manipulation"
+          disabled={isCreatingScreenplay}
         >
-          <Plus className="h-4 w-4 mr-1.5 sm:mr-2" />
+          {isCreatingScreenplay ? (
+            <Loader2 className="h-4 w-4 mr-1.5 sm:mr-2 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4 mr-1.5 sm:mr-2" />
+          )}
           <span className="text-xs sm:text-sm">New Screenplay</span>
         </Button>
       </div>

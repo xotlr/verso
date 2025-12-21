@@ -449,8 +449,8 @@ export function ProjectRolesManager({
                       onClick={() => selectUser(user)}
                     >
                       <Avatar className="h-8 w-8 rounded-md">
-                        <AvatarImage src={user.image || undefined} className="rounded-md" />
-                        <AvatarFallback className="text-xs rounded-md">
+                        <AvatarImage src={user.image || undefined} className="rounded-md object-cover" />
+                        <AvatarFallback className="text-xs rounded-md bg-muted text-muted-foreground">
                           {(user.name || user.email).charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
@@ -625,8 +625,8 @@ export function ProjectRolesManager({
                   >
                     <div className="flex items-center gap-3">
                       <Avatar className="h-9 w-9 rounded-md">
-                        <AvatarImage src={role.user?.image || undefined} className="rounded-md" />
-                        <AvatarFallback className="text-sm font-medium rounded-md">
+                        <AvatarImage src={role.user?.image || undefined} className="rounded-md object-cover" />
+                        <AvatarFallback className="text-sm font-medium rounded-md bg-muted text-muted-foreground">
                           {role.name.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>

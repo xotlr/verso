@@ -324,7 +324,8 @@ pub fn calculate_resume_state(
     let next_page_num = match &last_page.identifier {
         PageIdentifier::Sequential(n) => n + 1,
         PageIdentifier::Inserted { base, suffix } => {
-            if *suffix == 'Z' {
+            if suffix == "ZZ" {
+                // Exhausted all suffixes (A-Z, AA-ZZ = 702 pages), move to next base
                 base + 1
             } else {
                 // Continue with next suffix - but this is handled differently

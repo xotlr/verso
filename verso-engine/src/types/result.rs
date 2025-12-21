@@ -122,6 +122,10 @@ pub struct PaginationCache {
 
     /// Whether the last pagination had a title page.
     pub has_title_page: bool,
+
+    /// Cached pages from the previous pagination run.
+    /// Used to reuse pages before the dirty region.
+    pub pages: Vec<Page>,
 }
 
 impl PaginationCache {
@@ -133,6 +137,7 @@ impl PaginationCache {
             config_hash: 0,
             element_count: 0,
             has_title_page: false,
+            pages: Vec::new(),
         }
     }
 
@@ -177,6 +182,7 @@ impl PaginationCache {
             config_hash: Self::hash_config(config),
             element_count: elements.len(),
             has_title_page,
+            pages: result.pages.clone(),
         }
     }
 

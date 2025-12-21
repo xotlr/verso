@@ -26,7 +26,7 @@ const tabsListVariants = cva(
     variants: {
       scrollable: {
         true: "overflow-x-auto scrollbar-none max-w-full flex-nowrap -mx-1 px-1",
-        false: "justify-center",
+        false: "justify-start",
       },
     },
     defaultVariants: {

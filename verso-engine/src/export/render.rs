@@ -206,11 +206,11 @@ pub fn render_for_export(
     let page_width = config.paper_size.width_pt() / POINTS_PER_INCH;
     let page_height = config.paper_size.height_pt() / POINTS_PER_INCH;
 
-    // Margins in inches
-    let margin_left = 1.5;  // Standard screenplay left margin
-    let margin_right = 1.0; // Standard screenplay right margin
-    let margin_top = 1.0;   // Standard top margin
-    let margin_bottom = 1.0; // Standard bottom margin (for page numbers)
+    // Margins in inches (from config)
+    let margin_left = config.margins.left;
+    let margin_right = config.margins.right;
+    let margin_top = config.margins.top;
+    let margin_bottom = config.margins.bottom;  // Used for page number positioning
 
     // Calculate line height in inches
     let line_height_inches = LINE_HEIGHT_PT / POINTS_PER_INCH;

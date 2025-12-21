@@ -19,7 +19,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
-import { cn } from '@/lib/utils';
+import { cn, createMenuHandler } from '@/lib/utils';
 import { ProfileHoverCard } from '@/components/profile-hover-card';
 
 // ============================================================================
@@ -145,8 +145,8 @@ export function ProjectFolderCard({
     return { director, writer, producer };
   }, [project.roles]);
 
-  // Card height - matches Series/Screenplay cards
-  const cardHeight = 'h-[180px] sm:h-[200px] md:h-[220px]';
+  // Card height - use min-h so card can grow to fit content on mobile
+  const cardHeight = 'min-h-[180px] sm:min-h-[200px] md:min-h-[220px]';
 
   // Get first screenplay for peeking preview
   const firstScreenplay = project.screenplays?.[0];
@@ -203,7 +203,7 @@ export function ProjectFolderCard({
           'border border-border/60',
           'hover:shadow-md',
           'transition-all duration-300 ease-out',
-          'touch-manipulation cursor-pointer overflow-hidden',
+          'touch-manipulation cursor-pointer',
           cardHeight
         )}
       >
@@ -236,10 +236,7 @@ export function ProjectFolderCard({
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
+                      onClick={createMenuHandler()}
                       className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                       aria-label="More options"
                     >
@@ -248,11 +245,7 @@ export function ProjectFolderCard({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     {onOpen && (
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        onOpen();
-                      }}>
+                      <DropdownMenuItem onClick={createMenuHandler(onOpen)}>
                         <RiFolder6Line className="mr-2 h-4 w-4" />
                         Open Project
                       </DropdownMenuItem>
@@ -261,21 +254,13 @@ export function ProjectFolderCard({
                       <DropdownMenuSeparator />
                     )}
                     {onNewScreenplay && (
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        onNewScreenplay();
-                      }}>
+                      <DropdownMenuItem onClick={createMenuHandler(onNewScreenplay)}>
                         <FilePlus className="mr-2 h-4 w-4" />
                         New Screenplay
                       </DropdownMenuItem>
                     )}
                     {onAddExistingScreenplay && (
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        onAddExistingScreenplay();
-                      }}>
+                      <DropdownMenuItem onClick={createMenuHandler(onAddExistingScreenplay)}>
                         <FolderInput className="mr-2 h-4 w-4" />
                         Add Existing Screenplay
                       </DropdownMenuItem>
@@ -284,21 +269,13 @@ export function ProjectFolderCard({
                       <DropdownMenuSeparator />
                     )}
                     {onRename && (
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        onRename();
-                      }}>
+                      <DropdownMenuItem onClick={createMenuHandler(onRename)}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Rename Project
                       </DropdownMenuItem>
                     )}
                     {onSettings && (
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        onSettings();
-                      }}>
+                      <DropdownMenuItem onClick={createMenuHandler(onSettings)}>
                         <Settings className="mr-2 h-4 w-4" />
                         Project Settings
                       </DropdownMenuItem>
@@ -307,11 +284,7 @@ export function ProjectFolderCard({
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            onDelete();
-                          }}
+                          onClick={createMenuHandler(onDelete)}
                           className="text-destructive focus:text-destructive"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
@@ -432,7 +405,7 @@ export function ProjectFolderCardSkeleton() {
       <div className="absolute top-0 left-4 w-[38%] h-5 bg-muted rounded-t-lg border border-b-0 border-border" />
 
       {/* Main card */}
-      <div className="relative bg-card rounded-xl border border-border h-[180px] sm:h-[200px] md:h-[220px] overflow-hidden">
+      <div className="relative bg-card rounded-xl border border-border min-h-[180px] sm:min-h-[200px] md:min-h-[220px]">
         <div className="p-5 sm:p-6 flex flex-col h-full font-mono">
           {/* Header skeleton */}
           <div className="flex items-start justify-between mb-2">

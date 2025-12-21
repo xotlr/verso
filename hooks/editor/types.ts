@@ -16,6 +16,8 @@ export interface UseProseMirrorEditorOptions {
   onUpdate?: (content: string) => void;
   onScenesChange?: (scenes: SceneInfo[], characters: CharacterInfo[], detectedShots: DetectedShot[]) => void;
   editable?: boolean;
+  /** Show scene numbers even when document has title page (production mode) */
+  showSceneNumbers?: boolean;
 }
 
 /**

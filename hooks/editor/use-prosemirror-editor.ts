@@ -23,6 +23,7 @@ import {
   createAllPlugins,
   autocompletePluginKey,
   updatePaginationState,
+  updateSceneNumberingSettings,
 } from '@/lib/prosemirror/plugins';
 import type { AutocompleteState } from '@/lib/prosemirror/plugins';
 
@@ -53,7 +54,7 @@ export { extractShots };
  * Main hook for ProseMirror screenplay editor.
  */
 export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseProseMirrorEditorReturn {
-  const { initialContent, onUpdate, onScenesChange, editable = true } = options;
+  const { initialContent, onUpdate, onScenesChange, editable = true, showSceneNumbers = false } = options;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -118,6 +119,9 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
         characters: charactersRef.current,
         locations: locationsRef.current,
         onStateChange: setAutocompleteState,
+      },
+      sceneNumberingOptions: {
+        forceShow: showSceneNumbers,
       },
       onCoverPageDetected: (coverPage) => {
         if (process.env.NODE_ENV === 'development') {
@@ -225,6 +229,14 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
       isInitializedRef.current = false;
     };
   }, [initialContent, editable]);
+
+  // Update scene numbering settings when showSceneNumbers changes
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !isInitializedRef.current) return;
+
+    updateSceneNumberingSettings(view, { forceShow: showSceneNumbers });
+  }, [showSceneNumbers]);
 
   return {
     containerRef: containerRef as React.RefObject<HTMLDivElement>,

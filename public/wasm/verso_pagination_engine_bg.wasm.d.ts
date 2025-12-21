@@ -4,6 +4,8 @@ export const memory: WebAssembly.Memory;
 export const calculate_element_lines: (a: number, b: number, c: number, d: number) => [number, number, number];
 export const export_fdx: (a: number, b: number, c: number, d: number) => [number, number, number, number];
 export const export_fountain: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+export const get_bbc_standard_config: () => [number, number, number, number];
+export const get_feature_film_a4_config: () => [number, number, number, number];
 export const get_feature_film_config: () => [number, number, number, number];
 export const get_tv_half_hour_config: () => [number, number, number, number];
 export const get_tv_multi_cam_config: () => [number, number, number, number];

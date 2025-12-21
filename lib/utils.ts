@@ -6,6 +6,18 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Creates an event handler that stops propagation and prevents default.
+ * Useful for dropdown menu items and nested interactive elements.
+ */
+export function createMenuHandler(callback?: () => void) {
+  return (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    callback?.();
+  };
+}
+
+/**
  * Sanitize text for safe SVG/HTML rendering.
  * Prevents XSS attacks by escaping dangerous characters.
  */

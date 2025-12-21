@@ -116,6 +116,7 @@ export interface EditorSettings {
   focusLineHighlight: boolean;
   scrollMode: 'discrete' | 'continuous';
   pageStyle: PageStyle; // 'themed' uses theme colors, 'plain' uses off-white
+  showSceneNumbers: boolean; // Show scene numbers even with title page (production mode)
 }
 
 export interface InterfaceSettings {
@@ -265,6 +266,7 @@ export const defaultSettings: AppSettings = {
     focusLineHighlight: false,
     scrollMode: 'discrete',
     pageStyle: 'themed', // Use theme-colored pages by default
+    showSceneNumbers: false, // Show scene numbers even with title page
   },
   interface: {
     showStatsBar: true,

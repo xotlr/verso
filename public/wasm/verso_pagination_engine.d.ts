@@ -69,6 +69,16 @@ export function export_fdx(elements_json: string, metadata_json: string): string
 export function export_fountain(elements_json: string, metadata_json: string): string;
 
 /**
+ * Get the BBC Standard configuration as JSON
+ */
+export function get_bbc_standard_config(): string;
+
+/**
+ * Get the Feature Film A4 (international) configuration as JSON
+ */
+export function get_feature_film_a4_config(): string;
+
+/**
  * Get the default Feature Film configuration as JSON
  */
 export function get_feature_film_config(): string;
@@ -243,6 +253,8 @@ export interface InitOutput {
   readonly calculate_element_lines: (a: number, b: number, c: number, d: number) => [number, number, number];
   readonly export_fdx: (a: number, b: number, c: number, d: number) => [number, number, number, number];
   readonly export_fountain: (a: number, b: number, c: number, d: number) => [number, number, number, number];
+  readonly get_bbc_standard_config: () => [number, number, number, number];
+  readonly get_feature_film_a4_config: () => [number, number, number, number];
   readonly get_feature_film_config: () => [number, number, number, number];
   readonly get_tv_half_hour_config: () => [number, number, number, number];
   readonly get_tv_multi_cam_config: () => [number, number, number, number];

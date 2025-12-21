@@ -305,6 +305,22 @@ pub fn get_tv_multi_cam_config() -> Result<String, JsError> {
         .map_err(|e| JsError::new(&format!("Failed to serialize config: {}", e)))
 }
 
+/// Get the Feature Film A4 (international) configuration as JSON
+#[wasm_bindgen]
+pub fn get_feature_film_a4_config() -> Result<String, JsError> {
+    let config = PageConfig::feature_film_a4();
+    serde_json::to_string(&config)
+        .map_err(|e| JsError::new(&format!("Failed to serialize config: {}", e)))
+}
+
+/// Get the BBC Standard configuration as JSON
+#[wasm_bindgen]
+pub fn get_bbc_standard_config() -> Result<String, JsError> {
+    let config = PageConfig::bbc_standard();
+    serde_json::to_string(&config)
+        .map_err(|e| JsError::new(&format!("Failed to serialize config: {}", e)))
+}
+
 /// Calculate lines for a single element (useful for preview)
 #[wasm_bindgen]
 pub fn calculate_element_lines(element_json: &str, config_json: &str) -> Result<u32, JsError> {
@@ -719,5 +735,25 @@ mod tests {
         assert!(parsed.cache.is_some());
         let cache = parsed.cache.unwrap();
         assert!(cache.has_title_page);
+    }
+
+    #[test]
+    fn test_get_feature_film_a4_config() {
+        let config_json = get_feature_film_a4_config().unwrap();
+        let config: PageConfig = serde_json::from_str(&config_json).unwrap();
+
+        assert_eq!(config.lines_per_page, 58);  // A4 has more lines (taller page)
+        assert_eq!(config.paper_size, PaperSize::A4);
+    }
+
+    #[test]
+    fn test_get_bbc_standard_config() {
+        let config_json = get_bbc_standard_config().unwrap();
+        let config: PageConfig = serde_json::from_str(&config_json).unwrap();
+
+        assert_eq!(config.lines_per_page, 56);  // BBC standard
+        assert_eq!(config.paper_size, PaperSize::A4);
+        // BBC uses metric margins
+        assert!((config.margins.top - 0.984).abs() < 0.001);
     }
 }

@@ -1,8 +1,16 @@
 import { Plugin, PluginKey, Command, TextSelection } from 'prosemirror-state';
 import { keymap } from 'prosemirror-keymap';
+import { EditorView } from 'prosemirror-view';
 import { screenplaySchema, ElementType, getNextElementType, getPreviousElementType } from '../schema';
 
 export const elementSwitchingPluginKey = new PluginKey('elementSwitching');
+export const tabArrowPluginKey = new PluginKey('tabArrow');
+
+// Track Tab key state for Tab+Arrow navigation
+interface TabArrowState {
+  tabHeld: boolean;
+  arrowPressedWhileTabHeld: boolean;
+}
 
 /**
  * Get the element type of the current selection's parent block.
@@ -344,6 +352,90 @@ export function createElementSwitchingPlugin(): Plugin {
     'Shift-Tab': handleShiftTab,
     Enter: handleEnter,
     'Shift-Enter': handleShiftEnter,
+  });
+}
+
+/**
+ * Create the Tab+Arrow navigation plugin.
+ * Hold Tab and press Left/Right arrows to cycle through element types.
+ * - Tab + ArrowLeft: Go to previous element type
+ * - Tab + ArrowRight: Go to next element type
+ */
+export function createTabArrowPlugin(): Plugin {
+  return new Plugin({
+    key: tabArrowPluginKey,
+
+    state: {
+      init(): TabArrowState {
+        return { tabHeld: false, arrowPressedWhileTabHeld: false };
+      },
+      apply(tr, value): TabArrowState {
+        // State is managed via DOM events, not transactions
+        return value;
+      },
+    },
+
+    props: {
+      handleDOMEvents: {
+        keydown(view: EditorView, event: KeyboardEvent) {
+          const pluginState = tabArrowPluginKey.getState(view.state) as TabArrowState;
+
+          // Track Tab key being held down
+          if (event.key === 'Tab' && !event.repeat) {
+            pluginState.tabHeld = true;
+            pluginState.arrowPressedWhileTabHeld = false;
+            // Don't prevent default yet - let it bubble to see if arrows are pressed
+            return false;
+          }
+
+          // Handle arrows while Tab is held
+          if (pluginState.tabHeld && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+            event.preventDefault();
+            event.stopPropagation();
+            pluginState.arrowPressedWhileTabHeld = true;
+
+            const currentType = getCurrentElementType(view.state);
+            const newType = event.key === 'ArrowLeft'
+              ? getPreviousElementType(currentType)
+              : getNextElementType(currentType);
+
+            setElementType(newType)(view.state, view.dispatch, view);
+            return true;
+          }
+
+          return false;
+        },
+
+        keyup(view: EditorView, event: KeyboardEvent) {
+          const pluginState = tabArrowPluginKey.getState(view.state) as TabArrowState;
+
+          if (event.key === 'Tab') {
+            const wasArrowPressed = pluginState.arrowPressedWhileTabHeld;
+            pluginState.tabHeld = false;
+            pluginState.arrowPressedWhileTabHeld = false;
+
+            // If arrows were pressed while Tab was held, prevent the normal Tab behavior
+            // by returning true (we already handled the element switching via arrows)
+            if (wasArrowPressed) {
+              event.preventDefault();
+              return true;
+            }
+          }
+
+          return false;
+        },
+
+        blur(_view: EditorView, _event: FocusEvent) {
+          // Reset Tab state when editor loses focus
+          const pluginState = tabArrowPluginKey.getState(_view.state) as TabArrowState;
+          if (pluginState) {
+            pluginState.tabHeld = false;
+            pluginState.arrowPressedWhileTabHeld = false;
+          }
+          return false;
+        },
+      },
+    },
   });
 }
 
