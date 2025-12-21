@@ -3,6 +3,8 @@
  * Collections of contextual greetings organized by category
  */
 
+import type { Genre, TimePeriod } from './types';
+
 // GHOST greetings - scaled by days absent
 export const ghostGreetingsShort = [ // 3-4 days
   "Oh, so you DO remember this exists",
@@ -178,7 +180,7 @@ export const milestoneScreenplaysGreetings: Record<number, string[]> = {
 };
 
 // GENRE_BASED greetings
-export const genreGreetings: Record<string, string[]> = {
+export const genreGreetings: Record<Genre, string[]> = {
   'thriller': [
     "Time to build some tension",
     "Your thriller awaits",
@@ -240,7 +242,7 @@ export const weekendWarriorGreetings = [
 ];
 
 // TIME_BASED greetings (fallback)
-export const timeBasedGreetings: Record<string, string[]> = {
+export const timeBasedGreetings: Record<TimePeriod, string[]> = {
   morning: [
     "FADE IN on a new day",
     "INT. YOUR DESK - MORNING",

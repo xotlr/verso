@@ -145,8 +145,8 @@ export function ProjectFolderCard({
     return { director, writer, producer };
   }, [project.roles]);
 
-  // Card height - use min-h so card can grow to fit content on mobile
-  const cardHeight = 'min-h-[180px] sm:min-h-[200px] md:min-h-[220px]';
+  // Card height - responsive sizing, more compact on mobile
+  const cardHeight = 'min-h-[160px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px]';
 
   // Get first screenplay for peeking preview
   const firstScreenplay = project.screenplays?.[0];
@@ -188,9 +188,9 @@ export function ProjectFolderCard({
       {/* Folder Tab - STATIC, behind frontplate */}
       <div
         className={cn(
-          'absolute top-0 left-4 w-[38%] h-5 z-0',
+          'absolute top-0 left-3 sm:left-4 w-[35%] sm:w-[38%] h-4 sm:h-5',
           'bg-muted',
-          'rounded-t-lg border border-b-0 border-border',
+          'rounded-t-md sm:rounded-t-lg border border-b-0 border-border',
           'transition-colors duration-300'
         )}
       />
@@ -198,7 +198,7 @@ export function ProjectFolderCard({
       {/* Frontplate - Main card, STATIC */}
       <div
         className={cn(
-          'group relative flex flex-col z-10',
+          'group relative flex flex-col',
           'bg-card rounded-xl',
           'border border-border/60',
           'hover:shadow-md',
@@ -208,7 +208,7 @@ export function ProjectFolderCard({
         )}
       >
         <Link href={linkHref} className="flex-1 flex flex-col">
-          <div className="p-5 sm:p-6 flex flex-col h-full font-mono">
+          <div className="p-3 sm:p-4 md:p-5 lg:p-6 flex flex-col h-full font-mono">
             {/* Header: Type Badge + Status + Title + Menu */}
             <div className="flex justify-between items-start mb-2">
               <div className="flex-1 min-w-0">
@@ -375,7 +375,7 @@ export function ProjectFolderCard({
 
           {/* Footer */}
           <div className="mt-auto border-t border-border/40">
-            <div className="px-5 sm:px-6 py-3 flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
+            <div className="px-3 sm:px-4 md:px-5 lg:px-6 py-2 sm:py-3 flex items-center justify-between text-[10px] sm:text-xs md:text-sm text-muted-foreground">
               {/* Left: Script count */}
               <span className="inline-flex items-center px-2 py-0.5 rounded border border-border/50 bg-muted/50 uppercase tracking-wider font-bold text-[10px] sm:text-xs">
                 {screenplayCount} {screenplayCount === 1 ? 'script' : 'scripts'}
@@ -402,11 +402,11 @@ export function ProjectFolderCardSkeleton() {
   return (
     <div className="relative pt-3">
       {/* Folder Tab */}
-      <div className="absolute top-0 left-4 w-[38%] h-5 bg-muted rounded-t-lg border border-b-0 border-border" />
+      <div className="absolute top-0 left-3 sm:left-4 w-[35%] sm:w-[38%] h-4 sm:h-5 bg-muted rounded-t-md sm:rounded-t-lg border border-b-0 border-border" />
 
       {/* Main card */}
-      <div className="relative bg-card rounded-xl border border-border min-h-[180px] sm:min-h-[200px] md:min-h-[220px]">
-        <div className="p-5 sm:p-6 flex flex-col h-full font-mono">
+      <div className="relative bg-card rounded-xl border border-border min-h-[160px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px]">
+        <div className="p-3 sm:p-4 md:p-5 lg:p-6 flex flex-col h-full font-mono">
           {/* Header skeleton */}
           <div className="flex items-start justify-between mb-2">
             <div className="flex-1">

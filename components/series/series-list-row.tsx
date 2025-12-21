@@ -9,8 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Clock, FileText, MoreVertical, Edit3, Trash2, Layers } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Clock, MoreVertical, Edit3, Trash2, Layers } from 'lucide-react';
+import { cn, createMenuHandler } from '@/lib/utils';
 import { cardStyles, textStyles, layoutStyles, skeletonStyles, badgeStyles } from '@/lib/styles';
 import type { SeriesCardData } from './series-card';
 
@@ -60,11 +60,10 @@ export function SeriesListRow({
       <Link href={linkHref} className="flex-1 min-w-0">
         {/* Desktop: Horizontal layout */}
         <div className={layoutStyles.listRow}>
-          {/* Left: Type Badge */}
-          <div className="flex-shrink-0 pt-0.5">
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-              <Layers className="h-2.5 w-2.5" />
-              TV
+          {/* Left: Type Badge - icon only */}
+          <div className="flex-shrink-0">
+            <span className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary border border-primary/20">
+              <Layers className="h-4 w-4" />
             </span>
           </div>
 
@@ -76,15 +75,14 @@ export function SeriesListRow({
                 {series.title}
               </h3>
 
-              {/* Episode count badge */}
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary font-semibold">
-                <FileText className="h-2.5 w-2.5" />
-                {episodeCount} {episodeCount === 1 ? 'ep' : 'eps'}
+              {/* Episode count badge - clean format */}
+              <span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary font-semibold">
+                {episodeCount} EP
               </span>
             </div>
 
             {/* Logline - visible by default */}
-            <p className="text-xs sm:text-sm text-muted-foreground/70 line-clamp-1 mt-1">
+            <p className={textStyles.listDescription}>
               {series.logline || "No description"}
             </p>
           </div>
@@ -142,10 +140,7 @@ export function SeriesListRow({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
+              onClick={createMenuHandler()}
               className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center flex-shrink-0"
               aria-label="More options"
             >
@@ -154,13 +149,7 @@ export function SeriesListRow({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {onEdit && (
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  onEdit();
-                }}
-              >
+              <DropdownMenuItem onClick={createMenuHandler(onEdit)}>
                 <Edit3 className="mr-2 h-4 w-4" />
                 Edit
               </DropdownMenuItem>
@@ -169,11 +158,7 @@ export function SeriesListRow({
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    onDelete();
-                  }}
+                  onClick={createMenuHandler(onDelete)}
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />

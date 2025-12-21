@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { GreetingCategory } from '@/lib/greeting/types';
 
 export interface ScreenplayItem {
   id: string;
@@ -83,6 +84,7 @@ export interface DashboardStats {
   dailyGoal: number;
   lastWriteDate: string | null;
   recentGreetings: string[];
+  recentCategories: GreetingCategory[];
 }
 
 export interface UseWorkspaceDataReturn {

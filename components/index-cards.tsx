@@ -32,13 +32,13 @@ import {
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-// Card status colors
-const STATUS_COLORS: Record<string, { bg: string; border: string; label: string }> = {
-  draft: { bg: 'bg-gray-100 dark:bg-gray-800', border: 'border-gray-300 dark:border-gray-600', label: 'Draft' },
-  outline: { bg: 'bg-blue-50 dark:bg-blue-950', border: 'border-blue-300 dark:border-blue-700', label: 'Outline' },
-  writing: { bg: 'bg-yellow-50 dark:bg-yellow-950', border: 'border-yellow-300 dark:border-yellow-700', label: 'Writing' },
-  revision: { bg: 'bg-orange-50 dark:bg-orange-950', border: 'border-orange-300 dark:border-orange-700', label: 'Revision' },
-  complete: { bg: 'bg-green-50 dark:bg-green-950', border: 'border-green-300 dark:border-green-700', label: 'Complete' },
+// Card status colors - using opacity pattern for consistency with home page
+const STATUS_COLORS: Record<string, { bg: string; border: string; text: string; dot: string; label: string }> = {
+  draft: { bg: 'bg-gray-500/10', border: 'border-gray-500/30', text: 'text-gray-600 dark:text-gray-400', dot: 'bg-gray-500', label: 'Draft' },
+  outline: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-600 dark:text-blue-400', dot: 'bg-blue-500', label: 'Outline' },
+  writing: { bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', text: 'text-yellow-600 dark:text-yellow-400', dot: 'bg-yellow-500', label: 'Writing' },
+  revision: { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-600 dark:text-orange-400', dot: 'bg-orange-500', label: 'Revision' },
+  complete: { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-600 dark:text-green-400', dot: 'bg-green-500', label: 'Complete' },
 };
 
 export interface IndexCard {
@@ -96,9 +96,9 @@ function SortableCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group relative w-[220px] h-[140px] rounded-lg border-2 overflow-hidden',
-        'transition-all duration-200',
-        statusStyle.bg,
+        'group relative w-[220px] h-[160px] rounded-lg border overflow-hidden',
+        'bg-card transition-all duration-300 ease-out',
+        'hover:border-border hover:shadow-md hover:-translate-y-1',
         statusStyle.border,
         isDragging && 'opacity-50 scale-105 shadow-xl z-50'
       )}
@@ -119,8 +119,8 @@ function SortableCard({
       </button>
 
       {/* Scene number badge */}
-      <div className="absolute top-3 right-2 flex items-center gap-1 text-xs font-mono bg-background/80 px-1.5 py-0.5 rounded">
-        <Film className="h-3 w-3" />
+      <div className="absolute top-3 right-2 flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
+        <Film className="h-2.5 w-2.5" />
         {scene.number}
       </div>
 
@@ -167,11 +167,14 @@ function SortableCard({
         <button
           onClick={() => setShowStatusMenu(!showStatusMenu)}
           className={cn(
-            'text-[10px] px-1.5 py-0.5 rounded border',
+            'flex items-center gap-1.5 text-[9px] px-2 py-1 rounded-md border font-medium uppercase tracking-wide',
+            statusStyle.bg,
             statusStyle.border,
-            'hover:bg-background/50'
+            statusStyle.text,
+            'hover:shadow-sm transition-all duration-200'
           )}
         >
+          <div className={cn('w-1.5 h-1.5 rounded-full', statusStyle.dot)} />
           {statusStyle.label}
         </button>
 
@@ -216,8 +219,8 @@ function CardDisplay({ scene, card }: { scene: Scene; card?: IndexCard }) {
   return (
     <div
       className={cn(
-        'w-[220px] h-[140px] rounded-lg border-2 overflow-hidden shadow-2xl',
-        statusStyle.bg,
+        'w-[220px] h-[160px] rounded-lg border overflow-hidden shadow-2xl',
+        'bg-card',
         statusStyle.border
       )}
     >
@@ -226,11 +229,13 @@ function CardDisplay({ scene, card }: { scene: Scene; card?: IndexCard }) {
         style={{ backgroundColor: card?.color || '#888888' }}
       />
       <div className="p-3">
-        <div className="flex items-center gap-2 mb-1">
-          <Film className="h-3 w-3" />
-          <span className="font-mono text-xs">Scene {scene.number}</span>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
+            <Film className="h-2.5 w-2.5" />
+            {scene.number}
+          </div>
         </div>
-        <h4 className="font-medium text-xs line-clamp-2">{scene.heading}</h4>
+        <h4 className="font-bold text-xs line-clamp-2 uppercase">{scene.heading}</h4>
       </div>
     </div>
   );
@@ -307,23 +312,21 @@ export function IndexCards({
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="border-b border-border bg-card px-6 py-4">
+      <div className="border-b border-border bg-card px-6 py-5">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Index Cards</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Index Cards</h2>
+            <p className="text-sm text-muted-foreground mt-1">
               Drag to reorder scenes. Click status to change.
             </p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              {Object.entries(STATUS_COLORS).map(([key, value]) => (
-                <div key={key} className="flex items-center gap-1">
-                  <div className={cn('w-2 h-2 rounded-full', value.bg, 'border', value.border)} />
-                  <span>{value.label}</span>
-                </div>
-              ))}
-            </div>
+          <div className="hidden sm:flex items-center gap-3">
+            {Object.entries(STATUS_COLORS).map(([key, value]) => (
+              <div key={key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className={cn('w-2 h-2 rounded-full', value.dot)} />
+                <span>{value.label}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -341,7 +344,7 @@ export function IndexCards({
             items={scenes.map(s => s.id)}
             strategy={rectSortingStrategy}
           >
-            <div className="flex flex-wrap gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
               {scenes.map(scene => (
                 <SortableCard
                   key={scene.id}
@@ -363,11 +366,11 @@ export function IndexCards({
         </DndContext>
 
         {scenes.length === 0 && (
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            <div className="text-center">
-              <Film className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No scenes yet</p>
-              <p className="text-sm">Write some scenes in the editor to see them here</p>
+          <div className="flex items-center justify-center h-64 bg-card rounded-lg border border-border/60">
+            <div className="text-center p-8">
+              <Film className="h-10 w-10 mx-auto mb-4 text-muted-foreground" />
+              <p className="font-semibold text-foreground">No scenes yet</p>
+              <p className="text-sm text-muted-foreground mt-1">Write some scenes in the editor to see them here</p>
             </div>
           </div>
         )}

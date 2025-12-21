@@ -82,6 +82,7 @@ function WorkspacePageContent() {
     dailyGoal: dashboardStats?.dailyGoal || 500,
     lastWriteDate: dashboardStats?.lastWriteDate || null,
     recentGreetings: dashboardStats?.recentGreetings || [],
+    recentCategories: dashboardStats?.recentCategories || [],
   });
 
   // UI state

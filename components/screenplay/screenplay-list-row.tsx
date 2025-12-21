@@ -2,9 +2,16 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Star, Clock, Folder, Layers } from 'lucide-react';
+import { Star, Clock, Folder, Layers, MoreVertical, Edit3, Download, Trash2 } from 'lucide-react';
 import { PiFilmScript } from 'react-icons/pi';
-import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn, createMenuHandler } from '@/lib/utils';
 import { cardStyles, textStyles, badgeStyles, layoutStyles, skeletonStyles } from '@/lib/styles';
 import type { ScreenplayListCardData } from './screenplay-list-card';
 import type { DisplayScreenplayType } from '@/types/templates';
@@ -36,15 +43,14 @@ function formatWordCount(count: number): string {
   return count.toString();
 }
 
-// Type badge component
+// Type badge component - icon only, larger
 function TypeBadge({ type }: { type: DisplayScreenplayType }) {
   const isSeries = type === 'TV';
   const Icon = isSeries ? Layers : PiFilmScript;
 
   return (
-    <span className={badgeStyles.primary}>
-      <Icon className="h-2.5 w-2.5" />
-      {isSeries ? 'TV' : 'FILM'}
+    <span className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary border border-primary/20">
+      <Icon className="h-4 w-4" />
     </span>
   );
 }
@@ -52,6 +58,10 @@ function TypeBadge({ type }: { type: DisplayScreenplayType }) {
 interface ScreenplayListRowProps {
   screenplay: ScreenplayListCardData;
   href?: string;
+  onEdit?: () => void;
+  onExport?: () => void;
+  onToggleFavorite?: () => void;
+  onDelete?: () => void;
   // Keep these for backwards compatibility but they're no longer used
   isHovered?: boolean;
   onHover?: () => void;
@@ -63,21 +73,26 @@ interface ScreenplayListRowProps {
 export function ScreenplayListRow({
   screenplay,
   href,
+  onEdit,
+  onExport,
+  onToggleFavorite,
+  onDelete,
 }: ScreenplayListRowProps) {
   const linkHref = href || `/screenplay/${screenplay.id}`;
   const isSeries = screenplay.type === 'TV';
   const displayText = screenplay.logline || screenplay.synopsis;
   const title = isSeries && screenplay.episodeTitle ? screenplay.episodeTitle : screenplay.title;
+  const hasActions = onEdit || onExport || onToggleFavorite || onDelete;
 
   return (
-    <Link
-      href={linkHref}
+    <div
       className={cn(
-        "block p-3 sm:p-4",
+        "group flex items-center gap-2 p-3 sm:p-4",
         cardStyles.interactive,
         "touch-manipulation"
       )}
     >
+      <Link href={linkHref} className="flex-1 min-w-0">
       {/* Desktop: Horizontal layout */}
       <div className={layoutStyles.listRow}>
         {/* Left: Type Badge */}
@@ -115,7 +130,7 @@ export function ScreenplayListRow({
           </div>
 
           {/* Logline - visible by default */}
-          <p className="text-xs sm:text-sm text-muted-foreground/70 line-clamp-1 mt-1">
+          <p className={textStyles.listDescription}>
             {displayText || "No description"}
           </p>
         </div>
@@ -182,7 +197,55 @@ export function ScreenplayListRow({
           {formatTimeCompact(new Date(screenplay.updatedAt))}
         </span>
       </div>
-    </Link>
+      </Link>
+
+      {/* Dropdown Menu */}
+      {hasActions && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              onClick={createMenuHandler()}
+              className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center flex-shrink-0"
+              aria-label="More options"
+            >
+              <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {onEdit && (
+              <DropdownMenuItem onClick={createMenuHandler(onEdit)}>
+                <Edit3 className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+            )}
+            {onToggleFavorite && (
+              <DropdownMenuItem onClick={createMenuHandler(onToggleFavorite)}>
+                <Star className={cn("mr-2 h-4 w-4", screenplay.isFavorite && "fill-yellow-500 text-yellow-500")} />
+                {screenplay.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+              </DropdownMenuItem>
+            )}
+            {onExport && (
+              <DropdownMenuItem onClick={createMenuHandler(onExport)}>
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </DropdownMenuItem>
+            )}
+            {onDelete && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={createMenuHandler(onDelete)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
   );
 }
 

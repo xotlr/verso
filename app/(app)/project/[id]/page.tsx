@@ -32,6 +32,10 @@ import {
   PiLinkFill,
   PiUsers,
   PiUsersFill,
+  PiChartBar,
+  PiChartBarFill,
+  PiClipboard,
+  PiClipboardFill,
 } from 'react-icons/pi';
 import {
   AlertDialog,
@@ -56,6 +60,7 @@ import {
   Grid3X3,
   Clapperboard,
   PenTool,
+  BarChart3,
 } from 'lucide-react';
 import { ExternalLinkCard, ExternalLinkData } from '@/components/external-link-card';
 import { AddLinkDialog } from '@/components/add-link-dialog';
@@ -67,6 +72,10 @@ import type { EmbedType } from '@/lib/embed-utils';
 import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
 import type { ImportResult } from '@/components/import-drop-zone/types';
 import { toast } from 'sonner';
+import { ReportsInlineContent } from '@/components/reports/ReportsInlineContent';
+import type { Scene, Character, Location } from '@/types/screenplay';
+import { CallsheetCard, CallsheetCardSkeleton, CallsheetDialog, CallsheetExportDialog } from '@/components/callsheet';
+import type { CallsheetCardData, CallsheetCreateInput } from '@/types/callsheet';
 
 type ResourceFilter = 'all' | 'videos' | 'docs' | 'visual' | 'other';
 
@@ -133,7 +142,7 @@ const STATUS_CONFIG: Record<ProjectStatus, { label: string; color: string }> = {
   COMPLETED: { label: 'Completed', color: 'bg-emerald-600' },
 };
 
-type TabValue = 'screenplays' | 'notes' | 'schedules' | 'budgets' | 'resources' | 'crew';
+type TabValue = 'screenplays' | 'notes' | 'schedules' | 'budgets' | 'resources' | 'crew' | 'reports' | 'callsheets';
 
 // Helper to get person name for a role
 function getRolePerson(roles: ProjectRole[], roleType: string): string | null {
@@ -168,11 +177,29 @@ export default function ProjectPage() {
   const [externalLinks, setExternalLinks] = useState<ExternalLinkData[]>([]);
   const [resourceFilter, setResourceFilter] = useState<ResourceFilter>('all');
 
+  // Reports state
+  const [selectedScreenplayForReports, setSelectedScreenplayForReports] = useState<string | null>(null);
+  const [reportData, setReportData] = useState<{
+    scenes: Scene[];
+    characters: Character[];
+    locations: Location[];
+  } | null>(null);
+  const [loadingReports, setLoadingReports] = useState(false);
+
+  // Callsheets state
+  const [callsheets, setCallsheets] = useState<CallsheetCardData[]>([]);
+  const [loadingCallsheets, setLoadingCallsheets] = useState(false);
+  const [callsheetDialogOpen, setCallsheetDialogOpen] = useState(false);
+  const [editingCallsheet, setEditingCallsheet] = useState<CallsheetCardData | null>(null);
+  const [exportDialogCallsheet, setExportDialogCallsheet] = useState<{ id: string; title: string } | null>(null);
+  const [savingCallsheet, setSavingCallsheet] = useState(false);
+
 
   useEffect(() => {
     if (projectId) {
       loadProject();
       loadLinks();
+      loadCallsheets();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
@@ -195,6 +222,74 @@ export default function ProjectPage() {
       }
     } catch (error) {
       console.error('Error loading links:', error);
+    }
+  };
+
+  const loadCallsheets = async () => {
+    setLoadingCallsheets(true);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/callsheets`);
+      if (response.ok) {
+        const data = await response.json();
+        setCallsheets(data);
+      }
+    } catch (error) {
+      console.error('Error loading callsheets:', error);
+    } finally {
+      setLoadingCallsheets(false);
+    }
+  };
+
+  const saveCallsheet = async (data: CallsheetCreateInput) => {
+    setSavingCallsheet(true);
+    try {
+      if (editingCallsheet) {
+        // Update existing
+        const response = await fetch(`/api/callsheets/${editingCallsheet.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (response.ok) {
+          toast.success('Callsheet updated');
+          loadCallsheets();
+        } else {
+          throw new Error('Failed to update callsheet');
+        }
+      } else {
+        // Create new
+        const response = await fetch(`/api/projects/${projectId}/callsheets`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (response.ok) {
+          toast.success('Callsheet created');
+          loadCallsheets();
+        } else {
+          throw new Error('Failed to create callsheet');
+        }
+      }
+      setCallsheetDialogOpen(false);
+      setEditingCallsheet(null);
+    } catch (error) {
+      console.error('Error saving callsheet:', error);
+      toast.error('Failed to save callsheet');
+    } finally {
+      setSavingCallsheet(false);
+    }
+  };
+
+  const deleteCallsheet = async (id: string) => {
+    try {
+      const response = await fetch(`/api/callsheets/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        toast.success('Callsheet deleted');
+        loadCallsheets();
+      }
+    } catch (error) {
+      console.error('Error deleting callsheet:', error);
+      toast.error('Failed to delete callsheet');
     }
   };
 
@@ -296,6 +391,37 @@ export default function ProjectPage() {
       console.error('Error updating link notes:', error);
     }
   };
+
+  // Load screenplay data for reports
+  const loadReportData = async (screenplayId: string) => {
+    setLoadingReports(true);
+    try {
+      const response = await fetch(`/api/screenplays/${screenplayId}/analysis`);
+      if (response.ok) {
+        const data = await response.json();
+        setReportData({
+          scenes: data.scenes || [],
+          characters: data.characters || [],
+          locations: data.locations || [],
+        });
+      }
+    } catch (error) {
+      console.error('Error loading report data:', error);
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  // Load report data when switching to reports tab or changing screenplay
+  useEffect(() => {
+    if (activeTab === 'reports' && project?.screenplays.length) {
+      const screenplayId = selectedScreenplayForReports || project.screenplays[0]?.id;
+      if (screenplayId) {
+        setSelectedScreenplayForReports(screenplayId);
+        loadReportData(screenplayId);
+      }
+    }
+  }, [activeTab, project?.screenplays, selectedScreenplayForReports]);
 
   // Filter resources by embed type
   const filteredLinks = externalLinks.filter((link) => {
@@ -424,6 +550,30 @@ export default function ProjectPage() {
           projectId={projectId}
           projectName={project.name}
           onSuccess={loadProject}
+        />
+      )}
+
+      {/* Callsheet dialogs */}
+      <CallsheetDialog
+        open={callsheetDialogOpen}
+        onOpenChange={(open) => {
+          setCallsheetDialogOpen(open);
+          if (!open) setEditingCallsheet(null);
+        }}
+        callsheet={editingCallsheet as CallsheetCardData | null}
+        projectId={projectId}
+        onSave={saveCallsheet}
+        isSaving={savingCallsheet}
+      />
+
+      {exportDialogCallsheet && (
+        <CallsheetExportDialog
+          open={!!exportDialogCallsheet}
+          onOpenChange={(open) => {
+            if (!open) setExportDialogCallsheet(null);
+          }}
+          callsheetId={exportDialogCallsheet.id}
+          callsheetTitle={exportDialogCallsheet.title}
         />
       )}
 
@@ -592,6 +742,23 @@ export default function ProjectPage() {
                   <span>Team</span>
                   <span className="text-xs opacity-60 ml-auto sm:ml-0">({project.roles.length})</span>
                 </TabsTrigger>
+                <TabsTrigger value="reports" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                  {activeTab === 'reports' ? (
+                    <PiChartBarFill className="h-4 w-4 flex-shrink-0" />
+                  ) : (
+                    <PiChartBar className="h-4 w-4 flex-shrink-0" />
+                  )}
+                  <span>Reports</span>
+                </TabsTrigger>
+                <TabsTrigger value="callsheets" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                  {activeTab === 'callsheets' ? (
+                    <PiClipboardFill className="h-4 w-4 flex-shrink-0" />
+                  ) : (
+                    <PiClipboard className="h-4 w-4 flex-shrink-0" />
+                  )}
+                  <span>Callsheets</span>
+                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({callsheets.length})</span>
+                </TabsTrigger>
               </TabsList>
 
               {activeTab === 'screenplays' && (
@@ -610,6 +777,12 @@ export default function ProjectPage() {
                 <Button onClick={() => setAddLinkDialogOpen(true)} className="gap-2 w-full sm:w-auto">
                   <Plus className="h-4 w-4" />
                   <span className="sm:inline">Add Link</span>
+                </Button>
+              )}
+              {activeTab === 'callsheets' && (
+                <Button onClick={() => setCallsheetDialogOpen(true)} className="gap-2 w-full sm:w-auto">
+                  <Plus className="h-4 w-4" />
+                  <span className="sm:inline">New Callsheet</span>
                 </Button>
               )}
             </div>
@@ -855,6 +1028,112 @@ export default function ProjectPage() {
                 projectId={projectId}
                 isOwner={project.userId === session?.user?.id}
               />
+            </TabsContent>
+
+            {/* Reports Tab */}
+            <TabsContent value="reports">
+              {project.screenplays.length === 0 ? (
+                <Empty border>
+                  <EmptyMedia variant="icon">
+                    <BarChart3 className="h-6 w-6" />
+                  </EmptyMedia>
+                  <EmptyHeader>
+                    <EmptyTitle>No screenplays to analyze</EmptyTitle>
+                    <EmptyDescription>Add a screenplay to this project to generate reports</EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <div className="space-y-6">
+                  {/* Screenplay selector if multiple */}
+                  {project.screenplays.length > 1 && (
+                    <Select
+                      value={selectedScreenplayForReports || project.screenplays[0]?.id}
+                      onValueChange={(id) => {
+                        setSelectedScreenplayForReports(id);
+                        loadReportData(id);
+                      }}
+                    >
+                      <SelectTrigger className="w-[280px]">
+                        <SelectValue placeholder="Select screenplay" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {project.screenplays.map((sp) => (
+                          <SelectItem key={sp.id} value={sp.id}>
+                            {sp.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {/* Reports content */}
+                  {loadingReports ? (
+                    <div className="bg-card rounded-lg border border-border/60 p-8">
+                      <div className="flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                          <p className="text-sm text-muted-foreground">Loading report data...</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : reportData ? (
+                    <ReportsInlineContent
+                      scenes={reportData.scenes}
+                      characters={reportData.characters}
+                      locations={reportData.locations}
+                      screenplayTitle={
+                        project.screenplays.find(s => s.id === selectedScreenplayForReports)?.title ||
+                        project.screenplays[0]?.title || ''
+                      }
+                    />
+                  ) : (
+                    <div className="bg-card rounded-lg border border-border/60 p-8 text-center">
+                      <p className="text-muted-foreground">Select a screenplay to view reports</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Callsheets Tab */}
+            <TabsContent value="callsheets">
+              {loadingCallsheets ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                  {[1, 2, 3].map((i) => (
+                    <CallsheetCardSkeleton key={i} />
+                  ))}
+                </div>
+              ) : callsheets.length === 0 ? (
+                <Empty border>
+                  <EmptyMedia variant="icon">
+                    <PiClipboard className="h-6 w-6" />
+                  </EmptyMedia>
+                  <EmptyHeader>
+                    <EmptyTitle>No callsheets yet</EmptyTitle>
+                    <EmptyDescription>Create a callsheet for your shoot days</EmptyDescription>
+                  </EmptyHeader>
+                  <Button onClick={() => setCallsheetDialogOpen(true)} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Create Callsheet
+                  </Button>
+                </Empty>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                  {callsheets.map((callsheet) => (
+                    <CallsheetCard
+                      key={callsheet.id}
+                      callsheet={callsheet}
+                      onView={() => setExportDialogCallsheet({ id: callsheet.id, title: callsheet.title })}
+                      onEdit={() => {
+                        setEditingCallsheet(callsheet);
+                        setCallsheetDialogOpen(true);
+                      }}
+                      onExport={() => setExportDialogCallsheet({ id: callsheet.id, title: callsheet.title })}
+                      onDelete={() => deleteCallsheet(callsheet.id)}
+                    />
+                  ))}
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </div>

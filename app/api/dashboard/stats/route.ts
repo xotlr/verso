@@ -106,8 +106,8 @@ export async function GET() {
       prisma.greetingHistory.findMany({
         where: { userId },
         orderBy: { shownAt: 'desc' },
-        take: 7,
-        select: { text: true },
+        take: 15, // Increased for better variety
+        select: { text: true, category: true },
       }),
     ])
 
@@ -138,8 +138,11 @@ export async function GET() {
       }
     }
 
-    // Extract recent greeting texts for smart selection
+    // Extract recent greeting texts and categories for smart selection
     const recentGreetings = recentGreetingHistory.map(g => g.text)
+    const recentCategories = recentGreetingHistory
+      .map(g => g.category)
+      .filter((c): c is string => c !== null)
 
     return NextResponse.json({
       screenplayCount,
@@ -153,6 +156,7 @@ export async function GET() {
       dailyGoal: userStats?.dailyGoal || 500,
       lastWriteDate: userStats?.lastWriteDate || null,
       recentGreetings,
+      recentCategories,
     })
   } catch (error) {
     console.error("Error fetching dashboard stats:", error)

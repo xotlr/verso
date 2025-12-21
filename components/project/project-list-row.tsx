@@ -2,9 +2,17 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Clock, FileText, FolderOpen } from 'lucide-react';
+import { Clock, MoreVertical, FilePlus, FolderInput, Pencil, Settings, Trash2 } from 'lucide-react';
+import { RiFolder6Line } from 'react-icons/ri';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn, createMenuHandler } from '@/lib/utils';
 import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
 import { cardStyles, textStyles, layoutStyles, skeletonStyles } from '@/lib/styles';
 import type { ProjectFolderCardData } from './project-folder-card';
@@ -30,6 +38,12 @@ function formatTimeCompact(date: Date): string {
 interface ProjectListRowProps {
   project: ProjectFolderCardData;
   href?: string;
+  onOpen?: () => void;
+  onNewScreenplay?: () => void;
+  onAddExistingScreenplay?: () => void;
+  onRename?: () => void;
+  onSettings?: () => void;
+  onDelete?: () => void;
   // Keep for backwards compatibility but no longer used
   isHovered?: boolean;
   onHover?: () => void;
@@ -41,9 +55,16 @@ interface ProjectListRowProps {
 export function ProjectListRow({
   project,
   href,
+  onOpen,
+  onNewScreenplay,
+  onAddExistingScreenplay,
+  onRename,
+  onSettings,
+  onDelete,
 }: ProjectListRowProps) {
   const linkHref = href || `/project/${project.id}`;
   const screenplayCount = project._count?.screenplays || project.screenplays?.length || 0;
+  const hasActions = onOpen || onNewScreenplay || onAddExistingScreenplay || onRename || onSettings || onDelete;
 
   // Get unique team members with avatars
   const teamMembers = project.roles
@@ -54,17 +75,17 @@ export function ProjectListRow({
     <div
       className={cn(
         layoutStyles.groupRow,
-        cardStyles.interactive
+        cardStyles.interactive,
+        "flex items-center gap-2"
       )}
     >
       <Link href={linkHref} className="flex-1 min-w-0">
         {/* Desktop: Horizontal layout */}
         <div className={layoutStyles.listRow}>
-          {/* Left: Type Badge */}
-          <div className="flex-shrink-0 pt-0.5">
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-              <FolderOpen className="h-2.5 w-2.5" />
-              Project
+          {/* Left: Type Badge - icon only */}
+          <div className="flex-shrink-0">
+            <span className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary border border-primary/20">
+              <RiFolder6Line className="h-4 w-4" />
             </span>
           </div>
 
@@ -77,14 +98,13 @@ export function ProjectListRow({
               </h3>
 
               {/* Screenplay count badge */}
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold">
-                <FileText className="h-2.5 w-2.5" />
+              <span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary font-semibold">
                 {screenplayCount} {screenplayCount === 1 ? 'script' : 'scripts'}
               </span>
             </div>
 
             {/* Description - visible by default */}
-            <p className="text-xs sm:text-sm text-muted-foreground/70 line-clamp-1 mt-1">
+            <p className={textStyles.listDescription}>
               {project.description || "No description"}
             </p>
           </div>
@@ -97,11 +117,11 @@ export function ProjectListRow({
                 {teamMembers.map((role, i) => (
                   <Avatar
                     key={role.id || i}
-                    className="h-5 w-5 border border-card"
+                    className="h-5 w-5 rounded-full border border-card"
                   >
-                    <AvatarImage src={role.user?.image || undefined} />
+                    <AvatarImage src={role.user?.image || undefined} className="rounded-full" />
                     <AvatarFallback
-                      className="text-[8px]"
+                      className="text-[8px] rounded-full"
                       style={getSimpleGradientStyle(role.user?.name || role.name)}
                     >
                       {(role.user?.name || role.name).charAt(0).toUpperCase()}
@@ -132,11 +152,11 @@ export function ProjectListRow({
               {teamMembers.map((role, i) => (
                 <Avatar
                   key={role.id || i}
-                  className="h-5 w-5 border border-card"
+                  className="h-5 w-5 rounded-full border border-card"
                 >
-                  <AvatarImage src={role.user?.image || undefined} />
+                  <AvatarImage src={role.user?.image || undefined} className="rounded-full" />
                   <AvatarFallback
-                    className="text-[8px]"
+                    className="text-[8px] rounded-full"
                     style={getSimpleGradientStyle(role.user?.name || role.name)}
                   >
                     {(role.user?.name || role.name).charAt(0).toUpperCase()}
@@ -158,6 +178,71 @@ export function ProjectListRow({
           </span>
         </div>
       </Link>
+
+      {/* Dropdown Menu */}
+      {hasActions && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              onClick={createMenuHandler()}
+              className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center flex-shrink-0"
+              aria-label="More options"
+            >
+              <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {onOpen && (
+              <DropdownMenuItem onClick={createMenuHandler(onOpen)}>
+                <RiFolder6Line className="mr-2 h-4 w-4" />
+                Open Project
+              </DropdownMenuItem>
+            )}
+            {(onNewScreenplay || onAddExistingScreenplay) && onOpen && (
+              <DropdownMenuSeparator />
+            )}
+            {onNewScreenplay && (
+              <DropdownMenuItem onClick={createMenuHandler(onNewScreenplay)}>
+                <FilePlus className="mr-2 h-4 w-4" />
+                New Screenplay
+              </DropdownMenuItem>
+            )}
+            {onAddExistingScreenplay && (
+              <DropdownMenuItem onClick={createMenuHandler(onAddExistingScreenplay)}>
+                <FolderInput className="mr-2 h-4 w-4" />
+                Add Existing Screenplay
+              </DropdownMenuItem>
+            )}
+            {(onRename || onSettings) && (
+              <DropdownMenuSeparator />
+            )}
+            {onRename && (
+              <DropdownMenuItem onClick={createMenuHandler(onRename)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Rename Project
+              </DropdownMenuItem>
+            )}
+            {onSettings && (
+              <DropdownMenuItem onClick={createMenuHandler(onSettings)}>
+                <Settings className="mr-2 h-4 w-4" />
+                Project Settings
+              </DropdownMenuItem>
+            )}
+            {onDelete && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={createMenuHandler(onDelete)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Project
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 }

@@ -115,6 +115,7 @@ model User {
   notes              Note[]
   schedules          Schedule[]
   budgets            Budget[]
+  callsheets         Callsheet[]
   teamMembers        TeamMember[]
   ownedTeams         Team[]              @relation("TeamOwner")
   stats              UserStats?
@@ -280,6 +281,7 @@ model Project {
   notes         Note[]
   schedules     Schedule[]
   budgets       Budget[]
+  callsheets    Callsheet[]
   externalLinks ExternalLink[]
   roles         ProjectRole[]
   roleInvites   ProjectRoleInvite[]
@@ -898,6 +900,38 @@ model Budget {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
+}
+
+// Callsheet status for production tracking
+enum CallsheetStatus {
+  DRAFT
+  PUBLISHED
+  COMPLETED
+}
+
+// Callsheet = Production call sheet for shoot days
+model Callsheet {
+  id              String          @id @default(cuid())
+  title           String
+  shootDate       DateTime
+  callTime        DateTime
+  wrapTime        DateTime?
+  status          CallsheetStatus @default(DRAFT)
+  primaryLocation String?
+  data            Json?           // Full CallsheetData structure (scenes, cast, crew, etc.)
+  weatherForecast String?
+  weatherTemp     Float?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  userId    String
+  projectId String
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([shootDate])
 }
 
 enum Plan {

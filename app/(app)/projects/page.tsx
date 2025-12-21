@@ -307,6 +307,8 @@ export default function ProjectsPage() {
                     screenplays: project.screenplays,
                     _count: project._count,
                   }}
+                  onOpen={() => router.push(`/project/${project.id}`)}
+                  onDelete={() => setDeleteTarget(project.id)}
                   isHovered={hoveredProject?.id === project.id}
                   onHover={() => setHoveredProject(project)}
                   onLeave={() => setHoveredProject(null)}

@@ -55,17 +55,17 @@ export function ProfileAvatar({
       className={cn(
         sizeClasses[size],
         borderClasses[size],
-        'border-background shadow-lg ring-1 ring-black/5 rounded-md',
+        'border-background shadow-lg ring-1 ring-black/5 rounded-full',
         className
       )}
     >
       <AvatarImage
         src={imageUrl || undefined}
         alt={name || ''}
-        className="object-cover rounded-md"
+        className="object-cover rounded-full"
       />
       <AvatarFallback
-        className={cn(textClasses[size], 'font-semibold rounded-md bg-muted text-muted-foreground')}
+        className={cn(textClasses[size], 'font-semibold rounded-full bg-muted text-muted-foreground')}
       >
         {initials}
       </AvatarFallback>

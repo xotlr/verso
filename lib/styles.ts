@@ -55,6 +55,9 @@ export const textStyles = {
 
   /** Extra small icon + text */
   iconTextXs: 'flex items-center gap-1 text-[10px] text-muted-foreground',
+
+  /** List row description/logline text */
+  listDescription: 'text-xs text-muted-foreground/70 line-clamp-1 mt-1',
 } as const;
 
 // =============================================================================
@@ -75,10 +78,10 @@ export const layoutStyles = {
   rowGap3: 'flex items-center gap-3',
 
   /** Standard list item row layout */
-  listRow: 'flex items-start gap-3 sm:gap-4',
+  listRow: 'flex items-center gap-3 sm:gap-4',
 
   /** Group flex container with padding (for list items) */
-  groupRow: 'group flex items-start gap-3 sm:gap-4 p-3 sm:p-4',
+  groupRow: 'group flex items-center gap-3 sm:gap-4 p-3 sm:p-4',
 } as const;
 
 // =============================================================================

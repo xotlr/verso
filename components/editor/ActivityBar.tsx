@@ -2,7 +2,11 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { Film, Users, Clapperboard, StickyNote } from 'lucide-react';
+import { HiFilm } from "react-icons/hi2";
+import { HiOutlineFilm } from "react-icons/hi";
+import { AiFillVideoCamera, AiOutlineVideoCamera } from "react-icons/ai";
+import { FaNoteSticky, FaRegNoteSticky } from "react-icons/fa6";
+import { RiGroup2Fill, RiGroup2Line } from "react-icons/ri";
 import {
   Tooltip,
   TooltipContent,
@@ -29,7 +33,8 @@ interface ActivityBarButtonProps {
   panel: EditorPanelType;
   activePanel: ActivityBarPanel;
   onClick: (panel: ActivityBarPanel) => void;
-  icon: React.ReactNode;
+  activeIcon: React.ReactNode;
+  inactiveIcon: React.ReactNode;
   label: string;
   count?: number;
   indicatorPosition: 'left' | 'right';
@@ -39,7 +44,8 @@ function ActivityBarButton({
   panel,
   activePanel,
   onClick,
-  icon,
+  activeIcon,
+  inactiveIcon,
   label,
   count = 0,
   indicatorPosition,
@@ -59,7 +65,7 @@ function ActivityBarButton({
             isActive ? button.states.active : button.states.inactive
           )}
         >
-          {icon}
+          {isActive ? activeIcon : inactiveIcon}
           {count > 0 && (
             <span
               key={count}
@@ -126,7 +132,8 @@ export function ActivityBar({
           panel="scenes"
           activePanel={activePanel}
           onClick={handleClick}
-          icon={<Film className="h-5 w-5" />}
+          activeIcon={<HiFilm className="h-5 w-5" />}
+          inactiveIcon={<HiOutlineFilm className="h-5 w-5" />}
           label="Scenes"
           count={scenesCount}
           indicatorPosition={indicatorPosition}
@@ -136,7 +143,8 @@ export function ActivityBar({
           panel="characters"
           activePanel={activePanel}
           onClick={handleClick}
-          icon={<Users className="h-5 w-5" />}
+          activeIcon={<RiGroup2Fill className="h-5 w-5" />}
+          inactiveIcon={<RiGroup2Line className="h-5 w-5" />}
           label="Characters"
           count={charactersCount}
           indicatorPosition={indicatorPosition}
@@ -146,7 +154,8 @@ export function ActivityBar({
           panel="shotlist"
           activePanel={activePanel}
           onClick={handleClick}
-          icon={<Clapperboard className="h-5 w-5" />}
+          activeIcon={<AiFillVideoCamera className="h-5 w-5" />}
+          inactiveIcon={<AiOutlineVideoCamera className="h-5 w-5" />}
           label="Shotlist"
           count={shotlistCount}
           indicatorPosition={indicatorPosition}
@@ -156,7 +165,8 @@ export function ActivityBar({
           panel="notes"
           activePanel={activePanel}
           onClick={handleClick}
-          icon={<StickyNote className="h-5 w-5" />}
+          activeIcon={<FaNoteSticky className="h-5 w-5" />}
+          inactiveIcon={<FaRegNoteSticky className="h-5 w-5" />}
           label="Notes"
           count={notesCount}
           indicatorPosition={indicatorPosition}

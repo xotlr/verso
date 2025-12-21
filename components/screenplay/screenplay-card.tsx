@@ -51,14 +51,14 @@ export function ScreenplayCard({
   return (
     <div className="group relative bg-card rounded-xl border border-border/60 hover:border-border hover:shadow-md transition-all duration-200">
       <Link href={`/screenplay/${screenplay.id}`}>
-        <div className="p-5 cursor-pointer">
-          <div className="flex items-start justify-between mb-3">
+        <div className="p-3 sm:p-4 md:p-5 cursor-pointer">
+          <div className="flex items-start justify-between mb-2 sm:mb-3">
             <div className="flex-1 min-w-0">
-              <h3 className="text-base font-semibold text-foreground mb-1.5 line-clamp-1 group-hover:text-primary transition-colors">
+              <h3 className="text-sm sm:text-base font-semibold text-foreground mb-1 sm:mb-1.5 line-clamp-1 group-hover:text-primary transition-colors">
                 {screenplay.title}
               </h3>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" />
+              <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-muted-foreground">
+                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 <span>
                   {isValidDate
                     ? formatDistanceToNow(new Date(screenplay.updatedAt), { addSuffix: true })
@@ -126,8 +126,8 @@ export function ScreenplayCard({
             </DropdownMenu>
           </div>
 
-          <div className="flex items-center justify-between mt-4">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between mt-3 sm:mt-4">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
               <Badge variant="secondary">
                 {(screenplay.wordCount ?? 0).toLocaleString()} words
               </Badge>

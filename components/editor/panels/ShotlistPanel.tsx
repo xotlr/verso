@@ -419,31 +419,33 @@ export function ShotlistPanel({
                   className="h-8 pl-8 pr-8 text-xs"
                 />
                 {searchQuery && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground hover:text-foreground"
                   >
                     <X className="h-3.5 w-3.5" />
-                  </button>
+                  </Button>
                 )}
               </div>
               <div className="flex gap-1 flex-wrap">
                 {(['all', 'planned', 'setup', 'shot', 'approved'] as const).map(
                   (status) => (
-                    <button
+                    <Button
                       key={status}
+                      variant={statusFilter === status ? 'default' : 'secondary'}
+                      size="sm"
                       onClick={() => setStatusFilter(status)}
                       className={cn(
-                        'px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors',
-                        statusFilter === status
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-accent text-muted-foreground hover:text-foreground'
+                        'h-auto px-2 py-0.5 rounded-full text-[10px] font-medium',
+                        statusFilter !== status && 'text-muted-foreground hover:text-foreground'
                       )}
                     >
                       {status === 'all'
                         ? 'All'
                         : status.charAt(0).toUpperCase() + status.slice(1)}
-                    </button>
+                    </Button>
                   )
                 )}
               </div>
@@ -472,12 +474,12 @@ export function ShotlistPanel({
                     )}
                   >
                     {/* Scene header */}
-                    <button
+                    <div
                       onClick={() => toggleScene(scene.sceneId)}
                       className={cn(
                         'w-full flex items-center gap-2',
                         'px-2 py-2 rounded-t-lg',
-                        'text-xs',
+                        'text-xs cursor-pointer',
                         'hover:bg-accent/50',
                         'transition-colors'
                       )}
@@ -510,24 +512,25 @@ export function ShotlistPanel({
                           <Plus className="h-3 w-3" />
                         </Button>
                       )}
-                    </button>
+                    </div>
 
                     {/* Shots list with Drag & Drop */}
                     {expandedScenes.has(scene.sceneId) && (
                       <div className="border-t space-y-1 p-2">
                         {scene.shots.length === 0 && getDetectedShotsForScene(scene.sceneId).length === 0 ? (
-                          <button
+                          <Button
+                            variant="outline"
                             onClick={() => onAddShot?.(scene.sceneId)}
                             className={cn(
-                              'w-full py-4 border border-dashed rounded-lg',
+                              'w-full h-auto py-4 border-dashed',
                               'text-muted-foreground hover:text-foreground',
-                              'hover:border-primary/50 transition-colors',
+                              'hover:border-primary/50',
                               'flex flex-col items-center gap-1 text-xs'
                             )}
                           >
                             <Plus className="h-4 w-4" />
                             <span>Add shot</span>
-                          </button>
+                          </Button>
                         ) : (
                           <>
                             {/* Saved shots */}

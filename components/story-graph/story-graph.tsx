@@ -372,7 +372,7 @@ export function StoryGraph({
   return (
     <div className="w-full h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="border-b border-border bg-card px-4 py-3 flex-shrink-0">
+      <div className="border-b border-border bg-card px-6 py-5 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {onBackToEditor && (
@@ -382,12 +382,20 @@ export function StoryGraph({
               </Button>
             )}
             <div>
-              <h1 className="text-lg font-semibold text-foreground">Story Graph</h1>
-              <p className="text-sm text-muted-foreground">{screenplayTitle}</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Story Graph</h1>
+              <p className="text-sm text-muted-foreground mt-1">{screenplayTitle}</p>
             </div>
           </div>
-          <div className="text-sm text-muted-foreground">
-            {scenes.length} scenes &middot; {characters.length} characters &middot; {beats.length} beats
+          <div className="flex items-center gap-2">
+            <span className="bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
+              {scenes.length} scenes
+            </span>
+            <span className="bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
+              {characters.length} characters
+            </span>
+            <span className="bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
+              {beats.length} beats
+            </span>
           </div>
         </div>
       </div>
@@ -428,9 +436,9 @@ export function StoryGraph({
             role="status"
             aria-live="polite"
           >
-            <div className="text-center text-muted-foreground">
-              <p className="text-lg font-medium">No data to display</p>
-              <p className="text-sm">Add scenes, characters, or beats to see the story graph</p>
+            <div className="text-center bg-card rounded-lg border border-border/60 p-8">
+              <p className="text-lg font-semibold text-foreground">No data to display</p>
+              <p className="text-sm text-muted-foreground mt-1">Add scenes, characters, or beats to see the story graph</p>
             </div>
           </div>
         )}

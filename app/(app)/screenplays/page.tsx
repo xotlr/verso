@@ -16,7 +16,7 @@ import { ScreenplayListRow, ScreenplayListRowSkeleton } from '@/components/scree
 import { WorkspaceDndContext, DraggableScreenplayData } from '@/components/workspace/workspace-dnd-context';
 import { DraggableScreenplayCard } from '@/components/workspace/draggable-screenplay-card';
 import { DroppableStackCard } from '@/components/workspace/droppable-stack-card';
-import { StackDialog } from '@/components/stack';
+import { StackDialog, StackListRow } from '@/components/stack';
 import { useViewMode } from '@/hooks/use-view-mode';
 import type { StackItem } from '@/hooks/use-workspace-data';
 import {
@@ -754,6 +754,18 @@ function ScreenplaysContent() {
             }
           >
             <div className="space-y-2">
+              {/* Render stacks first */}
+              {filteredStacks.map((stack) => (
+                <StackListRow
+                  key={`stack-${stack.id}`}
+                  stack={stack}
+                  onClick={() => handleOpenStack(stack)}
+                  onEdit={() => handleOpenStack(stack)}
+                  onUngroup={() => dissolveStack(stack.id)}
+                  onDelete={() => setDeleteTarget({ id: stack.id, type: 'stack' })}
+                />
+              ))}
+              {/* Then render screenplays */}
               {filteredScreenplays.map((screenplay) => (
                 <ScreenplayListRow
                   key={screenplay.id}
@@ -771,6 +783,9 @@ function ScreenplaysContent() {
                     user: screenplay.user,
                   }}
                   href={`/screenplay/${screenplay.id}`}
+                  onEdit={() => router.push(`/screenplay/${screenplay.id}`)}
+                  onExport={() => exportScreenplay(screenplay)}
+                  onDelete={() => setDeleteTarget({ id: screenplay.id, type: 'screenplay' })}
                   isHovered={hoveredScreenplay?.id === screenplay.id}
                   onHover={() => setHoveredScreenplay(screenplay)}
                   onLeave={() => setHoveredScreenplay(null)}

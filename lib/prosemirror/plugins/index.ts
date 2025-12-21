@@ -13,6 +13,7 @@ import { createAutocompletePlugin, AutocompletePluginOptions } from './autocompl
 import { createCollaborationPlugin, CollaborationPluginOptions } from './collaboration';
 import { createPastePlugin, CoverPageData } from './paste-handler';
 import { createTypewriterScrollPlugin } from './typewriter-scroll';
+import { createShotMarkersPlugin, ShotMarker } from './shot-markers';
 
 export interface CreatePluginsOptions {
   // Enable input rules for auto-formatting
@@ -47,6 +48,10 @@ export interface CreatePluginsOptions {
   typewriterScroll?: boolean;
   // Initial enabled state for typewriter scroll
   typewriterScrollEnabled?: boolean;
+  // Enable shot markers for linking shots to document positions
+  shotMarkers?: boolean;
+  // Initial shot markers data
+  initialShotMarkers?: ShotMarker[];
 }
 
 const defaultOptions: CreatePluginsOptions = {
@@ -62,6 +67,7 @@ const defaultOptions: CreatePluginsOptions = {
   collaboration: false, // Disabled by default, enabled when collaboration is active
   typewriterScroll: true,
   typewriterScrollEnabled: false, // Off by default, user can enable in settings
+  shotMarkers: true, // Enabled by default for shot-to-text linking
 };
 
 /**
@@ -124,6 +130,11 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
     plugins.push(createTypewriterScrollPlugin({ enabled: opts.typewriterScrollEnabled ?? false }));
   }
 
+  // Shot markers (invisible metadata linking shots to positions)
+  if (opts.shotMarkers) {
+    plugins.push(createShotMarkersPlugin(opts.initialShotMarkers || []));
+  }
+
   // Drop cursor
   if (opts.dropCursor) {
     plugins.push(dropCursor());
@@ -182,3 +193,18 @@ export {
   getTypewriterScrollState,
 } from './typewriter-scroll';
 export type { TypewriterScrollOptions } from './typewriter-scroll';
+
+// Shot markers plugin exports
+export {
+  createShotMarkersPlugin,
+  shotMarkersPluginKey,
+  addShotMarker,
+  removeShotMarker,
+  removeShotMarkersForShot,
+  setShotMarkers,
+  getShotMarkersState,
+  getMarkersForScene,
+  getMarkerForShot,
+  hasMarkerNearPosition,
+} from './shot-markers';
+export type { ShotMarker, ShotMarkersState } from './shot-markers';

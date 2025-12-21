@@ -115,10 +115,10 @@ export const SHOT_STATUS_LABELS: Record<ShotStatus, string> = {
 };
 
 export const SHOT_STATUS_COLORS: Record<ShotStatus, string> = {
-  planned: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-  setup: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-  shot: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-  approved: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+  planned: 'bg-gray-500/10 text-gray-600 border border-gray-500/20 dark:text-gray-400',
+  setup: 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20 dark:text-yellow-400',
+  shot: 'bg-blue-500/10 text-blue-600 border border-blue-500/20 dark:text-blue-400',
+  approved: 'bg-green-500/10 text-green-600 border border-green-500/20 dark:text-green-400',
 };
 
 // Common lens presets
@@ -145,4 +145,15 @@ export interface DetectedShot {
   lineContent: string; // The full line of text
   position: number; // Position in document
   lineNumber: number; // Approximate line number for display
+}
+
+/**
+ * A marker linking a document position to a shot.
+ * Used for inline shot markers in the editor.
+ */
+export interface ShotMarker {
+  id: string;           // Unique marker ID
+  shotId: string;       // Reference to the Shot in the database
+  position: number;     // Document position
+  sceneId: string;      // Scene this marker belongs to
 }

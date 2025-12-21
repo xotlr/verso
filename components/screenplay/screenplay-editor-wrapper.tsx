@@ -26,11 +26,22 @@ import { toast } from "sonner";
 import type { SceneInfo, CharacterInfo } from "@/hooks/editor/use-prosemirror-editor";
 import type { EditorView } from "prosemirror-view";
 import type { CollaborationOperation } from "@/types/collaboration";
-import type { DetectedShot } from "@/types/shotlist";
+import type { DetectedShot, Shot, SceneWithShots } from "@/types/shotlist";
+import { ShotEditor } from "@/components/shotlist/shot-editor";
 
 interface ScreenplayEditorWrapperProps {
   projectId: string; // Actually screenplayId - keeping prop name for compatibility
   onTitleChange?: (title: string) => void;
+}
+
+// Helper to group shots by scene
+function groupShotsByScene(scenes: SceneInfo[], shots: Shot[]): SceneWithShots[] {
+  return scenes.map((scene, index) => ({
+    sceneId: scene.id,
+    sceneHeading: `${scene.type}. ${scene.location} - ${scene.timeOfDay}`,
+    sceneNumber: index + 1,
+    shots: shots.filter(shot => shot.sceneId === scene.id),
+  }));
 }
 
 type ScreenplayType = 'FEATURE' | 'TV' | 'SHORT';
@@ -56,7 +67,13 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   const [sceneInfos, setSceneInfos] = useState<SceneInfo[]>([]);
   const [charInfos, setCharInfos] = useState<CharacterInfo[]>([]);
   const [detectedShots, setDetectedShots] = useState<DetectedShot[]>([]);
+  const [scenesWithShots, setScenesWithShots] = useState<SceneWithShots[]>([]);
+  const [shots, setShots] = useState<Shot[]>([]);
   const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
+  const [shotEditorOpen, setShotEditorOpen] = useState(false);
+  const [editingShot, setEditingShot] = useState<Shot | null>(null);
+  const [addingToScene, setAddingToScene] = useState<string | null>(null);
+  const [pendingDetectedShot, setPendingDetectedShot] = useState<DetectedShot | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const versionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastVersionContentRef = useRef<string>("");
@@ -204,6 +221,17 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
 
           // Initialize timelapse with current content
           initializeTimelapse(screenplay.content || "");
+
+          // Load shots from database
+          try {
+            const shotsResponse = await fetch(`/api/screenplays/${screenplayId}/shots`);
+            if (shotsResponse.ok) {
+              const data = await shotsResponse.json();
+              setShots(data.shots || []);
+            }
+          } catch (shotError) {
+            console.error("Error loading shots:", shotError);
+          }
         }
       } catch (error) {
         console.error("Error loading screenplay:", error);
@@ -215,6 +243,13 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     loadScreenplay();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screenplayId]);
+
+  // Keep scenesWithShots in sync when sceneInfos or shots change
+  useEffect(() => {
+    if (sceneInfos.length > 0) {
+      setScenesWithShots(groupShotsByScene(sceneInfos, shots));
+    }
+  }, [sceneInfos, shots]);
 
   // Create a version snapshot
   const createVersion = useCallback(async (
@@ -454,6 +489,71 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     setCharacters(convertedChars);
   }, []);
 
+  // Handle shots changes from the shotlist panel
+  const handleShotsChange = useCallback((updatedShots: Shot[]) => {
+    setShots(updatedShots);
+  }, []);
+
+  // Handle adding a new shot
+  const handleAddShot = useCallback((sceneId: string) => {
+    setAddingToScene(sceneId);
+    setEditingShot(null);
+    setPendingDetectedShot(null);
+    setShotEditorOpen(true);
+  }, []);
+
+  // Handle editing an existing shot
+  const handleEditShot = useCallback((shot: Shot) => {
+    setEditingShot(shot);
+    setAddingToScene(null);
+    setPendingDetectedShot(null);
+    setShotEditorOpen(true);
+  }, []);
+
+  // Handle adding a detected shot (opens editor with pre-filled data)
+  const handleAddDetectedShot = useCallback((detected: DetectedShot) => {
+    setAddingToScene(detected.sceneId);
+    setPendingDetectedShot(detected);
+    setEditingShot(null);
+    setShotEditorOpen(true);
+  }, []);
+
+  // Handle saving a shot (create or update)
+  const handleSaveShot = useCallback(async (shotData: Partial<Shot>) => {
+    try {
+      if (editingShot) {
+        // Update existing shot
+        const response = await fetch(`/api/screenplays/${screenplayId}/shots/${editingShot.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(shotData),
+        });
+        if (!response.ok) throw new Error("Failed to update shot");
+        const updatedShot = await response.json();
+        setShots(prev => prev.map(s => s.id === updatedShot.id ? updatedShot : s));
+        toast.success("Shot updated");
+      } else if (addingToScene) {
+        // Create new shot
+        const response = await fetch(`/api/screenplays/${screenplayId}/shots`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...shotData, sceneId: addingToScene }),
+        });
+        if (!response.ok) throw new Error("Failed to create shot");
+        const newShot = await response.json();
+        setShots(prev => [...prev, newShot]);
+        toast.success("Shot added");
+      }
+      setShotEditorOpen(false);
+      setEditingShot(null);
+      setAddingToScene(null);
+      setPendingDetectedShot(null);
+    } catch (error) {
+      console.error("Error saving shot:", error);
+      toast.error("Failed to save shot");
+    }
+  }, [screenplayId, editingShot, addingToScene]);
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -483,6 +583,11 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           currentSceneId={currentSceneId}
           screenplayId={screenplayId}
           detectedShots={detectedShots}
+          scenesWithShots={scenesWithShots}
+          onShotsChange={handleShotsChange}
+          onAddShot={handleAddShot}
+          onEditShot={handleEditShot}
+          onAddDetectedShot={handleAddDetectedShot}
         />
 
       {/* Main content area - editor */}
@@ -583,6 +688,32 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         fromVersion={compareTwoVersions?.from ?? null}
         toVersion={compareTwoVersions?.to ?? null}
         onRestore={handleRestore}
+      />
+      <ShotEditor
+        open={shotEditorOpen}
+        onOpenChange={setShotEditorOpen}
+        shot={editingShot || (pendingDetectedShot ? {
+          id: '',
+          sceneId: pendingDetectedShot.sceneId || '',
+          screenplayId,
+          description: pendingDetectedShot.subject || pendingDetectedShot.lineContent,
+          shotNumber: 0,
+          status: 'planned' as const,
+          shotType: (pendingDetectedShot.shotType as Shot['shotType']) || null,
+          cameraAngle: null,
+          movement: null,
+          duration: null,
+          lens: null,
+          equipment: null,
+          lighting: null,
+          audio: null,
+          notes: null,
+          thumbnailUrl: null,
+          thumbnailType: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } : null)}
+        onSave={handleSaveShot}
       />
       </div>
     </EditorPanelProvider>

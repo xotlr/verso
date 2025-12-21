@@ -52,8 +52,9 @@ export function ShotCard({
   return (
     <div
       className={cn(
-        "group flex gap-3 p-3 rounded-lg border",
-        "bg-card hover:bg-accent/50 transition-colors"
+        "group flex gap-3 p-4 rounded-lg border border-border/60",
+        "bg-card hover:border-border hover:shadow-md hover:-translate-y-0.5",
+        "transition-all duration-300 ease-out"
       )}
     >
       {/* Thumbnail or shot number */}
@@ -72,8 +73,8 @@ export function ShotCard({
             </div>
           </div>
         ) : (
-          <div className="w-10 h-10 rounded bg-muted flex items-center justify-center">
-            <span className="text-sm font-medium">{shot.shotNumber}</span>
+          <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <span className="text-sm font-bold text-primary">{shot.shotNumber}</span>
           </div>
         )}
       </div>
@@ -86,13 +87,13 @@ export function ShotCard({
         {/* Metadata row */}
         <div className="flex flex-wrap items-center gap-2 mt-2">
           {/* Status badge */}
-          <Badge variant="secondary" className={cn("text-xs", statusColor)}>
+          <Badge variant="secondary" className={cn("text-[9px] font-bold uppercase tracking-wider", statusColor)}>
             {statusLabel}
           </Badge>
 
           {/* Shot type */}
           {shot.shotType && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase tracking-wide">
               <Camera className="h-3 w-3" />
               <span>
                 {SHOT_TYPE_LABELS[shot.shotType as ShotType] || shot.shotType}
@@ -102,7 +103,7 @@ export function ShotCard({
 
           {/* Camera angle */}
           {shot.cameraAngle && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
               {CAMERA_ANGLE_LABELS[shot.cameraAngle as CameraAngle] ||
                 shot.cameraAngle}
             </span>
@@ -110,7 +111,7 @@ export function ShotCard({
 
           {/* Movement */}
           {shot.movement && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase tracking-wide">
               <Move className="h-3 w-3" />
               <span>
                 {CAMERA_MOVEMENT_LABELS[shot.movement as CameraMovement] ||
@@ -121,7 +122,7 @@ export function ShotCard({
 
           {/* Duration */}
           {shot.duration && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
               <Clock className="h-3 w-3" />
               <span>{shot.duration}s</span>
             </div>
@@ -129,7 +130,7 @@ export function ShotCard({
 
           {/* Lens */}
           {shot.lens && (
-            <span className="text-xs text-muted-foreground">{shot.lens}</span>
+            <span className="text-[10px] text-muted-foreground">{shot.lens}</span>
           )}
         </div>
 

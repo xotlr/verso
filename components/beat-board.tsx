@@ -78,8 +78,9 @@ const SortableBeatCard = React.memo(function SortableBeatCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group bg-card border border-border rounded-lg p-3 mb-2',
-        'hover:border-primary/50 transition-colors',
+        'group bg-card rounded-lg border border-border/60 p-4 mb-3',
+        'hover:border-border hover:shadow-md hover:-translate-y-0.5',
+        'transition-all duration-300 ease-out',
         isDragging && 'opacity-50 shadow-lg'
       )}
     >
@@ -93,12 +94,12 @@ const SortableBeatCard = React.memo(function SortableBeatCard({
         </button>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1.5">
             <div
               className="w-3 h-3 rounded-full shrink-0"
               style={{ backgroundColor: beat.color }}
             />
-            <h4 className="font-medium text-sm text-foreground truncate">
+            <h4 className="font-bold text-sm text-foreground truncate uppercase tracking-tight">
               {beat.title}
             </h4>
           </div>
@@ -110,14 +111,14 @@ const SortableBeatCard = React.memo(function SortableBeatCard({
           )}
 
           {linkedScenes.length > 0 && (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-1.5">
               {linkedScenes.map(scene => (
                 <button
                   key={scene.id}
                   onClick={() => onSceneClick?.(scene.id)}
-                  className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded hover:bg-accent"
+                  className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider hover:bg-primary/20 transition-colors"
                 >
-                  <Film className="h-3 w-3" />
+                  <Film className="h-2.5 w-2.5" />
                   {scene.number}
                 </button>
               ))}
@@ -151,13 +152,13 @@ const SortableBeatCard = React.memo(function SortableBeatCard({
 // Beat Card (for drag overlay) - memoized
 const BeatCard = React.memo(function BeatCard({ beat }: { beat: Beat }) {
   return (
-    <div className="bg-card border border-primary rounded-lg p-3 shadow-lg">
+    <div className="bg-card border border-primary rounded-lg p-4 shadow-xl">
       <div className="flex items-center gap-2">
         <div
           className="w-3 h-3 rounded-full"
           style={{ backgroundColor: beat.color }}
         />
-        <h4 className="font-medium text-sm">{beat.title}</h4>
+        <h4 className="font-bold text-sm uppercase tracking-tight">{beat.title}</h4>
       </div>
     </div>
   );
@@ -191,13 +192,13 @@ const ActColumn = React.memo(function ActColumn({
 
   return (
     <div
-      className="flex-1 min-w-[280px] max-w-[350px] rounded-xl border p-4"
+      className="flex-1 min-w-[280px] max-w-[350px] rounded-lg bg-card border border-border/60 p-5"
       style={{ backgroundColor: actColors.bg, borderColor: actColors.border }}
     >
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-foreground">{act.label}</h3>
-        <span className="text-xs text-muted-foreground bg-background/50 px-2 py-0.5 rounded">
-          {actBeats.length} beats
+        <h3 className="text-lg font-bold text-foreground uppercase tracking-tight">{act.label}</h3>
+        <span className="bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
+          {actBeats.length} beat{actBeats.length !== 1 ? 's' : ''}
         </span>
       </div>
 
@@ -220,9 +221,9 @@ const ActColumn = React.memo(function ActColumn({
       </SortableContext>
 
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
-        className="w-full mt-2 border-dashed border"
+        className="w-full mt-3 border-dashed hover:border-primary/50 transition-colors"
         onClick={() => onAddBeat(act.id)}
       >
         <Plus className="h-4 w-4 mr-2" />
@@ -379,7 +380,7 @@ export function BeatBoard({
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="border-b border-border bg-card px-6 py-4">
+      <div className="border-b border-border bg-card px-6 py-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {onBackToEditor && (
@@ -389,14 +390,19 @@ export function BeatBoard({
               </Button>
             )}
             <div>
-              <h1 className="text-xl font-bold text-foreground">Beat Board</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Beat Board</h1>
+              <p className="text-sm text-muted-foreground mt-1">
                 Organize your story structure visually
               </p>
             </div>
           </div>
-          <div className="text-sm text-muted-foreground">
-            {beats.length} beats · {scenes.length} scenes
+          <div className="flex items-center gap-2">
+            <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
+              {beats.length} beat{beats.length !== 1 ? 's' : ''}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              · {scenes.length} scene{scenes.length !== 1 ? 's' : ''}
+            </span>
           </div>
         </div>
       </div>

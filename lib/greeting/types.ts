@@ -3,6 +3,23 @@
  * Contextual, behavior-reactive greetings that notice user patterns
  */
 
+// Supported genres for genre-based greetings
+export const GENRES = [
+  'thriller',
+  'comedy',
+  'drama',
+  'horror',
+  'sci-fi',
+  'romance',
+  'action',
+  'fantasy',
+] as const;
+
+export type Genre = typeof GENRES[number];
+
+// Time periods for time-based greetings
+export type TimePeriod = 'morning' | 'afternoon' | 'evening' | 'night';
+
 export interface GreetingContext {
   userName?: string | null;
   screenplayCount: number;
@@ -15,6 +32,8 @@ export interface GreetingContext {
   dailyGoal: number;
   lastWriteDate: string | null;
   recentGreetings: string[];
+  recentCategories?: GreetingCategory[];
+  sessionSeed?: number;
   mounted?: boolean;
 }
 

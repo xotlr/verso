@@ -185,8 +185,8 @@ export function Shotlist({
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
+        <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="sm"
@@ -196,28 +196,32 @@ export function Shotlist({
             <ArrowLeft className="h-4 w-4" />
             Back to Script
           </Button>
-          <div className="h-4 w-px bg-border" />
+          <div className="h-5 w-px bg-border" />
           <div className="flex items-center gap-2">
             <Clapperboard className="h-5 w-5 text-muted-foreground" />
-            <h1 className="font-semibold">Shotlist</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Shotlist</h1>
           </div>
         </div>
-        <div className="text-sm text-muted-foreground">
-          {totalShots} shot{totalShots !== 1 ? "s" : ""} across{" "}
-          {scenesWithShots.length} scene{scenesWithShots.length !== 1 ? "s" : ""}
+        <div className="flex items-center gap-2">
+          <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
+            {totalShots} shot{totalShots !== 1 ? "s" : ""}
+          </span>
+          <span className="text-sm text-muted-foreground">
+            across {scenesWithShots.length} scene{scenesWithShots.length !== 1 ? "s" : ""}
+          </span>
         </div>
       </div>
 
       {/* Scene list */}
       <ScrollArea className="flex-1">
-        <div className="p-4 space-y-3">
+        <div className="p-6 space-y-4">
           {scenesWithShots.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Clapperboard className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <p className="text-muted-foreground">
-                No scenes found in this screenplay.
+            <div className="flex flex-col items-center justify-center py-12 text-center bg-card rounded-lg border border-border/60">
+              <Clapperboard className="h-10 w-10 text-muted-foreground mb-4" />
+              <p className="font-semibold text-foreground">
+                No scenes found in this screenplay
               </p>
-              <p className="text-sm text-muted-foreground/70 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Add scene headings to your script to organize shots.
               </p>
             </div>
@@ -228,11 +232,11 @@ export function Shotlist({
                 open={expandedScenes.has(scene.sceneId)}
                 onOpenChange={() => toggleScene(scene.sceneId)}
               >
-                <div className="border rounded-lg overflow-hidden">
+                <div className="bg-card rounded-lg border border-border/60 hover:border-border hover:shadow-sm transition-all duration-300 overflow-hidden">
                   {/* Scene header */}
-                  <div className="flex items-center gap-2 px-3 py-2 bg-muted/50">
+                  <div className="flex items-center gap-3 px-4 py-3 bg-muted/30 border-b border-border/40">
                     <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                      <Button variant="ghost" size="icon" className="h-7 w-7">
                         {expandedScenes.has(scene.sceneId) ? (
                           <ChevronDown className="h-4 w-4" />
                         ) : (
@@ -242,23 +246,23 @@ export function Shotlist({
                     </CollapsibleTrigger>
                     <button
                       onClick={() => onSceneClick(scene.sceneId)}
-                      className="flex-1 text-left hover:underline"
+                      className="flex-1 text-left hover:text-primary transition-colors"
                     >
-                      <span className="font-medium text-sm">
+                      <span className="font-bold text-sm uppercase">
                         Scene {scene.sceneNumber}
                       </span>
                       <span className="text-muted-foreground text-sm ml-2">
                         {scene.sceneHeading}
                       </span>
                     </button>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
                       {scene.shots.length} shot{scene.shots.length !== 1 ? "s" : ""}
                     </span>
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
                       onClick={() => handleAddShot(scene.sceneId)}
-                      className="h-7 gap-1"
+                      className="h-7 gap-1 text-xs"
                     >
                       <Plus className="h-3 w-3" />
                       Add
@@ -267,7 +271,7 @@ export function Shotlist({
 
                   {/* Shots */}
                   <CollapsibleContent>
-                    <div className="p-3 space-y-2">
+                    <div className="p-4 space-y-3">
                       {scene.shots.length === 0 ? (
                         <button
                           onClick={() => handleAddShot(scene.sceneId)}

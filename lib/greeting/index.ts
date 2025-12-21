@@ -3,5 +3,24 @@
  * Contextual, behavior-reactive greetings
  */
 
+// Types
 export * from './types';
-export { getContextualGreeting, getTimeBasedGreeting, shouldShowName } from './contextual-greeting';
+
+// Constants
+export * from './constants';
+
+// Core functions
+export {
+  getContextualGreeting,
+  shouldShowName,
+  pickSmartGreeting,
+  getDaysSinceLastWrite,
+  getWordMilestone,
+  getScreenplayMilestone,
+  isWeekend,
+  getTimePeriod,
+  getDailySeed,
+} from './contextual-greeting';
+
+// Greeting pools (for testing/extension)
+export * from './greeting-pools';

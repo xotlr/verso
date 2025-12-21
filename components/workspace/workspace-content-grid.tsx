@@ -28,8 +28,7 @@ import {
   SeriesListRow,
   SeriesListRowSkeleton,
 } from '@/components/series';
-import { StackCard } from '@/components/stack-card';
-import { StackDialog, AddToStackDialog } from '@/components/stack';
+import { StackDialog, AddToStackDialog, StackListRow } from '@/components/stack';
 import { WorkspaceDndContext } from './workspace-dnd-context';
 import { DraggableScreenplayCard } from './draggable-screenplay-card';
 import { DroppableStackCard } from './droppable-stack-card';
@@ -355,10 +354,11 @@ export function WorkspaceContentGrid({
           {filteredStacks.length > 0 && (
             <div className="space-y-2">
               {filteredStacks.map((stack) => (
-                <StackCard
+                <StackListRow
                   key={`stack-${stack.id}`}
                   stack={stack}
                   onClick={() => handleOpenStack(stack)}
+                  onEdit={() => handleOpenStack(stack)}
                   onUngroup={() => onDissolveStack(stack.id)}
                   onDelete={() => onDelete(stack.id, 'stack')}
                 />
@@ -389,6 +389,9 @@ export function WorkspaceContentGrid({
                   series: screenplay.series,
                 }}
                 href={`/editor/${screenplay.id}`}
+                onEdit={() => router.push(`/editor/${screenplay.id}`)}
+                onExport={() => onExport(screenplay)}
+                onDelete={() => onDelete(screenplay.id, 'screenplay')}
               />
             ))}
           </div>
@@ -559,6 +562,8 @@ export function WorkspaceContentGrid({
             screenplays: project.screenplays,
             _count: project._count,
           }}
+          onOpen={() => router.push(`/project/${project.id}`)}
+          onDelete={() => onDelete(project.id, 'project')}
         />
       ))}
     </div>
