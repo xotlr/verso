@@ -34,7 +34,7 @@ const textClasses = {
 }
 
 export function ProfileAvatar({
-  userId,
+  userId: _userId,
   imageUrl,
   name,
   email,
