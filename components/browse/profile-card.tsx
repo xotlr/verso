@@ -59,10 +59,10 @@ export function ProfileCard({ user, className }: ProfileCardProps) {
       <div className="px-4 pb-4">
         {/* Avatar - overlapping banner */}
         <div className="-mt-7 sm:-mt-8 mb-2">
-          <Avatar className="h-14 w-14 rounded-md border-[3px] border-background shadow-md">
-            <AvatarImage src={user.image || ''} alt={user.name || ''} className="rounded-md" />
+          <Avatar className="h-14 w-14 border-[3px] border-background shadow-md">
+            <AvatarImage src={user.image || ''} alt={user.name || ''} />
             <AvatarFallback
-              className="rounded-md text-white text-lg font-medium"
+              className="text-white text-lg font-medium"
               style={getSimpleGradientStyle(user.id)}
             >
               {user.name?.charAt(0).toUpperCase() || '?'}
@@ -123,7 +123,7 @@ export function ProfileCardSkeleton() {
       <div className="px-4 pb-4">
         {/* Avatar skeleton */}
         <div className="-mt-7 sm:-mt-8 mb-2">
-          <div className="h-14 w-14 rounded-md bg-muted animate-pulse border-[3px] border-background" />
+          <div className="h-14 w-14 rounded-full bg-muted animate-pulse border-[3px] border-background" />
         </div>
 
         {/* Name + Title skeleton */}

@@ -1,19 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { LocationInput } from '@/components/ui/location-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { ApplicationsPanel } from '@/components/applications-panel';
@@ -58,48 +52,69 @@ interface ProjectRoleNeedsManagerProps {
   className?: string;
 }
 
-// Role definitions with icons and colors (reused from project-roles-manager)
+// Role definitions with icons
 const ROLE_DEFINITIONS: {
   value: string;
   label: string;
   icon: LucideIcon;
-  color: string;
 }[] = [
-  { value: 'director', label: 'Director', icon: Clapperboard, color: 'text-red-500' },
-  { value: 'writer', label: 'Writer', icon: PenTool, color: 'text-blue-500' },
-  { value: 'producer', label: 'Producer', icon: Megaphone, color: 'text-amber-500' },
-  { value: 'executive_producer', label: 'Exec. Producer', icon: Megaphone, color: 'text-amber-600' },
-  { value: 'cinematographer', label: 'DP', icon: Camera, color: 'text-purple-500' },
-  { value: 'editor', label: 'Editor', icon: Scissors, color: 'text-green-500' },
-  { value: 'composer', label: 'Composer', icon: Music, color: 'text-pink-500' },
-  { value: 'sound_designer', label: 'Sound Designer', icon: Headphones, color: 'text-cyan-500' },
-  { value: 'production_designer', label: 'Production Designer', icon: Palette, color: 'text-orange-500' },
-  { value: 'costume_designer', label: 'Costume Designer', icon: Palette, color: 'text-rose-500' },
-  { value: 'casting_director', label: 'Casting Director', icon: Users, color: 'text-indigo-500' },
-  { value: 'first_ad', label: '1st AD', icon: User, color: 'text-slate-500' },
-  { value: 'line_producer', label: 'Line Producer', icon: User, color: 'text-emerald-500' },
-  { value: 'actor', label: 'Actor', icon: User, color: 'text-violet-500' },
-  { value: 'gaffer', label: 'Gaffer', icon: User, color: 'text-yellow-600' },
-  { value: 'grip', label: 'Grip', icon: User, color: 'text-stone-500' },
-  { value: 'other', label: 'Other', icon: User, color: 'text-gray-500' },
+  // Creative
+  { value: 'director', label: 'Director', icon: Clapperboard },
+  { value: 'writer', label: 'Writer', icon: PenTool },
+  { value: 'producer', label: 'Producer', icon: Megaphone },
+  { value: 'executive_producer', label: 'Exec. Producer', icon: Megaphone },
+  // Camera
+  { value: 'dop', label: 'DOP', icon: Camera },
+  { value: 'camera_operator', label: 'Camera Op', icon: Camera },
+  { value: 'first_ac', label: '1st AC', icon: Camera },
+  // Post
+  { value: 'editor', label: 'Editor', icon: Scissors },
+  { value: 'colorist', label: 'Colorist', icon: Palette },
+  { value: 'vfx_supervisor', label: 'VFX Supervisor', icon: Palette },
+  // Sound
+  { value: 'composer', label: 'Composer', icon: Music },
+  { value: 'sound_designer', label: 'Sound Designer', icon: Headphones },
+  // Art/Design
+  { value: 'production_designer', label: 'Production Designer', icon: Palette },
+  { value: 'costume_designer', label: 'Costume Designer', icon: Palette },
+  { value: 'makeup_artist', label: 'Makeup Artist', icon: User },
+  // Production
+  { value: 'line_producer', label: 'Line Producer', icon: User },
+  { value: 'upm', label: 'UPM', icon: User },
+  { value: 'first_ad', label: '1st AD', icon: User },
+  { value: 'second_ad', label: '2nd AD', icon: User },
+  { value: 'script_supervisor', label: 'Script Supervisor', icon: PenTool },
+  // Grip/Electric
+  { value: 'gaffer', label: 'Gaffer', icon: User },
+  { value: 'key_grip', label: 'Key Grip', icon: User },
+  // Talent
+  { value: 'casting_director', label: 'Casting Director', icon: Users },
+  { value: 'stunt_coordinator', label: 'Stunt Coordinator', icon: User },
+  { value: 'actor', label: 'Actor', icon: User },
 ];
+
+// Legacy role value mappings (old -> new)
+const LEGACY_ROLE_MAP: Record<string, string> = {
+  cinematographer: 'dop',
+};
+
+// Normalize role value (handles legacy mappings)
+function normalizeRoleValue(roleValue: string): string {
+  return LEGACY_ROLE_MAP[roleValue] || roleValue;
+}
 
 // Get role label from value
 function getRoleLabel(roleValue: string): string {
-  const def = ROLE_DEFINITIONS.find((r) => r.value === roleValue);
+  const normalized = normalizeRoleValue(roleValue);
+  const def = ROLE_DEFINITIONS.find((r) => r.value === normalized);
   return def?.label || roleValue;
 }
 
 // Get role icon from value
 function getRoleIcon(roleValue: string) {
-  const def = ROLE_DEFINITIONS.find((r) => r.value === roleValue);
+  const normalized = normalizeRoleValue(roleValue);
+  const def = ROLE_DEFINITIONS.find((r) => r.value === normalized);
   return def?.icon || User;
-}
-
-// Get role color from value
-function getRoleColor(roleValue: string) {
-  const def = ROLE_DEFINITIONS.find((r) => r.value === roleValue);
-  return def?.color || 'text-gray-500';
 }
 
 export function ProjectRoleNeedsManager({
@@ -120,6 +135,14 @@ export function ProjectRoleNeedsManager({
     location: '',
     isPaid: false,
   });
+
+  // Role suggestions state
+  const [roleInput, setRoleInput] = useState('');
+  const [roleSuggestions, setRoleSuggestions] = useState<typeof ROLE_DEFINITIONS>([]);
+  const [showRoleSuggestions, setShowRoleSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
+  const roleInputRef = useRef<HTMLInputElement>(null);
+  const roleSuggestionsRef = useRef<HTMLDivElement>(null);
 
   // Applications panel state
   const [applicationsPanelOpen, setApplicationsPanelOpen] = useState(false);
@@ -145,8 +168,37 @@ export function ProjectRoleNeedsManager({
     fetchRoleNeeds();
   }, [fetchRoleNeeds]);
 
+  // Filter role suggestions as user types
+  useEffect(() => {
+    if (roleInput.trim()) {
+      const filtered = ROLE_DEFINITIONS.filter(r =>
+        r.label.toLowerCase().includes(roleInput.toLowerCase()) ||
+        r.value.toLowerCase().includes(roleInput.toLowerCase())
+      );
+      setRoleSuggestions(filtered);
+      setShowRoleSuggestions(filtered.length > 0);
+      setSelectedSuggestionIndex(0);
+    } else {
+      // Show all roles when input is empty (shown on focus)
+      setRoleSuggestions(ROLE_DEFINITIONS);
+      setSelectedSuggestionIndex(0);
+    }
+  }, [roleInput]);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (roleSuggestionsRef.current && !roleSuggestionsRef.current.contains(e.target as Node)) {
+        setShowRoleSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const resetForm = () => {
     setFormData({ role: '', description: '', location: '', isPaid: false });
+    setRoleInput('');
     setIsAdding(false);
     setEditingId(null);
   };
@@ -224,6 +276,7 @@ export function ProjectRoleNeedsManager({
       location: roleNeed.location || '',
       isPaid: roleNeed.isPaid,
     });
+    setRoleInput(getRoleLabel(roleNeed.role));
     setEditingId(roleNeed.id);
     setIsAdding(false);
   };
@@ -255,32 +308,83 @@ export function ProjectRoleNeedsManager({
       {showForm && isOwner && (
         <div className="bg-muted/50 border border-border rounded-lg p-3 sm:p-4 space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
-            <Select
-              value={formData.role}
-              onValueChange={(value) => setFormData((prev) => ({ ...prev, role: value }))}
-            >
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Select role" />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLE_DEFINITIONS.map((role) => {
-                  const Icon = role.icon;
-                  return (
-                    <SelectItem key={role.value} value={role.value}>
-                      <span className="flex items-center gap-2">
-                        <Icon className={cn('h-4 w-4', role.color)} />
-                        {role.label}
-                      </span>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+            {/* Role input with auto-suggestions */}
+            <div className="relative w-full sm:w-[200px]" ref={roleSuggestionsRef}>
+              <Input
+                ref={roleInputRef}
+                placeholder="Type role..."
+                value={roleInput}
+                onChange={(e) => {
+                  setRoleInput(e.target.value);
+                  setFormData((prev) => ({ ...prev, role: e.target.value.toLowerCase().replace(/\s+/g, '_') }));
+                }}
+                onKeyDown={(e) => {
+                  if (showRoleSuggestions && roleSuggestions.length > 0) {
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setSelectedSuggestionIndex((prev) =>
+                        prev < roleSuggestions.length - 1 ? prev + 1 : 0
+                      );
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setSelectedSuggestionIndex((prev) =>
+                        prev > 0 ? prev - 1 : roleSuggestions.length - 1
+                      );
+                    } else if (e.key === 'Tab' || e.key === 'Enter') {
+                      e.preventDefault();
+                      const suggestion = roleSuggestions[selectedSuggestionIndex];
+                      setRoleInput(suggestion.label);
+                      setFormData((prev) => ({ ...prev, role: suggestion.value }));
+                      setShowRoleSuggestions(false);
+                    }
+                  }
+                  if (e.key === 'Escape') {
+                    setShowRoleSuggestions(false);
+                  }
+                }}
+                onFocus={() => {
+                  // Always show suggestions on focus
+                  setShowRoleSuggestions(true);
+                }}
+                autoFocus
+              />
+              {/* Role suggestions dropdown */}
+              {showRoleSuggestions && roleSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 max-h-[200px] overflow-auto">
+                  {roleSuggestions.map((role, index) => {
+                    const Icon = role.icon;
+                    const isSelected = index === selectedSuggestionIndex;
+                    return (
+                      <button
+                        key={role.value}
+                        type="button"
+                        className={cn(
+                          "w-full flex items-center gap-2 px-3 py-2 transition-colors text-left text-sm",
+                          isSelected ? "bg-accent" : "hover:bg-muted"
+                        )}
+                        onClick={() => {
+                          setRoleInput(role.label);
+                          setFormData((prev) => ({ ...prev, role: role.value }));
+                          setShowRoleSuggestions(false);
+                        }}
+                        onMouseEnter={() => setSelectedSuggestionIndex(index)}
+                      >
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        <span>{role.label}</span>
+                        {isSelected && (
+                          <span className="ml-auto text-xs text-muted-foreground">↵</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-            <Input
-              placeholder="Location (e.g., Los Angeles, Remote)"
+            <LocationInput
               value={formData.location}
-              onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
+              onChange={(value) => setFormData((prev) => ({ ...prev, location: value }))}
+              placeholder="Location (e.g., Los Angeles, Remote)"
               className="flex-1"
             />
           </div>
@@ -363,7 +467,6 @@ export function ProjectRoleNeedsManager({
         <div className="border border-border rounded-lg divide-y divide-border">
           {roleNeeds.map((roleNeed) => {
             const Icon = getRoleIcon(roleNeed.role);
-            const colorClass = getRoleColor(roleNeed.role);
             return (
               <div
                 key={roleNeed.id}
@@ -371,8 +474,8 @@ export function ProjectRoleNeedsManager({
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className={cn('mt-0.5 p-2 rounded-lg bg-muted', colorClass)}>
-                      <Icon className="h-4 w-4" />
+                    <div className="mt-0.5 p-2 rounded-lg bg-muted">
+                      <Icon className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">

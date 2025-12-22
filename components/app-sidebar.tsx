@@ -261,7 +261,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
       {/* Main Content */}
       <SidebarContent>
         {/* Main Navigation */}
-        <SidebarGroup>
+        <SidebarGroup className="pt-2">
           <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -372,9 +372,9 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                     )}
                   >
                     <div className="relative sidebar-avatar-animated">
-                      <Avatar className="h-8 w-8 rounded-md">
-                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="rounded-md object-cover" />
-                        <AvatarFallback className="rounded-md bg-muted text-muted-foreground font-medium">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="object-cover" />
+                        <AvatarFallback className="bg-muted text-muted-foreground font-medium">
                           {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U"}
                         </AvatarFallback>
                       </Avatar>
@@ -403,9 +403,9 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                 >
                   <DropdownMenuLabel className="px-3 py-3">
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9 rounded-md">
-                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="rounded-md object-cover" />
-                        <AvatarFallback className="rounded-md bg-muted text-muted-foreground font-medium">
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="object-cover" />
+                        <AvatarFallback className="bg-muted text-muted-foreground font-medium">
                           {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U"}
                         </AvatarFallback>
                       </Avatar>

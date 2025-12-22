@@ -66,10 +66,10 @@ export function Navbar() {
           {session ? (
             <Button size="sm" asChild className="group h-9 pl-3 pr-4">
               <Link href="/home" className="flex items-center gap-2">
-                <Avatar className="h-6 w-6 rounded-md">
-                  <AvatarImage src={session.user?.image || undefined} className="rounded-md" />
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={session.user?.image || undefined} />
                   <AvatarFallback
-                    className="text-xs text-white font-medium rounded-md"
+                    className="text-xs text-white font-medium"
                     style={getSimpleGradientStyle(session.user?.id || session.user?.email || 'user')}
                   >
                     {session.user?.name?.charAt(0) || "U"}
@@ -145,10 +145,10 @@ export function Navbar() {
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center justify-center gap-2"
                   >
-                    <Avatar className="h-6 w-6 rounded-md">
-                      <AvatarImage src={session.user?.image || undefined} className="rounded-md" />
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage src={session.user?.image || undefined} />
                       <AvatarFallback
-                        className="text-xs text-white font-medium rounded-md"
+                        className="text-xs text-white font-medium"
                         style={getSimpleGradientStyle(session.user?.id || session.user?.email || 'user')}
                       >
                         {session.user?.name?.charAt(0) || "U"}

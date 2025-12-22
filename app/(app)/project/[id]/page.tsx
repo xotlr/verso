@@ -22,21 +22,16 @@ import { ScreenplayListCard } from '@/components/screenplay/screenplay-list-card
 import {
   PiFilmScript,
   PiFilmScriptFill,
-  PiNotePencil,
-  PiNotePencilFill,
-  PiCalendar,
-  PiCalendarFill,
-  PiCurrencyDollar,
-  PiCurrencyDollarFill,
-  PiLink,
-  PiLinkFill,
-  PiUsers,
-  PiUsersFill,
   PiChartBar,
   PiChartBarFill,
   PiClipboard,
   PiClipboardFill,
 } from 'react-icons/pi';
+import { IoFileTrayStacked, IoFileTrayStackedOutline } from 'react-icons/io5';
+import { FaNoteSticky, FaRegNoteSticky } from 'react-icons/fa6';
+import { MdViewTimeline, MdOutlineViewTimeline } from 'react-icons/md';
+import { RiCoinsFill, RiCoinsLine } from 'react-icons/ri';
+import { HiOutlineUserGroup, HiMiniUserGroup } from 'react-icons/hi2';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,8 +53,6 @@ import {
   Video,
   Image as ImageIcon,
   Grid3X3,
-  Clapperboard,
-  PenTool,
   BarChart3,
 } from 'lucide-react';
 import { ExternalLinkCard, ExternalLinkData } from '@/components/external-link-card';
@@ -71,11 +64,14 @@ import { useSession } from 'next-auth/react';
 import type { EmbedType } from '@/lib/embed-utils';
 import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
 import type { ImportResult } from '@/components/import-drop-zone/types';
+import { ResourceDropZoneOverlay } from '@/components/resource-drop-zone-overlay';
 import { toast } from 'sonner';
 import { ReportsInlineContent } from '@/components/reports/ReportsInlineContent';
 import type { Scene, Character, Location } from '@/types/screenplay';
 import { CallsheetCard, CallsheetCardSkeleton, CallsheetDialog, CallsheetExportDialog } from '@/components/callsheet';
 import type { CallsheetCardData, CallsheetCreateInput } from '@/types/callsheet';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 
 type ResourceFilter = 'all' | 'videos' | 'docs' | 'visual' | 'other';
 
@@ -143,12 +139,6 @@ const STATUS_CONFIG: Record<ProjectStatus, { label: string; color: string }> = {
 };
 
 type TabValue = 'screenplays' | 'notes' | 'schedules' | 'budgets' | 'resources' | 'crew' | 'reports' | 'callsheets';
-
-// Helper to get person name for a role
-function getRolePerson(roles: ProjectRole[], roleType: string): string | null {
-  const role = roles.find(r => r.role === roleType);
-  return role?.name || null;
-}
 
 // Format budget for display
 function formatBudget(budget: number): string {
@@ -335,10 +325,47 @@ export default function ProjectPage() {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to add link');
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Add link error:', response.status, errorData);
+      throw new Error(errorData.error || 'Failed to add link');
     }
 
     await loadLinks();
+  };
+
+  // Handle URL drop from drag-and-drop
+  const handleUrlDrop = async (url: string) => {
+    try {
+      // Fetch metadata for the URL
+      const metadataResponse = await fetch('/api/links/fetch-metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+
+      let metadata;
+      if (metadataResponse.ok) {
+        metadata = await metadataResponse.json();
+      } else {
+        // Fallback to minimal metadata if fetch fails
+        metadata = {
+          url,
+          title: null,
+          description: null,
+          favicon: null,
+          image: null,
+          siteName: new URL(url).hostname,
+          category: 'other',
+        };
+      }
+
+      // Add the link to the project
+      await addLink(metadata);
+      toast.success('Resource added');
+    } catch (error) {
+      console.error('Error adding resource:', error);
+      toast.error('Failed to add resource');
+    }
   };
 
   const deleteLink = async (linkId: string) => {
@@ -584,6 +611,12 @@ export default function ProjectPage() {
         onImportError={(error) => toast.error(error)}
       />
 
+      {/* Drag-drop URL overlay for resources */}
+      <ResourceDropZoneOverlay
+        enabled={true}
+        onUrlDrop={handleUrlDrop}
+      />
+
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -601,7 +634,7 @@ export default function ProjectPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="h-full">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Header */}
           <div className="mb-8">
@@ -619,29 +652,74 @@ export default function ProjectPage() {
                 {project.description && (
                   <p className="text-muted-foreground">{project.description}</p>
                 )}
-                {/* Director / Writer / Budget */}
-                {(getRolePerson(project.roles, 'director') || getRolePerson(project.roles, 'writer') || project.budget) && (
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm">
-                    {getRolePerson(project.roles, 'director') && (
-                      <span className="flex items-center gap-1.5 text-muted-foreground">
-                        <Clapperboard className="h-4 w-4" />
-                        <span className="font-medium text-foreground">{getRolePerson(project.roles, 'director')}</span>
-                      </span>
-                    )}
-                    {getRolePerson(project.roles, 'writer') && (
-                      <span className="flex items-center gap-1.5 text-muted-foreground">
-                        <PenTool className="h-4 w-4" />
-                        <span className="font-medium text-foreground">{getRolePerson(project.roles, 'writer')}</span>
-                      </span>
-                    )}
+                {/* Team Avatars + Budget */}
+                {(() => {
+                  // Group roles by userId to show each person once
+                  const filledRoles = project.roles.filter(r => r.userId !== null);
+                  const groupedByUser = filledRoles.reduce((acc, role) => {
+                    const key = role.userId!;
+                    if (!acc[key]) {
+                      acc[key] = { user: role.user, name: role.name, roles: [] };
+                    }
+                    acc[key].roles.push(role.role);
+                    return acc;
+                  }, {} as Record<string, { user: typeof filledRoles[0]['user']; name: string; roles: string[] }>);
+                  const uniqueMembers = Object.values(groupedByUser);
+
+                  return (uniqueMembers.length > 0 || project.budget) && (
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
+                      {/* Stacked Team Avatars */}
+                      {uniqueMembers.length > 0 && (
+                        <div className="flex items-center">
+                          <div className="flex -space-x-2">
+                            {uniqueMembers.slice(0, 5).map((member, idx) => (
+                              <HoverCard key={idx} openDelay={200} closeDelay={100}>
+                                <HoverCardTrigger asChild>
+                                  <Avatar className="h-8 w-8 border-2 border-background cursor-pointer hover:z-10 transition-transform hover:scale-110">
+                                    <AvatarImage src={member.user?.image || undefined} className="object-cover" />
+                                    <AvatarFallback className="text-xs bg-muted text-muted-foreground">
+                                      {member.name.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-56 p-3" side="bottom" align="start">
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-10 w-10">
+                                      <AvatarImage src={member.user?.image || undefined} className="object-cover" />
+                                      <AvatarFallback className="text-sm bg-muted text-muted-foreground">
+                                        {member.name.charAt(0).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-sm truncate">{member.name}</p>
+                                      <p className="text-xs text-muted-foreground capitalize">
+                                        {member.roles.map(r => r.replace(/_/g, ' ')).join(', ')}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </HoverCardContent>
+                              </HoverCard>
+                            ))}
+                            {uniqueMembers.length > 5 && (
+                              <div className="h-8 w-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs text-muted-foreground font-medium">
+                                +{uniqueMembers.length - 5}
+                              </div>
+                            )}
+                          </div>
+                          <span className="ml-3 text-sm text-muted-foreground">
+                            {uniqueMembers.length} team member{uniqueMembers.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      )}
                     {project.budget && (
-                      <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                      <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <DollarSign className="h-4 w-4" />
-                        <span className="font-medium">{formatBudget(project.budget)}</span>
+                        <span className="font-medium text-foreground">{formatBudget(project.budget)}</span>
                       </span>
                     )}
                   </div>
-                )}
+                  );
+                })()}
                 <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                   <span>{project._count.screenplays} screenplay{project._count.screenplays !== 1 ? 's' : ''}</span>
                   <span>&middot;</span>
@@ -687,77 +765,70 @@ export default function ProjectPage() {
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
             <div className="flex flex-col gap-4 mb-6">
-              <TabsList className="w-full sm:w-auto h-auto grid grid-cols-3 sm:inline-flex gap-1.5 p-1.5">
-                <TabsTrigger value="screenplays" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+              <TabsList className="w-full justify-between sm:w-auto sm:justify-start h-auto inline-flex gap-1 sm:gap-1.5 p-1 sm:p-1.5">
+                <TabsTrigger value="screenplays" className="gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-sm">
                   {activeTab === 'screenplays' ? (
                     <PiFilmScriptFill className="h-4 w-4 flex-shrink-0" />
                   ) : (
                     <PiFilmScript className="h-4 w-4 flex-shrink-0" />
                   )}
-                  <span>Scripts</span>
-                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({project._count.screenplays})</span>
+                  <span className="hidden sm:inline">Scripts</span>
                 </TabsTrigger>
-                <TabsTrigger value="notes" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                <TabsTrigger value="notes" className="gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-sm">
                   {activeTab === 'notes' ? (
-                    <PiNotePencilFill className="h-4 w-4 flex-shrink-0" />
+                    <FaNoteSticky className="h-4 w-4 flex-shrink-0" />
                   ) : (
-                    <PiNotePencil className="h-4 w-4 flex-shrink-0" />
+                    <FaRegNoteSticky className="h-4 w-4 flex-shrink-0" />
                   )}
-                  <span>Notes</span>
-                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({project._count.notes})</span>
+                  <span className="hidden sm:inline">Notes</span>
                 </TabsTrigger>
-                <TabsTrigger value="schedules" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                <TabsTrigger value="schedules" className="gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-sm">
                   {activeTab === 'schedules' ? (
-                    <PiCalendarFill className="h-4 w-4 flex-shrink-0" />
+                    <MdViewTimeline className="h-4 w-4 flex-shrink-0" />
                   ) : (
-                    <PiCalendar className="h-4 w-4 flex-shrink-0" />
+                    <MdOutlineViewTimeline className="h-4 w-4 flex-shrink-0" />
                   )}
-                  <span>Schedule</span>
-                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({project._count.schedules})</span>
+                  <span className="hidden sm:inline">Timeline</span>
                 </TabsTrigger>
-                <TabsTrigger value="budgets" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                <TabsTrigger value="budgets" className="gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-sm">
                   {activeTab === 'budgets' ? (
-                    <PiCurrencyDollarFill className="h-4 w-4 flex-shrink-0" />
+                    <RiCoinsFill className="h-4 w-4 flex-shrink-0" />
                   ) : (
-                    <PiCurrencyDollar className="h-4 w-4 flex-shrink-0" />
+                    <RiCoinsLine className="h-4 w-4 flex-shrink-0" />
                   )}
-                  <span>Budget</span>
-                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({project._count.budgets})</span>
+                  <span className="hidden sm:inline">Budget</span>
                 </TabsTrigger>
-                <TabsTrigger value="resources" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                <TabsTrigger value="resources" className="gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-sm">
                   {activeTab === 'resources' ? (
-                    <PiLinkFill className="h-4 w-4 flex-shrink-0" />
+                    <IoFileTrayStacked className="h-4 w-4 flex-shrink-0" />
                   ) : (
-                    <PiLink className="h-4 w-4 flex-shrink-0" />
+                    <IoFileTrayStackedOutline className="h-4 w-4 flex-shrink-0" />
                   )}
-                  <span>Links</span>
-                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({externalLinks.length})</span>
+                  <span className="hidden sm:inline">Resources</span>
                 </TabsTrigger>
-                <TabsTrigger value="crew" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                <TabsTrigger value="crew" className="gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-sm">
                   {activeTab === 'crew' ? (
-                    <PiUsersFill className="h-4 w-4 flex-shrink-0" />
+                    <HiMiniUserGroup className="h-4 w-4 flex-shrink-0" />
                   ) : (
-                    <PiUsers className="h-4 w-4 flex-shrink-0" />
+                    <HiOutlineUserGroup className="h-4 w-4 flex-shrink-0" />
                   )}
-                  <span>Team</span>
-                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({project.roles.length})</span>
+                  <span className="hidden sm:inline">Team</span>
                 </TabsTrigger>
-                <TabsTrigger value="reports" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                <TabsTrigger value="reports" className="gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-sm">
                   {activeTab === 'reports' ? (
                     <PiChartBarFill className="h-4 w-4 flex-shrink-0" />
                   ) : (
                     <PiChartBar className="h-4 w-4 flex-shrink-0" />
                   )}
-                  <span>Reports</span>
+                  <span className="hidden sm:inline">Reports</span>
                 </TabsTrigger>
-                <TabsTrigger value="callsheets" className="gap-2 px-3 py-2.5 text-sm justify-start sm:justify-center">
+                <TabsTrigger value="callsheets" className="gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-sm">
                   {activeTab === 'callsheets' ? (
                     <PiClipboardFill className="h-4 w-4 flex-shrink-0" />
                   ) : (
                     <PiClipboard className="h-4 w-4 flex-shrink-0" />
                   )}
-                  <span>Callsheets</span>
-                  <span className="text-xs opacity-60 ml-auto sm:ml-0">({callsheets.length})</span>
+                  <span className="hidden sm:inline">Callsheets</span>
                 </TabsTrigger>
               </TabsList>
 

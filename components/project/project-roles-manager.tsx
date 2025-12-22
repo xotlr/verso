@@ -5,13 +5,6 @@ import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Badge } from '@/components/ui/badge';
@@ -78,45 +71,68 @@ interface ProjectRolesManagerProps {
   onRolesChange: (roles: ProjectRole[]) => void;
 }
 
-// Role definitions with icons and colors
+// Role definitions with icons
 const ROLE_DEFINITIONS: {
   value: string;
   label: string;
   icon: LucideIcon;
-  color: string;
 }[] = [
-  { value: 'director', label: 'Director', icon: Clapperboard, color: 'text-red-500' },
-  { value: 'writer', label: 'Writer', icon: PenTool, color: 'text-blue-500' },
-  { value: 'producer', label: 'Producer', icon: Megaphone, color: 'text-amber-500' },
-  { value: 'executive_producer', label: 'Exec. Producer', icon: Megaphone, color: 'text-amber-600' },
-  { value: 'cinematographer', label: 'DP', icon: Camera, color: 'text-purple-500' },
-  { value: 'editor', label: 'Editor', icon: Scissors, color: 'text-green-500' },
-  { value: 'composer', label: 'Composer', icon: Music, color: 'text-pink-500' },
-  { value: 'sound_designer', label: 'Sound Designer', icon: Headphones, color: 'text-cyan-500' },
-  { value: 'production_designer', label: 'Production Designer', icon: Palette, color: 'text-orange-500' },
-  { value: 'costume_designer', label: 'Costume Designer', icon: Palette, color: 'text-rose-500' },
-  { value: 'casting_director', label: 'Casting Director', icon: Users, color: 'text-indigo-500' },
-  { value: 'first_ad', label: '1st AD', icon: User, color: 'text-slate-500' },
-  { value: 'line_producer', label: 'Line Producer', icon: User, color: 'text-emerald-500' },
-  { value: 'other', label: 'Other', icon: User, color: 'text-gray-500' },
+  // Creative
+  { value: 'director', label: 'Director', icon: Clapperboard },
+  { value: 'writer', label: 'Writer', icon: PenTool },
+  { value: 'producer', label: 'Producer', icon: Megaphone },
+  { value: 'executive_producer', label: 'Exec. Producer', icon: Megaphone },
+  // Camera
+  { value: 'dop', label: 'DOP', icon: Camera },
+  { value: 'camera_operator', label: 'Camera Op', icon: Camera },
+  { value: 'first_ac', label: '1st AC', icon: Camera },
+  // Post
+  { value: 'editor', label: 'Editor', icon: Scissors },
+  { value: 'colorist', label: 'Colorist', icon: Palette },
+  { value: 'vfx_supervisor', label: 'VFX Supervisor', icon: Palette },
+  // Sound
+  { value: 'composer', label: 'Composer', icon: Music },
+  { value: 'sound_designer', label: 'Sound Designer', icon: Headphones },
+  // Art/Design
+  { value: 'production_designer', label: 'Production Designer', icon: Palette },
+  { value: 'costume_designer', label: 'Costume Designer', icon: Palette },
+  { value: 'makeup_artist', label: 'Makeup Artist', icon: User },
+  // Production
+  { value: 'line_producer', label: 'Line Producer', icon: User },
+  { value: 'upm', label: 'UPM', icon: User },
+  { value: 'first_ad', label: '1st AD', icon: User },
+  { value: 'second_ad', label: '2nd AD', icon: User },
+  { value: 'script_supervisor', label: 'Script Supervisor', icon: PenTool },
+  // Grip/Electric
+  { value: 'gaffer', label: 'Gaffer', icon: User },
+  { value: 'key_grip', label: 'Key Grip', icon: User },
+  // Talent
+  { value: 'casting_director', label: 'Casting Director', icon: Users },
+  { value: 'stunt_coordinator', label: 'Stunt Coordinator', icon: User },
 ];
 
-// Get role label from value
+// Legacy role value mappings (old -> new)
+const LEGACY_ROLE_MAP: Record<string, string> = {
+  cinematographer: 'dop',
+};
+
+// Normalize role value (handles legacy mappings)
+function normalizeRoleValue(roleValue: string): string {
+  return LEGACY_ROLE_MAP[roleValue] || roleValue;
+}
+
+// Get role label from value (returns the value itself if not found - for custom roles)
 function getRoleLabel(roleValue: string): string {
-  const def = ROLE_DEFINITIONS.find((r) => r.value === roleValue);
+  const normalized = normalizeRoleValue(roleValue);
+  const def = ROLE_DEFINITIONS.find((r) => r.value === normalized);
   return def?.label || roleValue;
 }
 
 // Get role icon from value
 function getRoleIcon(roleValue: string) {
-  const def = ROLE_DEFINITIONS.find((r) => r.value === roleValue);
+  const normalized = normalizeRoleValue(roleValue);
+  const def = ROLE_DEFINITIONS.find((r) => r.value === normalized);
   return def?.icon || User;
-}
-
-// Get role color from value
-function getRoleColor(roleValue: string) {
-  const def = ROLE_DEFINITIONS.find((r) => r.value === roleValue);
-  return def?.color || 'text-gray-500';
 }
 
 // Check if string is an email
@@ -133,12 +149,18 @@ export function ProjectRolesManager({
   const [isAdding, setIsAdding] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newRole, setNewRole] = useState({ role: '', name: '' });
+  const [roleInput, setRoleInput] = useState('');
+  const [roleSuggestions, setRoleSuggestions] = useState<typeof ROLE_DEFINITIONS>([]);
+  const [showRoleSuggestions, setShowRoleSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const roleInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const roleSuggestionsRef = useRef<HTMLDivElement>(null);
 
   // Fetch pending invites
   const fetchInvites = useCallback(async () => {
@@ -189,10 +211,30 @@ export function ProjectRolesManager({
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setShowDropdown(false);
       }
+      if (roleSuggestionsRef.current && !roleSuggestionsRef.current.contains(e.target as Node)) {
+        setShowRoleSuggestions(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Filter role suggestions as user types
+  useEffect(() => {
+    if (roleInput.trim()) {
+      const filtered = ROLE_DEFINITIONS.filter(r =>
+        r.label.toLowerCase().includes(roleInput.toLowerCase()) ||
+        r.value.toLowerCase().includes(roleInput.toLowerCase())
+      );
+      setRoleSuggestions(filtered);
+      setShowRoleSuggestions(filtered.length > 0);
+      setSelectedSuggestionIndex(0); // Reset selection when suggestions change
+    } else {
+      setRoleSuggestions(ROLE_DEFINITIONS);
+      setShowRoleSuggestions(false);
+      setSelectedSuggestionIndex(0);
+    }
+  }, [roleInput]);
 
   const addRole = async (options?: { userId?: string; name?: string; assignSelf?: boolean }) => {
     const role = newRole.role;
@@ -232,6 +274,7 @@ export function ProjectRolesManager({
       const addedRole = await response.json();
       onRolesChange([...roles, addedRole]);
       setNewRole({ role: '', name: '' });
+      setRoleInput('');
       setIsAdding(false);
       setShowDropdown(false);
       toast.success('Team member added');
@@ -269,6 +312,7 @@ export function ProjectRolesManager({
       const invite = await response.json();
       setPendingInvites([invite, ...pendingInvites]);
       setNewRole({ role: '', name: '' });
+      setRoleInput('');
       setIsAdding(false);
 
       // Copy invite link to clipboard
@@ -369,27 +413,82 @@ export function ProjectRolesManager({
       {isAdding && (
         <div className="bg-muted/50 border border-border rounded-lg p-3 sm:p-4 space-y-3">
           <div className="flex flex-col sm:flex-row gap-3">
-            <Select
-              value={newRole.role}
-              onValueChange={(value) => setNewRole((prev) => ({ ...prev, role: value }))}
-            >
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Select role" />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLE_DEFINITIONS.map((role) => {
-                  const Icon = role.icon;
-                  return (
-                    <SelectItem key={role.value} value={role.value}>
-                      <span className="flex items-center gap-2">
-                        <Icon className={cn('h-4 w-4', role.color)} />
-                        {role.label}
-                      </span>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+            {/* Role input with auto-suggestions */}
+            <div className="relative w-full sm:w-[180px]" ref={roleSuggestionsRef}>
+              <Input
+                ref={roleInputRef}
+                placeholder="Type role..."
+                value={roleInput}
+                onChange={(e) => {
+                  setRoleInput(e.target.value);
+                  // For custom roles, use the input as both value and label
+                  setNewRole((prev) => ({ ...prev, role: e.target.value.toLowerCase().replace(/\s+/g, '_') }));
+                }}
+                onKeyDown={(e) => {
+                  if (showRoleSuggestions && roleSuggestions.length > 0) {
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setSelectedSuggestionIndex((prev) =>
+                        prev < roleSuggestions.length - 1 ? prev + 1 : 0
+                      );
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setSelectedSuggestionIndex((prev) =>
+                        prev > 0 ? prev - 1 : roleSuggestions.length - 1
+                      );
+                    } else if (e.key === 'Tab' || e.key === 'Enter') {
+                      e.preventDefault();
+                      const suggestion = roleSuggestions[selectedSuggestionIndex];
+                      setRoleInput(suggestion.label);
+                      setNewRole((prev) => ({ ...prev, role: suggestion.value }));
+                      setShowRoleSuggestions(false);
+                      inputRef.current?.focus();
+                    }
+                  }
+                  if (e.key === 'Escape') {
+                    setShowRoleSuggestions(false);
+                  }
+                }}
+                onFocus={() => {
+                  if (roleInput.trim() && roleSuggestions.length > 0) {
+                    setShowRoleSuggestions(true);
+                  }
+                }}
+                autoFocus
+              />
+              {/* Role suggestions dropdown */}
+              {showRoleSuggestions && roleSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-50 max-h-[200px] overflow-auto">
+                  {roleSuggestions.map((role, index) => {
+                    const Icon = role.icon;
+                    const isSelected = index === selectedSuggestionIndex;
+                    return (
+                      <button
+                        key={role.value}
+                        type="button"
+                        className={cn(
+                          "w-full flex items-center gap-2 px-3 py-2 transition-colors text-left text-sm",
+                          isSelected ? "bg-accent" : "hover:bg-muted"
+                        )}
+                        onClick={() => {
+                          setRoleInput(role.label);
+                          setNewRole((prev) => ({ ...prev, role: role.value }));
+                          setShowRoleSuggestions(false);
+                          inputRef.current?.focus();
+                        }}
+                        onMouseEnter={() => setSelectedSuggestionIndex(index)}
+                      >
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        <span>{role.label}</span>
+                        {isSelected && (
+                          <span className="ml-auto text-xs text-muted-foreground">↵</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             <div className="relative flex-1" ref={dropdownRef}>
               <div className="relative">
@@ -414,6 +513,7 @@ export function ProjectRolesManager({
                     } else {
                       setIsAdding(false);
                       setNewRole({ role: '', name: '' });
+                      setRoleInput('');
                     }
                   }
                 }}
@@ -448,9 +548,9 @@ export function ProjectRolesManager({
                       className="w-full flex items-center gap-3 px-3 py-2 hover:bg-muted transition-colors text-left"
                       onClick={() => selectUser(user)}
                     >
-                      <Avatar className="h-8 w-8 rounded-md">
-                        <AvatarImage src={user.image || undefined} className="rounded-md object-cover" />
-                        <AvatarFallback className="text-xs rounded-md bg-muted text-muted-foreground">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={user.image || undefined} className="object-cover" />
+                        <AvatarFallback className="text-xs bg-muted text-muted-foreground">
                           {(user.name || user.email).charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
@@ -508,6 +608,7 @@ export function ProjectRolesManager({
                 onClick={() => {
                   setIsAdding(false);
                   setNewRole({ role: '', name: '' });
+                  setRoleInput('');
                   setShowDropdown(false);
                 }}
                 className="flex-1 sm:flex-none"
@@ -550,7 +651,6 @@ export function ProjectRolesManager({
           <div className="border border-dashed border-border rounded-lg divide-y divide-dashed divide-border">
             {pendingInvites.map((invite) => {
               const Icon = getRoleIcon(invite.role);
-              const colorClass = getRoleColor(invite.role);
               return (
                 <div
                   key={invite.id}
@@ -562,10 +662,10 @@ export function ProjectRolesManager({
                     </div>
                     <div>
                       <div className="font-medium text-sm">{invite.email}</div>
-                      <div className={cn('flex items-center gap-1.5 text-xs', colorClass)}>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <Icon className="h-3 w-3" />
                         {getRoleLabel(invite.role)}
-                        <span className="text-muted-foreground ml-1">· pending</span>
+                        <span className="ml-1">· pending</span>
                       </div>
                     </div>
                   </div>
@@ -612,34 +712,51 @@ export function ProjectRolesManager({
         />
       ) : roles.length > 0 ? (
         <>
-          {/* Filled Roles */}
-          {roles.filter((r) => r.userId !== null).length > 0 && (
-            <div className="border border-border rounded-lg divide-y divide-border">
-              {roles.filter((r) => r.userId !== null).map((role) => {
-                const Icon = getRoleIcon(role.role);
-                const colorClass = getRoleColor(role.role);
-                return (
+          {/* Filled Roles - grouped by user */}
+          {(() => {
+            const filledRoles = roles.filter((r) => r.userId !== null);
+            // Group by userId
+            const groupedByUser = filledRoles.reduce((acc, role) => {
+              const key = role.userId!;
+              if (!acc[key]) {
+                acc[key] = {
+                  user: role.user,
+                  name: role.name,
+                  userId: role.userId,
+                  roles: [],
+                  roleIds: [],
+                };
+              }
+              acc[key].roles.push(role.role);
+              acc[key].roleIds.push(role.id);
+              return acc;
+            }, {} as Record<string, { user: typeof filledRoles[0]['user']; name: string; userId: string | null; roles: string[]; roleIds: string[] }>);
+
+            const uniqueMembers = Object.values(groupedByUser);
+
+            return uniqueMembers.length > 0 && (
+              <div className="border border-border rounded-lg divide-y divide-border">
+                {uniqueMembers.map((member) => (
                   <div
-                    key={role.id}
+                    key={member.userId}
                     className="group flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9 rounded-md">
-                        <AvatarImage src={role.user?.image || undefined} className="rounded-md object-cover" />
-                        <AvatarFallback className="text-sm font-medium rounded-md bg-muted text-muted-foreground">
-                          {role.name.charAt(0).toUpperCase()}
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={member.user?.image || undefined} className="object-cover" />
+                        <AvatarFallback className="text-sm font-medium bg-muted text-muted-foreground">
+                          {member.name.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <div className="font-medium text-sm flex items-center gap-2">
-                          {role.name}
-                          {role.userId === session?.user?.id && (
+                          {member.name}
+                          {member.userId === session?.user?.id && (
                             <Badge variant="secondary" className="text-xs">You</Badge>
                           )}
                         </div>
-                        <div className={cn('flex items-center gap-1.5 text-xs', colorClass)}>
-                          <Icon className="h-3 w-3" />
-                          {getRoleLabel(role.role)}
+                        <div className="text-xs text-muted-foreground">
+                          {member.roles.map((r) => getRoleLabel(r)).join(', ')}
                         </div>
                       </div>
                     </div>
@@ -647,27 +764,39 @@ export function ProjectRolesManager({
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => deleteRole(role.id)}
+                      onClick={() => {
+                        // Delete all roles for this user
+                        member.roleIds.forEach((id) => deleteRole(id));
+                      }}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                ))}
+              </div>
+            );
+          })()}
 
-          {/* Unfilled Roles */}
-          {roles.filter((r) => r.userId === null).length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <UserPlus className="h-4 w-4" />
-                Unfilled Roles
-              </h4>
-              <div className="border border-dashed border-border rounded-lg divide-y divide-dashed divide-border">
-                {roles.filter((r) => r.userId === null).map((role) => {
-                  const Icon = getRoleIcon(role.role);
-                  const colorClass = getRoleColor(role.role);
+          {/* Unfilled Roles - exclude roles that are already filled */}
+          {(() => {
+            // Get role types that are already filled
+            const filledRoleTypes = new Set(
+              roles.filter((r) => r.userId !== null).map((r) => normalizeRoleValue(r.role))
+            );
+            // Get unfilled roles that don't have a filled counterpart
+            const trulyUnfilledRoles = roles.filter(
+              (r) => r.userId === null && !filledRoleTypes.has(normalizeRoleValue(r.role))
+            );
+
+            return trulyUnfilledRoles.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <UserPlus className="h-4 w-4" />
+                  Unfilled Roles
+                </h4>
+                <div className="border border-dashed border-border rounded-lg divide-y divide-dashed divide-border">
+                  {trulyUnfilledRoles.map((role) => {
+                    const Icon = getRoleIcon(role.role);
                   return (
                     <div
                       key={role.id}
@@ -675,7 +804,7 @@ export function ProjectRolesManager({
                     >
                       <div className="flex items-center gap-3">
                         <div className="h-9 w-9 rounded-md border-2 border-dashed border-border flex items-center justify-center bg-muted/30">
-                          <Icon className={cn('h-4 w-4', colorClass)} />
+                          <Icon className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <div>
                           <div className="font-medium text-sm text-muted-foreground">
@@ -710,10 +839,11 @@ export function ProjectRolesManager({
                       </div>
                     </div>
                   );
-                })}
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </>
       ) : null}
     </div>

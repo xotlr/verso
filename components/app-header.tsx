@@ -248,7 +248,7 @@ export function AppHeader({ className }: AppHeaderProps) {
             onClick={() => window.dispatchEvent(new CustomEvent('editor-open-share'))}
             title="Share"
           >
-            <Share2 className="h-3.5 w-3.5" />
+            <Share2 className="h-4 w-4" />
           </Button>
         )}
         <Button
@@ -258,11 +258,11 @@ export function AppHeader({ className }: AppHeaderProps) {
           onClick={() => window.dispatchEvent(new CustomEvent('command-palette-open'))}
           title="Search (⌘K)"
         >
-          <Search className="h-3.5 w-3.5" />
+          <Search className="h-4 w-4" />
         </Button>
         <ThemeToggle />
         <Button variant="ghost" size="icon" className="h-7 w-7">
-          <Bell className="h-3.5 w-3.5" />
+          <Bell className="h-4 w-4" />
         </Button>
       </div>
     </header>

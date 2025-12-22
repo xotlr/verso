@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { Input } from '@/components/ui/input'
+import { LocationInput } from '@/components/ui/location-input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, Check, AlertCircle } from 'lucide-react'
@@ -82,10 +83,9 @@ export function CoreTab({
 
       <div className="space-y-2">
         <Label htmlFor="location">Location</Label>
-        <Input
-          id="location"
+        <LocationInput
           value={formData.location}
-          onChange={(e) => onChange('location', e.target.value)}
+          onChange={(value) => onChange('location', value)}
           placeholder="Los Angeles, CA"
         />
         <p className="text-xs text-muted-foreground">City-level. Critical for local production.</p>

@@ -1,10 +1,7 @@
 'use client';
 
 /**
- * ExternalLinkCard
- *
- * A preview card for external links with enhanced embed support
- * for YouTube, Pinterest, ShotDeck, Google Docs, Canva, and Vimeo.
+ * ExternalLinkCard - Minimal resource card
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -24,9 +21,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -57,7 +53,6 @@ export interface ExternalLinkData {
   siteName: string | null;
   category: string | null;
   createdAt: string;
-  // Enhanced embed fields
   embedType?: EmbedType | null;
   embedId?: string | null;
   embedUrl?: string | null;
@@ -75,108 +70,12 @@ interface ExternalLinkCardProps {
   className?: string;
 }
 
-const categoryColors: Record<string, string> = {
-  script: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  research: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-  reference: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-  other: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-};
-
 const categoryLabels: Record<string, string> = {
   script: 'Script',
   research: 'Research',
   reference: 'Reference',
   other: 'Other',
 };
-
-// Platform badge colors
-const embedBadgeColors: Partial<Record<EmbedType, string>> = {
-  youtube: 'bg-red-600 text-white',
-  vimeo: 'bg-[#1ab7ea] text-white',
-  pinterest: 'bg-[#e60023] text-white',
-  'google-docs': 'bg-[#4285f4] text-white',
-  'google-sheets': 'bg-[#0f9d58] text-white',
-  'google-slides': 'bg-[#f4b400] text-black',
-  canva: 'bg-[#00c4cc] text-white',
-  shotdeck: 'bg-gray-800 text-white',
-};
-
-const embedLabels: Partial<Record<EmbedType, string>> = {
-  youtube: 'YouTube',
-  vimeo: 'Vimeo',
-  pinterest: 'Pinterest',
-  'google-docs': 'Docs',
-  'google-sheets': 'Sheets',
-  'google-slides': 'Slides',
-  canva: 'Canva',
-  shotdeck: 'ShotDeck',
-};
-
-// Google doc icons by type
-function GoogleDocIcon({ type, className }: { type: EmbedType; className?: string }) {
-  switch (type) {
-    case 'google-docs':
-      return <FileText className={className} />;
-    case 'google-sheets':
-      return <Table2 className={className} />;
-    case 'google-slides':
-      return <Presentation className={className} />;
-    default:
-      return <FileText className={className} />;
-  }
-}
-
-// YouTube thumbnail with play button overlay
-function YouTubeThumbnail({
-  thumbnailUrl,
-  title,
-  onPlay,
-}: {
-  thumbnailUrl: string;
-  title: string;
-  onPlay: () => void;
-}) {
-  const [error, setError] = useState(false);
-
-  if (error) {
-    return (
-      <div className="relative aspect-video bg-muted flex items-center justify-center">
-        <Play className="w-12 h-12 text-muted-foreground" />
-      </div>
-    );
-  }
-
-  return (
-    <button
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onPlay();
-      }}
-      className="relative aspect-video w-full overflow-hidden group/thumb cursor-pointer"
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={thumbnailUrl}
-        alt={title}
-        className="w-full h-full object-cover transition-transform group-hover/thumb:scale-105"
-        onError={() => setError(true)}
-      />
-      {/* Play button overlay */}
-      <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover/thumb:bg-black/40 transition-colors">
-        <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center shadow-lg group-hover/thumb:scale-110 transition-transform">
-          <Play className="w-8 h-8 text-white fill-white ml-1" />
-        </div>
-      </div>
-      {/* YouTube logo badge */}
-      <div className="absolute bottom-2 right-2">
-        <Badge className={cn('text-xs', embedBadgeColors.youtube)}>
-          YouTube
-        </Badge>
-      </div>
-    </button>
-  );
-}
 
 // Video player modal
 function EmbedPlayerModal({
@@ -192,7 +91,6 @@ function EmbedPlayerModal({
   title: string;
   embedType: EmbedType;
 }) {
-  // Add autoplay for YouTube
   const playerUrl = embedType === 'youtube'
     ? `${embedUrl}?autoplay=1&rel=0`
     : embedType === 'vimeo'
@@ -227,31 +125,6 @@ function EmbedPlayerModal({
   );
 }
 
-// Google Docs preview variant
-function GoogleDocsPreview({ link }: { link: ExternalLinkData }) {
-  const docType = link.embedType as 'google-docs' | 'google-sheets' | 'google-slides';
-
-  const bgColors = {
-    'google-docs': 'from-blue-500/20 to-blue-600/30',
-    'google-sheets': 'from-green-500/20 to-green-600/30',
-    'google-slides': 'from-yellow-500/20 to-orange-500/30',
-  };
-
-  return (
-    <div className={cn(
-      'relative h-28 sm:h-32 bg-gradient-to-br flex items-center justify-center',
-      bgColors[docType]
-    )}>
-      <GoogleDocIcon type={docType} className="w-16 h-16 text-foreground/30" />
-      <div className="absolute bottom-2 right-2">
-        <Badge className={cn('text-xs', embedBadgeColors[docType])}>
-          {embedLabels[docType]}
-        </Badge>
-      </div>
-    </div>
-  );
-}
-
 // Notes editor popover
 function NotesEditor({
   notes,
@@ -267,12 +140,10 @@ function NotesEditor({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Reset value when notes prop changes
   useEffect(() => {
     setValue(notes);
   }, [notes]);
 
-  // Debounced auto-save
   const debouncedSave = useCallback((newValue: string) => {
     setSaving(true);
     setSaved(false);
@@ -280,7 +151,6 @@ function NotesEditor({
       onSave(newValue);
       setSaving(false);
       setSaved(true);
-      // Clear saved indicator after 2s
       setTimeout(() => setSaved(false), 2000);
     }, 1000);
     return () => clearTimeout(timeout);
@@ -298,7 +168,7 @@ function NotesEditor({
           variant="ghost"
           size="icon"
           className={cn(
-            'h-7 w-7',
+            'h-6 w-6',
             hasNotes ? 'text-yellow-500 hover:text-yellow-600' : 'text-muted-foreground hover:text-foreground'
           )}
           onClick={(e) => {
@@ -306,11 +176,11 @@ function NotesEditor({
             e.stopPropagation();
           }}
         >
-          <StickyNote className="h-4 w-4" />
+          <StickyNote className="h-3.5 w-3.5" />
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[calc(100vw-2rem)] sm:w-80"
+        className="w-72"
         align="end"
         onClick={(e) => e.stopPropagation()}
       >
@@ -318,29 +188,16 @@ function NotesEditor({
           <div className="flex items-center justify-between">
             <h4 className="font-medium text-sm">Notes</h4>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              {saving && (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  <span>Saving...</span>
-                </>
-              )}
-              {saved && !saving && (
-                <>
-                  <Check className="h-3 w-3 text-green-500" />
-                  <span className="text-green-500">Saved</span>
-                </>
-              )}
+              {saving && <Loader2 className="h-3 w-3 animate-spin" />}
+              {saved && !saving && <Check className="h-3 w-3 text-green-500" />}
             </div>
           </div>
           <Textarea
-            placeholder="Add notes about this resource..."
+            placeholder="Add notes..."
             value={value}
             onChange={(e) => handleChange(e.target.value)}
-            className="min-h-[120px] resize-none text-sm"
+            className="min-h-[100px] resize-none text-sm"
           />
-          <p className="text-xs text-muted-foreground">
-            Notes auto-save as you type
-          </p>
         </div>
       </PopoverContent>
     </Popover>
@@ -356,7 +213,6 @@ export function ExternalLinkCard({
   className,
 }: ExternalLinkCardProps) {
   const [imageError, setImageError] = useState(false);
-  const [faviconError, setFaviconError] = useState(false);
   const [playerOpen, setPlayerOpen] = useState(false);
 
   const displayTitle = link.title || link.siteName || new URL(link.url).hostname;
@@ -365,185 +221,145 @@ export function ExternalLinkCard({
   const isPlayable = link.isPlayable && link.embedUrl;
   const hasNotes = Boolean(link.notes?.trim());
 
-  // Determine what image to show
   const displayImage = link.thumbnailUrl || link.image;
   const isGoogleDoc = embedType === 'google-docs' || embedType === 'google-sheets' || embedType === 'google-slides';
   const isVideo = embedType === 'youtube' || embedType === 'vimeo';
+  const hasImage = displayImage && !imageError;
 
-  // Render the media preview section
-  const renderMediaPreview = () => {
-    // YouTube/Vimeo with thumbnail
-    if (isVideo && link.thumbnailUrl && link.embedUrl) {
-      return (
-        <YouTubeThumbnail
-          thumbnailUrl={link.thumbnailUrl}
-          title={displayTitle}
-          onPlay={() => setPlayerOpen(true)}
-        />
-      );
-    }
+  // Google doc icon
+  const GoogleDocIcon = isGoogleDoc ? (
+    embedType === 'google-sheets' ? Table2 :
+    embedType === 'google-slides' ? Presentation : FileText
+  ) : null;
 
-    // Google Docs/Sheets/Slides
-    if (isGoogleDoc) {
-      return <GoogleDocsPreview link={link} />;
-    }
-
-    // Pinterest, ShotDeck, Canva - show large image
-    if ((embedType === 'pinterest' || embedType === 'shotdeck' || embedType === 'canva') && displayImage && !imageError) {
-      return (
-        <div className="relative h-32 sm:h-40 bg-muted overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={displayImage}
-            alt=""
-            className="w-full h-full object-cover"
-            onError={() => setImageError(true)}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-          {embedType && embedBadgeColors[embedType] && (
-            <div className="absolute bottom-2 right-2">
-              <Badge className={cn('text-xs', embedBadgeColors[embedType])}>
-                {embedLabels[embedType]}
-              </Badge>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // Generic link with image
-    if (displayImage && !imageError) {
-      return (
-        <div className="relative h-28 sm:h-32 bg-muted overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={displayImage}
-            alt=""
-            className="w-full h-full object-cover"
-            onError={() => setImageError(true)}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-        </div>
-      );
-    }
-
-    return null;
+  const docColors = {
+    'google-docs': 'from-blue-500/20 to-blue-600/30',
+    'google-sheets': 'from-green-500/20 to-green-600/30',
+    'google-slides': 'from-amber-500/20 to-orange-500/30',
   };
-
-  const hasMediaPreview = (isVideo && link.thumbnailUrl) || isGoogleDoc || (displayImage && !imageError);
 
   return (
     <>
-      <Card className={cn('group overflow-hidden hover:shadow-md transition-shadow relative', className)}>
+      <Card className={cn(
+        'group overflow-hidden rounded-xl border border-border/50',
+        'hover:border-border hover:shadow-md transition-all duration-200 relative',
+        className
+      )}>
         <a
           href={link.url}
           target="_blank"
           rel="noopener noreferrer"
           className="block"
           onClick={(e) => {
-            // Prevent navigation if clicking play button
-            if (isPlayable && playerOpen) {
-              e.preventDefault();
-            }
+            if (isPlayable && playerOpen) e.preventDefault();
           }}
         >
-          {/* Media Preview */}
-          {renderMediaPreview()}
-
-          <CardContent className={cn('p-4', hasMediaPreview ? 'pt-3' : '')}>
-            {/* Header with favicon and site name */}
-            <div className="flex items-center gap-2 mb-2">
-              {link.favicon && !faviconError ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={link.favicon}
-                  alt=""
-                  className="w-4 h-4 rounded-sm"
-                  onError={() => setFaviconError(true)}
-                />
-              ) : (
-                <ExternalLink className="w-4 h-4 text-muted-foreground" />
-              )}
-              <span className="text-xs text-muted-foreground truncate">
-                {link.siteName || new URL(link.url).hostname}
-              </span>
-              <div className="ml-auto flex items-center gap-1">
-                {onNotesChange && (
-                  <NotesEditor
-                    notes={link.notes || ''}
-                    onSave={(notes) => onNotesChange(link.id, notes)}
-                    hasNotes={hasNotes}
-                  />
-                )}
-                {!onNotesChange && hasNotes && (
-                  <StickyNote className="w-3.5 h-3.5 text-yellow-500" />
-                )}
-                <Badge
-                  variant="secondary"
-                  className={cn('text-xs', categoryColors[category])}
+          {/* Media Preview - only show if we have content */}
+          {(hasImage || isGoogleDoc || isVideo) && (
+            <div className="relative">
+              {/* Video thumbnail */}
+              {isVideo && hasImage && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setPlayerOpen(true);
+                  }}
+                  className="relative aspect-video w-full overflow-hidden group/thumb cursor-pointer"
                 >
-                  {categoryLabels[category]}
-                </Badge>
-              </div>
-            </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={displayImage!}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={() => setImageError(true)}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-12 h-9 bg-black/80 rounded-md flex items-center justify-center group-hover/thumb:bg-red-600 transition-colors">
+                      <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                    </div>
+                  </div>
+                </button>
+              )}
 
-            {/* Title */}
-            <h3 className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors mb-1">
+              {/* Google Docs */}
+              {isGoogleDoc && GoogleDocIcon && (
+                <div className={cn(
+                  'h-28 bg-gradient-to-br flex items-center justify-center',
+                  docColors[embedType as keyof typeof docColors]
+                )}>
+                  <GoogleDocIcon className="w-10 h-10 text-foreground/20" />
+                </div>
+              )}
+
+              {/* Regular image */}
+              {!isVideo && !isGoogleDoc && hasImage && (
+                <div className="relative aspect-[16/10] overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={displayImage!}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={() => setImageError(true)}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Content */}
+          <div className="p-3">
+            <h3 className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors">
               {displayTitle}
             </h3>
-
-            {/* Description */}
-            {link.description && (
-              <p className="text-xs text-muted-foreground line-clamp-2">
-                {link.description}
-              </p>
-            )}
-          </CardContent>
+            <p className="text-xs text-muted-foreground mt-1 truncate">
+              {link.siteName || new URL(link.url).hostname}
+            </p>
+          </div>
         </a>
 
-        {/* Action Menu */}
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        {/* Notes indicator */}
+        {hasNotes && !onNotesChange && (
+          <div className="absolute bottom-3 right-3">
+            <StickyNote className="w-3.5 h-3.5 text-yellow-500" />
+          </div>
+        )}
+
+        {/* Action Menu - appears on hover */}
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-1">
+          {onNotesChange && (
+            <NotesEditor
+              notes={link.notes || ''}
+              onSave={(notes) => onNotesChange(link.id, notes)}
+              hasNotes={hasNotes}
+            />
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="secondary"
                 size="icon"
-                className="h-8 w-8 bg-background/80 backdrop-blur-sm"
+                className="h-7 w-7 bg-background/90 backdrop-blur-sm shadow-sm"
                 onClick={(e) => e.preventDefault()}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.open(link.url, '_blank');
-                }}
-              >
+              <DropdownMenuItem onClick={(e) => { e.preventDefault(); window.open(link.url, '_blank'); }}>
                 <ExternalLink className="mr-2 h-4 w-4" />
-                Open Link
+                Open
               </DropdownMenuItem>
               {isPlayable && (
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setPlayerOpen(true);
-                  }}
-                >
+                <DropdownMenuItem onClick={(e) => { e.preventDefault(); setPlayerOpen(true); }}>
                   <Play className="mr-2 h-4 w-4" />
-                  Play Video
+                  Play
                 </DropdownMenuItem>
               )}
               {onRefresh && (
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onRefresh(link.id);
-                  }}
-                >
+                <DropdownMenuItem onClick={(e) => { e.preventDefault(); onRefresh(link.id); }}>
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh Metadata
+                  Refresh
                 </DropdownMenuItem>
               )}
               {onCategoryChange && (
@@ -552,10 +368,7 @@ export function ExternalLinkCard({
                   {Object.entries(categoryLabels).map(([key, label]) => (
                     <DropdownMenuItem
                       key={key}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        onCategoryChange(link.id, key);
-                      }}
+                      onClick={(e) => { e.preventDefault(); onCategoryChange(link.id, key); }}
                     >
                       <Tag className="mr-2 h-4 w-4" />
                       {label}
@@ -569,10 +382,7 @@ export function ExternalLinkCard({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-destructive"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      onDelete(link.id);
-                    }}
+                    onClick={(e) => { e.preventDefault(); onDelete(link.id); }}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Delete
