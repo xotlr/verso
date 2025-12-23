@@ -21,10 +21,14 @@ export function usePublicTimelapse({
   shareId,
   onOperationChange,
 }: UsePublicTimelapseOptions): UsePublicTimelapseReturn {
-  const fetchOperations = useCallback(async (): Promise<FetchOperationsResult[]> => {
+  const fetchOperations = useCallback(async (
+    onProgress: (loaded: number, total: number) => void
+  ): Promise<FetchOperationsResult[]> => {
     const results: FetchOperationsResult[] = [];
     let cursor: string | null = null;
     let hasMore = true;
+    let totalLoaded = 0;
+    let totalCount = 0;
 
     while (hasMore) {
       const url = new URL(`/api/timelapse/${shareId}`, window.location.origin);
@@ -47,6 +51,11 @@ export function usePublicTimelapse({
         nextCursor: data.nextCursor,
         screenplay: data.screenplay,
       });
+
+      // Track progress
+      totalCount = data.totalCount;
+      totalLoaded += data.operations.length;
+      onProgress(totalLoaded, totalCount);
 
       cursor = data.nextCursor;
       hasMore = !!cursor;

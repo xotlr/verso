@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-type PlaybackSpeed = 0.5 | 1 | 2 | 5 | 10;
+type PlaybackSpeed = 0.5 | 1 | 2 | 5 | 10 | 20 | 50 | 100;
 
 interface TimelapseControlsProps {
   isPlaying: boolean;
@@ -35,7 +35,7 @@ interface TimelapseControlsProps {
   className?: string;
 }
 
-const SPEED_OPTIONS: PlaybackSpeed[] = [0.5, 1, 2, 5, 10];
+const SPEED_OPTIONS: PlaybackSpeed[] = [0.5, 1, 2, 5, 10, 20, 50, 100];
 
 export function TimelapseControls({
   isPlaying,
@@ -123,7 +123,7 @@ export function TimelapseControls({
             <span>{speed}x</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="center">
+        <DropdownMenuContent align="center" side="top">
           {SPEED_OPTIONS.map((s) => (
             <DropdownMenuItem
               key={s}

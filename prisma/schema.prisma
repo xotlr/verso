@@ -522,6 +522,9 @@ model Screenplay {
   // Cached stats (computed on save for performance)
   wordCount Int @default(0)
 
+  // Beat board acts configuration
+  acts Json? // Custom acts: [{ id: string, label: string }]
+
   // Timelapse recording
   timelapseEnabled Boolean   @default(true) // Whether to record operations for timelapse
   timelapseStarted DateTime? // When timelapse recording started
@@ -746,6 +749,7 @@ model SceneMeta {
   color String? // Hex color for scene (e.g., "#FF5733")
   notes String? @db.Text
   mood  String? // e.g., "tense", "romantic", "action"
+  act   String? // Act assignment: 'act1' | 'act2a' | 'act2b' | 'act3' | null (unassigned)
 
   // Tracking
   createdAt DateTime @default(now())

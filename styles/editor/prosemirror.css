@@ -1278,16 +1278,24 @@
 
 /* Dark mode handled by CSS variables (--card-foreground) */
 
-/* Gap overlay between pages (continuous mode) - matches page frame centering */
-.pm-page-gap-overlay {
+/* Container for page gap overlays - uses CSS transform for smooth zoom transitions */
+.pm-page-gaps-container {
   position: absolute;
-  /* Center like page frames container */
   left: 50%;
-  transform: translateX(-50%);
-  width: 816px; /* Match PAGE_WIDTH_PX */
-  background: hsl(var(--background));
+  top: 0;
   pointer-events: none;
   z-index: 1;
+  /* Smooth zoom transitions - matches .pm-editor-pages */
+  transition: transform 150ms ease-out;
+}
+
+/* Gap overlay between pages - positioned within the transformed container */
+.pm-page-gap-overlay {
+  position: absolute;
+  left: 0;
+  width: 100%; /* Fill container width */
+  background: hsl(var(--background));
+  pointer-events: none;
 }
 
 /* Discrete mode: Hide gap overlays - page frames already show gaps naturally */

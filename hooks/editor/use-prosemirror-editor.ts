@@ -54,11 +54,12 @@ export { extractShots };
  * Main hook for ProseMirror screenplay editor.
  */
 export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseProseMirrorEditorReturn {
-  const { initialContent, onUpdate, onScenesChange, editable = true, showSceneNumbers = false } = options;
+  const { initialContent, onUpdate, onScenesChange, editable = true, showSceneNumbers = false, timelapseMode = false } = options;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const isInitializedRef = useRef(false);
+  const lastContentRef = useRef<string | null>(null);
 
   // Editor state
   const [currentElementType, setCurrentElementTypeState] = useState<ElementType>('action');
@@ -221,6 +222,9 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
       onScenesChangeRef.current(scenes, characters, detectedShots);
     }
 
+    // Track the initial content we used
+    lastContentRef.current = initialContent;
+
     return () => {
       if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
       if (statsTimeoutRef.current) clearTimeout(statsTimeoutRef.current);
@@ -228,7 +232,40 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
       viewRef.current = null;
       isInitializedRef.current = false;
     };
-  }, [initialContent, editable]);
+  // In timelapse mode, don't recreate editor on content changes - we sync via transaction
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, timelapseMode ? [editable] : [initialContent, editable]);
+
+  // Timelapse mode: sync content changes via transaction (don't recreate editor)
+  useEffect(() => {
+    if (!timelapseMode) return;
+
+    const view = viewRef.current;
+    if (!view || !isInitializedRef.current) return;
+
+    // Skip if content hasn't changed
+    if (initialContent === lastContentRef.current) return;
+    lastContentRef.current = initialContent;
+
+    // Deserialize the new content
+    const newDoc = deserializeFromStorage(initialContent);
+
+    // Replace the entire document via transaction
+    const tr = view.state.tr.replaceWith(
+      0,
+      view.state.doc.content.size,
+      newDoc.content
+    );
+    tr.setMeta('addToHistory', false); // Don't add to undo history
+    tr.setMeta('timelapse', true); // Mark as timelapse update
+
+    // Dispatch the transaction to update the view
+    view.dispatch(tr);
+
+    // Explicitly update currentDoc to trigger pagination
+    // Don't rely on dispatchTransaction chain which may not work reliably
+    setCurrentDoc(view.state.doc);
+  }, [timelapseMode, initialContent]);
 
   // Update scene numbering settings when showSceneNumbers changes
   useEffect(() => {

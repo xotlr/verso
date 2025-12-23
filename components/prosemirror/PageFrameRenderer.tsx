@@ -90,6 +90,9 @@ export const PageFrameRenderer = memo(function PageFrameRenderer({
 /**
  * Renders gaps between pages
  * These cover the space between page frames to show the editor background
+ *
+ * Uses CSS transform for scaling (matching PageFrameRenderer) so that
+ * all visual elements animate together during zoom transitions.
  */
 export const PageGapRenderer = memo(function PageGapRenderer({
   frames,
@@ -100,19 +103,31 @@ export const PageGapRenderer = memo(function PageGapRenderer({
     return null;
   }
 
+  // Calculate total height in unscaled coordinates (CSS transform handles scaling)
+  const totalHeight = frames.length * PAGE_HEIGHT_PX + (frames.length - 1) * PAGE_GAP_PX;
+
   return (
-    <>
+    <div
+      className="pm-page-gaps-container"
+      style={{
+        height: `${totalHeight}px`,
+        width: `${PAGE_WIDTH_PX}px`,
+        transform: `translateX(-50%) scale(${scale})`,
+        transformOrigin: 'top center',
+      }}
+    >
       {frames.slice(1).map((frame, index) => (
         <div
           key={`gap-${frame.pageNumber}`}
           className="pm-page-gap-overlay"
           style={{
-            top: `${(index + 1) * PAGE_HEIGHT_PX * scale + index * PAGE_GAP_PX * scale}px`,
-            height: `${PAGE_GAP_PX * scale}px`,
+            // Position in unscaled coordinates - CSS transform handles scaling
+            top: `${(index + 1) * PAGE_HEIGHT_PX + index * PAGE_GAP_PX}px`,
+            height: `${PAGE_GAP_PX}px`,
           }}
         />
       ))}
-    </>
+    </div>
   );
 });
 

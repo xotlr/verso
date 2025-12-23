@@ -10,7 +10,7 @@ export default function PublicTimelapsePage() {
   return (
     <PublicTimelapsePlayer
       shareId={shareId}
-      className="h-screen"
+      className="h-dvh"
     />
   );
 }

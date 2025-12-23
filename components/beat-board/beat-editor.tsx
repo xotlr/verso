@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Check, X } from 'lucide-react';
+import { Check, X, Plus } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface BeatEditorProps {
@@ -38,6 +38,10 @@ export function BeatEditor({
   const [description, setDescription] = useState(beat?.description || '');
   const [color, setColor] = useState(beat?.color || beatColors[0]);
   const [selectedScenes, setSelectedScenes] = useState<string[]>(beat?.sceneIds || []);
+  const [showCustomColor, setShowCustomColor] = useState(false);
+
+  // Check if current color is a custom color (not in the preset list)
+  const isCustomColor = color && !beatColors.includes(color);
 
   // Reset form when beat changes
   useEffect(() => {
@@ -45,6 +49,8 @@ export function BeatEditor({
     setDescription(beat?.description || '');
     setColor(beat?.color || beatColors[0]);
     setSelectedScenes(beat?.sceneIds || []);
+    // Show custom picker if the beat has a custom color
+    setShowCustomColor(beat?.color ? !beatColors.includes(beat.color) : false);
   }, [beat, beatColors]);
 
   const handleSave = () => {
@@ -99,19 +105,47 @@ export function BeatEditor({
 
           <div>
             <label className="text-sm font-medium text-muted-foreground">Color</label>
-            <div className="flex gap-2 mt-1">
+            <div className="flex flex-wrap gap-2 mt-1">
               {beatColors.map(c => (
                 <button
                   key={c}
-                  onClick={() => setColor(c)}
+                  onClick={() => {
+                    setColor(c);
+                    setShowCustomColor(false);
+                  }}
                   className={cn(
                     'w-6 h-6 rounded-full transition-transform',
-                    color === c && 'ring-2 ring-offset-2 ring-primary scale-110'
+                    color === c && !isCustomColor && 'ring-2 ring-offset-2 ring-primary scale-110'
                   )}
                   style={{ backgroundColor: c }}
                 />
               ))}
+              {/* Custom color button */}
+              <button
+                onClick={() => setShowCustomColor(!showCustomColor)}
+                className={cn(
+                  'w-6 h-6 rounded-full border-2 border-dashed transition-transform flex items-center justify-center',
+                  (showCustomColor || isCustomColor)
+                    ? 'border-primary ring-2 ring-offset-2 ring-primary scale-110'
+                    : 'border-muted-foreground/50 hover:border-muted-foreground'
+                )}
+                style={isCustomColor ? { backgroundColor: color } : undefined}
+              >
+                {!isCustomColor && <Plus className="h-3 w-3 text-muted-foreground" />}
+              </button>
             </div>
+            {/* Custom color picker */}
+            {showCustomColor && (
+              <div className="flex items-center gap-2 mt-2">
+                <input
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                />
+                <span className="text-xs text-muted-foreground font-mono">{color.toUpperCase()}</span>
+              </div>
+            )}
           </div>
 
           <div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -11,10 +11,9 @@ import {
   useSensors,
   DragStartEvent,
   DragEndEvent,
-  DragOverEvent,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
@@ -22,36 +21,22 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Scene } from '@/types/screenplay';
-import { Beat, ActId, BeatBoardProps, ACTS_CONFIG } from '@/types/beat-board';
+import { BeatBoardProps, ActConfig } from '@/types/beat-board';
 import { cn } from '@/lib/utils';
+import { GripVertical, Plus, X, Check, Pencil } from 'lucide-react';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import {
-  GripVertical,
-  Plus,
-  Trash2,
-  Edit2,
-  Film,
-  ChevronLeft,
-} from 'lucide-react';
-import { useVisualizationColors } from '@/lib/visualization-colors';
-import { ActColorScheme } from '@/types/settings';
-import { BeatEditor } from '@/components/beat-board/beat-editor';
+import { Input } from '@/components/ui/input';
 
 // Re-export types for backwards compatibility
-export type { Beat, ActId, BeatBoardProps } from '@/types/beat-board';
+export type { ActId, BeatBoardProps, SceneMeta, Beat, ActConfig } from '@/types/beat-board';
 
-// Sortable Beat Card - memoized to prevent unnecessary re-renders
-const SortableBeatCard = React.memo(function SortableBeatCard({
-  beat,
-  scenes,
-  onEdit,
-  onDelete,
+// Scene card in sortable context
+const SortableSceneCard = React.memo(function SortableSceneCard({
+  scene,
   onSceneClick,
 }: {
-  beat: Beat;
-  scenes: Scene[];
-  onEdit: (beat: Beat) => void;
-  onDelete: (beatId: string) => void;
+  scene: Scene;
   onSceneClick?: (sceneId: string) => void;
 }) {
   const {
@@ -61,225 +46,278 @@ const SortableBeatCard = React.memo(function SortableBeatCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: beat.id });
+  } = useSortable({ id: scene.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
-  const linkedScenes = useMemo(
-    () => scenes.filter(s => beat.sceneIds.includes(s.id)),
-    [scenes, beat.sceneIds]
-  );
+  // Extract location from heading (remove INT./EXT. and time of day)
+  const location = useMemo(() => {
+    const heading = scene.heading || '';
+    return heading
+      .replace(/^(?:INT\.|EXT\.|INT\.\/EXT\.|I\/E\.)\s*/i, '')
+      .replace(/\s+-\s+\w+$/i, '')
+      .trim() || 'Unknown Location';
+  }, [scene.heading]);
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group bg-card rounded-lg border border-border/60 p-4 mb-3',
-        'hover:border-border hover:shadow-md hover:-translate-y-0.5',
-        'transition-all duration-300 ease-out',
-        isDragging && 'opacity-50 shadow-lg'
+        'group bg-background border border-border/50 rounded-lg p-3 cursor-grab active:cursor-grabbing',
+        'hover:border-border hover:shadow-sm',
+        'transition-all duration-200',
+        isDragging && 'opacity-50 shadow-md ring-2 ring-primary/20'
       )}
     >
       <div className="flex items-start gap-2">
         <button
           {...attributes}
           {...listeners}
-          className="mt-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+          className="mt-0.5 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
         >
           <GripVertical className="h-4 w-4" />
         </button>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            <div
-              className="w-3 h-3 rounded-full shrink-0"
-              style={{ backgroundColor: beat.color }}
-            />
-            <h4 className="font-bold text-sm text-foreground truncate uppercase tracking-tight">
-              {beat.title}
-            </h4>
+        <button
+          onClick={() => onSceneClick?.(scene.id)}
+          className="flex-1 text-left min-w-0"
+        >
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              Scene {scene.number}
+            </span>
+            {scene.timeOfDay && (
+              <span className="text-[9px] text-muted-foreground/70 uppercase">
+                {scene.timeOfDay}
+              </span>
+            )}
           </div>
-
-          {beat.description && (
-            <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-              {beat.description}
-            </p>
-          )}
-
-          {linkedScenes.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {linkedScenes.map(scene => (
-                <button
-                  key={scene.id}
-                  onClick={() => onSceneClick?.(scene.id)}
-                  className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider hover:bg-primary/20 transition-colors"
-                >
-                  <Film className="h-2.5 w-2.5" />
-                  {scene.number}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-6 w-6"
-            onClick={() => onEdit(beat)}
-          >
-            <Edit2 className="h-3 w-3" />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-6 w-6 text-destructive"
-            onClick={() => onDelete(beat.id)}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
+          <p className="text-sm font-medium text-foreground truncate">
+            {location}
+          </p>
+        </button>
       </div>
     </div>
   );
 });
 
-// Beat Card (for drag overlay) - memoized
-const BeatCard = React.memo(function BeatCard({ beat }: { beat: Beat }) {
+// Drag overlay card (shown while dragging)
+const SceneCardOverlay = React.memo(function SceneCardOverlay({ scene }: { scene: Scene }) {
+  const location = useMemo(() => {
+    const heading = scene.heading || '';
+    return heading
+      .replace(/^(?:INT\.|EXT\.|INT\.\/EXT\.|I\/E\.)\s*/i, '')
+      .replace(/\s+-\s+\w+$/i, '')
+      .trim() || 'Unknown Location';
+  }, [scene.heading]);
+
   return (
-    <div className="bg-card border border-primary rounded-lg p-4 shadow-xl">
+    <div className="bg-background border-2 border-primary rounded-lg p-3 shadow-xl">
       <div className="flex items-center gap-2">
-        <div
-          className="w-3 h-3 rounded-full"
-          style={{ backgroundColor: beat.color }}
-        />
-        <h4 className="font-bold text-sm uppercase tracking-tight">{beat.title}</h4>
+        <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
+          Scene {scene.number}
+        </span>
+      </div>
+      <p className="text-sm font-medium text-foreground truncate mt-0.5">
+        {location}
+      </p>
+    </div>
+  );
+});
+
+// Editable act header
+const EditableActHeader = React.memo(function EditableActHeader({
+  act,
+  sceneCount,
+  onRename,
+  onDelete,
+  canDelete,
+}: {
+  act: ActConfig;
+  sceneCount: number;
+  onRename: (id: string, label: string) => void;
+  onDelete: (id: string) => void;
+  canDelete: boolean;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(act.label);
+
+  const handleSave = () => {
+    if (editValue.trim()) {
+      onRename(act.id, editValue.trim());
+    } else {
+      setEditValue(act.label);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      setEditValue(act.label);
+      setIsEditing(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex-1 min-w-0">
+        {isEditing ? (
+          <div className="flex items-center gap-1">
+            <Input
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={handleSave}
+              className="h-7 text-sm font-semibold"
+              autoFocus
+            />
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 shrink-0"
+              onClick={handleSave}
+            >
+              <Check className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="group/edit flex items-center gap-1.5 text-left"
+          >
+            <h3 className="text-sm font-semibold text-foreground">{act.label}</h3>
+            <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover/edit:opacity-100 transition-opacity" />
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+        <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded text-[10px] font-medium">
+          {sceneCount}
+        </span>
+        {canDelete && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+            onClick={() => onDelete(act.id)}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
     </div>
   );
 });
 
-// Act Column - memoized to prevent unnecessary re-renders
+// Act column component with droppable
 const ActColumn = React.memo(function ActColumn({
   act,
-  actColors,
-  beats,
   scenes,
-  onAddBeat,
-  onEditBeat,
-  onDeleteBeat,
   onSceneClick,
+  onRename,
+  onDelete,
+  canDelete,
+  isUnassigned = false,
 }: {
-  act: { id: ActId; label: string };
-  actColors: ActColorScheme;
-  beats: Beat[];
+  act: ActConfig;
   scenes: Scene[];
-  onAddBeat: (actId: ActId) => void;
-  onEditBeat: (beat: Beat) => void;
-  onDeleteBeat: (beatId: string) => void;
   onSceneClick?: (sceneId: string) => void;
+  onRename: (id: string, label: string) => void;
+  onDelete: (id: string) => void;
+  canDelete: boolean;
+  isUnassigned?: boolean;
 }) {
-  // Memoize filtered beats to prevent recalculation on every render
-  const actBeats = useMemo(
-    () => beats.filter(b => b.act === act.id).sort((a, b) => a.order - b.order),
-    [beats, act.id]
-  );
+  const { setNodeRef, isOver } = useDroppable({
+    id: act.id,
+  });
 
   return (
     <div
-      className="flex-1 min-w-[280px] max-w-[350px] rounded-lg bg-card border border-border/60 p-5"
-      style={{ backgroundColor: actColors.bg, borderColor: actColors.border }}
+      ref={setNodeRef}
+      className={cn(
+        'flex-1 min-w-[240px] max-w-[300px] rounded-lg border p-4 transition-colors',
+        'bg-card border-border/60',
+        isOver && 'ring-2 ring-primary/50 bg-primary/5'
+      )}
     >
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-foreground uppercase tracking-tight">{act.label}</h3>
-        <span className="bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
-          {actBeats.length} beat{actBeats.length !== 1 ? 's' : ''}
-        </span>
-      </div>
+      {isUnassigned ? (
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-muted-foreground">{act.label}</h3>
+          <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded text-[10px] font-medium">
+            {scenes.length}
+          </span>
+        </div>
+      ) : (
+        <EditableActHeader
+          act={act}
+          sceneCount={scenes.length}
+          onRename={onRename}
+          onDelete={onDelete}
+          canDelete={canDelete}
+        />
+      )}
 
       <SortableContext
-        items={actBeats.map(b => b.id)}
+        items={scenes.map(s => s.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="space-y-2 min-h-[200px]">
-          {actBeats.map(beat => (
-            <SortableBeatCard
-              key={beat.id}
-              beat={beat}
-              scenes={scenes}
-              onEdit={onEditBeat}
-              onDelete={onDeleteBeat}
-              onSceneClick={onSceneClick}
-            />
-          ))}
+        <div className="space-y-2 min-h-[120px]">
+          {scenes.length === 0 ? (
+            <div className="flex items-center justify-center h-[120px] text-xs text-muted-foreground/50 border border-dashed border-border/50 rounded-lg">
+              Drag scenes here
+            </div>
+          ) : (
+            scenes.map(scene => (
+              <SortableSceneCard
+                key={scene.id}
+                scene={scene}
+                onSceneClick={onSceneClick}
+              />
+            ))
+          )}
         </div>
       </SortableContext>
-
-      <Button
-        variant="outline"
-        size="sm"
-        className="w-full mt-3 border-dashed hover:border-primary/50 transition-colors"
-        onClick={() => onAddBeat(act.id)}
-      >
-        <Plus className="h-4 w-4 mr-2" />
-        Add Beat
-      </Button>
     </div>
+  );
+});
+
+// Add act button
+const AddActButton = React.memo(function AddActButton({
+  onAdd,
+}: {
+  onAdd: () => void;
+}) {
+  return (
+    <button
+      onClick={onAdd}
+      className={cn(
+        'min-w-[200px] rounded-lg border-2 border-dashed p-4 transition-colors',
+        'border-border/40 hover:border-border hover:bg-card/50',
+        'flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground'
+      )}
+    >
+      <Plus className="h-5 w-5" />
+      <span className="text-sm font-medium">Add Act</span>
+    </button>
   );
 });
 
 // Main Beat Board Component
 export function BeatBoard({
   scenes,
-  beats: initialBeats,
-  onBeatsChange,
+  sceneMetas,
+  acts,
+  onActChange,
+  onActsChange,
   onSceneClick,
-  onBackToEditor,
 }: BeatBoardProps) {
-  const vizColors = useVisualizationColors();
-  const [beats, setBeats] = useState<Beat[]>(initialBeats);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [editingBeat, setEditingBeat] = useState<Beat | null>(null);
-  const [isCreating, setIsCreating] = useState<ActId | null>(null);
-
-  // Track if beats changed from internal user action
-  const isInternalChange = useRef(false);
-  const prevBeatsRef = useRef<Beat[]>(initialBeats);
-
-  // Store onBeatsChange in a ref to avoid it triggering re-renders
-  const onBeatsChangeRef = useRef(onBeatsChange);
-  onBeatsChangeRef.current = onBeatsChange;
-
-  // Sync external prop changes to internal state (when parent updates beats)
-  useEffect(() => {
-    // Only sync if the prop changed externally (not from our own onBeatsChange call)
-    if (!isInternalChange.current) {
-      setBeats(initialBeats);
-    }
-    isInternalChange.current = false;
-  }, [initialBeats]);
-
-  // Wrapper to track internal beats changes
-  const updateBeats = useCallback((updater: (prev: Beat[]) => Beat[]) => {
-    setBeats(prev => {
-      const newBeats = updater(prev);
-      // Only notify parent if beats actually changed
-      if (JSON.stringify(newBeats) !== JSON.stringify(prevBeatsRef.current)) {
-        isInternalChange.current = true;
-        prevBeatsRef.current = newBeats;
-        // Use setTimeout to defer the callback, avoiding state update during render
-        setTimeout(() => {
-          onBeatsChangeRef.current(newBeats);
-        }, 0);
-      }
-      return newBeats;
-    });
-  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -292,36 +330,50 @@ export function BeatBoard({
     })
   );
 
-  const activeBeat = useMemo(
-    () => beats.find(b => b.id === activeId),
-    [beats, activeId]
+  // Group scenes by act
+  const scenesByAct = useMemo(() => {
+    const grouped: Record<string, Scene[]> = { unassigned: [] };
+
+    // Initialize groups for all acts
+    acts.forEach(act => {
+      grouped[act.id] = [];
+    });
+
+    scenes.forEach(scene => {
+      const meta = sceneMetas[scene.id];
+      const actId = meta?.act || 'unassigned';
+      // If act doesn't exist anymore, put in unassigned
+      if (!grouped[actId]) {
+        grouped.unassigned.push(scene);
+      } else {
+        grouped[actId].push(scene);
+      }
+    });
+
+    // Sort scenes by scene number within each act
+    Object.keys(grouped).forEach(key => {
+      grouped[key].sort((a, b) => a.number - b.number);
+    });
+
+    return grouped;
+  }, [scenes, sceneMetas, acts]);
+
+  const activeScene = useMemo(
+    () => scenes.find(s => s.id === activeId),
+    [scenes, activeId]
   );
+
+  // Find which act a scene belongs to
+  const findSceneAct = useCallback((sceneId: string): string => {
+    const meta = sceneMetas[sceneId];
+    return meta?.act || 'unassigned';
+  }, [sceneMetas]);
+
+  // All valid act IDs (including unassigned)
+  const actIds = useMemo(() => ['unassigned', ...acts.map(a => a.id)], [acts]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
-  };
-
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    const activeBeat = beats.find(b => b.id === activeId);
-    const overBeat = beats.find(b => b.id === overId);
-
-    if (!activeBeat) return;
-
-    // If dragging over another beat in a different act
-    if (overBeat && activeBeat.act !== overBeat.act) {
-      updateBeats(prev => {
-        const updated = prev.map(b =>
-          b.id === activeId ? { ...b, act: overBeat.act } : b
-        );
-        return updated;
-      });
-    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -330,127 +382,92 @@ export function BeatBoard({
 
     if (!over) return;
 
-    const activeId = active.id as string;
+    const activeSceneId = active.id as string;
     const overId = over.id as string;
+    const currentAct = findSceneAct(activeSceneId);
 
-    if (activeId === overId) return;
-
-    updateBeats(prev => {
-      const oldIndex = prev.findIndex(b => b.id === activeId);
-      const newIndex = prev.findIndex(b => b.id === overId);
-
-      const newBeats = arrayMove(prev, oldIndex, newIndex);
-
-      // Update order values
-      return newBeats.map((b, i) => ({ ...b, order: i }));
-    });
-  };
-
-  const handleAddBeat = (actId: ActId) => {
-    setIsCreating(actId);
-    setEditingBeat({
-      id: '',
-      title: '',
-      description: '',
-      color: vizColors.beatColors[beats.length % vizColors.beatColors.length],
-      act: actId,
-      sceneIds: [],
-      order: beats.filter(b => b.act === actId).length,
-    });
-  };
-
-  const handleSaveBeat = useCallback((beat: Beat) => {
-    updateBeats(prev => {
-      const existingIndex = prev.findIndex(b => b.id === beat.id);
-      if (existingIndex >= 0) {
-        const updated = [...prev];
-        updated[existingIndex] = beat;
-        return updated;
+    // Check if dropped on an act column (droppable)
+    if (actIds.includes(overId)) {
+      const targetAct = overId === 'unassigned' ? null : overId;
+      if (overId !== currentAct) {
+        onActChange(activeSceneId, targetAct);
       }
-      return [...prev, { ...beat, id: `beat-${Date.now()}` }];
-    });
-    setEditingBeat(null);
-    setIsCreating(null);
-  }, [updateBeats]);
+      return;
+    }
 
-  const handleDeleteBeat = useCallback((beatId: string) => {
-    updateBeats(prev => prev.filter(b => b.id !== beatId));
-  }, [updateBeats]);
+    // Dropped on another scene - get that scene's act
+    const targetSceneAct = findSceneAct(overId);
+    if (targetSceneAct !== currentAct) {
+      onActChange(activeSceneId, targetSceneAct === 'unassigned' ? null : targetSceneAct);
+    }
+  };
+
+  const handleAddAct = useCallback(() => {
+    const newActId = `act-${Date.now()}`;
+    const newAct: ActConfig = {
+      id: newActId,
+      label: `Act ${acts.length + 1}`,
+    };
+    onActsChange([...acts, newAct]);
+  }, [acts, onActsChange]);
+
+  const handleRenameAct = useCallback((actId: string, newLabel: string) => {
+    onActsChange(acts.map(a => a.id === actId ? { ...a, label: newLabel } : a));
+  }, [acts, onActsChange]);
+
+  const handleDeleteAct = useCallback((actId: string) => {
+    // Move scenes from deleted act to unassigned
+    const scenesInAct = scenesByAct[actId] || [];
+    scenesInAct.forEach(scene => {
+      onActChange(scene.id, null);
+    });
+    // Remove the act
+    onActsChange(acts.filter(a => a.id !== actId));
+  }, [acts, scenesByAct, onActChange, onActsChange]);
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* Header */}
-      <div className="border-b border-border bg-card px-6 py-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {onBackToEditor && (
-              <Button variant="ghost" size="sm" onClick={onBackToEditor}>
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Back to Editor
-              </Button>
-            )}
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Beat Board</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Organize your story structure visually
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
-              {beats.length} beat{beats.length !== 1 ? 's' : ''}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              · {scenes.length} scene{scenes.length !== 1 ? 's' : ''}
-            </span>
-          </div>
+    <ScrollArea className="w-full">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex gap-4 pb-4 min-w-max">
+          {/* Unassigned column */}
+          <ActColumn
+            act={{ id: 'unassigned', label: 'Unassigned' }}
+            scenes={scenesByAct.unassigned || []}
+            onSceneClick={onSceneClick}
+            onRename={() => {}}
+            onDelete={() => {}}
+            canDelete={false}
+            isUnassigned
+          />
+
+          {/* Act columns */}
+          {acts.map(act => (
+            <ActColumn
+              key={act.id}
+              act={act}
+              scenes={scenesByAct[act.id] || []}
+              onSceneClick={onSceneClick}
+              onRename={handleRenameAct}
+              onDelete={handleDeleteAct}
+              canDelete={acts.length > 1}
+            />
+          ))}
+
+          {/* Add act button */}
+          <AddActButton onAdd={handleAddAct} />
         </div>
-      </div>
 
-      {/* Board */}
-      <div className="flex-1 overflow-x-auto p-6">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="flex gap-4 min-w-max">
-            {ACTS_CONFIG.map(act => (
-              <ActColumn
-                key={act.id}
-                act={act}
-                actColors={vizColors.actColors[act.id]}
-                beats={beats}
-                scenes={scenes}
-                onAddBeat={handleAddBeat}
-                onEditBeat={setEditingBeat}
-                onDeleteBeat={handleDeleteBeat}
-                onSceneClick={onSceneClick}
-              />
-            ))}
-          </div>
-
-          <DragOverlay>
-            {activeBeat ? <BeatCard beat={activeBeat} /> : null}
-          </DragOverlay>
-        </DndContext>
-      </div>
-
-      {/* Beat Editor Modal */}
-      <BeatEditor
-        beat={editingBeat}
-        scenes={scenes}
-        isOpen={!!(editingBeat || isCreating)}
-        onSave={handleSaveBeat}
-        onCancel={() => {
-          setEditingBeat(null);
-          setIsCreating(null);
-        }}
-        beatColors={vizColors.beatColors}
-      />
-    </div>
+        <DragOverlay>
+          {activeScene ? <SceneCardOverlay scene={activeScene} /> : null}
+        </DragOverlay>
+      </DndContext>
+      <ScrollBar orientation="horizontal" />
+    </ScrollArea>
   );
 }
 

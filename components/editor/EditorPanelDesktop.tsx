@@ -142,8 +142,8 @@ export function EditorPanelDesktop({
               className={cn(
                 'overflow-hidden',
                 'bg-background',
-                'rounded-[var(--radius)] border border-border',
-                'shadow-lg shadow-black/10'
+                'rounded-2xl border border-border/50',
+                'shadow-lg'
               )}
               style={{
                 width: `${EDITOR_PANEL_WIDTH}px`,

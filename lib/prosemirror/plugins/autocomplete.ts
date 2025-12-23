@@ -9,7 +9,7 @@ export const autocompletePluginKey = new PluginKey('autocomplete');
 export interface AutocompleteSuggestion {
   label: string;
   value: string;
-  category: 'character' | 'location' | 'time' | 'transition' | 'extension';
+  category: 'character' | 'location' | 'time' | 'transition' | 'shot' | 'extension';
   description?: string;
 }
 
@@ -33,7 +33,6 @@ export type AutocompleteContext =
   | 'location'          // Location suggestions after INT./EXT.
   | 'time-of-day'       // DAY/NIGHT/etc. suggestions
   | 'character'         // Character name suggestions
-  | 'extension'         // V.O./O.S./CONT'D suggestions
   | 'transition'        // CUT TO:/FADE TO:/etc. suggestions
   | 'shot'              // WIDE SHOT/CLOSE-UP/etc. suggestions
   | 'none';
@@ -75,16 +74,6 @@ const TIME_OF_DAY: AutocompleteSuggestion[] = [
 ];
 
 /**
- * Character extension suggestions.
- */
-const CHARACTER_EXTENSIONS: AutocompleteSuggestion[] = [
-  { label: '(V.O.)', value: ' (V.O.)', category: 'extension', description: 'Voice Over' },
-  { label: '(O.S.)', value: ' (O.S.)', category: 'extension', description: 'Off Screen' },
-  { label: '(O.C.)', value: ' (O.C.)', category: 'extension', description: 'Off Camera' },
-  { label: "(CONT'D)", value: " (CONT'D)", category: 'extension', description: 'Continued' },
-];
-
-/**
  * Transition suggestions.
  */
 const TRANSITIONS: AutocompleteSuggestion[] = [
@@ -102,19 +91,19 @@ const TRANSITIONS: AutocompleteSuggestion[] = [
  * Shot type suggestions.
  */
 const SHOT_TYPES: AutocompleteSuggestion[] = [
-  { label: 'WIDE SHOT', value: 'WIDE SHOT ', category: 'extension', description: 'Wide/establishing view' },
-  { label: 'CLOSE-UP', value: 'CLOSE-UP ', category: 'extension', description: 'Tight on subject' },
-  { label: 'EXTREME CLOSE-UP', value: 'EXTREME CLOSE-UP ', category: 'extension', description: 'Very tight detail shot' },
-  { label: 'MEDIUM SHOT', value: 'MEDIUM SHOT ', category: 'extension', description: 'Waist-up framing' },
-  { label: 'TWO-SHOT', value: 'TWO-SHOT ', category: 'extension', description: 'Two people in frame' },
-  { label: 'OVER THE SHOULDER', value: 'OVER THE SHOULDER ', category: 'extension', description: 'OTS shot' },
-  { label: 'POV', value: 'POV ', category: 'extension', description: 'Point of view' },
-  { label: 'INSERT', value: 'INSERT ', category: 'extension', description: 'Detail/insert shot' },
-  { label: 'ANGLE ON', value: 'ANGLE ON ', category: 'extension', description: 'Specific angle' },
-  { label: 'TRACKING SHOT', value: 'TRACKING SHOT ', category: 'extension', description: 'Moving camera' },
-  { label: 'ESTABLISHING SHOT', value: 'ESTABLISHING SHOT ', category: 'extension', description: 'Location establishing' },
-  { label: 'LOW ANGLE', value: 'LOW ANGLE ', category: 'extension', description: 'Looking up' },
-  { label: 'HIGH ANGLE', value: 'HIGH ANGLE ', category: 'extension', description: 'Looking down' },
+  { label: 'WIDE SHOT', value: 'WIDE SHOT ', category: 'shot', description: 'Wide/establishing view' },
+  { label: 'CLOSE-UP', value: 'CLOSE-UP ', category: 'shot', description: 'Tight on subject' },
+  { label: 'EXTREME CLOSE-UP', value: 'EXTREME CLOSE-UP ', category: 'shot', description: 'Very tight detail shot' },
+  { label: 'MEDIUM SHOT', value: 'MEDIUM SHOT ', category: 'shot', description: 'Waist-up framing' },
+  { label: 'TWO-SHOT', value: 'TWO-SHOT ', category: 'shot', description: 'Two people in frame' },
+  { label: 'OVER THE SHOULDER', value: 'OVER THE SHOULDER ', category: 'shot', description: 'OTS shot' },
+  { label: 'POV', value: 'POV ', category: 'shot', description: 'Point of view' },
+  { label: 'INSERT', value: 'INSERT ', category: 'shot', description: 'Detail/insert shot' },
+  { label: 'ANGLE ON', value: 'ANGLE ON ', category: 'shot', description: 'Specific angle' },
+  { label: 'TRACKING SHOT', value: 'TRACKING SHOT ', category: 'shot', description: 'Moving camera' },
+  { label: 'ESTABLISHING SHOT', value: 'ESTABLISHING SHOT ', category: 'shot', description: 'Location establishing' },
+  { label: 'LOW ANGLE', value: 'LOW ANGLE ', category: 'shot', description: 'Looking up' },
+  { label: 'HIGH ANGLE', value: 'HIGH ANGLE ', category: 'shot', description: 'Looking down' },
 ];
 
 /**
@@ -147,16 +136,8 @@ function getContext(state: EditorState): { context: AutocompleteContext; query: 
     }
   }
 
-  // Character context
+  // Character context - only suggest character names, not extensions
   if (parentType === 'character') {
-    // Check for extension
-    if (textBeforeCursor.length > 0 && !textBeforeCursor.includes('(')) {
-      // Offer character names or extensions
-      const lastChar = textBeforeCursor[textBeforeCursor.length - 1];
-      if (lastChar === ' ' || /[A-Z]$/.test(textBeforeCursor)) {
-        return { context: 'extension', query: '' };
-      }
-    }
     return { context: 'character', query: textBeforeCursor };
   }
 
@@ -223,9 +204,6 @@ function getSuggestions(
           value: char,
           category: 'character' as const,
         }));
-
-    case 'extension':
-      return CHARACTER_EXTENSIONS;
 
     case 'transition':
       return TRANSITIONS.filter((s) =>
@@ -316,9 +294,9 @@ export function createAutocompletePlugin(options: AutocompletePluginOptions = {}
       handleKeyDown(view, event) {
         const state = autocompletePluginKey.getState(view.state) as AutocompleteState;
 
-        // Only intercept keys if autocomplete is active AND has suggestions to navigate
-        // This prevents arrow keys from being captured when no dropdown is showing
-        if (!state?.active || state.suggestions.length === 0) return false;
+        // Only intercept keys if autocomplete is active AND has suggestions AND user has typed a query
+        // This prevents arrow keys from being captured when user isn't actively searching
+        if (!state?.active || state.suggestions.length === 0 || !state.query) return false;
 
         switch (event.key) {
           case 'ArrowDown': {

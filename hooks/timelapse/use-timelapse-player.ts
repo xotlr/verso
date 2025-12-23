@@ -9,15 +9,24 @@ import type {
   FetchOperationsResult,
   ScreenplayInfo,
 } from './types';
+import type { PaginationResult } from '@/lib/verso';
+import {
+  serializeDocument,
+  runPagination,
+  DEFAULT_FEATURE_FILM_CONFIG,
+} from '@/lib/verso';
+import { deserializeFromStorage } from '@/lib/prosemirror';
 
 interface UseTimelapsePlayerOptions {
-  /** Function to fetch operations from API. Should handle pagination internally. */
-  fetchOperations: () => Promise<FetchOperationsResult[]>;
+  /** Function to fetch operations from API. Should handle pagination and call onProgress. */
+  fetchOperations: (onProgress: (loaded: number, total: number) => void) => Promise<FetchOperationsResult[]>;
   onOperationChange?: (operation: TimelapseOperation, content: string) => void;
 }
 
 export interface UseTimelapsePlayerReturn extends TimelapsePlayerState, TimelapsePlayerActions {
   screenplay?: ScreenplayInfo;
+  /** Pre-computed pagination results for each frame index */
+  paginationCache: Map<number, PaginationResult>;
 }
 
 /**
@@ -33,21 +42,33 @@ export function useTimelapsePlayer({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStatus, setLoadingStatus] = useState<'fetching' | 'computing' | 'done'>('fetching');
   const [error, setError] = useState<string | null>(null);
   const [speed, setSpeed] = useState<PlaybackSpeed>(1);
   const [currentContent, setCurrentContent] = useState('');
   const [totalCount, setTotalCount] = useState(0);
   const [timelapseStarted, setTimelapseStarted] = useState<string | null>(null);
+  const [paginationCache, setPaginationCache] = useState<Map<number, PaginationResult>>(new Map());
 
   const playbackIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Progress callback for loading (uses first 50% for fetching)
+  const handleLoadingProgress = useCallback((loaded: number, total: number) => {
+    const percent = total > 0 ? Math.round((loaded / total) * 50) : 0;
+    setLoadingProgress(percent);
+  }, []);
 
   // Load operations using provided fetcher
   const loadOperations = useCallback(async () => {
     setIsLoading(true);
+    setLoadingProgress(0);
+    setLoadingStatus('fetching');
     setError(null);
+    setPaginationCache(new Map());
 
     try {
-      const results = await fetchOperations();
+      const results = await fetchOperations(handleLoadingProgress);
 
       // Combine all paginated results
       const allOperations: TimelapseOperation[] = [];
@@ -65,17 +86,57 @@ export function useTimelapsePlayer({
       }
 
       setOperations(allOperations);
+      setLoadingProgress(50);
 
       // Initialize with first operation content if available
       if (allOperations.length > 0 && allOperations[0].content) {
         setCurrentContent(allOperations[0].content);
       }
+
+      // Pre-compute pagination for all operations
+      setLoadingStatus('computing');
+      const cache = new Map<number, PaginationResult>();
+
+      // For very large timelapses, sample every Nth operation
+      const maxPaginationOps = 500;
+      const step = allOperations.length > maxPaginationOps
+        ? Math.ceil(allOperations.length / maxPaginationOps)
+        : 1;
+
+      for (let i = 0; i < allOperations.length; i += step) {
+        const op = allOperations[i];
+        if (op.content) {
+          try {
+            const doc = deserializeFromStorage(op.content);
+            const elements = serializeDocument(doc);
+            const hasTitlePage = doc.firstChild?.type.name === 'title_page';
+            const paginationResult = await runPagination(elements, DEFAULT_FEATURE_FILM_CONFIG, hasTitlePage);
+            cache.set(i, paginationResult);
+          } catch (paginationError) {
+            // Silently skip failed pagination - we'll fall back to live computation
+            console.warn(`[Timelapse] Failed to pre-compute pagination for op ${i}:`, paginationError);
+          }
+        }
+
+        // Update progress (50-100% range for pagination)
+        const paginationProgress = 50 + ((i / allOperations.length) * 50);
+        setLoadingProgress(Math.round(paginationProgress));
+
+        // Yield to UI every 10 operations to keep it responsive
+        if (i % 10 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      }
+
+      setPaginationCache(cache);
+      setLoadingProgress(100);
+      setLoadingStatus('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsLoading(false);
     }
-  }, [fetchOperations]);
+  }, [fetchOperations, handleLoadingProgress]);
 
   // Load on mount
   useEffect(() => {
@@ -130,7 +191,7 @@ export function useTimelapsePlayer({
     setSpeed(newSpeed);
   }, []);
 
-  // Playback loop
+  // Playback loop with operation skipping for fast speeds
   useEffect(() => {
     if (!isPlaying || operations.length === 0) {
       if (playbackIntervalRef.current) {
@@ -140,17 +201,29 @@ export function useTimelapsePlayer({
       return;
     }
 
+    // Get step size based on speed - skip operations at very high speeds
+    // This allows smooth playback even at extreme speeds
+    const getStepSize = () => {
+      if (speed >= 100) return 10;  // Skip 10 ops at a time at 100x
+      if (speed >= 50) return 5;    // Skip 5 at 50x
+      if (speed >= 20) return 2;    // Skip 2 at 20x
+      return 1;                      // Play each at lower speeds
+    };
+
     // Calculate interval based on speed
-    // Base interval: 100ms at 1x speed
-    const getInterval = () => Math.round(100 / speed);
+    // Minimum 16ms (60fps) for smooth rendering, max effectiveness through skipping
+    const getInterval = () => Math.max(16, Math.round(100 / speed));
+
+    const stepSize = getStepSize();
 
     playbackIntervalRef.current = setInterval(() => {
       setCurrentIndex((prev) => {
-        if (prev >= operations.length - 1) {
+        const next = prev + stepSize;
+        if (next >= operations.length - 1) {
           setIsPlaying(false);
-          return prev;
+          return operations.length - 1;
         }
-        return prev + 1;
+        return next;
       });
     }, getInterval());
 
@@ -197,11 +270,16 @@ export function useTimelapsePlayer({
     currentOperation,
     isPlaying,
     isLoading,
+    loadingProgress,
+    loadingStatus,
     error,
     speed,
     progress,
     totalCount,
     timelapseStarted,
+
+    // Pre-computed pagination
+    paginationCache,
 
     // Time calculations
     elapsedTime: getElapsedTime(),

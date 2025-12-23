@@ -1,13 +1,16 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { Film, User } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import type { EditorView } from 'prosemirror-view';
+import { Film, User, Maximize, Minimize } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { TimelapseControls } from './timelapse-controls';
 import { TimelapseTimeline } from './timelapse-timeline';
 import { usePublicTimelapse } from '@/hooks/timelapse';
 import { cn } from '@/lib/utils';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ProseMirrorEditor } from '@/components/prosemirror/ProseMirrorEditor';
+import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface PublicTimelapsePlayerProps {
@@ -20,6 +23,41 @@ export function PublicTimelapsePlayer({
   className,
 }: PublicTimelapsePlayerProps) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const prevContentRef = useRef<string>('');
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const handleViewReady = useCallback((view: EditorView) => {
+    setEditorView(view);
+  }, []);
+
+  // Toggle fullscreen mode
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+      }).catch(() => {
+        // Fallback for browsers that don't support fullscreen
+        setIsFullscreen(false);
+      });
+    } else {
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+      });
+    }
+  }, []);
+
+  // Listen for fullscreen changes (e.g., Escape key)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   const {
     screenplay,
@@ -27,12 +65,15 @@ export function PublicTimelapsePlayer({
     currentIndex,
     isPlaying,
     isLoading,
+    loadingProgress,
+    loadingStatus,
     error,
     speed,
     progress,
     elapsedTime,
     totalDuration,
     operations,
+    paginationCache,
     togglePlayback,
     stop,
     seekTo,
@@ -43,12 +84,70 @@ export function PublicTimelapsePlayer({
     shareId,
   });
 
-  // Scroll to cursor position when content changes
+  // Scroll to keep the edit position visible during playback
+  // Detects where content changed by comparing with previous content
   useEffect(() => {
-    if (contentRef.current && currentContent) {
-      contentRef.current.scrollTop = contentRef.current.scrollHeight;
+    // Check that editor view is fully initialized (docView exists)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (editorView && (editorView as any).docView && currentContent && contentRef.current) {
+      const prevContent = prevContentRef.current;
+      prevContentRef.current = currentContent;
+
+      // Use requestAnimationFrame to ensure DOM is updated before calculating positions
+      requestAnimationFrame(() => {
+        try {
+          // Find where content changed by comparing old vs new
+          let changePos = 0;
+          if (prevContent) {
+            const minLen = Math.min(prevContent.length, currentContent.length);
+            for (let i = 0; i < minLen; i++) {
+              if (prevContent[i] !== currentContent[i]) {
+                changePos = i;
+                break;
+              }
+              changePos = i + 1;
+            }
+            // If no difference found in common part, change is at the end
+            if (changePos >= minLen) {
+              changePos = Math.max(prevContent.length, currentContent.length);
+            }
+          } else {
+            // No previous content, scroll to end
+            changePos = currentContent.length;
+          }
+
+          // Convert string position to approximate ProseMirror doc position
+          const docSize = editorView.state.doc.content.size;
+          const ratio = currentContent.length > 0 ? changePos / currentContent.length : 1;
+          const targetPos = Math.min(Math.max(0, Math.round(ratio * docSize)), docSize - 1);
+
+          // Use ProseMirror's coordsAtPos to get screen coordinates
+          const coords = editorView.coordsAtPos(targetPos);
+
+          // Find the ACTUAL scroll container (Radix ScrollArea viewport inside ProseMirrorEditor)
+          const scrollViewport = contentRef.current?.querySelector(
+            '[data-radix-scroll-area-viewport]'
+          ) as HTMLElement | null;
+
+          if (coords && scrollViewport) {
+            const viewportRect = scrollViewport.getBoundingClientRect();
+            const viewportHeight = viewportRect.height;
+
+            // Calculate scroll position to center the edit position
+            const targetScrollTop = scrollViewport.scrollTop + (coords.top - viewportRect.top) - (viewportHeight / 2);
+
+            // Use instant scroll at high speeds, smooth at low speeds
+            scrollViewport.scrollTo({
+              top: Math.max(0, targetScrollTop),
+              behavior: speed >= 10 ? 'auto' : 'smooth',
+            });
+          }
+        } catch {
+          // Editor may not be ready yet, ignore
+        }
+      });
     }
-  }, [currentContent]);
+  }, [currentContent, editorView, speed]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -87,15 +186,15 @@ export function PublicTimelapsePlayer({
 
   if (isLoading) {
     return (
-      <div className={cn('flex flex-col h-full', className)}>
-        <div className="border-b p-4">
-          <Skeleton className="h-8 w-64" />
-        </div>
-        <div className="flex-1 p-8">
-          <Skeleton className="h-full w-full max-w-3xl mx-auto" />
-        </div>
-        <div className="border-t p-4">
-          <Skeleton className="h-12 w-full" />
+      <div className={cn('flex flex-col h-full items-center justify-center', className)}>
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">
+              {loadingStatus === 'computing' ? 'Computing page breaks...' : 'Loading timelapse...'}
+            </p>
+            <p className="text-3xl font-bold text-primary">{loadingProgress}%</p>
+          </div>
         </div>
       </div>
     );
@@ -134,52 +233,73 @@ export function PublicTimelapsePlayer({
   }
 
   return (
-    <div className={cn('flex flex-col h-full bg-background', className)}>
+    <div ref={containerRef} className={cn('flex flex-col h-full bg-background', className)}>
       {/* Header */}
-      <header className="flex items-center justify-between border-b px-6 py-4">
-        <div className="flex items-center gap-4">
-          <Film className="h-6 w-6 text-primary" />
-          <div>
-            <h1 className="font-semibold text-lg">{screenplay?.title || 'Untitled'}</h1>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>Timelapse by</span>
-              <div className="flex items-center gap-1.5">
-                <Avatar className="h-5 w-5">
+      <header className="flex items-center justify-between border-b px-3 sm:px-6 py-2 sm:py-4 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <Film className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+          <div className="min-w-0">
+            <h1 className="font-semibold text-sm sm:text-lg truncate">{screenplay?.title || 'Untitled'}</h1>
+            <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
+              <span className="hidden xs:inline">Timelapse by</span>
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <Avatar className="h-4 w-4 sm:h-5 sm:w-5">
                   <AvatarImage src={screenplay?.authorImage} />
                   <AvatarFallback>
-                    <User className="h-3 w-3" />
+                    <User className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                   </AvatarFallback>
                 </Avatar>
-                <span>{screenplay?.author || 'Anonymous'}</span>
+                <span className="truncate max-w-[100px] sm:max-w-none">{screenplay?.author || 'Anonymous'}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>Powered by</span>
-          <Link href="/" className="text-primary hover:underline font-medium">
-            Verso
-          </Link>
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            className="h-8 w-8 sm:h-9 sm:w-9"
+          >
+            {isFullscreen ? (
+              <Minimize className="h-4 w-4" />
+            ) : (
+              <Maximize className="h-4 w-4" />
+            )}
+          </Button>
+          <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Powered by</span>
+            <Link href="/" className="text-primary hover:underline font-medium">
+              Verso
+            </Link>
+          </div>
         </div>
       </header>
 
-      {/* Content viewer */}
-      <div className="flex-1 overflow-hidden p-8 bg-muted/30">
-        <div
-          ref={contentRef}
-          className="h-full max-w-3xl mx-auto bg-card rounded-lg shadow-lg overflow-auto p-8 font-mono text-sm leading-relaxed"
-        >
-          <pre className="whitespace-pre-wrap break-words">
-            {currentContent || (
-              <span className="text-muted-foreground italic">Empty document</span>
-            )}
-          </pre>
-        </div>
+      {/* Content viewer - scrolling handled by EditorScrollArea inside */}
+      <div className="flex-1 min-h-0 overflow-hidden bg-muted/30" ref={contentRef}>
+        {currentContent ? (
+          <ProseMirrorEditor
+            content={currentContent}
+            editable={false}
+            showElementIndicator={false}
+            showStats={false}
+            onViewReady={handleViewReady}
+            timelapseMode={true}
+            paginationCache={paginationCache}
+            timelapseIndex={currentIndex}
+          />
+        ) : (
+          <div className="h-full flex items-center justify-center">
+            <span className="text-muted-foreground italic">Empty document</span>
+          </div>
+        )}
       </div>
 
       {/* Controls footer */}
-      <footer className="border-t px-6 py-4 space-y-4">
+      <footer className="border-t px-3 sm:px-6 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-[max(1rem,env(safe-area-inset-bottom))] space-y-3 sm:space-y-4 shrink-0">
         {/* Timeline */}
         <TimelapseTimeline
           progress={progress}

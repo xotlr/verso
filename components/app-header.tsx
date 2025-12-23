@@ -41,6 +41,7 @@ function getActiveItem(pathname: string, dynamicTitle: string | null): {
     shotlist: "Shotlist",
     read: "Read",
     screenplay: "Screenplay",
+    timelapse: "Timelapse",
   };
 
   // If we're at /home or root, show "Home"
@@ -75,6 +76,7 @@ function getPageTitle(pathname: string): string {
   if (titleMap[pathname]) return titleMap[pathname];
 
   // Check route patterns
+  if (pathname.includes("/timelapse")) return "Timelapse";
   if (pathname.startsWith("/screenplay/")) return "Editor";
   if (pathname.startsWith("/shotlist/")) return "Shotlist";
   if (pathname.startsWith("/board/")) return "Beat Board";

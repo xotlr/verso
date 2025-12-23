@@ -40,7 +40,7 @@ export default function TimelapsePage() {
         screenplayTitle={screenplayTitle}
         onShare={() => setIsShareDialogOpen(true)}
         onExport={handleExport}
-        className="h-screen"
+        className="h-full"
       />
 
       <TimelapseShareDialog

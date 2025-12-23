@@ -39,6 +39,24 @@ export function calculatePageCount(doc: ProseMirrorNode): number {
 }
 
 /**
+ * Parse scene heading text to extract type, location, and time of day.
+ * Used as fallback when node attributes are not set (e.g., from imports or tests).
+ */
+function parseSceneHeadingText(text: string): { type: string; location: string; timeOfDay?: string } {
+  // Match patterns like "INT. COFFEE SHOP - DAY" or "EXT. BEACH - NIGHT"
+  const match = text.match(/^(INT|EXT|INT\/EXT|I\/E)\.?\s+(.+?)(?:\s+-\s+(.+))?$/i);
+  if (match) {
+    return {
+      type: match[1].toUpperCase(),
+      location: match[2].trim(),
+      timeOfDay: match[3]?.trim(),
+    };
+  }
+  // No match - return the whole text as location
+  return { type: 'INT', location: text || 'UNKNOWN' };
+}
+
+/**
  * Extract scene information from document.
  * Also runs time-of-day detection to mark auto-detected times.
  */
@@ -57,9 +75,16 @@ export function extractScenes(doc: ProseMirrorNode): SceneInfo[] {
         .toLowerCase();
       const id = node.attrs.id || `scene-${sceneIndex}-${offset}-${contentHash || 'empty'}`;
 
+      // Parse text content as fallback when attrs are not set (e.g., from imports or tests)
+      const textContent = node.textContent;
+      const parsed = (!node.attrs.location && textContent) ? parseSceneHeadingText(textContent) : null;
+
+      // Use attrs if available, otherwise fall back to parsed values
+      const type = node.attrs.type || parsed?.type || 'INT';
+      const location = node.attrs.location || parsed?.location || '';
+      const explicitTime = node.attrs.timeOfDay || parsed?.timeOfDay;
+
       // Run time detection to check if time was auto-detected from keywords
-      const location = node.attrs.location || '';
-      const explicitTime = node.attrs.timeOfDay;
       const detection = detectTimeOfDay(location, explicitTime, previousTimeOfDay);
 
       // Update previous time for next scene (for CONTINUOUS inheritance)
@@ -67,9 +92,9 @@ export function extractScenes(doc: ProseMirrorNode): SceneInfo[] {
 
       scenes.push({
         id,
-        type: node.attrs.type,
-        location: node.attrs.location,
-        timeOfDay: node.attrs.timeOfDay || detection.timeOfDay,
+        type,
+        location,
+        timeOfDay: explicitTime || detection.timeOfDay,
         sceneNumber: node.attrs.sceneNumber,
         position: offset,
         autoDetectedTimeOfDay: detection.autoDetected,

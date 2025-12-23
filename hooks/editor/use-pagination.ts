@@ -72,6 +72,8 @@ export function usePagination(
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastDocRef = useRef<ProseMirrorNode | null>(null);
   const docVersionRef = useRef(0); // Track document version to discard stale results
+  const lastRunTimeRef = useRef<number>(0); // Track last pagination run for throttling
+  const isFirstRunRef = useRef(true); // Track if this is the first run
 
   /**
    * Run pagination on the current document
@@ -109,12 +111,12 @@ export function usePagination(
       // WASM now handles all positioning - pixel_y values are absolute
       const paginationResult = await runPagination(elements, config, hasTitlePage);
 
-      // CRITICAL: Discard stale results if document changed while we were waiting
-      if (thisVersion !== docVersionRef.current) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[usePagination] Discarding stale result (version', thisVersion, 'vs current', docVersionRef.current, ')');
-        }
-        return; // Don't update state with stale result
+      // Note: We no longer discard stale results - instead we always update with the
+      // latest completed pagination. This ensures page frames are visible during rapid
+      // content changes (e.g., timelapse playback). The result may be slightly behind
+      // but is still useful for visual display. Newer results will replace older ones.
+      if (thisVersion !== docVersionRef.current && process.env.NODE_ENV === 'development') {
+        console.log('[usePagination] Using slightly stale result (version', thisVersion, 'vs current', docVersionRef.current, ')');
       }
 
       // Debug: Log WASM result with diagnostic stats
@@ -131,21 +133,19 @@ export function usePagination(
       setResult(paginationResult);
       setTiming({ lastDurationMs: performance.now() - startTime });
     } catch (err) {
-      // Only set error if this is still the current version
-      if (thisVersion === docVersionRef.current) {
-        setError(err instanceof Error ? err : new Error(String(err)));
-        console.error('[usePagination] Error:', err);
-      }
+      // Always set error - user should know pagination failed
+      setError(err instanceof Error ? err : new Error(String(err)));
+      console.error('[usePagination] Error:', err);
     } finally {
-      // Only clear pending if this is still the current version
-      if (thisVersion === docVersionRef.current) {
-        setIsPending(false);
-      }
+      // Always clear pending - a newer request will set it again if needed
+      setIsPending(false);
     }
   }, [doc, config, enabled]);
 
   /**
-   * Debounced pagination trigger with dynamic delay for large documents
+   * Throttled pagination trigger - runs immediately on first doc, then throttles
+   * Uses throttling instead of debouncing so pagination runs during rapid changes
+   * (like timelapse playback) instead of waiting for changes to stop.
    */
   useEffect(() => {
     if (!enabled || !doc) {
@@ -163,18 +163,30 @@ export function usePagination(
       clearTimeout(debounceTimerRef.current);
     }
 
-    // Dynamic debounce: longer delay for larger documents to reduce CPU load
+    // Dynamic throttle interval based on document size
     const elementCount = doc.content.childCount;
-    const dynamicDebounce = elementCount > 500
-      ? 500  // Very large doc (100+ pages): 500ms debounce
+    const throttleInterval = elementCount > 500
+      ? 1000  // Very large doc (100+ pages): 1s throttle
       : elementCount > 100
-        ? 300  // Large doc (20+ pages): 300ms debounce
-        : debounceMs; // Normal: use provided debounce
+        ? 500   // Large doc (20+ pages): 500ms throttle
+        : debounceMs; // Normal: use provided interval
 
-    // Set new timer
-    debounceTimerRef.current = setTimeout(() => {
+    const now = Date.now();
+    const timeSinceLastRun = now - lastRunTimeRef.current;
+
+    // Run immediately if: first run OR enough time has passed
+    if (isFirstRunRef.current || timeSinceLastRun >= throttleInterval) {
+      isFirstRunRef.current = false;
+      lastRunTimeRef.current = now;
       runPaginationOnDoc();
-    }, dynamicDebounce);
+    } else {
+      // Schedule to run after remaining throttle time
+      const remainingTime = throttleInterval - timeSinceLastRun;
+      debounceTimerRef.current = setTimeout(() => {
+        lastRunTimeRef.current = Date.now();
+        runPaginationOnDoc();
+      }, remainingTime);
+    }
 
     return () => {
       if (debounceTimerRef.current) {

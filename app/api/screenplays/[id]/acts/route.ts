@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { DEFAULT_ACTS } from "@/types/beat-board"
+
+// Validation schema for acts
+const actConfigSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+})
+
+const actsSchema = z.array(actConfigSchema).min(1).max(10)
 
 // Helper to check screenplay access
 async function checkScreenplayAccess(screenplayId: string, userId: string) {
@@ -37,10 +46,10 @@ async function checkScreenplayAccess(screenplayId: string, userId: string) {
   return { allowed: false, error: "Access denied", status: 403 }
 }
 
-// GET /api/screenplays/[id]/scenes/[sceneId]/meta - Get scene metadata
+// GET /api/screenplays/[id]/acts - Get acts configuration
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; sceneId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -51,7 +60,7 @@ export async function GET(
       )
     }
 
-    const { id, sceneId } = await params
+    const { id } = await params
     const access = await checkScreenplayAccess(id, session.user.id)
 
     if (!access.allowed) {
@@ -61,38 +70,22 @@ export async function GET(
       )
     }
 
-    const sceneMeta = await prisma.sceneMeta.findUnique({
-      where: {
-        screenplayId_sceneId: {
-          screenplayId: id,
-          sceneId,
-        },
-      },
-    })
-
-    // Return empty object if no metadata exists yet
-    return NextResponse.json(sceneMeta || { sceneId, color: null, notes: null, mood: null, act: null })
+    // Return stored acts or default
+    const acts = access.screenplay?.acts || DEFAULT_ACTS
+    return NextResponse.json(acts)
   } catch (error) {
-    console.error("Error fetching scene meta:", error)
+    console.error("Error fetching acts:", error)
     return NextResponse.json(
-      { error: "Failed to fetch scene metadata" },
+      { error: "Failed to fetch acts" },
       { status: 500 }
     )
   }
 }
 
-// Validation schema for scene metadata
-const sceneMetaSchema = z.object({
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
-  notes: z.string().nullable().optional(),
-  mood: z.string().nullable().optional(),
-  act: z.string().nullable().optional(), // Dynamic act ID (any string)
-})
-
-// PUT /api/screenplays/[id]/scenes/[sceneId]/meta - Update scene metadata
+// PUT /api/screenplays/[id]/acts - Update acts configuration
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; sceneId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth()
@@ -103,7 +96,7 @@ export async function PUT(
       )
     }
 
-    const { id, sceneId } = await params
+    const { id } = await params
     const access = await checkScreenplayAccess(id, session.user.id)
 
     if (!access.allowed) {
@@ -114,7 +107,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const result = sceneMetaSchema.safeParse(body)
+    const result = actsSchema.safeParse(body)
 
     if (!result.success) {
       return NextResponse.json(
@@ -123,36 +116,17 @@ export async function PUT(
       )
     }
 
-    const { color, notes, mood, act } = result.data
-
-    const sceneMeta = await prisma.sceneMeta.upsert({
-      where: {
-        screenplayId_sceneId: {
-          screenplayId: id,
-          sceneId,
-        },
-      },
-      update: {
-        ...(color !== undefined && { color }),
-        ...(notes !== undefined && { notes }),
-        ...(mood !== undefined && { mood }),
-        ...(act !== undefined && { act }),
-      },
-      create: {
-        screenplayId: id,
-        sceneId,
-        color: color || null,
-        notes: notes || null,
-        mood: mood || null,
-        act: act || null,
-      },
+    const screenplay = await prisma.screenplay.update({
+      where: { id },
+      data: { acts: result.data },
+      select: { acts: true },
     })
 
-    return NextResponse.json(sceneMeta)
+    return NextResponse.json(screenplay.acts)
   } catch (error) {
-    console.error("Error updating scene meta:", error)
+    console.error("Error updating acts:", error)
     return NextResponse.json(
-      { error: "Failed to update scene metadata" },
+      { error: "Failed to update acts" },
       { status: 500 }
     )
   }

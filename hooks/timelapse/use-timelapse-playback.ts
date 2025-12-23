@@ -17,10 +17,14 @@ export function useTimelapsePlayback({
   screenplayId,
   onOperationChange,
 }: UseTimelapsePlaybackOptions): Omit<UseTimelapsePlayerReturn, 'screenplay'> {
-  const fetchOperations = useCallback(async (): Promise<FetchOperationsResult[]> => {
+  const fetchOperations = useCallback(async (
+    onProgress: (loaded: number, total: number) => void
+  ): Promise<FetchOperationsResult[]> => {
     const results: FetchOperationsResult[] = [];
     let cursor: string | null = null;
     let hasMore = true;
+    let totalLoaded = 0;
+    let totalCount = 0;
 
     while (hasMore) {
       const url = new URL(
@@ -42,6 +46,11 @@ export function useTimelapsePlayback({
         timelapseStarted: data.timelapseStarted,
         nextCursor: data.nextCursor,
       });
+
+      // Track progress
+      totalCount = data.totalCount;
+      totalLoaded += data.operations.length;
+      onProgress(totalLoaded, totalCount);
 
       cursor = data.nextCursor;
       hasMore = !!cursor;

@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PanelHeaderProps {
@@ -9,6 +10,8 @@ interface PanelHeaderProps {
   count?: number;
   onAdd?: () => void;
   addLabel?: string;
+  /** Link to the full page view */
+  viewHref?: string;
   className?: string;
 }
 
@@ -17,6 +20,7 @@ export function PanelHeader({
   count,
   onAdd,
   addLabel = 'Add',
+  viewHref,
   className,
 }: PanelHeaderProps) {
   return (
@@ -26,6 +30,19 @@ export function PanelHeader({
         <span className="text-[10px] text-muted-foreground ml-auto">
           {count}
         </span>
+      )}
+      {viewHref && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          asChild
+          title="View full page"
+        >
+          <Link href={viewHref}>
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
       )}
       {onAdd && (
         <Button

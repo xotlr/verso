@@ -21,7 +21,9 @@ import {
   Film,
   GripVertical,
   Sparkles,
+  ExternalLink,
 } from 'lucide-react';
+import Link from 'next/link';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -393,6 +395,17 @@ export function ShotlistPanel({
         <span className="text-xs text-muted-foreground ml-auto">
           {totalShots}
         </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          asChild
+          title="View full page"
+        >
+          <Link href={`/shotlist/${screenplayId}`}>
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
       </div>
 
       {/* Content */}

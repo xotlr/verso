@@ -280,7 +280,7 @@ export function EditorSettingsPanel({
         className={cn(
           'z-50 w-72 bg-background',
           'rounded-2xl border border-border/50',
-          'shadow-2xl shadow-black/20',
+          'shadow-lg',
           'overflow-hidden flex flex-col',
           isSide
             ? 'absolute left-full top-1/2 ml-3'

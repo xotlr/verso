@@ -23,10 +23,11 @@ import { EditorUnifiedToolbar } from '@/components/editor/EditorUnifiedToolbar';
 import { EditorScrollArea, EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { PageFrameRenderer, PageGapRenderer } from './PageFrameRenderer';
 import { createPageFramesFromWasm, PAGE_GAP_PX } from '@/lib/prosemirror/plugins/page-frames';
-import { applyLayoutCSS, applyLayoutMetadataCSS, DEFAULT_FEATURE_FILM_CONFIG } from '@/lib/verso';
+import { applyLayoutCSS, applyLayoutMetadataCSS, DEFAULT_FEATURE_FILM_CONFIG, type PaginationResult } from '@/lib/verso';
 import { Button } from '@/components/ui/button';
 import { MobileEditorToolbar } from '@/components/editor/mobile-editor-toolbar';
 import { MobileSceneCharacterSheet } from '@/components/editor/MobileSceneCharacterSheet';
+import { TypingTestPanel } from './dev/TypingTestPanel';
 import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
 import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plugins/keymap';
 import { updateTypewriterScrollSettings } from '@/lib/prosemirror/plugins';
@@ -60,6 +61,12 @@ export interface ProseMirrorEditorProps {
   onToggleLineNumbers?: () => void;
   onTogglePageBreaks?: () => void;
   onTimelapse?: () => void;
+  /** Enable timelapse playback mode - syncs content without recreating editor */
+  timelapseMode?: boolean;
+  /** Pre-computed pagination cache for timelapse playback (indexed by frame index) */
+  paginationCache?: Map<number, PaginationResult>;
+  /** Current timelapse frame index (used to look up cached pagination) */
+  timelapseIndex?: number;
   // Activity bar counts for Maelle toolbar
   scenesCount?: number;
   charactersCount?: number;
@@ -149,6 +156,9 @@ export function ProseMirrorEditor({
   onToggleLineNumbers,
   onTogglePageBreaks,
   onTimelapse,
+  timelapseMode = false,
+  paginationCache,
+  timelapseIndex = 0,
   scenesCount = 0,
   charactersCount = 0,
   shotlistCount = 0,
@@ -156,7 +166,8 @@ export function ProseMirrorEditor({
 }: ProseMirrorEditorProps) {
   const { settings } = useSettings();
   // Read scroll mode directly from settings
-  const viewMode = settings.editor.scrollMode ?? defaultViewMode;
+  // In timelapse mode, always use discrete to show page frames
+  const viewMode = timelapseMode ? 'discrete' : (settings.editor.scrollMode ?? defaultViewMode);
   // Toolbar layout: 'verso' (separate floating) or 'inverso' (unified header)
   const toolbarLayout = settings.layout.toolbarLayout ?? 'verso';
   // Page style: 'themed' uses theme colors, 'plain' uses off-white
@@ -223,14 +234,42 @@ export function ProseMirrorEditor({
     canRedo,
     undo: handleUndo,
     redo: handleRedo,
-    paginationResult,
+    paginationResult: livePaginationResult,
   } = useProseMirrorEditor({
     initialContent: content,
     onUpdate: onContentChange,
     onScenesChange,
     editable,
     showSceneNumbers,
+    timelapseMode,
   });
+
+  // In timelapse mode, use pre-computed cached pagination for accurate page frames
+  // Fall back to live result if cache miss (e.g., sampled cache)
+  const effectivePaginationResult = useMemo(() => {
+    if (timelapseMode && paginationCache) {
+      // First try exact index match
+      const cachedResult = paginationCache.get(timelapseIndex);
+      if (cachedResult) {
+        return cachedResult;
+      }
+      // For sampled caches, find nearest cached result below current index
+      let nearestKey = -1;
+      for (const key of paginationCache.keys()) {
+        if (key <= timelapseIndex && key > nearestKey) {
+          nearestKey = key;
+        }
+      }
+      if (nearestKey >= 0) {
+        return paginationCache.get(nearestKey);
+      }
+    }
+    // Fall back to live pagination result
+    return livePaginationResult;
+  }, [timelapseMode, paginationCache, timelapseIndex, livePaginationResult]);
+
+  // Use the effective pagination result for rendering
+  const paginationResult = effectivePaginationResult;
 
   // Apply layout metadata CSS from WASM pagination result
   // This is the SINGLE SOURCE OF TRUTH - updates CSS variables with actual WASM calculations
@@ -382,8 +421,8 @@ export function ProseMirrorEditor({
         className
       )}
     >
-      {/* Desktop toolbars - conditional based on layout setting */}
-      {isReady && !isMobile && (
+      {/* Desktop toolbars - conditional based on layout setting, hidden in read-only mode */}
+      {isReady && !isMobile && editable && (
         toolbarLayout === 'maelle' ? (
           // Maelle: Unified floating header (Google Docs style)
           <EditorUnifiedToolbar
@@ -520,8 +559,8 @@ export function ProseMirrorEditor({
         />
       )}
 
-      {/* Floating toolbar on selection */}
-      {isReady && <FloatingToolbar view={view} scrollbarWidth={EDITOR_SCROLLBAR_WIDTH} />}
+      {/* Floating toolbar on selection - hidden in read-only mode */}
+      {isReady && editable && <FloatingToolbar view={view} scrollbarWidth={EDITOR_SCROLLBAR_WIDTH} />}
 
       {/* Autocomplete dropdown */}
       {isReady && autocompleteState && (
@@ -532,8 +571,8 @@ export function ProseMirrorEditor({
         />
       )}
 
-      {/* Mobile editor toolbar */}
-      {isMobile && isReady && (
+      {/* Mobile editor toolbar - hidden in read-only mode */}
+      {isMobile && isReady && editable && (
         <MobileEditorToolbar
           onUndo={handleUndo}
           onRedo={handleRedo}
@@ -582,6 +621,9 @@ export function ProseMirrorEditor({
           currentSceneId={currentSceneId}
         />
       )}
+
+      {/* Dev-only typing test panel */}
+      {process.env.NODE_ENV === 'development' && <TypingTestPanel view={view} />}
     </div>
   );
 }

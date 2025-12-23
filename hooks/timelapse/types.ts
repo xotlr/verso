@@ -1,3 +1,5 @@
+import type { PaginationResult } from '@/lib/verso';
+
 export interface TimelapseOperation {
   id: string;
   operationType: 'insert' | 'delete' | 'replace';
@@ -19,7 +21,7 @@ export interface ScreenplayInfo {
   authorImage?: string;
 }
 
-export type PlaybackSpeed = 0.5 | 1 | 2 | 5 | 10;
+export type PlaybackSpeed = 0.5 | 1 | 2 | 5 | 10 | 20 | 50 | 100;
 
 export interface TimelapsePlayerState {
   operations: TimelapseOperation[];
@@ -28,6 +30,8 @@ export interface TimelapsePlayerState {
   currentOperation: TimelapseOperation | null;
   isPlaying: boolean;
   isLoading: boolean;
+  loadingProgress: number;
+  loadingStatus: 'fetching' | 'computing' | 'done';
   error: string | null;
   speed: PlaybackSpeed;
   progress: number;
@@ -35,6 +39,7 @@ export interface TimelapsePlayerState {
   timelapseStarted: string | null;
   elapsedTime: number;
   totalDuration: number;
+  paginationCache: Map<number, PaginationResult>;
 }
 
 export interface TimelapsePlayerActions {

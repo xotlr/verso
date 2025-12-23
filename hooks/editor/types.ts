@@ -18,6 +18,8 @@ export interface UseProseMirrorEditorOptions {
   editable?: boolean;
   /** Show scene numbers even when document has title page (production mode) */
   showSceneNumbers?: boolean;
+  /** Enable timelapse mode - syncs content without recreating editor (for playback) */
+  timelapseMode?: boolean;
 }
 
 /**
