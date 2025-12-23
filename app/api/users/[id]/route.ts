@@ -4,40 +4,64 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 import { validateUsername, normalizeUsername } from '@/lib/username'
 
+// Helper to create optional URL field that treats empty strings as null
+const optionalUrl = z.preprocess(
+  (val) => (val === '' ? null : val),
+  z.string().url().nullable().optional()
+)
+
+// Helper to create optional string field that treats empty strings as null
+const optionalNullableString = (maxLen: number) => z.preprocess(
+  (val) => (val === '' ? null : val),
+  z.string().max(maxLen).nullable().optional()
+)
+
+// Helper for optional CUID that treats empty strings as null
+const optionalCuid = z.preprocess(
+  (val) => (val === '' ? null : val),
+  z.string().cuid().nullable().optional()
+)
+
 const updateProfileSchema = z.object({
   name: z.string().max(100).optional(),
   username: z.string().max(20).nullable().optional(),
-  image: z.string().url().nullable().optional(),
-  banner: z.string().url().nullable().optional(),
-  location: z.string().max(100).nullable().optional(),
-  website: z.string().max(200).nullable().optional(),
-  twitter: z.string().max(50).nullable().optional(),
-  linkedin: z.string().max(100).nullable().optional(),
-  imdb: z.string().max(50).nullable().optional(),
+  image: optionalUrl,
+  banner: optionalUrl,
+  location: optionalNullableString(100),
+  website: optionalNullableString(200),
+  twitter: optionalNullableString(50),
+  linkedin: optionalNullableString(100),
+  imdb: optionalNullableString(50),
   isPublic: z.boolean().optional(),
 
   // Core Profile (NEW)
-  oneLiner: z.string().max(100).nullable().optional(),
+  oneLiner: optionalNullableString(100),
   roles: z.array(z.string().max(50)).max(5).optional(),
-  reelUrl: z.string().url().max(500).nullable().optional(),
+  reelUrl: z.preprocess(
+    (val) => (val === '' ? null : val),
+    z.string().url().max(500).nullable().optional()
+  ),
   availability: z.enum(['AVAILABLE', 'BUSY', 'NOT_LOOKING']).optional(),
 
   // The Work
-  featuredProjectId: z.string().cuid().nullable().optional(),
-  showcaseTimelapse: z.string().nullable().optional(),
+  featuredProjectId: optionalCuid,
+  showcaseTimelapse: z.preprocess(
+    (val) => (val === '' ? null : val),
+    z.string().nullable().optional()
+  ),
 
   // Trust Layer
   responseRate: z.enum(['UNKNOWN', 'WITHIN_HOURS', 'WITHIN_DAY', 'WITHIN_WEEK', 'SLOW']).optional(),
 
   // The Vibe
   influences: z.array(z.string().max(50)).max(3).optional(),
-  lookingFor: z.string().max(500).nullable().optional(),
-  gear: z.string().max(500).nullable().optional(),
+  lookingFor: optionalNullableString(500),
+  gear: optionalNullableString(500),
   languages: z.array(z.string().max(30)).max(10).optional(),
 
   // LEGACY - keeping for backwards compatibility during migration
-  bio: z.string().max(500).nullable().optional(),
-  title: z.string().max(100).nullable().optional(),
+  bio: optionalNullableString(500),
+  title: optionalNullableString(100),
   interests: z.array(z.string().max(50)).max(20).optional(),
   skills: z.array(z.string().max(50)).max(20).optional(),
 })

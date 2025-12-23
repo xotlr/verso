@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Download, Upload, RotateCcw, Palette, Type, Layout, Keyboard } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSettings } from '@/contexts/settings-context';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -206,7 +205,7 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <div className="space-y-4">
       {/* Profile Section */}
       <ProfileSection
         profile={profile}
@@ -221,7 +220,7 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
       />
 
       {/* Settings Navigation & Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 mt-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
         {/* Mobile: Discord-style vertical list navigation */}
         <div className="md:hidden space-y-1 mb-4">
           {NAV_ITEMS.map((item) => (
@@ -253,39 +252,37 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
           </TabsList>
         </div>
 
-        <ScrollArea className="flex-1">
-          <div className="py-5">
-            {/* Appearance Settings */}
-            <TabsContent value="appearance" className="m-0">
-              <AppearanceSection
-                settings={settings.visual}
-                updateVisualSettings={updateVisualSettings}
-                setThemePreset={setThemePreset}
-              />
-            </TabsContent>
+        <div className="py-5">
+          {/* Appearance Settings */}
+          <TabsContent value="appearance" className="m-0">
+            <AppearanceSection
+              settings={settings.visual}
+              updateVisualSettings={updateVisualSettings}
+              setThemePreset={setThemePreset}
+            />
+          </TabsContent>
 
-            {/* Editor Settings */}
-            <TabsContent value="editor" className="m-0">
-              <EditorSection
-                settings={settings.editor}
-                updateEditorSettings={updateEditorSettings}
-              />
-            </TabsContent>
+          {/* Editor Settings */}
+          <TabsContent value="editor" className="m-0">
+            <EditorSection
+              settings={settings.editor}
+              updateEditorSettings={updateEditorSettings}
+            />
+          </TabsContent>
 
-            {/* Layout Settings */}
-            <TabsContent value="layout" className="m-0">
-              <LayoutSection
-                settings={settings.layout}
-                updateLayoutSettings={updateLayoutSettings}
-              />
-            </TabsContent>
+          {/* Layout Settings */}
+          <TabsContent value="layout" className="m-0">
+            <LayoutSection
+              settings={settings.layout}
+              updateLayoutSettings={updateLayoutSettings}
+            />
+          </TabsContent>
 
-            {/* Shortcuts Settings */}
-            <TabsContent value="shortcuts" className="m-0">
-              <KeyboardSection />
-            </TabsContent>
-          </div>
-        </ScrollArea>
+          {/* Shortcuts Settings */}
+          <TabsContent value="shortcuts" className="m-0">
+            <KeyboardSection />
+          </TabsContent>
+        </div>
       </Tabs>
 
       {/* Billing Section */}

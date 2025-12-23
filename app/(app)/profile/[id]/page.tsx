@@ -58,6 +58,7 @@ interface UserProfile {
     id: string
     title: string
     synopsis: string | null
+    timelapseShareId: string | null
     createdAt: string
     updatedAt: string
   }>

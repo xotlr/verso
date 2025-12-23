@@ -85,7 +85,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <ProductivityProvider>
-      <SidebarProvider defaultOpen={false}>
+      <SidebarProvider defaultOpen={false} open={false}>
         {/* Sidebar - slides out in focus mode */}
         <div className={cn(
           "transition-all duration-500 ease-out",

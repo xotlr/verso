@@ -64,6 +64,7 @@ interface UserProfileResponse extends Omit<UserProfile, 'verifiedBadges'> {
     id: string
     title: string
     synopsis: string | null
+    timelapseShareId: string | null
     createdAt: string
     updatedAt: string
   }>

@@ -215,14 +215,14 @@ export function WorkTab({
       <div className="space-y-2">
         <Label>Replay Showcase</Label>
         <Select
-          value={formData.showcaseTimelapse}
-          onValueChange={(value) => onChange('showcaseTimelapse', value)}
+          value={formData.showcaseTimelapse || '__none__'}
+          onValueChange={(value) => onChange('showcaseTimelapse', value === '__none__' ? '' : value)}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select a screenplay timelapse" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">None</SelectItem>
+            <SelectItem value="__none__">None</SelectItem>
             {user.screenplays?.filter((s) => s.timelapseShareId).map((screenplay) => (
               <SelectItem key={screenplay.id} value={screenplay.timelapseShareId!}>
                 {screenplay.title}

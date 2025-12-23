@@ -133,13 +133,127 @@ const handleTab: Command = (state, dispatch, view) => {
 };
 
 /**
+ * Merge current block with adjacent blocks of the same type.
+ * This is used after changing element type to restore document structure
+ * when the user extracts text and then changes it back.
+ */
+function mergeAdjacentBlocks(view: EditorView): void {
+  const { state } = view;
+  const { $head } = state.selection;
+  const currentPos = $head.before();
+  const currentNode = $head.parent;
+  const currentType = currentNode.type.name;
+
+  let tr = state.tr;
+  let merged = false;
+
+  // Get parent (doc) and current block index
+  const parent = $head.node(-1);
+  const indexInParent = $head.index(-1);
+
+  // Try to merge with NEXT block first (so positions don't shift for previous merge)
+  if (indexInParent < parent.childCount - 1) {
+    const nextNode = parent.child(indexInParent + 1);
+    if (nextNode.type.name === currentType && nextNode.isTextblock) {
+      // Merge next block into current
+      const nextPos = currentPos + currentNode.nodeSize;
+      const nextContent = nextNode.textContent;
+
+      if (nextContent) {
+        // Delete the next block
+        tr = tr.delete(nextPos, nextPos + nextNode.nodeSize);
+        // Append its content to current block (with a space if both have content)
+        const insertPos = currentPos + currentNode.nodeSize - 1;
+        const separator = currentNode.textContent && nextContent ? ' ' : '';
+        tr = tr.insertText(separator + nextContent, insertPos);
+        merged = true;
+      } else {
+        // Next block is empty, just delete it
+        tr = tr.delete(nextPos, nextPos + nextNode.nodeSize);
+        merged = true;
+      }
+    }
+  }
+
+  // Try to merge with PREVIOUS block
+  if (indexInParent > 0) {
+    const prevNode = parent.child(indexInParent - 1);
+    if (prevNode.type.name === currentType && prevNode.isTextblock) {
+      // We need to recalculate positions since we may have modified the doc
+      const resolvedPos = tr.doc.resolve(tr.mapping.map(currentPos));
+      const newIndexInParent = resolvedPos.index(-1);
+
+      if (newIndexInParent > 0) {
+        const newParent = resolvedPos.node(-1);
+        const newPrevNode = newParent.child(newIndexInParent - 1);
+        const currentMappedPos = resolvedPos.before();
+        const currentMappedNode = resolvedPos.parent;
+
+        if (newPrevNode.type.name === currentType) {
+          const prevPos = currentMappedPos - newPrevNode.nodeSize;
+          const currentContent = currentMappedNode.textContent;
+          const prevContent = newPrevNode.textContent;
+
+          if (currentContent) {
+            // Append current content to previous block
+            const insertPos = prevPos + newPrevNode.nodeSize - 1;
+            const separator = prevContent && currentContent ? ' ' : '';
+            tr = tr.insertText(separator + currentContent, insertPos);
+            // Delete current block
+            const deleteStart = tr.mapping.map(currentMappedPos);
+            const mappedCurrentNode = tr.doc.nodeAt(deleteStart);
+            if (mappedCurrentNode) {
+              tr = tr.delete(deleteStart, deleteStart + mappedCurrentNode.nodeSize);
+            }
+            merged = true;
+          } else {
+            // Current block is empty, just delete it
+            tr = tr.delete(currentMappedPos, currentMappedPos + currentMappedNode.nodeSize);
+            merged = true;
+          }
+
+          // Position cursor at end of merged content in previous block
+          if (merged) {
+            const newCursorPos = prevPos + newPrevNode.nodeSize - 1 + (prevContent && currentContent ? 1 : 0) + currentContent.length;
+            const mappedCursorPos = tr.mapping.map(newCursorPos);
+            try {
+              const $pos = tr.doc.resolve(mappedCursorPos);
+              tr.setSelection(TextSelection.near($pos));
+            } catch {
+              // If position is invalid, just let ProseMirror handle cursor placement
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (merged) {
+    tr.scrollIntoView();
+    view.dispatch(tr);
+  }
+}
+
+/**
  * Shift+Tab command: Cycle to previous element type.
+ * After changing type, merges with adjacent blocks of the same type
+ * to restore document structure when undoing Tab extractions.
  */
 const handleShiftTab: Command = (state, dispatch, view) => {
   const currentType = getCurrentElementType(state);
   const prevType = getPreviousElementType(currentType);
 
-  return setElementType(prevType)(state, dispatch, view);
+  const result = setElementType(prevType)(state, dispatch, view);
+
+  // After changing type, merge with adjacent same-type blocks
+  if (result && view) {
+    // Use requestAnimationFrame to ensure the type change is applied first
+    requestAnimationFrame(() => {
+      mergeAdjacentBlocks(view);
+    });
+  }
+
+  return result;
 };
 
 /**
