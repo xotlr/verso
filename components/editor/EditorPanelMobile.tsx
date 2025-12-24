@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useRef, useCallback } from 'react';
-import { cn } from '@/lib/utils';
 import { useEditorPanel, type EditorPanelType } from './EditorPanelContext';
 import { ScenesPanel } from './panels/ScenesPanel';
 import { CharactersPanel } from './panels/CharactersPanel';
@@ -13,8 +12,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
-import { Film, Users, Clapperboard } from 'lucide-react';
-import { CiStickyNote } from 'react-icons/ci';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { SceneInfo, CharacterInfo } from '@/hooks/editor/use-prosemirror-editor';
 import type { EditorView } from 'prosemirror-view';
 import type { SceneWithShots, Shot, DetectedShot } from '@/types/shotlist';
@@ -33,50 +31,6 @@ interface EditorPanelMobileProps {
   onAddDetectedShot?: (shot: DetectedShot) => void;
 }
 
-interface TabButtonProps {
-  panel: EditorPanelType;
-  activePanel: EditorPanelType | null;
-  onClick: (panel: EditorPanelType) => void;
-  icon: React.ReactNode;
-  label: string;
-  count?: number;
-}
-
-function TabButton({
-  panel,
-  activePanel,
-  onClick,
-  icon,
-  label,
-  count = 0,
-}: TabButtonProps) {
-  const isActive = activePanel === panel;
-
-  return (
-    <button
-      onClick={() => onClick(panel)}
-      aria-label={label}
-      className={cn(
-        'flex-1 flex items-center justify-center py-3 px-2',
-        'touch-manipulation min-h-[48px]',
-        'transition-colors',
-        isActive
-          ? 'text-primary border-b-2 border-primary bg-primary/5'
-          : 'text-muted-foreground border-b-2 border-transparent'
-      )}
-    >
-      <div className="relative">
-        {icon}
-        {count > 0 && (
-          <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground px-1">
-            {count > 99 ? '99+' : count}
-          </span>
-        )}
-      </div>
-    </button>
-  );
-}
-
 function getPanelTitle(panel: EditorPanelType | null): string {
   switch (panel) {
     case 'scenes':
@@ -87,6 +41,8 @@ function getPanelTitle(panel: EditorPanelType | null): string {
       return 'Shotlist';
     case 'notes':
       return 'Notes';
+    case 'settings':
+      return 'Settings';
     default:
       return 'Panel';
   }
@@ -198,17 +154,6 @@ export function EditorPanelMobile({
   // Only render on mobile
   if (!isMobile) return null;
 
-  const handlePanelChange = (panel: EditorPanelType) => {
-    // On mobile, don't toggle off - just switch
-    setActivePanel(panel);
-  };
-
-  // Calculate shot count
-  const shotCount = scenesWithShots.reduce(
-    (acc, scene) => acc + scene.shots.length,
-    0
-  );
-
   // For notes panel, use prop or fallback to first scene
   const notesSceneId = currentSceneId ?? scenes[0]?.id;
 
@@ -216,60 +161,16 @@ export function EditorPanelMobile({
   const currentPanel = activePanel || 'scenes';
 
   return (
-    <>
-      {/* Subtle edge indicator for swipe gesture discoverability */}
-      {!mobileOpen && (
-        <div
-          className="fixed right-0 top-1/2 -translate-y-1/2 z-30 pointer-events-none md:hidden"
-          aria-hidden="true"
-        >
-          <div className="w-1 h-16 bg-primary/20 rounded-l-full" />
-        </div>
-      )}
-
-      <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
-        <DrawerContent className="max-h-[90vh] flex flex-col">
-        <DrawerHeader className="sr-only">
-          <DrawerTitle>{getPanelTitle(currentPanel)}</DrawerTitle>
+    <Drawer open={mobileOpen} onOpenChange={setMobileOpen}>
+      <DrawerContent className="max-h-[70vh] flex flex-col !bottom-14">
+        <DrawerHeader className="border-b border-border py-3 px-4">
+          <DrawerTitle className="text-base font-semibold">
+            {getPanelTitle(currentPanel)}
+          </DrawerTitle>
         </DrawerHeader>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-border shrink-0 bg-card">
-          <TabButton
-            panel="scenes"
-            activePanel={currentPanel}
-            onClick={handlePanelChange}
-            icon={<Film className="h-6 w-6" />}
-            label="Scenes"
-            count={scenes.length}
-          />
-          <TabButton
-            panel="characters"
-            activePanel={currentPanel}
-            onClick={handlePanelChange}
-            icon={<Users className="h-6 w-6" />}
-            label="Characters"
-            count={characters.length}
-          />
-          <TabButton
-            panel="shotlist"
-            activePanel={currentPanel}
-            onClick={handlePanelChange}
-            icon={<Clapperboard className="h-6 w-6" />}
-            label="Shots"
-            count={shotCount}
-          />
-          <TabButton
-            panel="notes"
-            activePanel={currentPanel}
-            onClick={handlePanelChange}
-            icon={<CiStickyNote className="h-6 w-6" />}
-            label="Notes"
-          />
-        </div>
-
         {/* Panel Content */}
-        <div className="flex-1 overflow-hidden">
+        <ScrollArea className="flex-1">
           {currentPanel === 'scenes' && (
             <ScenesPanel
               scenes={scenes}
@@ -309,9 +210,14 @@ export function EditorPanelMobile({
               className="h-full"
             />
           )}
-        </div>
+
+          {currentPanel === 'settings' && (
+            <div className="p-4 text-muted-foreground">
+              Settings panel coming soon
+            </div>
+          )}
+        </ScrollArea>
       </DrawerContent>
     </Drawer>
-    </>
   );
 }

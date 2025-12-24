@@ -76,7 +76,7 @@ export const PageFrameRenderer = memo(function PageFrameRenderer({
       style={{
         height: `${totalHeight}px`,
         width: `${PAGE_WIDTH_PX}px`,
-        transform: `translateX(-50%) scale(${scale})`,
+        transform: `translateX(-50%) scale(var(--editor-zoom, ${scale}))`,
         transformOrigin: 'top center',
       }}
     >
@@ -112,7 +112,7 @@ export const PageGapRenderer = memo(function PageGapRenderer({
       style={{
         height: `${totalHeight}px`,
         width: `${PAGE_WIDTH_PX}px`,
-        transform: `translateX(-50%) scale(${scale})`,
+        transform: `translateX(-50%) scale(var(--editor-zoom, ${scale}))`,
         transformOrigin: 'top center',
       }}
     >

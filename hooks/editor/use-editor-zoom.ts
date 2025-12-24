@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef, RefObject } from 'react';
-import { flushSync } from 'react-dom';
 
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2.0;
@@ -85,6 +84,16 @@ export function useEditorZoom({
   zoomRef.current = zoom;
 
   /**
+   * Apply zoom directly to DOM via CSS variable (no React re-render).
+   * This provides instant visual feedback for smooth zooming.
+   */
+  const applyZoomToDOM = useCallback((newZoom: number) => {
+    const scrollContainer = scrollContainerRef?.current;
+    if (!scrollContainer) return;
+    scrollContainer.style.setProperty('--editor-zoom', String(newZoom));
+  }, [scrollContainerRef]);
+
+  /**
    * Adjust scroll position instantly when zoom changes.
    * Temporarily disables smooth scroll to ensure instant adjustment.
    */
@@ -116,25 +125,33 @@ export function useEditorZoom({
     pointers: new Map(),
   });
 
+  // Debounce timer for React state sync during gestures
+  const stateSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Update zoom when fit-to-width changes (window resize) - but only if user hasn't manually zoomed
   useEffect(() => {
     if (!isUserZoomed) {
       setZoomState(fitToWidthScale);
+      applyZoomToDOM(fitToWidthScale);
     }
-  }, [fitToWidthScale, isUserZoomed]);
+  }, [fitToWidthScale, isUserZoomed, applyZoomToDOM]);
+
+  // Initialize CSS variable on mount and when zoom state changes externally
+  useEffect(() => {
+    applyZoomToDOM(zoom);
+  }, [zoom, applyZoomToDOM]);
 
   // Set zoom with clamping and scroll adjustment
   const setZoom = useCallback((newZoom: number) => {
     const oldZoom = zoomRef.current;
     const clampedZoom = clamp(newZoom, minZoom, maxZoom);
-    zoomRef.current = clampedZoom; // Update immediately for rapid events
-    flushSync(() => {
-      setZoomState(clampedZoom);
-      setIsUserZoomed(true);
-    });
+    zoomRef.current = clampedZoom;
+    applyZoomToDOM(clampedZoom); // Instant visual update
     adjustScrollForZoom(oldZoom, clampedZoom);
+    setZoomState(clampedZoom); // Async state sync
+    setIsUserZoomed(true);
     onZoomChange?.(clampedZoom);
-  }, [minZoom, maxZoom, onZoomChange, adjustScrollForZoom]);
+  }, [minZoom, maxZoom, onZoomChange, adjustScrollForZoom, applyZoomToDOM]);
 
   // Zoom in to next preset
   const zoomIn = useCallback(() => {
@@ -149,14 +166,13 @@ export function useEditorZoom({
   // Reset to fit-to-width
   const resetZoom = useCallback(() => {
     const oldZoom = zoomRef.current;
-    zoomRef.current = fitToWidthScale; // Update immediately for rapid events
-    flushSync(() => {
-      setZoomState(fitToWidthScale);
-      setIsUserZoomed(false);
-    });
+    zoomRef.current = fitToWidthScale;
+    applyZoomToDOM(fitToWidthScale); // Instant visual update
     adjustScrollForZoom(oldZoom, fitToWidthScale);
+    setZoomState(fitToWidthScale); // Async state sync
+    setIsUserZoomed(false);
     onZoomChange?.(fitToWidthScale);
-  }, [fitToWidthScale, onZoomChange, adjustScrollForZoom]);
+  }, [fitToWidthScale, onZoomChange, adjustScrollForZoom, applyZoomToDOM]);
 
   // Handle wheel zoom (Ctrl/Cmd + scroll)
   useEffect(() => {
@@ -175,13 +191,19 @@ export function useEditorZoom({
       const delta = -e.deltaY * WHEEL_SENSITIVITY;
       const newZoom = clamp(oldZoom + delta, minZoom, maxZoom);
 
-      zoomRef.current = newZoom; // Update immediately for rapid events
-      flushSync(() => {
+      zoomRef.current = newZoom;
+      applyZoomToDOM(newZoom); // Instant visual update
+      adjustScrollForZoom(oldZoom, newZoom);
+
+      // Debounce React state sync - only update when gesture pauses
+      if (stateSyncTimerRef.current) {
+        clearTimeout(stateSyncTimerRef.current);
+      }
+      stateSyncTimerRef.current = setTimeout(() => {
         setZoomState(newZoom);
         setIsUserZoomed(true);
-      });
-      adjustScrollForZoom(oldZoom, newZoom);
-      onZoomChange?.(newZoom);
+        onZoomChange?.(newZoom);
+      }, 50);
     };
 
     // Use passive: false to allow preventDefault
@@ -190,7 +212,7 @@ export function useEditorZoom({
     return () => {
       container.removeEventListener('wheel', handleWheel);
     };
-  }, [containerRef, minZoom, maxZoom, onZoomChange, adjustScrollForZoom]);
+  }, [containerRef, minZoom, maxZoom, onZoomChange, adjustScrollForZoom, applyZoomToDOM]);
 
   // Handle pinch-to-zoom gestures
   useEffect(() => {
@@ -233,12 +255,18 @@ export function useEditorZoom({
       const scale = currentDistance / initialDistance;
       const newZoom = clamp(initialZoom * scale, minZoom, maxZoom);
 
-      zoomRef.current = newZoom; // Update immediately for rapid events
-      flushSync(() => {
+      zoomRef.current = newZoom;
+      applyZoomToDOM(newZoom); // Instant visual update
+      adjustScrollForZoom(oldZoom, newZoom);
+
+      // Debounce React state sync
+      if (stateSyncTimerRef.current) {
+        clearTimeout(stateSyncTimerRef.current);
+      }
+      stateSyncTimerRef.current = setTimeout(() => {
         setZoomState(newZoom);
         setIsUserZoomed(true);
-      });
-      adjustScrollForZoom(oldZoom, newZoom);
+      }, 50);
     };
 
     const handlePointerUp = (e: PointerEvent) => {
@@ -269,7 +297,7 @@ export function useEditorZoom({
       container.removeEventListener('pointercancel', handlePointerCancel);
       container.removeEventListener('pointerleave', handlePointerUp);
     };
-  }, [containerRef, minZoom, maxZoom, adjustScrollForZoom]);
+  }, [containerRef, minZoom, maxZoom, adjustScrollForZoom, applyZoomToDOM]);
 
   return {
     zoom,

@@ -516,7 +516,7 @@ export function ProseMirrorEditor({
               isDiscreteMode && 'pm-content-layer'
             )}
             style={{
-              transform: `translateX(-50%) scale(${scale})`,
+              transform: `translateX(-50%) scale(var(--editor-zoom, ${scale}))`,
               transformOrigin: 'top center',
               position: 'relative',
               left: '50%',
@@ -572,8 +572,8 @@ export function ProseMirrorEditor({
         />
       )}
 
-      {/* Mobile editor toolbar - hidden in read-only mode */}
-      {isMobile && isReady && editable && (
+      {/* Mobile editor toolbar - disabled, using EditorBottomNav instead */}
+      {false && isMobile && isReady && editable && (
         <MobileEditorToolbar
           onUndo={handleUndo}
           onRedo={handleRedo}

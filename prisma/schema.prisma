@@ -841,14 +841,45 @@ model Shot {
   // Status
   status String @default("planned") // planned, setup, shot, approved
 
+  // Production tracking (on-set)
+  takeCount       Int       @default(0)  // Number of takes
+  circledTake     Int?                   // Selected/circled take
+  quickNotes      String?   @db.Text     // Quick on-set notes
+  statusChangedAt DateTime?              // When status last changed
+  statusChangedBy String?                // User who changed status
+
+  // Script Supervisor tracking
+  supervisorNotes String?   @db.Text     // Detailed take notes
+  lineReading     String?                // How dialogue was delivered
+  continuityNotes String?   @db.Text     // Wardrobe, props, positioning
+  isFlagged       Boolean   @default(false)  // Continuity concern flag
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
   screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  takeNotes  TakeNote[]
 
   @@index([screenplayId])
   @@index([screenplayId, sceneId])
+}
+
+// Per-take notes from Script Supervisor
+model TakeNote {
+  id        String   @id @default(cuid())
+  shotId    String
+  takeNum   Int
+  rating    String?  // good | bad | circle | print
+  notes     String?  @db.Text
+  timecode  String?  // TC in/out
+  createdAt DateTime @default(now())
+  createdBy String
+
+  shot      Shot     @relation(fields: [shotId], references: [id], onDelete: Cascade)
+
+  @@unique([shotId, takeNum])
+  @@index([shotId])
 }
 
 // Note = Project notes (research, character, location, etc.)

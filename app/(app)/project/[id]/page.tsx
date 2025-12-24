@@ -72,6 +72,9 @@ import { CallsheetCard, CallsheetCardSkeleton, CallsheetDialog, CallsheetExportD
 import type { CallsheetCardData, CallsheetCreateInput } from '@/types/callsheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { ProGate, ShotChecklist, ProgressDashboard, ProductionEmpty } from '@/components/production';
+import type { ProductionProgress } from '@/types/production-tracking';
+import { LuClapperboard } from 'react-icons/lu';
 
 type ResourceFilter = 'all' | 'videos' | 'docs' | 'visual' | 'other';
 
@@ -138,7 +141,7 @@ const STATUS_CONFIG: Record<ProjectStatus, { label: string; color: string }> = {
   COMPLETED: { label: 'Completed', color: 'bg-emerald-600' },
 };
 
-type TabValue = 'screenplays' | 'notes' | 'schedules' | 'budgets' | 'resources' | 'crew' | 'reports' | 'callsheets';
+type TabValue = 'screenplays' | 'notes' | 'schedules' | 'budgets' | 'resources' | 'crew' | 'reports' | 'callsheets' | 'production';
 
 // Format budget for display
 function formatBudget(budget: number): string {
@@ -830,6 +833,10 @@ export default function ProjectPage() {
                   )}
                   <span className="hidden sm:inline">Callsheets</span>
                 </TabsTrigger>
+                <TabsTrigger value="production" className="gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-sm">
+                  <LuClapperboard className={cn("h-4 w-4 flex-shrink-0", activeTab === 'production' && "fill-current")} />
+                  <span className="hidden sm:inline">Production</span>
+                </TabsTrigger>
               </TabsList>
 
               {activeTab === 'screenplays' && (
@@ -1206,9 +1213,147 @@ export default function ProjectPage() {
                 </div>
               )}
             </TabsContent>
+
+            {/* Production Tab */}
+            <TabsContent value="production">
+              <ProGate feature="Production Tracking">
+                <ProductionTabContent
+                  screenplays={project.screenplays}
+                />
+              </ProGate>
+            </TabsContent>
           </Tabs>
         </div>
       </ScrollArea>
     </>
+  );
+}
+
+// Production tab content component
+interface Shot {
+  id: string;
+  sceneId: string;
+  shotNumber: number;
+  description: string;
+  shotType?: string | null;
+  cameraAngle?: string | null;
+  status: string;
+  takeCount: number;
+  circledTake?: number | null;
+  quickNotes?: string | null;
+}
+
+interface SceneInfo {
+  id: string;
+  heading: string;
+  number: number;
+}
+
+function ProductionTabContent({
+  screenplays,
+}: {
+  screenplays: Screenplay[]
+}) {
+  const [selectedScreenplayId, setSelectedScreenplayId] = useState<string | null>(
+    screenplays.length > 0 ? screenplays[0].id : null
+  );
+  const [shots, setShots] = useState<Shot[]>([]);
+  const [scenes, setScenes] = useState<SceneInfo[]>([]);
+  const [progress, setProgress] = useState<ProductionProgress | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch shots and progress when screenplay changes
+  useEffect(() => {
+    if (!selectedScreenplayId) return;
+
+    const fetchProductionData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch shots
+        const shotsRes = await fetch(`/api/screenplays/${selectedScreenplayId}/shots`);
+        if (shotsRes.ok) {
+          const { shots: fetchedShots } = await shotsRes.json();
+          setShots(fetchedShots || []);
+
+          // Extract unique scenes from shots
+          const sceneMap = new Map<string, { id: string; heading: string; number: number }>();
+          let sceneNum = 1;
+          (fetchedShots as Shot[])?.forEach((shot) => {
+            if (!sceneMap.has(shot.sceneId)) {
+              sceneMap.set(shot.sceneId, {
+                id: shot.sceneId,
+                heading: `Scene ${sceneNum}`,
+                number: sceneNum,
+              });
+              sceneNum++;
+            }
+          });
+          setScenes(Array.from(sceneMap.values()));
+        }
+
+        // Fetch progress
+        const progressRes = await fetch(`/api/screenplays/${selectedScreenplayId}/shots/progress`);
+        if (progressRes.ok) {
+          const { progress: fetchedProgress } = await progressRes.json();
+          setProgress(fetchedProgress);
+        }
+      } catch (error) {
+        console.error('Error fetching production data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProductionData();
+  }, [selectedScreenplayId]);
+
+  if (screenplays.length === 0) {
+    return (
+      <ProductionEmpty
+        title="No screenplays yet"
+        description="Create a screenplay first, then add shots to track production progress."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Screenplay selector */}
+      {screenplays.length > 1 && (
+        <Select
+          value={selectedScreenplayId || ''}
+          onValueChange={setSelectedScreenplayId}
+        >
+          <SelectTrigger className="w-full sm:w-[300px]">
+            <SelectValue placeholder="Select screenplay" />
+          </SelectTrigger>
+          <SelectContent>
+            {screenplays.map((sp) => (
+              <SelectItem key={sp.id} value={sp.id}>
+                {sp.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {/* Progress dashboard */}
+      <ProgressDashboard
+        progress={progress}
+        isLoading={isLoading}
+        variant="compact"
+      />
+
+      {/* Shot checklist */}
+      {selectedScreenplayId && (
+        <ShotChecklist
+          screenplayId={selectedScreenplayId}
+          shots={shots}
+          scenes={scenes}
+          isLoading={isLoading}
+          onShotsChange={setShots}
+        />
+      )}
+    </div>
   );
 }

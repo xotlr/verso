@@ -14,7 +14,7 @@ import React, {
 export const EDITOR_PANEL_WIDTH = 360; // 22.5rem = 360px (increased from 288px for better readability)
 export const ACTIVITY_BAR_WIDTH = 48;  // w-12 = 3rem = 48px
 
-export type EditorPanelType = 'scenes' | 'characters' | 'shotlist' | 'notes';
+export type EditorPanelType = 'scenes' | 'characters' | 'shotlist' | 'notes' | 'settings';
 
 interface EditorPanelContextValue {
   // Desktop panel state
