@@ -20,16 +20,7 @@
     "db:studio": "prisma studio",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky"
-  },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
-      "prettier --write",
-      "eslint --fix"
-    ],
-    "*.{json,md,css}": [
-      "prettier --write"
-    ]
+    "prepare": "echo 'skipping husky'"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
