@@ -6,7 +6,7 @@
  */
 
 import * as cheerio from 'cheerio';
-import { detectEmbedType, type EmbedType, type EmbedInfo } from './embed-utils';
+import { detectEmbedType, type EmbedType, type EmbedInfo } from './export/embed';
 
 export interface UrlMetadata {
   url: string;

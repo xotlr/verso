@@ -21,7 +21,7 @@ import {
   isTransition,
   detectShot,
   FADE_OUT_REGEX,
-} from '@/lib/screenplay-patterns';
+} from '@/lib/screenplay/patterns';
 
 // Markdown-specific patterns
 const MD_PATTERNS = {

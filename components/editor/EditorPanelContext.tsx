@@ -16,6 +16,13 @@ export const ACTIVITY_BAR_WIDTH = 48;  // w-12 = 3rem = 48px
 
 export type EditorPanelType = 'scenes' | 'characters' | 'shotlist' | 'notes' | 'settings';
 
+export interface PanelCounts {
+  scenes: number;
+  characters: number;
+  shots: number;
+  notes: number;
+}
+
 interface EditorPanelContextValue {
   // Desktop panel state
   open: boolean;
@@ -41,6 +48,10 @@ interface EditorPanelContextValue {
   // Computed values
   totalWidth: number;
   isCollapsed: boolean;
+
+  // Panel counts (for badges)
+  counts: PanelCounts;
+  setCounts: (counts: Partial<PanelCounts>) => void;
 }
 
 const EditorPanelContext = createContext<EditorPanelContextValue | null>(null);
@@ -51,6 +62,11 @@ export function useEditorPanel() {
     throw new Error('useEditorPanel must be used within EditorPanelProvider');
   }
   return context;
+}
+
+/** Safe hook that returns null if outside provider (for layout-level components) */
+export function useEditorPanelOptional() {
+  return useContext(EditorPanelContext);
 }
 
 interface EditorPanelProviderProps extends PropsWithChildren {
@@ -72,6 +88,18 @@ export function EditorPanelProvider({
 
   // Mobile state
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Panel counts for badges
+  const [counts, setCountsState] = useState<PanelCounts>({
+    scenes: 0,
+    characters: 0,
+    shots: 0,
+    notes: 0,
+  });
+
+  const setCounts = useCallback((newCounts: Partial<PanelCounts>) => {
+    setCountsState(prev => ({ ...prev, ...newCounts }));
+  }, []);
 
   // Responsive detection
   const [isMobile, setIsMobile] = useState(false);
@@ -142,6 +170,8 @@ export function EditorPanelProvider({
       isTablet,
       totalWidth,
       isCollapsed,
+      counts,
+      setCounts,
     }),
     [
       open,
@@ -154,6 +184,8 @@ export function EditorPanelProvider({
       isTablet,
       totalWidth,
       isCollapsed,
+      counts,
+      setCounts,
     ]
   );
 

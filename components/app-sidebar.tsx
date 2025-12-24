@@ -13,7 +13,6 @@ import {
   BarChart3,
   PenTool,
   LogOut,
-  ChevronsUpDown,
   Sparkles,
   CreditCard,
   FolderOpen,
@@ -55,10 +54,9 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
-  useSidebar,
 } from "@/components/ui/sidebar";
 import { NavMenuItem } from "@/components/nav-menu-item";
-import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts-dialog";
+import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts";
 import { FormattingGuideDialog } from "@/components/formatting-guide-dialog";
 import { TemplateSelector } from "@/components/template-selector";
 import { NewProjectDialog } from "@/components/project/new-project-dialog";
@@ -103,9 +101,7 @@ async function fetchScreenplayData(screenplayId: string): Promise<{ title: strin
 export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: propScreenplayTitle }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { state } = useSidebar();
   const { data: session } = useSession();
-  const isCollapsed = state === "collapsed";
   const mounted = useMounted();
 
   const user = session?.user;
@@ -218,9 +214,9 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   ] : [];
 
   return (
-    <Sidebar collapsible="icon" className="bg-sidebar sidebar-animated">
+    <Sidebar className="bg-sidebar sidebar-animated">
       {/* Header */}
-      <SidebarHeader className="gap-3">
+      <SidebarHeader className="gap-3 p-0">
         {/* Logo - matches header height for alignment */}
         <div className="flex h-11 items-center justify-center">
           <Link href="/home" className="flex items-center justify-center">
@@ -229,18 +225,18 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
         </div>
 
         {/* Create Button with Dropdown */}
-        <SidebarMenu className="gap-1.5">
+        <SidebarMenu className="gap-1.5 px-2 pt-2">
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
+                  tooltip="Create"
                   className={cn(
-                    "w-full justify-center rounded-md bg-primary text-primary-foreground shadow-sm",
-                    "hover:bg-primary/90 active:scale-[0.98] transition-all"
+                    "justify-center rounded-lg bg-primary text-primary-foreground shadow-sm",
+                    "hover:bg-primary/90 transition-all"
                   )}
                 >
                   <Plus className="h-4 w-4" />
-                  <span className="ml-2 group-data-[collapsible=icon]:sr-only">Create</span>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="right" align="start" className="w-48">
@@ -273,7 +269,6 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                   icon={item.icon}
                   activeIcon={item.activeIcon}
                   pathname={pathname}
-                  isCollapsed={isCollapsed}
                   index={index}
                   notification={item.notification}
                 />
@@ -287,11 +282,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
         {mounted && screenplayId && (
           <SidebarGroup>
             <SidebarGroupLabel className="font-semibold">
-              {isCollapsed ? (
-                <PenTool className="h-4 w-4 text-primary" />
-              ) : (
-                <span className="truncate">{screenplayTitle || "Current Screenplay"}</span>
-              )}
+              <PenTool className="h-4 w-4 text-primary" />
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -302,7 +293,6 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                     url={item.url}
                     icon={item.icon}
                     pathname={pathname}
-                    isCollapsed={isCollapsed}
                     index={index}
                   />
                 ))}
@@ -317,7 +307,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
             <SidebarMenuItem>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton>
+                  <SidebarMenuButton tooltip="Resources">
                     <HelpCircle className="h-4 w-4 text-muted-foreground" />
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
@@ -351,30 +341,29 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
       </SidebarContent>
 
       {/* Footer */}
-      <SidebarFooter className="p-2 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:py-2">
-        <SidebarMenu className="group-data-[collapsible=icon]:px-0">
+      <SidebarFooter className="px-2 py-2">
+        <SidebarMenu className="px-0">
           {/* User Account */}
           {user && (
             <SidebarMenuItem>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuButton
-                    size="lg"
+                    size="md"
+                    tooltip={user.name || "Account"}
                     className={cn(
                       "sidebar-user-button",
-                      "bg-muted/50 border border-border/50 rounded-xl",
+                      "bg-muted/50 border border-border/50 rounded-lg",
                       "hover:bg-primary/10 hover:border-primary/40",
                       "data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                      // Collapsed state - proper sizing without !important
-                      "group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:w-12",
-                      "group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center"
+                      "p-0 justify-center"
                     )}
                   >
                     <div className="relative sidebar-avatar-animated">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="object-cover" />
-                        <AvatarFallback className="bg-muted text-muted-foreground font-medium">
+                      <Avatar className="h-8 w-8 rounded-md">
+                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="object-cover rounded-md" />
+                        <AvatarFallback className="bg-muted text-muted-foreground font-medium rounded-md">
                           {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U"}
                         </AvatarFallback>
                       </Avatar>
@@ -384,15 +373,6 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                         </span>
                       )}
                     </div>
-                    {!isCollapsed && (
-                      <>
-                        <div className="grid flex-1 text-left text-sm leading-tight sidebar-text-animated">
-                          <span className="truncate font-semibold">{user.name || "User"}</span>
-                          <span className="truncate text-xs text-muted-foreground">{user.email}</span>
-                        </div>
-                        <ChevronsUpDown className="ml-auto size-4 text-muted-foreground sidebar-chevron-animated" />
-                      </>
-                    )}
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
@@ -506,5 +486,3 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
     </Sidebar>
   );
 }
-
-export default AppSidebar;

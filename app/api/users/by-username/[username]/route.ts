@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { rateLimit, RATE_LIMITS, getClientIp } from '@/lib/rate-limit'
 
 // GET /api/users/by-username/[username] - Get user by username
 export async function GET(
@@ -8,6 +9,17 @@ export async function GET(
   { params }: { params: Promise<{ username: string }> }
 ) {
   try {
+    // Rate limit to prevent username enumeration
+    const clientIp = getClientIp(request)
+    const rateLimitResult = await rateLimit(`username-lookup:${clientIp}`, RATE_LIMITS.API)
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      )
+    }
+
     const { username } = await params
     const session = await auth()
 
@@ -119,14 +131,18 @@ export async function GET(
       },
     })
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
+    // Check if user exists and is accessible
+    // Use consistent error message to prevent username enumeration
+    const isOwnProfile = user && session?.user?.id === user.id
+    const isAccessible = user && (isOwnProfile || user.isPublic)
 
-    // Check if profile is public (unless it's own profile)
-    const isOwnProfile = session?.user?.id === user.id
-    if (!isOwnProfile && !user.isPublic) {
-      return NextResponse.json({ error: 'Profile is private' }, { status: 403 })
+    if (!isAccessible) {
+      // Return same error whether user doesn't exist or is private
+      // This prevents attackers from determining if a username is taken
+      return NextResponse.json(
+        { error: 'Profile not available' },
+        { status: 404 }
+      )
     }
 
     // If it's own profile, include email

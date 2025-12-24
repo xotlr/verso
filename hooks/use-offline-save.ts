@@ -13,15 +13,6 @@ import {
   type OfflineDraft,
 } from '@/lib/pwa/offline-db'
 
-// Debug logging for sync operations
-const DEBUG_SYNC = true // Set to false in production
-
-const logSync = (message: string, data?: any) => {
-  if (DEBUG_SYNC) {
-    console.log(`[Sync Debug] ${message}`, data || '')
-  }
-}
-
 export type SyncStatus = 'synced' | 'pending' | 'syncing' | 'offline'
 
 interface UseOfflineSaveOptions {
@@ -90,11 +81,6 @@ export function useOfflineSave({
     title: string
   ): Promise<{ success: boolean; updatedAt?: number }> => {
     try {
-      logSync('Starting server save', {
-        screenplayId,
-        contentLength: content.length,
-      })
-
       const response = await fetch(`/api/screenplays/${screenplayId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -134,9 +120,6 @@ export function useOfflineSave({
       }
 
       const data = await response.json()
-      logSync('Server save successful', {
-        updatedAt: new Date(data.updatedAt).getTime(),
-      })
       return {
         success: true,
         updatedAt: new Date(data.updatedAt).getTime(),
@@ -151,14 +134,12 @@ export function useOfflineSave({
   const processSyncQueue = useCallback(async () => {
     if (!isMountedRef.current || isSyncing) return
 
-    logSync('Processing sync queue')
     setIsSyncing(true)
     setSyncStatus('syncing')
 
     try {
       const queue = await getSyncQueue()
       const screenplayItems = queue.filter(item => item.screenplayId === screenplayId)
-      logSync(`Found ${screenplayItems.length} items in sync queue`)
 
       for (const item of screenplayItems) {
         if (!isMountedRef.current) break

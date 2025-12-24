@@ -9,12 +9,6 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip";
 
 interface NavMenuItemProps {
   title: string;
@@ -23,7 +17,6 @@ interface NavMenuItemProps {
   activeIcon?: IconType;  // Optional filled icon for active state
   notification?: number | boolean;
   pathname: string;
-  isCollapsed: boolean;
   index?: number;
   onClick?: () => void;
 }
@@ -35,7 +28,6 @@ export function NavMenuItem({
   activeIcon: ActiveIcon,
   notification,
   pathname,
-  isCollapsed: _isCollapsed,
   index = 0,
   onClick,
 }: NavMenuItemProps) {
@@ -49,66 +41,49 @@ export function NavMenuItem({
       className="sidebar-menu-item"
       style={{ '--stagger-delay': `${index * 50}ms` } as React.CSSProperties}
     >
-      <TooltipProvider delayDuration={150}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <SidebarMenuButton asChild>
-              {url ? (
-                <Link
-                  href={url}
-                  className={cn(
-                    "px-3 py-1.5 transition-all duration-150 text-sm group/item flex items-center rounded-md",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                    "hover:bg-accent hover:text-accent-foreground active:scale-[0.98]",
-                    isActive
-                      ? "bg-primary text-primary-foreground font-medium"
-                      : "text-muted-foreground"
-                  )}
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  <div className="relative mr-2 group-data-[collapsible=icon]:mr-0 flex-shrink-0">
-                    <CurrentIcon className={cn(
-                      "h-4 w-4 transition-colors duration-150 sidebar-menu-icon",
-                      isActive ? "text-primary-foreground" : "text-muted-foreground group-hover/item:text-foreground"
-                    )} />
-                    {notification && (
-                      <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-primary rounded-full" />
-                    )}
-                  </div>
-
-                  <span className="font-medium group-data-[collapsible=icon]:sr-only">
-                    {title}
-                  </span>
-                </Link>
-              ) : (
-                <button
-                  onClick={onClick}
-                  className={cn(
-                    "px-3 py-1.5 transition-all duration-150 text-sm group/item flex items-center rounded-md",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                    "hover:bg-accent hover:text-accent-foreground active:scale-[0.98]",
-                    "text-muted-foreground"
-                  )}
-                >
-                  <div className="relative mr-2 group-data-[collapsible=icon]:mr-0 flex-shrink-0">
-                    <CurrentIcon className="h-4 w-4 transition-colors duration-150 sidebar-menu-icon group-hover/item:text-foreground" />
-                    {notification && (
-                      <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-primary rounded-full" />
-                    )}
-                  </div>
-
-                  <span className="font-medium group-data-[collapsible=icon]:sr-only">
-                    {title}
-                  </span>
-                </button>
+      <SidebarMenuButton asChild tooltip={title}>
+        {url ? (
+          <Link
+            href={url}
+            className={cn(
+              "transition-all duration-150 text-sm group/item flex items-center justify-center rounded-md",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "hover:bg-accent hover:text-accent-foreground active:scale-[0.98]",
+              isActive
+                ? "bg-primary text-primary-foreground font-medium"
+                : "text-muted-foreground"
+            )}
+            aria-current={isActive ? "page" : undefined}
+          >
+            <div className="relative flex-shrink-0">
+              <CurrentIcon className={cn(
+                "h-4 w-4 transition-colors duration-150 sidebar-menu-icon",
+                isActive ? "text-primary-foreground" : "text-muted-foreground group-hover/item:text-foreground"
+              )} />
+              {notification && (
+                <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-primary rounded-full" />
               )}
-            </SidebarMenuButton>
-          </TooltipTrigger>
-          <TooltipContent side="right" className="group-data-[state=expanded]:hidden">
-            {title}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+            </div>
+          </Link>
+        ) : (
+          <button
+            onClick={onClick}
+            className={cn(
+              "transition-all duration-150 text-sm group/item flex items-center justify-center rounded-md",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "hover:bg-accent hover:text-accent-foreground active:scale-[0.98]",
+              "text-muted-foreground"
+            )}
+          >
+            <div className="relative flex-shrink-0">
+              <CurrentIcon className="h-4 w-4 transition-colors duration-150 sidebar-menu-icon group-hover/item:text-foreground" />
+              {notification && (
+                <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-primary rounded-full" />
+              )}
+            </div>
+          </button>
+        )}
+      </SidebarMenuButton>
     </SidebarMenuItem>
   );
 }

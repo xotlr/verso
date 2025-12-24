@@ -28,7 +28,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient'
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient'
 
 interface ConnectedUser {
   connectionId: string

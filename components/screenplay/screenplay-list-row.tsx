@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn, createMenuHandler } from '@/lib/utils';
-import { cardStyles, textStyles, badgeStyles, layoutStyles, skeletonStyles } from '@/lib/styles';
+import { cardStyles, textStyles, badgeStyles, layoutStyles, skeletonStyles } from '@/lib/ui/styles';
 import type { ScreenplayListCardData } from './screenplay-list-card';
 import type { DisplayScreenplayType } from '@/types/templates';
 

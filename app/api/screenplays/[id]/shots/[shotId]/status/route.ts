@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { canUseProduction, type PlanType } from "@/lib/stripe"
 import { z } from "zod"
 import { SHOT_STATUSES } from "@/types/shotlist"
@@ -11,35 +12,12 @@ const updateStatusSchema = z.object({
   takeCount: z.number().int().min(0).optional(),
   circledTake: z.number().int().min(1).optional().nullable(),
   quickNotes: z.string().optional().nullable(),
+  // Script supervisor fields
+  supervisorNotes: z.string().optional().nullable(),
+  lineReading: z.string().optional().nullable(),
+  continuityNotes: z.string().optional().nullable(),
+  isFlagged: z.boolean().optional(),
 })
-
-// Helper to check screenplay access
-async function checkScreenplayAccess(screenplayId: string, userId: string) {
-  const screenplay = await prisma.screenplay.findUnique({
-    where: { id: screenplayId },
-    select: { userId: true, teamId: true },
-  })
-
-  if (!screenplay) return null
-
-  // Check direct ownership
-  if (screenplay.userId === userId) return screenplay
-
-  // Check team membership
-  if (screenplay.teamId) {
-    const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId: screenplay.teamId,
-          userId,
-        },
-      },
-    })
-    if (membership) return screenplay
-  }
-
-  return null
-}
 
 // PATCH /api/screenplays/[id]/shots/[shotId]/status - Quick status update
 export async function PATCH(
@@ -71,12 +49,12 @@ export async function PATCH(
 
     const { id: screenplayId, shotId } = await params
 
-    // Check access
-    const screenplay = await checkScreenplayAccess(screenplayId, session.user.id)
-    if (!screenplay) {
+    // Check access - require EDITOR role for status updates
+    const access = await checkScreenplayAccess(screenplayId, session.user.id, 'EDITOR')
+    if (!access.allowed) {
       return NextResponse.json(
-        { error: "Screenplay not found or access denied" },
-        { status: 404 }
+        { error: access.error },
+        { status: access.status }
       )
     }
 
@@ -106,7 +84,16 @@ export async function PATCH(
       )
     }
 
-    const { status, takeCount, circledTake, quickNotes } = validation.data
+    const {
+      status,
+      takeCount,
+      circledTake,
+      quickNotes,
+      supervisorNotes,
+      lineReading,
+      continuityNotes,
+      isFlagged,
+    } = validation.data
 
     // Update the shot
     const updatedShot = await prisma.shot.update({
@@ -116,6 +103,10 @@ export async function PATCH(
         ...(takeCount !== undefined && { takeCount }),
         ...(circledTake !== undefined && { circledTake }),
         ...(quickNotes !== undefined && { quickNotes }),
+        ...(supervisorNotes !== undefined && { supervisorNotes }),
+        ...(lineReading !== undefined && { lineReading }),
+        ...(continuityNotes !== undefined && { continuityNotes }),
+        ...(isFlagged !== undefined && { isFlagged }),
         statusChangedAt: new Date(),
         statusChangedBy: session.user.id,
       },

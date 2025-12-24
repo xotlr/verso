@@ -1,69 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { z } from "zod"
-
-// Helper to check screenplay access
-async function checkScreenplayAccess(screenplayId: string, userId: string, requiredRole?: 'VIEWER' | 'COMMENTER' | 'EDITOR' | 'ADMIN') {
-  const screenplay = await prisma.screenplay.findUnique({
-    where: { id: screenplayId },
-    include: {
-      project: { select: { teamId: true } },
-      team: { select: { id: true } },
-    },
-  })
-
-  if (!screenplay) {
-    return { allowed: false, error: "Screenplay not found", status: 404 }
-  }
-
-  // Check if user owns it directly
-  if (screenplay.userId === userId) {
-    return { allowed: true, screenplay, isOwner: true }
-  }
-
-  // Check team access
-  const teamId = screenplay.teamId || screenplay.project?.teamId
-  if (teamId) {
-    const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId,
-          userId,
-        },
-      },
-    })
-
-    if (membership) {
-      return { allowed: true, screenplay, isOwner: false }
-    }
-  }
-
-  // Check share access
-  const share = await prisma.screenplayShare.findUnique({
-    where: {
-      screenplayId_userId: {
-        screenplayId,
-        userId,
-      },
-    },
-  })
-
-  if (share) {
-    // Role hierarchy: ADMIN > EDITOR > COMMENTER > VIEWER
-    const roleHierarchy = ['VIEWER', 'COMMENTER', 'EDITOR', 'ADMIN']
-    const userRoleLevel = roleHierarchy.indexOf(share.role)
-    const requiredRoleLevel = requiredRole ? roleHierarchy.indexOf(requiredRole) : 0
-
-    if (userRoleLevel >= requiredRoleLevel) {
-      return { allowed: true, screenplay, isOwner: false, shareRole: share.role }
-    } else {
-      return { allowed: false, error: "Insufficient permissions", status: 403 }
-    }
-  }
-
-  return { allowed: false, error: "Access denied", status: 403 }
-}
 
 // GET /api/screenplays/[id] - Get a screenplay
 export async function GET(

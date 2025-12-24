@@ -100,5 +100,3 @@ export function EditorHeader({ className }: EditorHeaderProps) {
     </header>
   );
 }
-
-export default EditorHeader;

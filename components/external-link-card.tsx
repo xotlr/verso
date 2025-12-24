@@ -41,7 +41,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
-import type { EmbedType } from '@/lib/embed-utils';
+import type { EmbedType } from '@/lib/export/embed';
 
 export interface ExternalLinkData {
   id: string;

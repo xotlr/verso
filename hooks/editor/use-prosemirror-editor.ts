@@ -138,9 +138,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
         forceShow: showSceneNumbers,
       },
       onCoverPageDetected: (coverPage) => {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[ProseMirror] Cover page detected:', coverPage);
-        }
+        // Cover page detection callback - no-op but could be used for future features
       },
     });
 

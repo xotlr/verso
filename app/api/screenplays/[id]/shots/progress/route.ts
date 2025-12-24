@@ -1,36 +1,9 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { canUseProduction, type PlanType } from "@/lib/stripe"
 import type { ProductionProgress, SceneProgress, ShotProgress, ShotStatus } from "@/types/production-tracking"
-
-// Helper to check screenplay access
-async function checkScreenplayAccess(screenplayId: string, userId: string) {
-  const screenplay = await prisma.screenplay.findUnique({
-    where: { id: screenplayId },
-    select: { userId: true, teamId: true },
-  })
-
-  if (!screenplay) return null
-
-  // Check direct ownership
-  if (screenplay.userId === userId) return screenplay
-
-  // Check team membership
-  if (screenplay.teamId) {
-    const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId: screenplay.teamId,
-          userId,
-        },
-      },
-    })
-    if (membership) return screenplay
-  }
-
-  return null
-}
 
 // GET /api/screenplays/[id]/shots/progress - Get production progress stats
 export async function GET(
@@ -63,11 +36,11 @@ export async function GET(
     const { id: screenplayId } = await params
 
     // Check access
-    const screenplay = await checkScreenplayAccess(screenplayId, session.user.id)
-    if (!screenplay) {
+    const access = await checkScreenplayAccess(screenplayId, session.user.id)
+    if (!access.allowed) {
       return NextResponse.json(
-        { error: "Screenplay not found or access denied" },
-        { status: 404 }
+        { error: access.error },
+        { status: access.status }
       )
     }
 

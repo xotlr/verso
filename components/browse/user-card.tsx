@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient';
 import { Folder, FileText, MapPin } from 'lucide-react';
 
 interface UserCardUser {

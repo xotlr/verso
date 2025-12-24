@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { z } from "zod"
 import { DEFAULT_ACTS } from "@/types/beat-board"
 
@@ -11,40 +12,6 @@ const actConfigSchema = z.object({
 })
 
 const actsSchema = z.array(actConfigSchema).min(1).max(10)
-
-// Helper to check screenplay access
-async function checkScreenplayAccess(screenplayId: string, userId: string) {
-  const screenplay = await prisma.screenplay.findUnique({
-    where: { id: screenplayId },
-    include: {
-      project: { select: { teamId: true } },
-      team: { select: { id: true } },
-    },
-  })
-
-  if (!screenplay) {
-    return { allowed: false, error: "Screenplay not found", status: 404 }
-  }
-
-  if (screenplay.userId === userId) {
-    return { allowed: true, screenplay }
-  }
-
-  const teamId = screenplay.teamId || screenplay.project?.teamId
-  if (teamId) {
-    const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: { teamId, userId },
-      },
-    })
-
-    if (membership) {
-      return { allowed: true, screenplay }
-    }
-  }
-
-  return { allowed: false, error: "Access denied", status: 403 }
-}
 
 // GET /api/screenplays/[id]/acts - Get acts configuration
 export async function GET(

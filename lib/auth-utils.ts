@@ -1,5 +1,141 @@
 import { prisma } from '@/lib/prisma';
-import { TeamRole } from '@prisma/client';
+import { TeamRole, Screenplay } from '@prisma/client';
+
+// Share role hierarchy (from least to most permissions)
+export type ShareRole = 'VIEWER' | 'COMMENTER' | 'EDITOR' | 'ADMIN';
+const SHARE_ROLE_HIERARCHY: ShareRole[] = ['VIEWER', 'COMMENTER', 'EDITOR', 'ADMIN'];
+
+/**
+ * Result of a screenplay access check.
+ */
+export interface ScreenplayAccessResult {
+  allowed: boolean;
+  screenplay?: Screenplay & {
+    project?: { teamId: string | null } | null;
+    team?: { id: string } | null;
+  };
+  isOwner?: boolean;
+  shareRole?: ShareRole;
+  error?: string;
+  status?: number;
+}
+
+/**
+ * Check if a share role meets the minimum required role.
+ */
+function hasMinShareRole(userRole: ShareRole, minRole: ShareRole): boolean {
+  const userIndex = SHARE_ROLE_HIERARCHY.indexOf(userRole);
+  const minIndex = SHARE_ROLE_HIERARCHY.indexOf(minRole);
+  return userIndex >= minIndex;
+}
+
+/**
+ * Check if a user has access to a screenplay.
+ * Checks ownership, team membership, and share access.
+ *
+ * @param screenplayId - The screenplay ID to check
+ * @param userId - The user ID to check access for
+ * @param requiredRole - Minimum share role required (default: VIEWER)
+ * @returns Access result with screenplay data if allowed
+ *
+ * @example
+ * ```ts
+ * const access = await checkScreenplayAccess(screenplayId, userId);
+ * if (!access.allowed) {
+ *   return NextResponse.json({ error: access.error }, { status: access.status });
+ * }
+ * // User has access to access.screenplay
+ * ```
+ */
+export async function checkScreenplayAccess(
+  screenplayId: string,
+  userId: string,
+  requiredRole: ShareRole = 'VIEWER'
+): Promise<ScreenplayAccessResult> {
+  const screenplay = await prisma.screenplay.findUnique({
+    where: { id: screenplayId },
+    include: {
+      project: { select: { teamId: true } },
+      team: { select: { id: true } },
+    },
+  });
+
+  if (!screenplay) {
+    return { allowed: false, error: 'Screenplay not found', status: 404 };
+  }
+
+  // Check if user owns it directly (owners have full access)
+  if (screenplay.userId === userId) {
+    return { allowed: true, screenplay, isOwner: true };
+  }
+
+  // Check team access (team members have full access)
+  const teamId = screenplay.teamId || screenplay.project?.teamId;
+  if (teamId) {
+    const membership = await prisma.teamMember.findUnique({
+      where: {
+        teamId_userId: { teamId, userId },
+      },
+    });
+
+    if (membership) {
+      return { allowed: true, screenplay, isOwner: false };
+    }
+  }
+
+  // Check share access with role hierarchy
+  const share = await prisma.screenplayShare.findUnique({
+    where: {
+      screenplayId_userId: { screenplayId, userId },
+    },
+  });
+
+  if (share) {
+    const shareRole = share.role as ShareRole;
+    if (hasMinShareRole(shareRole, requiredRole)) {
+      return { allowed: true, screenplay, isOwner: false, shareRole };
+    } else {
+      return { allowed: false, error: 'Insufficient permissions', status: 403 };
+    }
+  }
+
+  return { allowed: false, error: 'Access denied', status: 403 };
+}
+
+/**
+ * Require screenplay access. Throws if access is denied.
+ * Use this for cleaner error handling with try/catch.
+ *
+ * @example
+ * ```ts
+ * try {
+ *   const { screenplay, isOwner } = await requireScreenplayAccess(id, userId, 'EDITOR');
+ *   // User has at least EDITOR access
+ * } catch (error) {
+ *   if (error instanceof AuthorizationError) {
+ *     return NextResponse.json({ error: error.message }, { status: 403 });
+ *   }
+ * }
+ * ```
+ */
+export async function requireScreenplayAccess(
+  screenplayId: string,
+  userId: string,
+  requiredRole: ShareRole = 'VIEWER'
+): Promise<{ screenplay: NonNullable<ScreenplayAccessResult['screenplay']>; isOwner: boolean; shareRole?: ShareRole }> {
+  const result = await checkScreenplayAccess(screenplayId, userId, requiredRole);
+
+  if (!result.allowed || !result.screenplay) {
+    const code = result.status === 404 ? 'NOT_FOUND' : 'NOT_MEMBER';
+    throw new AuthorizationError(result.error || 'Access denied', code);
+  }
+
+  return {
+    screenplay: result.screenplay,
+    isOwner: result.isOwner ?? false,
+    shareRole: result.shareRole,
+  };
+}
 
 /**
  * Custom error for authorization failures.

@@ -24,7 +24,7 @@ import {
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient'
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient'
 
 interface ConnectionRequest {
   id: string

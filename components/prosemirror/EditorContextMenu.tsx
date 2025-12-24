@@ -265,5 +265,3 @@ export function EditorContextMenu({ view, children, onFindReplace }: EditorConte
     </ContextMenu>
   );
 }
-
-export default EditorContextMenu;

@@ -2,8 +2,8 @@
 
 import { Scene } from '@/types/screenplay';
 import { SceneNumbering, RevisionColor } from '@/types/production';
-import { escapeHtml, escapeXml } from './escape-utils';
-import { downloadFile } from './dom-utils';
+import { escapeHtml, escapeXml } from '../escape-utils';
+import { downloadFile } from '../dom-utils';
 
 // Re-export downloadFile for backwards compatibility
 export { downloadFile };

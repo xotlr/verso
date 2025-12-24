@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { KeyboardShortcutsList } from '@/components/keyboard-shortcuts-dialog';
+import { KeyboardShortcutsList } from '@/components/keyboard-shortcuts';
 
 export function KeyboardSection() {
   return (

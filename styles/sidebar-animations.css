@@ -1,20 +1,10 @@
-/* Sidebar Animations CSS for Verso - 10/10 Premium Edition */
+/* Sidebar Animations CSS for Verso - Icon-only Sidebar */
 
 /* Premium easing curves */
 :root {
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-in-out-circ: cubic-bezier(0.85, 0, 0.15, 1);
-}
-
-/* Main sidebar container animations */
-.sidebar-animated {
-  transition: width 300ms var(--ease-out-expo);
-}
-
-/* Header animations */
-.sidebar-header-animated {
-  transition: all 250ms var(--ease-out-expo);
 }
 
 /* Logo animations */
@@ -36,50 +26,24 @@
   transform: scale(0.95);
 }
 
-/* Text fade animations for collapse/expand */
-.sidebar-text-animated {
-  opacity: 1;
-  transform: translateX(0);
-  transition: opacity 250ms var(--ease-out-expo),
-              transform 250ms var(--ease-out-expo);
-}
-
-.group-data-[collapsible="icon"] .sidebar-text-animated {
-  opacity: 0;
-  transform: translateX(-10px);
-  transition-delay: 0ms;
-}
-
-/* Label animations */
-.sidebar-label-animated {
-  opacity: 1;
-  transform: translateX(0);
-  transition: all 250ms var(--ease-out-expo);
-}
-
-.group-data-[collapsible="icon"] .sidebar-label-animated {
-  opacity: 0;
-  transform: translateX(-10px);
-}
-
 /* Menu item stagger animations */
 .sidebar-menu-item {
-  animation: slideInFromLeft 250ms var(--ease-out-expo) both;
+  animation: slideIn 250ms var(--ease-out-expo) both;
   animation-delay: var(--stagger-delay, 0ms);
 }
 
-@keyframes slideInFromLeft {
+@keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateX(-20px);
+    transform: scale(0.9);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: scale(1);
   }
 }
 
-/* Menu button hover effects - ENHANCED */
+/* Menu button hover effects - icon-only mode */
 .sidebar-menu-button {
   position: relative;
   overflow: hidden;
@@ -87,6 +51,7 @@
   transition: all 200ms var(--ease-out-back);
 }
 
+/* Shimmer effect on hover */
 .sidebar-menu-button::before {
   content: '';
   position: absolute;
@@ -94,9 +59,9 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 8%), transparent);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 12%), transparent);
   transform: translateX(-100%);
-  transition: transform 600ms ease;
+  transition: transform 500ms ease;
   pointer-events: none;
 }
 
@@ -104,39 +69,52 @@
   transform: translateX(100%);
 }
 
+/* Hover - subtle lift with glow ring */
 .sidebar-menu-button:hover {
-  transform: translateX(4px);
+  transform: scale(1.12);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 0 0 2px hsl(var(--primary) / 0.08);
 }
 
+/* Active - snappy press */
 .sidebar-menu-button:active {
-  transform: scale(0.97) translateX(2px);
-  transition-duration: 80ms;
+  transform: scale(0.92);
+  transition: transform 60ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-/* Icon animations */
+/* Focus ring */
+.sidebar-menu-button:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px hsl(var(--background)),
+    0 0 0 4px hsl(var(--primary));
+}
+
+/* Icon animations - wiggle on hover */
 .sidebar-menu-icon {
   transition: transform 200ms var(--ease-out-expo);
 }
 
-/* Collapsed state icon animations - ENHANCED */
-.group-data-[collapsible="icon"] .sidebar-menu-button {
-  transform: scale(1);
-  transition: all 250ms var(--ease-out-back);
+.sidebar-menu-button:hover .sidebar-menu-icon,
+.sidebar-menu-button:hover > svg {
+  animation: iconWiggle 400ms var(--ease-out-back);
 }
 
-.group-data-[collapsible="icon"] .sidebar-menu-button:hover {
-  transform: scale(1.15) translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+@keyframes iconWiggle {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  20% { transform: rotate(-10deg) scale(1.1); }
+  40% { transform: rotate(10deg) scale(1.1); }
+  60% { transform: rotate(-5deg) scale(1.05); }
+  80% { transform: rotate(5deg) scale(1.05); }
 }
 
-.group-data-[collapsible="icon"] .sidebar-menu-button:active {
-  transform: scale(0.95);
-  transition-duration: 100ms;
-}
-
-/* Icon rotation on hover in collapsed state */
-.group-data-[collapsible="icon"] .sidebar-menu-button:hover .sidebar-menu-icon {
-  transform: rotate(12deg);
+/* Primary button (Create) special glow */
+.sidebar-menu-button[class*="bg-primary"]:hover {
+  box-shadow:
+    0 4px 16px hsl(var(--primary) / 0.35),
+    0 0 20px hsl(var(--primary) / 0.15);
 }
 
 /* User button animations - PREMIUM */

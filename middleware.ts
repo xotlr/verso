@@ -1,13 +1,101 @@
 import { authEdge } from "@/lib/auth.edge"
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+
+// CSRF protection for API routes
+function checkCsrf(request: NextRequest, host: string): NextResponse | null {
+  const method = request.method
+  const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
+
+  if (!isMutating) return null
+
+  const origin = request.headers.get('origin')
+
+  // No origin header - could be same-origin request or non-browser
+  // Allow but log for monitoring (browser CORS preflight should have origin)
+  if (!origin) return null
+
+  try {
+    const originUrl = new URL(origin)
+    const originHost = originUrl.host
+
+    // Get the base domain for comparison (handle subdomains)
+    const getBaseDomain = (h: string) => {
+      // Remove app. or www. prefix for comparison
+      let domain = h
+      if (domain.startsWith('app.')) domain = domain.slice(4)
+      if (domain.startsWith('www.')) domain = domain.slice(4)
+      return domain
+    }
+
+    const requestBaseDomain = getBaseDomain(host)
+    const originBaseDomain = getBaseDomain(originHost)
+
+    // Allow if same base domain (handles app.verso.ac -> verso.ac)
+    if (requestBaseDomain === originBaseDomain) return null
+
+    // Block cross-origin mutations
+    return NextResponse.json(
+      { error: 'Cross-origin request blocked' },
+      { status: 403 }
+    )
+  } catch {
+    // Invalid origin URL - block
+    return NextResponse.json(
+      { error: 'Invalid request origin' },
+      { status: 403 }
+    )
+  }
+}
 
 // Security headers to add to all responses
-function addSecurityHeaders(response: NextResponse): NextResponse {
+function addSecurityHeaders(response: NextResponse, host: string): NextResponse {
   response.headers.set("X-Content-Type-Options", "nosniff")
   response.headers.set("X-Frame-Options", "DENY")
   response.headers.set("X-XSS-Protection", "1; mode=block")
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
   response.headers.set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+
+  // HSTS - only in production (not localhost)
+  const isProduction = !host.includes("localhost") && !host.includes("127.0.0.1") && !host.includes("lvh.me")
+  if (isProduction) {
+    response.headers.set(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains; preload"
+    )
+  }
+
+  // Content Security Policy
+  // Note: 'unsafe-inline' needed for Next.js and ProseMirror styles
+  // 'unsafe-eval' needed for some Next.js features in development
+  const isDev = host.includes("localhost") || host.includes("127.0.0.1") || host.includes("lvh.me")
+  const cspDirectives = [
+    "default-src 'self'",
+    // Scripts: self + inline (Next.js requires this) + eval in dev only
+    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://js.stripe.com https://challenges.cloudflare.com`,
+    // Styles: self + inline (required for ProseMirror and Tailwind)
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    // Images: self + data URIs + blob + external image hosts
+    "img-src 'self' data: blob: https://*.supabase.co https://*.googleusercontent.com https://lh3.googleusercontent.com https://avatars.githubusercontent.com",
+    // Fonts: self + Google Fonts
+    "font-src 'self' https://fonts.gstatic.com",
+    // Connect: API calls to self + Supabase + Stripe + Anthropic
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.anthropic.com",
+    // Frames: Stripe for payments
+    "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
+    // Objects: none
+    "object-src 'none'",
+    // Base URI: self only
+    "base-uri 'self'",
+    // Form actions: self only
+    "form-action 'self'",
+    // Frame ancestors: none (prevent clickjacking, reinforces X-Frame-Options)
+    "frame-ancestors 'none'",
+    // Upgrade insecure requests in production
+    ...(isProduction ? ["upgrade-insecure-requests"] : []),
+  ]
+
+  response.headers.set("Content-Security-Policy", cspDirectives.join("; "))
+
   return response
 }
 
@@ -90,10 +178,19 @@ export default authEdge((req) => {
   const forwardedProto = req.headers.get("x-forwarded-proto")
   const protocol = forwardedProto || (host.includes("localhost") ? "http" : "https")
 
+  // CSRF protection for API routes (except webhooks which have their own verification)
+  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/stripe/webhook")) {
+    const csrfError = checkCsrf(req, host)
+    if (csrfError) {
+      return csrfError
+    }
+  }
+
   // Handle legacy route redirects (before auth checks)
   if (pathname in legacyRedirects) {
     return addSecurityHeaders(
-      NextResponse.redirect(new URL(legacyRedirects[pathname], req.nextUrl.origin))
+      NextResponse.redirect(new URL(legacyRedirects[pathname], req.nextUrl.origin)),
+      host
     )
   }
 
@@ -101,7 +198,8 @@ export default authEdge((req) => {
   const editorRedirect = getEditorRedirect(pathname)
   if (editorRedirect) {
     return addSecurityHeaders(
-      NextResponse.redirect(new URL(editorRedirect, req.nextUrl.origin))
+      NextResponse.redirect(new URL(editorRedirect, req.nextUrl.origin)),
+      host
     )
   }
 
@@ -122,16 +220,16 @@ export default authEdge((req) => {
         // User went directly to app.*/login - redirect to workspace after login
         loginUrl.searchParams.set("callbackUrl", `${protocol}://${host}/home`)
       }
-      return addSecurityHeaders(NextResponse.redirect(loginUrl))
+      return addSecurityHeaders(NextResponse.redirect(loginUrl), host)
     }
 
     // User is authenticated - redirect root to /home
     if (pathname === "/") {
-      return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)))
+      return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)), host)
     }
 
     // User is authenticated, allow access to app subdomain
-    return addSecurityHeaders(NextResponse.next())
+    return addSecurityHeaders(NextResponse.next(), host)
   }
 
   // On main domain (or development without subdomain routing)
@@ -145,39 +243,39 @@ export default authEdge((req) => {
   // If trying to access app routes on main domain, redirect to app subdomain (production only)
   if (useSubdomainRouting && isAppRoute(pathname)) {
     const appUrl = getAppUrl(host, pathname, protocol)
-    return addSecurityHeaders(NextResponse.redirect(appUrl))
+    return addSecurityHeaders(NextResponse.redirect(appUrl), host)
   }
 
   // Redirect to app subdomain if already logged in and trying to access login/signup (production only)
   if (useSubdomainRouting && isLoggedIn && (pathname === "/login" || pathname === "/signup")) {
     const appUrl = getAppUrl(host, "/home", protocol)
-    return addSecurityHeaders(NextResponse.redirect(appUrl))
+    return addSecurityHeaders(NextResponse.redirect(appUrl), host)
   }
 
   // Redirect logged-in users from main domain root to app subdomain (production only)
   if (useSubdomainRouting && isLoggedIn && pathname === "/") {
     const appUrl = getAppUrl(host, "/home", protocol)
-    return addSecurityHeaders(NextResponse.redirect(appUrl))
+    return addSecurityHeaders(NextResponse.redirect(appUrl), host)
   }
 
   // In development OR production fallback: protect app routes
   if (isAppRoute(pathname) && !isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin)
     loginUrl.searchParams.set("callbackUrl", pathname)
-    return addSecurityHeaders(NextResponse.redirect(loginUrl))
+    return addSecurityHeaders(NextResponse.redirect(loginUrl), host)
   }
 
   // Redirect logged-in users from login/signup to workspace (in development)
   if (!useSubdomainRouting && isLoggedIn && (pathname === "/login" || pathname === "/signup")) {
-    return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)))
+    return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)), host)
   }
 
   // Redirect logged-in users from root to /home (in development)
   if (!useSubdomainRouting && isLoggedIn && pathname === "/") {
-    return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)))
+    return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)), host)
   }
 
-  return addSecurityHeaders(NextResponse.next())
+  return addSecurityHeaders(NextResponse.next(), host)
 })
 
 export const config = {
@@ -187,9 +285,10 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
-     * - api routes (handled separately)
+     * - public folder (images, etc.)
+     *
+     * API routes are now included for CSRF protection
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|api).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

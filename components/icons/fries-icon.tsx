@@ -50,5 +50,3 @@ export const FriesIcon: React.FC<FriesIconProps> = ({
     </svg>
   );
 };
-
-export default FriesIcon;

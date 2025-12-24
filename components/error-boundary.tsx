@@ -127,5 +127,3 @@ export function withErrorBoundary<P extends object>(
 
   return ComponentWithErrorBoundary;
 }
-
-export default ErrorBoundary;

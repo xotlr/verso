@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,8 +18,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, MapPin, Film, AlertTriangle, Save, X } from 'lucide-react';
+import { Calendar, MapPin, Film, AlertTriangle, Save, X, Users, Share2 } from 'lucide-react';
 import { CallsheetStatus, CallsheetCreateInput, CallsheetCardData } from '@/types/callsheet';
+import { CheckinList, CheckinSummary } from '@/components/production/crew-checkin';
+import { CallsheetShareDialog } from '@/components/production/mobile-callsheet';
 
 interface CallsheetDialogProps {
   open: boolean;
@@ -53,6 +55,44 @@ export function CallsheetDialog({
   const [weatherForecast, setWeatherForecast] = useState('');
   const [weatherTemp, setWeatherTemp] = useState('');
 
+  // Crew check-in state (only for existing callsheets)
+  interface CheckIn {
+    id: string;
+    crewName: string;
+    department: string;
+    checkedInAt: string;
+    notes?: string | null;
+  }
+  const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
+  // Loading state for potential future use (e.g., skeleton while fetching)
+  const [, setCheckInsLoading] = useState(false);
+
+  // Share dialog state
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+
+  // Get crew list from callsheet data
+  const getCrewMembers = useCallback(() => {
+    if (!callsheet?.data) return [];
+    return callsheet.data.crew?.map(c => ({ name: c.name, department: c.department, role: c.role })) || [];
+  }, [callsheet]);
+
+  // Fetch check-ins when editing existing callsheet
+  const fetchCheckIns = useCallback(async () => {
+    if (!callsheet?.id) return;
+    setCheckInsLoading(true);
+    try {
+      const response = await fetch(`/api/callsheets/${callsheet.id}/checkin`);
+      if (response.ok) {
+        const { checkIns: data } = await response.json();
+        setCheckIns(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch check-ins:', error);
+    } finally {
+      setCheckInsLoading(false);
+    }
+  }, [callsheet?.id]);
+
   // Reset form when dialog opens/closes or callsheet changes
   useEffect(() => {
     if (open && callsheet) {
@@ -65,6 +105,8 @@ export function CallsheetDialog({
       setPrimaryLocation(callsheet.primaryLocation || '');
       setWeatherForecast(callsheet.weatherForecast || '');
       setWeatherTemp(callsheet.weatherTemp?.toString() || '');
+      // Fetch check-ins for existing callsheet
+      fetchCheckIns();
     } else if (open && !callsheet) {
       // Creating new callsheet
       setTitle('');
@@ -75,9 +117,10 @@ export function CallsheetDialog({
       setPrimaryLocation('');
       setWeatherForecast('');
       setWeatherTemp('');
+      setCheckIns([]);
     }
     setActiveTab('basic');
-  }, [open, callsheet]);
+  }, [open, callsheet, fetchCheckIns]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,7 +160,7 @@ export function CallsheetDialog({
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className={`grid w-full ${isEditing ? 'grid-cols-5' : 'grid-cols-4'}`}>
               <TabsTrigger value="basic" className="gap-1.5 text-xs">
                 <Calendar className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Basic</span>
@@ -134,6 +177,12 @@ export function CallsheetDialog({
                 <Film className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Status</span>
               </TabsTrigger>
+              {isEditing && (
+                <TabsTrigger value="crew" className="gap-1.5 text-xs">
+                  <Users className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Crew</span>
+                </TabsTrigger>
+              )}
             </TabsList>
 
             {/* Basic Info Tab */}
@@ -260,10 +309,49 @@ export function CallsheetDialog({
                 </p>
               </div>
             </TabsContent>
+
+            {/* Crew Check-in Tab (only for existing callsheets) */}
+            {isEditing && callsheet && (
+              <TabsContent value="crew" className="space-y-4 mt-4">
+                <div className="flex items-center justify-between">
+                  <Label>Crew Check-in</Label>
+                  <CheckinSummary
+                    checked={checkIns.length}
+                    total={getCrewMembers().length}
+                    size="sm"
+                  />
+                </div>
+                {getCrewMembers().length > 0 ? (
+                  <CheckinList
+                    callsheetId={callsheet.id}
+                    crewMembers={getCrewMembers()}
+                    checkIns={checkIns}
+                    onCheckInsChange={setCheckIns}
+                  />
+                ) : (
+                  <div className="text-center py-8 text-sm text-muted-foreground">
+                    <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No crew members in this callsheet yet.</p>
+                    <p className="text-xs mt-1">Add crew in the full callsheet editor.</p>
+                  </div>
+                )}
+              </TabsContent>
+            )}
           </Tabs>
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t">
+            {isEditing && status === 'PUBLISHED' && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShareDialogOpen(true)}
+              >
+                <Share2 className="h-4 w-4 mr-2" />
+                Share
+              </Button>
+            )}
+            <div className="flex-1" />
             <Button
               type="button"
               variant="outline"
@@ -279,6 +367,17 @@ export function CallsheetDialog({
             </Button>
           </div>
         </form>
+
+        {/* Share Dialog */}
+        {callsheet && (
+          <CallsheetShareDialog
+            open={shareDialogOpen}
+            onOpenChange={setShareDialogOpen}
+            callsheetId={callsheet.id}
+            callsheetTitle={callsheet.title}
+            callsheetData={callsheet.data}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

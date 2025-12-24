@@ -10,7 +10,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Users, FolderOpen, Link as LinkIcon, Calendar } from 'lucide-react'
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient'
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient'
 
 export interface TeamData {
   id: string

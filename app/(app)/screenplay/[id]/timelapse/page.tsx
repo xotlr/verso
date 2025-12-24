@@ -30,7 +30,6 @@ export default function TimelapsePage() {
 
   const handleExport = () => {
     // TODO: Implement video export
-    console.log('Export video');
   };
 
   return (

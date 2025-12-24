@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { StoryGraph } from '@/components/story-graph';
 import { Scene, Character, Location } from '@/types/screenplay';
 import { Beat } from '@/components/beat-board';
-import { parseScreenplayText } from '@/lib/screenplay-utils';
+import { parseScreenplayText } from '@/lib/screenplay/utils';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { safeGetItem, getStorageErrorMessage } from '@/lib/storage';
 import { AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';

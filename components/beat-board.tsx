@@ -470,5 +470,3 @@ export function BeatBoard({
     </ScrollArea>
   );
 }
-
-export default BeatBoard;

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { parseScreenplayText } from '@/lib/screenplay-utils';
+import { parseScreenplayText } from '@/lib/screenplay/utils';
 import { Screenplay } from '@/types/screenplay';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { cn } from '@/lib/utils';

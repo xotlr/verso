@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { EditableTitle } from "@/components/editable-title";
 import { SeriesBreadcrumb } from "@/components/series/series-breadcrumb";
-import { Search, Bell, ChevronLeft, Share2 } from "lucide-react";
+import { Search, ChevronLeft, Share2 } from "lucide-react";
+import { NotificationBell } from "@/components/notifications";
 import { Logo } from "@/components/logo";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -246,7 +247,7 @@ export function AppHeader({ className }: AppHeaderProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-8 w-8 min-h-0"
             onClick={() => window.dispatchEvent(new CustomEvent('editor-open-share'))}
             title="Share"
           >
@@ -256,19 +257,15 @@ export function AppHeader({ className }: AppHeaderProps) {
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7"
+          className="h-8 w-8 min-h-0"
           onClick={() => window.dispatchEvent(new CustomEvent('command-palette-open'))}
           title="Search (⌘K)"
         >
           <Search className="h-4 w-4" />
         </Button>
         <ThemeToggle />
-        <Button variant="ghost" size="icon" className="h-7 w-7">
-          <Bell className="h-4 w-4" />
-        </Button>
+        <NotificationBell />
       </div>
     </header>
   );
 }
-
-export default AppHeader;

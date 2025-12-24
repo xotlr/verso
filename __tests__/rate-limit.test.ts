@@ -12,49 +12,49 @@ describe('Rate Limiter', () => {
   })
 
   describe('rateLimit', () => {
-    it('should allow requests under the limit', () => {
+    it('should allow requests under the limit', async () => {
       const identifier = `test-user-${Date.now()}`
       const config = { maxRequests: 5, windowMs: 60000 }
 
-      const result1 = rateLimit(identifier, config)
+      const result1 = await rateLimit(identifier, config)
       expect(result1.success).toBe(true)
       expect(result1.remaining).toBe(4)
 
-      const result2 = rateLimit(identifier, config)
+      const result2 = await rateLimit(identifier, config)
       expect(result2.success).toBe(true)
       expect(result2.remaining).toBe(3)
     })
 
-    it('should block requests over the limit', () => {
+    it('should block requests over the limit', async () => {
       const identifier = `test-user-block-${Date.now()}`
       const config = { maxRequests: 2, windowMs: 60000 }
 
       // Use up the limit
-      rateLimit(identifier, config)
-      rateLimit(identifier, config)
+      await rateLimit(identifier, config)
+      await rateLimit(identifier, config)
 
       // This should be blocked
-      const result = rateLimit(identifier, config)
+      const result = await rateLimit(identifier, config)
       expect(result.success).toBe(false)
       expect(result.remaining).toBe(0)
     })
 
-    it('should reset after window expires', () => {
+    it('should reset after window expires', async () => {
       const identifier = `test-user-reset-${Date.now()}`
       const config = { maxRequests: 1, windowMs: 1000 }
 
       // Use up the limit
-      const first = rateLimit(identifier, config)
+      const first = await rateLimit(identifier, config)
       expect(first.success).toBe(true)
 
-      const blocked = rateLimit(identifier, config)
+      const blocked = await rateLimit(identifier, config)
       expect(blocked.success).toBe(false)
 
       // Advance time past the window
       vi.advanceTimersByTime(1100)
 
       // Should be allowed again
-      const afterReset = rateLimit(identifier, config)
+      const afterReset = await rateLimit(identifier, config)
       expect(afterReset.success).toBe(true)
       expect(afterReset.remaining).toBe(0)
     })

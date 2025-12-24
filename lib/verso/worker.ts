@@ -74,11 +74,8 @@ class PaginationWorkerManager {
         if (!origin) {
           throw new Error('Unable to determine origin');
         }
-        console.log('[PaginationWorker] Initializing with origin:', origin);
 
         const workerUrl = new URL('/workers/pagination.worker.js', origin);
-        console.log('[PaginationWorker] Worker URL:', workerUrl.href);
-
         this.worker = new Worker(workerUrl, { type: 'module' });
       } catch (workerError) {
         console.error('[PaginationWorker] Failed to create Worker:', workerError);

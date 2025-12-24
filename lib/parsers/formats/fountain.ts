@@ -10,7 +10,7 @@ import {
   ParseOutcome,
   TitlePage,
 } from '../types';
-import { parseFountain, isFountainFormat } from '@/lib/fountain-parser';
+import { parseFountain, isFountainFormat } from '../fountain-parser';
 import { registerParser } from '../registry';
 
 class FountainParser implements ScreenplayParser {

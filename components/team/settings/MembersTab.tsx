@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,

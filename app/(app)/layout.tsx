@@ -9,6 +9,7 @@ import { AppHeader } from "@/components/app-header";
 import { EditorHeader } from "@/components/editor/editor-header";
 import { BottomNav } from "@/components/bottom-nav";
 import { EditorBottomNav } from "@/components/editor/editor-bottom-nav";
+import { EditorPanelProvider } from "@/components/editor/EditorPanelContext";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { cn } from "@/lib/utils";
 import { ProductivityProvider } from "@/contexts/productivity-context";
@@ -85,7 +86,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <ProductivityProvider>
-      <SidebarProvider defaultOpen={false} open={false}>
+      <SidebarProvider>
         {/* Sidebar - slides out in focus mode */}
         <div className={cn(
           "transition-all duration-500 ease-out",
@@ -119,27 +120,43 @@ export default function AppLayout({ children }: AppLayoutProps) {
             )}
           </div>
 
-          <main
-            ref={focusContainerRef}
-            className={cn(
-              "flex-1 overflow-hidden transition-all duration-300 ease-out",
-              !focusMode && "pb-14 md:pb-0"
-            )}
-          >
-            {children}
-          </main>
+          {isEditorPage ? (
+            <EditorPanelProvider>
+              <main
+                ref={focusContainerRef}
+                className={cn(
+                  "flex-1 overflow-hidden transition-all duration-300 ease-out",
+                  !focusMode && "pb-14 md:pb-0"
+                )}
+              >
+                {children}
+              </main>
+
+              {/* Bottom Navigation - mobile only, hidden in focus mode */}
+              {(!mounted || !focusMode) && <EditorBottomNav />}
+            </EditorPanelProvider>
+          ) : (
+            <>
+              <main
+                ref={focusContainerRef}
+                className={cn(
+                  "flex-1 overflow-hidden transition-all duration-300 ease-out",
+                  !focusMode && "pb-14 md:pb-0"
+                )}
+              >
+                {children}
+              </main>
+
+              {/* Bottom Navigation - mobile only, hidden in focus mode */}
+              {(!mounted || !focusMode) && <BottomNav />}
+            </>
+          )}
 
           {/* Screen reader announcement for focus mode */}
           {focusMode && (
             <div className="sr-only" role="status" aria-live="polite">
               Focus mode activated. Press Escape to exit.
             </div>
-          )}
-
-          {/* Bottom Navigation - mobile only, hidden in focus mode */}
-          {/* Editor pages get EditorBottomNav, other pages get BottomNav */}
-          {(!mounted || !focusMode) && (
-            isEditorPage ? <EditorBottomNav /> : <BottomNav />
           )}
         </SidebarInset>
 

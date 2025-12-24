@@ -42,14 +42,11 @@ export function StoryArcSidebar({
   onClose,
   className,
 }: StoryArcSidebarProps) {
-  const { state: sidebarState, isMobile } = useSidebar();
+  const { isMobile } = useSidebar();
 
   // Calculate left position: sidebar width + gap
-  // Sidebar is 16rem expanded, 3rem collapsed (icon mode)
-  const sidebarLeft = useMemo(() => {
-    if (isMobile) return '0rem';
-    return sidebarState === 'expanded' ? '16.5rem' : '3.5rem';
-  }, [sidebarState, isMobile]);
+  // Sidebar is always 3.5rem (icon-only mode)
+  const sidebarLeft = isMobile ? '0rem' : '3.5rem';
 
   // Group scenes into acts
   const acts = useMemo(() => {

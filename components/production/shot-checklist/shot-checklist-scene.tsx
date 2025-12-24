@@ -18,6 +18,10 @@ interface Shot {
   takeCount: number
   circledTake?: number | null
   quickNotes?: string | null
+  // Script supervisor fields
+  lineReading?: string | null
+  continuityNotes?: string | null
+  isFlagged?: boolean
 }
 
 interface ShotChecklistSceneProps {
@@ -27,6 +31,11 @@ interface ShotChecklistSceneProps {
   onStatusChange: (shotId: string, status: ShotStatus) => Promise<void>
   onTakeChange: (shotId: string, takeCount: number, circledTake?: number | null) => Promise<void>
   onNotesChange: (shotId: string, notes: string) => Promise<void>
+  onSupervisorChange?: (shotId: string, updates: {
+    lineReading?: string | null
+    continuityNotes?: string | null
+    isFlagged?: boolean
+  }) => Promise<void>
   isUpdating?: boolean
   defaultExpanded?: boolean
 }
@@ -38,6 +47,7 @@ export function ShotChecklistScene({
   onStatusChange,
   onTakeChange,
   onNotesChange,
+  onSupervisorChange,
   isUpdating = false,
   defaultExpanded = true,
 }: ShotChecklistSceneProps) {
@@ -106,6 +116,7 @@ export function ShotChecklistScene({
               onStatusChange={onStatusChange}
               onTakeChange={onTakeChange}
               onNotesChange={onNotesChange}
+              onSupervisorChange={onSupervisorChange}
               isUpdating={isUpdating}
             />
           ))}

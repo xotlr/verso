@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { EditorView } from 'prosemirror-view';
 import { cn } from '@/lib/utils';
 import {
@@ -71,13 +71,11 @@ const AUTO_HIDE_DELAY = 3000;
 export function ElementToolbar({ view, currentElementType, className }: ElementToolbarProps) {
   const [isVisible, setIsVisible] = useState(true);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const { state: sidebarState, isMobile } = useSidebar();
+  const { isMobile } = useSidebar();
 
   // Calculate sidebar offset: half the sidebar width to center in content area
-  const sidebarOffset = useMemo(() => {
-    if (isMobile) return '0rem';
-    return sidebarState === 'expanded' ? '8rem' : '1.5rem';
-  }, [sidebarState, isMobile]);
+  // Sidebar is always 3.5rem (icon-only mode), so offset is half of that
+  const sidebarOffset = isMobile ? '0rem' : '1.75rem';
 
   // Show toolbar and reset auto-hide timer
   const showToolbar = useCallback(() => {

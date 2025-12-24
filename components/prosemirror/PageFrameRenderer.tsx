@@ -130,5 +130,3 @@ export const PageGapRenderer = memo(function PageGapRenderer({
     </div>
   );
 });
-
-export default PageFrameRenderer;

@@ -43,7 +43,6 @@ export type ShortcutId =
   | 'selectToSceneStart'
   | 'selectToSceneEnd'
   // View
-  | 'toggleSidebar'
   | 'centerLine'
   | 'toggleTypewriter'
   // Block manipulation (Classic Editor)
@@ -117,7 +116,6 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
   selectToSceneEnd: shortcut('selectToSceneEnd', ['Mod', 'Shift', 'ArrowDown'], 'Select to scene end', 'selection'),
 
   // View
-  toggleSidebar: shortcut('toggleSidebar', ['Mod', '\\'], 'Toggle sidebar', 'view'),
   centerLine: shortcut('centerLine', ['Shift', 'Ctrl', 'E'], 'Center current line', 'view'),
   toggleTypewriter: shortcut('toggleTypewriter', ['Mod', 'Shift', 'T'], 'Toggle typewriter scroll', 'view'),
 

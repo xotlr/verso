@@ -167,6 +167,13 @@ model User {
   seriesSharesGiven        SeriesShare[]     @relation("SeriesSharesGiven")
   shareInvitesSent         ShareInvite[]     @relation("ShareInvitesSent")
 
+  // Production notifications
+  notifications Notification[]
+
+  // Digital sides and callsheet shares created by this user
+  digitalSidesCreated        DigitalSide[]        @relation("DigitalSidesCreated")
+  callsheetShareLinksCreated CallsheetShareLink[] @relation("CallsheetShareLinksCreated")
+
   @@index([plan]) // Used in limit checks
   @@index([username])
 }
@@ -553,6 +560,9 @@ model Screenplay {
   // User-level sharing (Google Drive-like)
   shares       ScreenplayShare[]
   shareInvites ShareInvite[]
+
+  // Digital sides for production
+  digitalSides DigitalSide[]
 
   @@index([userId])
   @@index([projectId])
@@ -965,6 +975,10 @@ model Callsheet {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  // Production tracking
+  checkIns   CrewCheckIn[]
+  shareLinks CallsheetShareLink[]
+
   @@index([projectId])
   @@index([shootDate])
 }
@@ -1275,4 +1289,81 @@ model IncidentUpdate {
   incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
 
   @@index([incidentId, createdAt])
+}
+
+// ============================================
+// Production Tracking Models
+// ============================================
+
+// Crew check-in tracking for callsheets
+model CrewCheckIn {
+  id          String   @id @default(cuid())
+  callsheetId String
+  crewName    String   // Name from callsheet crew list
+  department  String
+  checkedInAt DateTime @default(now())
+  checkedInBy String?  // Who marked them in (self or AD)
+  notes       String?
+
+  callsheet   Callsheet @relation(fields: [callsheetId], references: [id], onDelete: Cascade)
+
+  @@unique([callsheetId, crewName])
+  @@index([callsheetId])
+}
+
+// Real-time notifications (Supabase Realtime)
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // schedule_change | callsheet_update | checkin | wrap
+  title     String
+  body      String?
+  data      Json?    // Related IDs, links
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// Digital sides - filtered screenplay pages for cast/crew
+model DigitalSide {
+  id           String    @id @default(cuid())
+  screenplayId String
+  callsheetId  String?
+  token        String    @unique @default(cuid())
+  isActive     Boolean   @default(true)
+  expiresAt    DateTime?
+  filterType   String    @default("all") // all | character | scenes
+  filterValue  String?   // Character name or scene IDs (comma-separated)
+  title        String?   // Custom title for the sides
+  userId       String
+  createdAt    DateTime  @default(now())
+
+  screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  user       User       @relation("DigitalSidesCreated", fields: [userId], references: [id])
+
+  @@index([token])
+  @@index([screenplayId])
+}
+
+// Shareable callsheet links for mobile viewing
+model CallsheetShareLink {
+  id          String    @id @default(cuid())
+  callsheetId String
+  token       String    @unique @default(cuid())
+  isActive    Boolean   @default(true)
+  expiresAt   DateTime?
+  filterType  String    @default("all") // all | department | person
+  filterValue String?   // Department name or person name
+  userId      String
+  createdAt   DateTime  @default(now())
+
+  callsheet Callsheet @relation(fields: [callsheetId], references: [id], onDelete: Cascade)
+  user      User      @relation("CallsheetShareLinksCreated", fields: [userId], references: [id])
+
+  @@index([token])
+  @@index([callsheetId])
 }

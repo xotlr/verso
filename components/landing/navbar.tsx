@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Menu, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { getSimpleGradientStyle } from "@/lib/avatar-gradient"
+import { getSimpleGradientStyle } from "@/lib/ui/avatar-gradient"
 
 const navLinks = [
   { href: "/#features", label: "Features" },

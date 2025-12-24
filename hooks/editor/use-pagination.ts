@@ -122,17 +122,6 @@ export function usePagination(
         changes = getAccumulatedChanges(editorState);
       }
 
-      // Debug: Log serialized elements (comment out in production)
-      if (process.env.NODE_ENV === 'development') {
-        const incrementalMode = paginationCacheRef.current && changes && changes.length > 0;
-        console.log('[usePagination] Serialized elements:', elements.length,
-          'hasTitlePage:', hasTitlePage,
-          'version:', thisVersion,
-          'incremental:', incrementalMode,
-          'changes:', changes?.length ?? 0
-        );
-      }
-
       // Run pagination with title page awareness
       // WASM now handles all positioning - pixel_y values are absolute
       // Use incremental pagination when cache is available
@@ -146,25 +135,10 @@ export function usePagination(
       // latest completed pagination. This ensures page frames are visible during rapid
       // content changes (e.g., timelapse playback). The result may be slightly behind
       // but is still useful for visual display. Newer results will replace older ones.
-      if (thisVersion !== docVersionRef.current && process.env.NODE_ENV === 'development') {
-        console.log('[usePagination] Using slightly stale result (version', thisVersion, 'vs current', docVersionRef.current, ')');
-      }
 
       // Store cache for next incremental pagination
       if (paginationResult.cache) {
         paginationCacheRef.current = paginationResult.cache;
-      }
-
-      // Debug: Log WASM result with diagnostic stats
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[usePagination] WASM result:', {
-          pageCount: paginationResult.stats.page_count,
-          elementCount: paginationResult.stats.element_count,
-          totalLines: paginationResult.stats.total_lines,
-          avgLinesPerElement: paginationResult.stats.avg_lines_per_element?.toFixed(2),
-          durationMs: performance.now() - startTime,
-          hasCache: !!paginationResult.cache,
-        });
       }
 
       setResult(paginationResult);

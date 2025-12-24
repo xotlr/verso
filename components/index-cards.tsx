@@ -379,5 +379,3 @@ export function IndexCards({
     </div>
   );
 }
-
-export default IndexCards;

@@ -50,5 +50,3 @@ export function ProjectLayout({
     </div>
   );
 }
-
-export default ProjectLayout;

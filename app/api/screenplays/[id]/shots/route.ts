@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { checkScreenplayAccess } from "@/lib/auth-utils";
 import { z } from "zod";
 import {
   SHOT_TYPES,
@@ -25,34 +26,6 @@ const createShotSchema = z.object({
   status: z.enum(SHOT_STATUSES).optional().default("planned"),
 });
 
-// Helper to check screenplay access
-async function checkScreenplayAccess(screenplayId: string, userId: string) {
-  const screenplay = await prisma.screenplay.findUnique({
-    where: { id: screenplayId },
-    select: { userId: true, teamId: true },
-  });
-
-  if (!screenplay) return null;
-
-  // Check direct ownership
-  if (screenplay.userId === userId) return screenplay;
-
-  // Check team membership
-  if (screenplay.teamId) {
-    const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId: screenplay.teamId,
-          userId,
-        },
-      },
-    });
-    if (membership) return screenplay;
-  }
-
-  return null;
-}
-
 // GET /api/screenplays/[id]/shots - List all shots for screenplay
 export async function GET(
   request: Request,
@@ -70,11 +43,11 @@ export async function GET(
     const { id: screenplayId } = await params;
 
     // Check access
-    const screenplay = await checkScreenplayAccess(screenplayId, session.user.id);
-    if (!screenplay) {
+    const access = await checkScreenplayAccess(screenplayId, session.user.id);
+    if (!access.allowed) {
       return NextResponse.json(
-        { error: "Screenplay not found or access denied" },
-        { status: 404 }
+        { error: access.error },
+        { status: access.status }
       );
     }
 
@@ -113,12 +86,12 @@ export async function POST(
 
     const { id: screenplayId } = await params;
 
-    // Check access
-    const screenplay = await checkScreenplayAccess(screenplayId, session.user.id);
-    if (!screenplay) {
+    // Check access - require EDITOR role for creating shots
+    const access = await checkScreenplayAccess(screenplayId, session.user.id, 'EDITOR');
+    if (!access.allowed) {
       return NextResponse.json(
-        { error: "Screenplay not found or access denied" },
-        { status: 404 }
+        { error: access.error },
+        { status: access.status }
       );
     }
 

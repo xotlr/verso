@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Folder, FileText, MapPin } from 'lucide-react';
-import { getPrimaryGradientStyle, getSimpleGradientStyle } from '@/lib/avatar-gradient';
+import { getPrimaryGradientStyle, getSimpleGradientStyle } from '@/lib/ui/avatar-gradient';
 
 interface ProfileCardUser {
   id: string;

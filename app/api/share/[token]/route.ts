@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { rateLimit, RATE_LIMITS, getClientIp } from "@/lib/rate-limit"
 
 // GET /api/share/[token] - Validate token and get screenplay
 export async function GET(
@@ -7,6 +8,22 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    // Rate limit to prevent token brute force attacks
+    const clientIp = getClientIp(request)
+    const rateLimitResult = await rateLimit(`share-token:${clientIp}`, RATE_LIMITS.API)
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000).toString(),
+          },
+        }
+      )
+    }
+
     const { token } = await params
 
     // Find the share link by token

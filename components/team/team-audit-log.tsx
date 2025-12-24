@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient'
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient'
 import { Button } from '@/components/ui/button'
 import {
   Users,

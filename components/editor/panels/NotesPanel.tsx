@@ -15,7 +15,6 @@ import {
   Trash2,
   Pin,
   Check,
-  Loader2,
   GripVertical,
   Copy,
 } from 'lucide-react';
@@ -42,6 +41,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { PanelHeader } from './PanelHeader';
 
 export interface Note {
   id: string;
@@ -236,7 +236,6 @@ export function NotesPanel({
   const [isLoading, setIsLoading] = useState(true);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load notes on mount
@@ -300,7 +299,6 @@ export function NotesPanel({
         clearTimeout(saveTimeoutRef.current);
       }
 
-      setIsSaving(true);
       saveTimeoutRef.current = setTimeout(async () => {
         try {
           await fetch(`/api/screenplays/${screenplayId}/notes`, {
@@ -310,8 +308,6 @@ export function NotesPanel({
           });
         } catch (e) {
           console.error('Failed to save notes to API:', e);
-        } finally {
-          setIsSaving(false);
         }
       }, 1000);
     },
@@ -449,29 +445,18 @@ export function NotesPanel({
 
       if (oldIndex !== -1 && newIndex !== -1) {
         // TODO: Implement actual note reordering persistence
-        console.log('Note reorder requested:', { from: oldIndex, to: newIndex });
       }
     }
   }, [filteredNotes]);
 
   return (
     <div className={cn('flex flex-col overflow-hidden', className)}>
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-        <h2 className="font-semibold text-sm">Notes</h2>
-        <span className="text-[10px] text-muted-foreground ml-auto flex items-center gap-1">
-          {isSaving && <Loader2 className="h-3 w-3 animate-spin" />}
-          {notes.length}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          onClick={handleAddNote}
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </Button>
-      </div>
+      <PanelHeader
+        title="Notes"
+        count={notes.length}
+        onAdd={handleAddNote}
+        addLabel="Add note"
+      />
 
       {/* Content */}
       {isLoading ? (

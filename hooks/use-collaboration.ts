@@ -64,7 +64,6 @@ export function useCollaboration({
       if (!connected && enabled) {
         // Attempt to reconnect with exponential backoff
         const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-        console.log(`Connection lost. Reconnecting in ${delay}ms...`);
 
         reconnectTimeoutRef.current = setTimeout(() => {
           setReconnectAttempts(prev => prev + 1);

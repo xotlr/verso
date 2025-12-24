@@ -197,25 +197,6 @@ export function ClassicEditor({
     return blocks.find(b => b.id === activeBlockId)?.type || BlockType.ACTION;
   }, [blocks, activeBlockId]);
 
-  // Debug scroll dimensions
-  useEffect(() => {
-    const logScrollDimensions = () => {
-      const scrollContainer = document.querySelector('.classic-editor-scroll');
-      if (scrollContainer) {
-        console.log('SCROLL DEBUG:', {
-          scrollHeight: scrollContainer.scrollHeight,
-          clientHeight: scrollContainer.clientHeight,
-          scrollTop: scrollContainer.scrollTop,
-          offsetHeight: (scrollContainer as HTMLElement).offsetHeight,
-          pages: pages.length,
-          scale,
-        });
-      }
-    };
-    logScrollDimensions();
-    window.addEventListener('resize', logScrollDimensions);
-    return () => window.removeEventListener('resize', logScrollDimensions);
-  }, [pages.length, scale]);
 
   // --- HANDLERS ---
   const updateBlock = useCallback((id: string, content: string) => {

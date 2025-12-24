@@ -142,6 +142,9 @@ export async function PUT(
       weatherTemp,
     } = result.data
 
+    // Get current callsheet to check for status change
+    const previousCallsheet = access.callsheet
+
     const callsheet = await prisma.callsheet.update({
       where: { id },
       data: {
@@ -155,7 +158,40 @@ export async function PUT(
         ...(weatherForecast !== undefined && { weatherForecast }),
         ...(weatherTemp !== undefined && { weatherTemp }),
       },
+      include: {
+        project: {
+          include: {
+            team: {
+              include: {
+                members: true,
+              },
+            },
+          },
+        },
+      },
     })
+
+    // Send notifications if status changed to PUBLISHED
+    if (status === "PUBLISHED" && previousCallsheet?.status !== "PUBLISHED") {
+      const teamMembers = callsheet.project?.team?.members || []
+      const notificationPromises = teamMembers
+        .filter((m) => m.userId !== session.user.id) // Don't notify self
+        .map((member) =>
+          prisma.notification.create({
+            data: {
+              userId: member.userId,
+              type: "callsheet_update",
+              title: "Callsheet Published",
+              body: `${callsheet.title} is now available`,
+              data: {
+                callsheetId: callsheet.id,
+                projectId: callsheet.projectId,
+              },
+            },
+          })
+        )
+      await Promise.all(notificationPromises)
+    }
 
     return NextResponse.json(callsheet)
   } catch (error) {

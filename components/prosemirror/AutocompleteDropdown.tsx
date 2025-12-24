@@ -232,5 +232,3 @@ export function AutocompleteDropdown({
     </ScrollArea>
   );
 }
-
-export default AutocompleteDropdown;

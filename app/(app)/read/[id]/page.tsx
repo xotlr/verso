@@ -14,7 +14,7 @@ import {
   Calendar,
   Share2,
 } from 'lucide-react';
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient';
 import { formatDistanceToNow } from 'date-fns';
 
 interface PublicScreenplay {

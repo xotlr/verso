@@ -11,11 +11,11 @@ import { SaveVersionDialog } from "@/components/version-history/save-version-dia
 import { SceneWorkspacePanel } from "@/components/scene-workspace-panel";
 import { ScreenplayDetailsDrawer } from "./screenplay-details-drawer";
 import { ShareDialog } from "@/components/share-dialog";
-import { EditorPanel, EditorPanelProvider } from "@/components/editor/EditorPanel";
+import { EditorPanel } from "@/components/editor/EditorPanel";
 import { CollaborationAvatars } from "@/components/collaboration/CollaborationAvatars";
 import { Scene, Character, Location } from "@/types/screenplay";
 import { ScreenplayVersion } from "@/types/version";
-import { parseScreenplayText } from "@/lib/screenplay-utils";
+import { parseScreenplayText } from "@/lib/screenplay/utils";
 import { useSettings } from "@/contexts/settings-context";
 import { useOfflineSave } from "@/hooks/use-offline-save";
 import { useCollaboration } from "@/hooks/use-collaboration";
@@ -142,7 +142,6 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
 
         // Only apply if different from current content
         if (remoteText !== screenplayTextRef.current) {
-          console.log('📥 Applying remote change from', operation.userId);
           setScreenplayText(remoteText);
           screenplayTextRef.current = remoteText;
 
@@ -573,7 +572,6 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
 
   // Modern Mode: Use the ProseMirror-based editor
   return (
-    <EditorPanelProvider>
       <div className={cn("h-full flex", `layout-${layoutMode}`)}>
         {/* Activity Bar + Secondary Panel - Scenes & Characters */}
         <EditorPanel
@@ -716,6 +714,5 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         onSave={handleSaveShot}
       />
       </div>
-    </EditorPanelProvider>
   );
 }

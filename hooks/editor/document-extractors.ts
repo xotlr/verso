@@ -5,7 +5,7 @@
 
 import { Node as ProseMirrorNode } from 'prosemirror-model';
 import { detectTimeOfDay, type TimeOfDay } from '@/lib/prosemirror/utils/time-detection';
-import { detectShot, getShotDisplayName } from '@/lib/screenplay-patterns';
+import { detectShot, getShotDisplayName } from '@/lib/screenplay/patterns';
 import type { SceneInfo, CharacterInfo, ShotInfo } from './types';
 import type { DetectedShot } from '@/types/shotlist';
 

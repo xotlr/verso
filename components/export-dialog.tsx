@@ -22,7 +22,7 @@ import {
   exportToHTML,
   exportToPlainText,
   downloadFile,
-} from '@/lib/export-utils';
+} from '@/lib/export/utils';
 import { toast } from 'sonner';
 
 interface ExportDialogProps {

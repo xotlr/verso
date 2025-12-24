@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { rateLimit, RATE_LIMITS, getClientIp } from "@/lib/rate-limit"
 
 // Query params validation schema
 const exploreQuerySchema = z.object({
@@ -13,6 +14,17 @@ const exploreQuerySchema = z.object({
 // GET /api/explore - Get public screenplays for exploration
 export async function GET(request: NextRequest) {
   try {
+    // Rate limit to prevent scraping
+    const clientIp = getClientIp(request)
+    const rateLimitResult = await rateLimit(`explore:${clientIp}`, RATE_LIMITS.API)
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
 
     // Validate query parameters

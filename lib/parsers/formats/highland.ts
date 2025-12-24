@@ -12,7 +12,7 @@ import {
   ParseOutcome,
   TitlePage,
 } from '../types';
-import { parseFountain } from '@/lib/fountain-parser';
+import { parseFountain } from '../fountain-parser';
 import { registerParser } from '../registry';
 import { isZipFile } from '../detector';
 

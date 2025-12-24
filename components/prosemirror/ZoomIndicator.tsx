@@ -229,5 +229,3 @@ export function ZoomIndicator({
     </motion.div>
   );
 }
-
-export default ZoomIndicator;

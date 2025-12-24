@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Loader2, X } from 'lucide-react';
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient';
 import { toast } from 'sonner';
 
 interface InviteBannerProps<T> {

@@ -6,7 +6,7 @@ import {
   isParenthetical,
   couldBeCharacterName,
   parseCharacterLine,
-} from '../screenplay-patterns';
+} from '../screenplay/patterns';
 
 /**
  * Serialized ProseMirror document format for database storage.

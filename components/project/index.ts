@@ -4,8 +4,7 @@ export type { ProjectFolderCardData } from './project-folder-card';
 
 export { ProjectListRow, ProjectListRowSkeleton } from './project-list-row';
 
-export { ProjectRolesManager } from './project-roles-manager';
-export type { ProjectRole } from './project-roles-manager';
+export { ProjectRolesManager, type ProjectRole } from './roles';
 
 export { ProjectRoleNeedsManager } from './project-role-needs-manager';
 

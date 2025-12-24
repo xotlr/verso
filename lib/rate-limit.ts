@@ -176,9 +176,3 @@ export function getClientIp(request: Request): string {
   return 'unknown';
 }
 
-// Log rate limiting mode on startup
-if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
-  console.log(
-    `[Rate Limit] Mode: ${hasUpstash ? 'Upstash Redis (distributed)' : 'In-memory (development only)'}`
-  );
-}

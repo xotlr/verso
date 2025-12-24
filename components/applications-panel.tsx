@@ -26,7 +26,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient';
 
 interface Application {
   id: string;

@@ -16,7 +16,7 @@ import {
 import { Eye, Users, Briefcase } from 'lucide-react';
 import { PiFilmScript } from 'react-icons/pi';
 import { RiFolder6Line } from 'react-icons/ri';
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient';
 import { ActivityCarousel } from '@/components/browse/activity-carousel';
 import { ProfileCard, ProfileCardSkeleton } from '@/components/browse/profile-card';
 import { ProjectCard, ProjectCardSkeleton } from '@/components/browse/project-card';

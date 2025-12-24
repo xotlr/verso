@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Mail, Check, X } from 'lucide-react'
 import { usePendingInvites } from '@/hooks/use-pending-invites'
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient'
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient'
 import { toast } from 'sonner'
 import { useTeam } from '@/contexts/team-context'
 

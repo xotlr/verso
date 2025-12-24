@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+coverage/
+
+# WASM build artifacts
+public/wasm/
+verso-engine/target/
+verso-engine/pkg/
+
+# Generated files
+*.tsbuildinfo
+next-env.d.ts
+
+# Lock files
+pnpm-lock.yaml
+package-lock.json
+bun.lockb
+
+# Misc
+.vercel/
+.git/

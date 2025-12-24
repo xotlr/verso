@@ -21,9 +21,7 @@ import {
   Film,
   GripVertical,
   Sparkles,
-  ExternalLink,
 } from 'lucide-react';
-import Link from 'next/link';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,7 +54,8 @@ import {
   ShotType,
   ShotStatus,
 } from '@/types/shotlist';
-import { getShotDisplayName } from '@/lib/screenplay-patterns';
+import { getShotDisplayName } from '@/lib/screenplay/patterns';
+import { PanelHeader } from './PanelHeader';
 
 interface ShotlistPanelProps {
   screenplayId: string;
@@ -382,31 +381,17 @@ export function ShotlistPanel({
 
       if (oldIndex !== -1 && newIndex !== -1) {
         // TODO: Implement actual shot reordering persistence via API
-        console.log('Shot reorder requested:', { from: oldIndex, to: newIndex });
       }
     }
   }, [scenesWithShots]);
 
   return (
     <div className={cn('flex flex-col overflow-hidden', className)}>
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-        <h2 className="font-semibold text-sm">Shotlist</h2>
-        <span className="text-xs text-muted-foreground ml-auto">
-          {totalShots}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6"
-          asChild
-          title="View full page"
-        >
-          <Link href={`/shotlist/${screenplayId}`}>
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Link>
-        </Button>
-      </div>
+      <PanelHeader
+        title="Shotlist"
+        count={totalShots}
+        viewHref={`/shotlist/${screenplayId}`}
+      />
 
       {/* Content */}
       {scenesWithShots.length === 0 ? (

@@ -33,7 +33,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { KeyboardShortcutsDialog } from '@/components/keyboard-shortcuts-dialog';
+import { KeyboardShortcutsDialog } from '@/components/keyboard-shortcuts';
 import { FormattingGuideDialog } from '@/components/formatting-guide-dialog';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { toast } from 'sonner';
@@ -195,8 +195,9 @@ export default function HelpPage() {
 
     setIsSubmitting(true);
 
-    // Collect system info if enabled
-    const systemInfo = includeSystemInfo ? {
+    // Collect system info if enabled (will be used when API endpoint is added)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _systemInfo = includeSystemInfo ? {
       browser: navigator.userAgent,
       page: pathname,
       userId: session?.user?.id,
@@ -204,13 +205,7 @@ export default function HelpPage() {
     } : null;
 
     try {
-      // For now, just log and show success - you can add an API endpoint later
-      console.log('Feedback submitted:', {
-        type: feedbackType,
-        message: feedbackText,
-        systemInfo,
-      });
-
+      // TODO: Add an API endpoint to persist feedback using _systemInfo
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 500));
 

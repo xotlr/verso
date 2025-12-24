@@ -10,7 +10,7 @@ import {
   ParseOutcome,
   TitlePage,
 } from '../types';
-import { parseFDX, isFDXFormat } from '@/lib/fdx-parser';
+import { parseFDX, isFDXFormat } from '../fdx-parser';
 import { registerParser } from '../registry';
 
 class FDXParser implements ScreenplayParser {

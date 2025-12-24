@@ -12,7 +12,7 @@ import {
 import { Clock, MoreVertical, Edit3, Trash2, Folder } from 'lucide-react';
 import { HiRectangleGroup, HiOutlineRectangleGroup } from 'react-icons/hi2';
 import { cn, createMenuHandler } from '@/lib/utils';
-import { cardStyles, textStyles, layoutStyles, skeletonStyles } from '@/lib/styles';
+import { cardStyles, textStyles, layoutStyles, skeletonStyles } from '@/lib/ui/styles';
 import type { StackCardData } from '@/components/stack-card';
 
 // Format time compactly

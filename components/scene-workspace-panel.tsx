@@ -28,7 +28,7 @@ import { SceneShotsList } from '@/components/shotlist/scene-shots-list';
 import { toast } from 'sonner';
 import { uploadImage, deleteImage, getOptimizedImageUrl } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
-import { useVisualizationColors } from '@/lib/visualization-colors';
+import { useVisualizationColors } from '@/lib/ui/visualization-colors';
 
 interface SceneMeta {
   id?: string;

@@ -5,9 +5,11 @@ import { cn } from "@/lib/utils"
 import { type ShotStatus } from "@/types/production-tracking"
 import { ShotStatusToggle } from "./shot-status-toggle"
 import { TakeCounter } from "./take-counter"
+import { ContinuityFlagToggle } from "../script-supervisor/continuity-flags"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react"
+import { ChevronDown, ChevronUp, MessageSquare, AlertTriangle } from "lucide-react"
 import { SHOT_TYPE_LABELS, CAMERA_ANGLE_LABELS, type ShotType, type CameraAngle } from "@/types/shotlist"
 
 interface Shot {
@@ -20,6 +22,10 @@ interface Shot {
   takeCount: number
   circledTake?: number | null
   quickNotes?: string | null
+  // Script supervisor fields
+  lineReading?: string | null
+  continuityNotes?: string | null
+  isFlagged?: boolean
 }
 
 interface ShotChecklistItemProps {
@@ -27,6 +33,11 @@ interface ShotChecklistItemProps {
   onStatusChange: (shotId: string, status: ShotStatus) => Promise<void>
   onTakeChange: (shotId: string, takeCount: number, circledTake?: number | null) => Promise<void>
   onNotesChange: (shotId: string, notes: string) => Promise<void>
+  onSupervisorChange?: (shotId: string, updates: {
+    lineReading?: string | null
+    continuityNotes?: string | null
+    isFlagged?: boolean
+  }) => Promise<void>
   isUpdating?: boolean
 }
 
@@ -35,11 +46,18 @@ export function ShotChecklistItem({
   onStatusChange,
   onTakeChange,
   onNotesChange,
+  onSupervisorChange,
   isUpdating = false,
 }: ShotChecklistItemProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [localNotes, setLocalNotes] = useState(shot.quickNotes || "")
   const [hasNotesChanged, setHasNotesChanged] = useState(false)
+
+  // Script supervisor local state
+  const [localLineReading, setLocalLineReading] = useState(shot.lineReading || "")
+  const [localContinuityNotes, setLocalContinuityNotes] = useState(shot.continuityNotes || "")
+  const [hasLineReadingChanged, setHasLineReadingChanged] = useState(false)
+  const [hasContinuityChanged, setHasContinuityChanged] = useState(false)
 
   const status = shot.status as ShotStatus
   const shotTypeLabel = shot.shotType ? SHOT_TYPE_LABELS[shot.shotType as ShotType] : null
@@ -49,6 +67,26 @@ export function ShotChecklistItem({
     if (hasNotesChanged && localNotes !== shot.quickNotes) {
       onNotesChange(shot.id, localNotes)
       setHasNotesChanged(false)
+    }
+  }
+
+  const handleLineReadingBlur = () => {
+    if (hasLineReadingChanged && localLineReading !== shot.lineReading && onSupervisorChange) {
+      onSupervisorChange(shot.id, { lineReading: localLineReading || null })
+      setHasLineReadingChanged(false)
+    }
+  }
+
+  const handleContinuityBlur = () => {
+    if (hasContinuityChanged && localContinuityNotes !== shot.continuityNotes && onSupervisorChange) {
+      onSupervisorChange(shot.id, { continuityNotes: localContinuityNotes || null })
+      setHasContinuityChanged(false)
+    }
+  }
+
+  const handleFlagToggle = (flagged: boolean) => {
+    if (onSupervisorChange) {
+      onSupervisorChange(shot.id, { isFlagged: flagged })
     }
   }
 
@@ -99,8 +137,13 @@ export function ShotChecklistItem({
           />
         </div>
 
-        {/* Notes indicator & expand toggle */}
+        {/* Indicators & expand toggle */}
         <div className="flex items-center gap-1">
+          {shot.isFlagged && (
+            <span title="Continuity flagged">
+              <AlertTriangle className="h-3.5 w-3.5 text-foreground" />
+            </span>
+          )}
           {shot.quickNotes && (
             <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
           )}
@@ -147,6 +190,54 @@ export function ShotChecklistItem({
                 disabled={isUpdating}
               />
             </div>
+
+            {/* Script Supervisor Section */}
+            {onSupervisorChange && (
+              <div className="pt-3 border-t border-border/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Script Supervisor
+                  </span>
+                  <ContinuityFlagToggle
+                    isFlagged={shot.isFlagged || false}
+                    onChange={handleFlagToggle}
+                    disabled={isUpdating}
+                  />
+                </div>
+
+                {/* Line Reading */}
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Line Reading</label>
+                  <Input
+                    value={localLineReading}
+                    onChange={(e) => {
+                      setLocalLineReading(e.target.value)
+                      setHasLineReadingChanged(true)
+                    }}
+                    onBlur={handleLineReadingBlur}
+                    placeholder='e.g., "emphasized last word"'
+                    className="h-8 text-sm border-border/60"
+                    disabled={isUpdating}
+                  />
+                </div>
+
+                {/* Continuity Notes */}
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">Continuity Notes</label>
+                  <Textarea
+                    value={localContinuityNotes}
+                    onChange={(e) => {
+                      setLocalContinuityNotes(e.target.value)
+                      setHasContinuityChanged(true)
+                    }}
+                    onBlur={handleContinuityBlur}
+                    placeholder="Wardrobe, props, positioning..."
+                    className="min-h-[60px] text-sm resize-none border-border/60"
+                    disabled={isUpdating}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

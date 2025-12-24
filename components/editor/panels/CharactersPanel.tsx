@@ -516,7 +516,6 @@ export function CharactersPanel({
 
       if (oldIndex !== -1 && newIndex !== -1) {
         // TODO: Implement actual character reordering persistence
-        console.log('Character reorder requested:', { from: oldIndex, to: newIndex });
       }
     }
   }, [filteredCharacters]);

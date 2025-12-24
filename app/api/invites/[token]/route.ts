@@ -1,12 +1,24 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { rateLimit, RATE_LIMITS, getClientIp } from "@/lib/rate-limit";
 
 // GET /api/invites/[token] - Get invite details (public, no auth required)
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    // Rate limit to prevent token enumeration
+    const clientIp = getClientIp(request);
+    const rateLimitResult = await rateLimit(`invite-token:${clientIp}`, RATE_LIMITS.API);
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     const { token } = await params;
 
     const invite = await prisma.teamInvite.findUnique({

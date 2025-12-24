@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/tooltip';
 import { RiFolder6Line } from 'react-icons/ri';
 import { Clock } from 'lucide-react';
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient';
 
 // Format time compactly (matches other cards)
 function formatTimeCompact(date: Date): string {

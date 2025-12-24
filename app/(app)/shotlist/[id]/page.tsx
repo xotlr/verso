@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { PageLayout } from "@/components/layouts/page-layout";
 import { Shotlist } from "@/components/shotlist/shotlist";
-import { parseScreenplayText } from "@/lib/screenplay-utils";
+import { parseScreenplayText } from "@/lib/screenplay/utils";
 import { Shot, SceneWithShots } from "@/types/shotlist";
 import { Scene } from "@/types/screenplay";
 import { Loader2 } from "lucide-react";

@@ -19,7 +19,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
   SidebarFooter,
 } from '@/components/ui/sidebar';
 
@@ -90,8 +89,6 @@ export function ScreenplaySidebar({
   return (
     <Sidebar
       side="right"
-      variant="sidebar"
-      collapsible="icon"
       className="border-l border-sidebar-border"
     >
       <SidebarHeader className="border-b border-sidebar-border flex-shrink-0">
@@ -298,7 +295,6 @@ export function ScreenplaySidebar({
         </div>
       </SidebarFooter>
 
-      <SidebarRail />
     </Sidebar>
   );
 }

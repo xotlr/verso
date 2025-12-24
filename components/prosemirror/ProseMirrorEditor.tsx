@@ -628,5 +628,3 @@ export function ProseMirrorEditor({
     </div>
   );
 }
-
-export default ProseMirrorEditor;

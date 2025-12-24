@@ -318,5 +318,3 @@ export function Aurora({
     />
   );
 }
-
-export default Aurora;

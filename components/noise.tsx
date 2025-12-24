@@ -27,5 +27,3 @@ export function Noise({ opacity = 0.4, className = '' }: NoiseProps) {
     </div>
   );
 }
-
-export default Noise;

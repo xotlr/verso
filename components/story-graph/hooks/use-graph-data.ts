@@ -12,7 +12,7 @@ import {
   BeatNode,
   LocationNode,
 } from '@/types/graph';
-import { useVisualizationColors } from '@/lib/visualization-colors';
+import { useVisualizationColors } from '@/lib/ui/visualization-colors';
 import { sanitizeForD3Text } from '@/lib/utils';
 
 export function useGraphData(

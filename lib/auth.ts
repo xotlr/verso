@@ -79,32 +79,42 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async redirect({ url, baseUrl }) {
-      // After login, redirect to app subdomain workspace
-      // Use NEXT_PUBLIC_APP_URL env var, or construct from baseUrl
       const appUrl = process.env.NEXT_PUBLIC_APP_URL
 
-      // Safety: Don't redirect to login/signup pages on app subdomain (would cause loop)
-      if (url.includes("app.") && (url.includes("/login") || url.includes("/signup"))) {
-        return appUrl || `${baseUrl}/home`
-      }
-
-      // If there's a callback URL that points to the app subdomain, use it
-      if (url.includes("app.") || url.includes("/home") || url.includes("/editor")) {
-        return url
-      }
-
-      // If we have an app URL configured, redirect there
+      // Build allowlist of valid origins
+      const allowedOrigins: string[] = []
+      try {
+        allowedOrigins.push(new URL(baseUrl).origin)
+      } catch {}
       if (appUrl) {
-        return appUrl
+        try {
+          allowedOrigins.push(new URL(appUrl).origin)
+        } catch {}
       }
 
-      // Default: redirect to workspace on same origin
-      // (middleware will handle redirect to app subdomain)
-      if (url.startsWith(baseUrl)) {
-        return `${baseUrl}/home`
+      // Parse and validate the redirect URL
+      try {
+        const parsed = new URL(url)
+        if (allowedOrigins.includes(parsed.origin)) {
+          // Safe redirect to allowed origin - but avoid login loops
+          if (parsed.pathname === "/login" || parsed.pathname === "/signup") {
+            return appUrl || `${baseUrl}/home`
+          }
+          return url
+        }
+      } catch {
+        // Invalid URL - check if it's a relative path
+        if (url.startsWith("/")) {
+          // Relative paths are safe - avoid login loops
+          if (url === "/login" || url === "/signup") {
+            return appUrl || `${baseUrl}/home`
+          }
+          return `${baseUrl}${url}`
+        }
       }
 
-      return url
+      // Default: redirect to app or home
+      return appUrl || `${baseUrl}/home`
     },
     async jwt({ token, user, trigger, session }) {
       if (user) {

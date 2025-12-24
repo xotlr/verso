@@ -2,7 +2,7 @@ import { InputRule, inputRules } from 'prosemirror-inputrules';
 import { NodeType } from 'prosemirror-model';
 import { Plugin } from 'prosemirror-state';
 import { screenplaySchema } from '../schema';
-import { detectShot } from '@/lib/screenplay-patterns';
+import { detectShot } from '@/lib/screenplay/patterns';
 
 /**
  * Input rule that converts to a specific node type when pattern matches.

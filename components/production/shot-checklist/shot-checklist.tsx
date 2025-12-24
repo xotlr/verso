@@ -18,6 +18,10 @@ interface Shot {
   takeCount: number
   circledTake?: number | null
   quickNotes?: string | null
+  // Script supervisor fields
+  lineReading?: string | null
+  continuityNotes?: string | null
+  isFlagged?: boolean
 }
 
 interface Scene {
@@ -67,7 +71,7 @@ export function ShotChecklist({
 
   const updateShot = useCallback(async (
     shotId: string,
-    updates: Partial<Pick<Shot, "status" | "takeCount" | "circledTake" | "quickNotes">>
+    updates: Partial<Pick<Shot, "status" | "takeCount" | "circledTake" | "quickNotes" | "lineReading" | "continuityNotes" | "isFlagged">>
   ) => {
     setUpdatingShots((prev) => new Set(prev).add(shotId))
 
@@ -123,6 +127,13 @@ export function ShotChecklist({
     await updateShot(shotId, { quickNotes })
   }, [updateShot])
 
+  const handleSupervisorChange = useCallback(async (
+    shotId: string,
+    updates: { lineReading?: string | null; continuityNotes?: string | null; isFlagged?: boolean }
+  ) => {
+    await updateShot(shotId, updates)
+  }, [updateShot])
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -153,6 +164,7 @@ export function ShotChecklist({
           onStatusChange={handleStatusChange}
           onTakeChange={handleTakeChange}
           onNotesChange={handleNotesChange}
+          onSupervisorChange={handleSupervisorChange}
           isUpdating={updatingShots.size > 0}
         />
       ))}

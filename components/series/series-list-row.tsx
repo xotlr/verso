@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Clock, MoreVertical, Edit3, Trash2, Layers } from 'lucide-react';
 import { cn, createMenuHandler } from '@/lib/utils';
-import { cardStyles, textStyles, layoutStyles, skeletonStyles, badgeStyles } from '@/lib/styles';
+import { cardStyles, textStyles, layoutStyles, skeletonStyles, badgeStyles } from '@/lib/ui/styles';
 import type { SeriesCardData } from './series-card';
 
 // Format time compactly

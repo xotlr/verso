@@ -316,5 +316,3 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
     </div>
   );
 }
-
-export default FloatingToolbar;

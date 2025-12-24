@@ -9,7 +9,7 @@
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Slice } from 'prosemirror-model';
 import { plainTextToProseMirror } from '../serialization';
-import { looksLikeScreenplay } from '../../screenplay-patterns';
+import { looksLikeScreenplay } from '../../screenplay/patterns';
 
 export const pastePluginKey = new PluginKey('pasteHandler');
 

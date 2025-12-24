@@ -13,8 +13,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn, createMenuHandler } from '@/lib/utils';
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
-import { cardStyles, textStyles, layoutStyles, skeletonStyles } from '@/lib/styles';
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient';
+import { cardStyles, textStyles, layoutStyles, skeletonStyles } from '@/lib/ui/styles';
 import type { ProjectFolderCardData } from './project-folder-card';
 
 // Format time compactly

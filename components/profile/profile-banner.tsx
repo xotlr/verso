@@ -1,6 +1,6 @@
 'use client'
 
-import { getPrimaryGradientStyle } from '@/lib/avatar-gradient'
+import { getPrimaryGradientStyle } from '@/lib/ui/avatar-gradient'
 import { cn } from '@/lib/utils'
 
 interface ProfileBannerProps {

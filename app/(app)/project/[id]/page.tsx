@@ -58,10 +58,10 @@ import {
 import { ExternalLinkCard, ExternalLinkData } from '@/components/external-link-card';
 import { AddLinkDialog } from '@/components/add-link-dialog';
 import { AddExistingScreenplayDialog } from '@/components/add-existing-screenplay-dialog';
-import { ProjectRolesManager, type ProjectRole } from '@/components/project/project-roles-manager';
+import { ProjectRolesManager, type ProjectRole } from '@/components/project/roles';
 import { ProjectRoleNeedsManager } from '@/components/project/project-role-needs-manager';
 import { useSession } from 'next-auth/react';
-import type { EmbedType } from '@/lib/embed-utils';
+import type { EmbedType } from '@/lib/export/embed';
 import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
 import type { ImportResult } from '@/components/import-drop-zone/types';
 import { ResourceDropZoneOverlay } from '@/components/resource-drop-zone-overlay';
@@ -72,7 +72,7 @@ import { CallsheetCard, CallsheetCardSkeleton, CallsheetDialog, CallsheetExportD
 import type { CallsheetCardData, CallsheetCreateInput } from '@/types/callsheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { ProGate, ShotChecklist, ProgressDashboard, ProductionEmpty } from '@/components/production';
+import { ProGate, ShotChecklist, ProgressDashboard, ProductionEmpty, WrapReportDialog } from '@/components/production';
 import type { ProductionProgress } from '@/types/production-tracking';
 import { LuClapperboard } from 'react-icons/lu';
 
@@ -835,7 +835,7 @@ export default function ProjectPage() {
                 </TabsTrigger>
                 <TabsTrigger value="production" className="gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-sm">
                   <LuClapperboard className={cn("h-4 w-4 flex-shrink-0", activeTab === 'production' && "fill-current")} />
-                  <span className="hidden sm:inline">Production</span>
+                  <span className="hidden sm:inline">Prod</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -1219,6 +1219,7 @@ export default function ProjectPage() {
               <ProGate feature="Production Tracking">
                 <ProductionTabContent
                   screenplays={project.screenplays}
+                  callsheets={callsheets}
                 />
               </ProGate>
             </TabsContent>
@@ -1251,8 +1252,10 @@ interface SceneInfo {
 
 function ProductionTabContent({
   screenplays,
+  callsheets,
 }: {
-  screenplays: Screenplay[]
+  screenplays: Screenplay[];
+  callsheets: CallsheetCardData[];
 }) {
   const [selectedScreenplayId, setSelectedScreenplayId] = useState<string | null>(
     screenplays.length > 0 ? screenplays[0].id : null
@@ -1261,6 +1264,7 @@ function ProductionTabContent({
   const [scenes, setScenes] = useState<SceneInfo[]>([]);
   const [progress, setProgress] = useState<ProductionProgress | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [wrapReportOpen, setWrapReportOpen] = useState(false);
 
   // Fetch shots and progress when screenplay changes
   useEffect(() => {
@@ -1316,26 +1320,45 @@ function ProductionTabContent({
     );
   }
 
+  const selectedScreenplay = screenplays.find((sp) => sp.id === selectedScreenplayId);
+
   return (
     <div className="space-y-6">
-      {/* Screenplay selector */}
-      {screenplays.length > 1 && (
-        <Select
-          value={selectedScreenplayId || ''}
-          onValueChange={setSelectedScreenplayId}
-        >
-          <SelectTrigger className="w-full sm:w-[300px]">
-            <SelectValue placeholder="Select screenplay" />
-          </SelectTrigger>
-          <SelectContent>
-            {screenplays.map((sp) => (
-              <SelectItem key={sp.id} value={sp.id}>
-                {sp.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
+      {/* Header row with selector and wrap report button */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Screenplay selector */}
+        {screenplays.length > 1 ? (
+          <Select
+            value={selectedScreenplayId || ''}
+            onValueChange={setSelectedScreenplayId}
+          >
+            <SelectTrigger className="w-full sm:w-[300px]">
+              <SelectValue placeholder="Select screenplay" />
+            </SelectTrigger>
+            <SelectContent>
+              {screenplays.map((sp) => (
+                <SelectItem key={sp.id} value={sp.id}>
+                  {sp.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="text-sm font-medium">{selectedScreenplay?.title}</div>
+        )}
+
+        {/* Wrap Report button */}
+        {selectedScreenplayId && shots.some((s) => s.status === 'shot' || s.status === 'approved') && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setWrapReportOpen(true)}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Wrap Report
+          </Button>
+        )}
+      </div>
 
       {/* Progress dashboard */}
       <ProgressDashboard
@@ -1352,6 +1375,21 @@ function ProductionTabContent({
           scenes={scenes}
           isLoading={isLoading}
           onShotsChange={setShots}
+        />
+      )}
+
+      {/* Wrap Report Dialog */}
+      {selectedScreenplayId && (
+        <WrapReportDialog
+          open={wrapReportOpen}
+          onOpenChange={setWrapReportOpen}
+          screenplayId={selectedScreenplayId}
+          screenplayTitle={selectedScreenplay?.title || 'Untitled'}
+          callsheets={callsheets.map((cs) => ({
+            id: cs.id,
+            title: cs.title,
+            shootDate: cs.shootDate.toString(),
+          }))}
         />
       )}
     </div>

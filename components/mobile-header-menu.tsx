@@ -8,7 +8,7 @@ import { Search, Bell, Sun, Moon, Settings, LogOut, User } from 'lucide-react';
 import { FriesIcon } from '@/components/icons/fries-icon';
 import { Logo } from '@/components/logo';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { getSimpleGradientStyle } from '@/lib/avatar-gradient';
+import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient';
 import {
   Sheet,
   SheetContent,

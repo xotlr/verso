@@ -446,5 +446,3 @@ export function StoryGraph({
     </div>
   );
 }
-
-export default StoryGraph;

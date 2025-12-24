@@ -212,6 +212,7 @@ export interface CallsheetCardData {
   wrapTime?: string | null;
   status: CallsheetStatus;
   primaryLocation?: string | null;
+  data?: CallsheetData | null;
   weatherForecast?: string | null;
   weatherTemp?: number | null;
   createdAt: string;

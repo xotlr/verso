@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { checkScreenplayAccess } from "@/lib/auth-utils";
 import { z } from "zod";
 import {
   SHOT_TYPES,
@@ -26,32 +27,6 @@ const updateShotSchema = z.object({
   status: z.enum(SHOT_STATUSES).optional(),
 });
 
-// Helper to check screenplay access
-async function checkScreenplayAccess(screenplayId: string, userId: string) {
-  const screenplay = await prisma.screenplay.findUnique({
-    where: { id: screenplayId },
-    select: { userId: true, teamId: true },
-  });
-
-  if (!screenplay) return null;
-
-  if (screenplay.userId === userId) return screenplay;
-
-  if (screenplay.teamId) {
-    const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId: screenplay.teamId,
-          userId,
-        },
-      },
-    });
-    if (membership) return screenplay;
-  }
-
-  return null;
-}
-
 // GET /api/screenplays/[id]/shots/[shotId] - Get a single shot
 export async function GET(
   request: Request,
@@ -68,11 +43,11 @@ export async function GET(
 
     const { id: screenplayId, shotId } = await params;
 
-    const screenplay = await checkScreenplayAccess(screenplayId, session.user.id);
-    if (!screenplay) {
+    const access = await checkScreenplayAccess(screenplayId, session.user.id);
+    if (!access.allowed) {
       return NextResponse.json(
-        { error: "Screenplay not found or access denied" },
-        { status: 404 }
+        { error: access.error },
+        { status: access.status }
       );
     }
 
@@ -113,11 +88,12 @@ export async function PUT(
 
     const { id: screenplayId, shotId } = await params;
 
-    const screenplay = await checkScreenplayAccess(screenplayId, session.user.id);
-    if (!screenplay) {
+    // Require EDITOR role for updating shots
+    const access = await checkScreenplayAccess(screenplayId, session.user.id, 'EDITOR');
+    if (!access.allowed) {
       return NextResponse.json(
-        { error: "Screenplay not found or access denied" },
-        { status: 404 }
+        { error: access.error },
+        { status: access.status }
       );
     }
 
@@ -190,11 +166,12 @@ export async function DELETE(
 
     const { id: screenplayId, shotId } = await params;
 
-    const screenplay = await checkScreenplayAccess(screenplayId, session.user.id);
-    if (!screenplay) {
+    // Require EDITOR role for updating shots
+    const access = await checkScreenplayAccess(screenplayId, session.user.id, 'EDITOR');
+    if (!access.allowed) {
       return NextResponse.json(
-        { error: "Screenplay not found or access denied" },
-        { status: 404 }
+        { error: access.error },
+        { status: access.status }
       );
     }
 

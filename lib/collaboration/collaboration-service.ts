@@ -73,15 +73,13 @@ export class CollaborationService {
           this.updatePresence(state);
         }
       })
-      .on('presence', { event: 'join' }, ({ newPresences }) => {
-        console.log('User joined:', newPresences);
+      .on('presence', { event: 'join' }, () => {
         const state = this.channel?.presenceState();
         if (state) {
           this.updatePresence(state);
         }
       })
-      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-        console.log('User left:', leftPresences);
+      .on('presence', { event: 'leave' }, () => {
         const state = this.channel?.presenceState();
         if (state) {
           this.updatePresence(state);
@@ -91,8 +89,6 @@ export class CollaborationService {
     // Subscribe to channel
     const status = await this.channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        console.log('✅ Connected to collaboration channel');
-
         // Track our presence
         await this.trackPresence(userInfo, 0);
 
@@ -100,7 +96,6 @@ export class CollaborationService {
           this.onConnectionChangeCallback(true);
         }
       } else if (status === 'CLOSED') {
-        console.log('❌ Disconnected from collaboration channel');
         if (this.onConnectionChangeCallback) {
           this.onConnectionChangeCallback(false);
         }
