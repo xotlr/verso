@@ -388,7 +388,7 @@ export function ShotlistPanel({
   }, [scenesWithShots]);
 
   return (
-    <div className={cn('flex flex-col h-full', className)}>
+    <div className={cn('flex flex-col overflow-hidden', className)}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-2">
         <h2 className="font-semibold text-sm">Shotlist</h2>
@@ -466,7 +466,7 @@ export function ShotlistPanel({
           )}
 
           {/* Scene list */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="p-3 space-y-2">
               {filteredScenes.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground text-xs">

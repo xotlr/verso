@@ -239,9 +239,8 @@
   position: relative;
   overflow: visible;
 
-  /* Page background with shadow */
+  /* Page background */
   background: hsl(var(--page));
-  box-shadow: 0 25px 50px -12px hsl(0 0% 0% / 0.25);
 
   /* Typography - uses WASM-derived values */
   font-family: var(--pm-font-family);
@@ -756,7 +755,7 @@
 
 /* Container for the entire page break region */
 .pm-page-break-container {
-  position: relative;
+  position: relative;  /* In document flow - creates gaps between pages */
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -1241,7 +1240,6 @@
   width: 816px;
   height: var(--wasm-page-height); /* From WASM - single source of truth */
   background: hsl(var(--page));
-  box-shadow: 0 25px 50px -12px hsl(0 0% 0% / 0.25);
   border-radius: 2px;
 }
 
@@ -1323,7 +1321,12 @@
    ============================================ */
 
 .pm-discrete-mode .pm-page-break-container {
-  /* Decorations are invisible but still have height */
+  /* Override absolute positioning → back in document flow for gap spacing */
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  /* Invisible but occupies space in document flow */
   visibility: hidden;
   pointer-events: none;
 }

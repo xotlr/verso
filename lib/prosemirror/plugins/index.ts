@@ -14,6 +14,7 @@ import { createCollaborationPlugin, CollaborationPluginOptions } from './collabo
 import { createPastePlugin, CoverPageData } from './paste-handler';
 import { createTypewriterScrollPlugin } from './typewriter-scroll';
 import { createShotMarkersPlugin, ShotMarker } from './shot-markers';
+import { createPaginationChangeTracker } from './pagination-change-tracker';
 
 export interface CreatePluginsOptions {
   // Enable input rules for auto-formatting
@@ -52,6 +53,8 @@ export interface CreatePluginsOptions {
   shotMarkers?: boolean;
   // Initial shot markers data
   initialShotMarkers?: ShotMarker[];
+  // Enable pagination change tracking for incremental pagination
+  paginationChangeTracker?: boolean;
 }
 
 const defaultOptions: CreatePluginsOptions = {
@@ -68,6 +71,7 @@ const defaultOptions: CreatePluginsOptions = {
   typewriterScroll: true,
   typewriterScrollEnabled: false, // Off by default, user can enable in settings
   shotMarkers: true, // Enabled by default for shot-to-text linking
+  paginationChangeTracker: true, // Enabled by default for incremental pagination
 };
 
 /**
@@ -105,6 +109,11 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
   // Pagination (page breaks)
   if (opts.pagination) {
     plugins.push(createPaginationPlugin());
+  }
+
+  // Pagination change tracking (for incremental pagination)
+  if (opts.paginationChangeTracker) {
+    plugins.push(createPaginationChangeTracker());
   }
 
   // Scene numbering
@@ -208,3 +217,13 @@ export {
   hasMarkerNearPosition,
 } from './shot-markers';
 export type { ShotMarker, ShotMarkersState } from './shot-markers';
+
+// Pagination change tracker plugin exports
+export {
+  createPaginationChangeTracker,
+  paginationChangeTrackerKey,
+  getAccumulatedChanges,
+  hasReliableChangeData,
+  createClearChangesTr,
+} from './pagination-change-tracker';
+export type { ChangeTrackerState } from './pagination-change-tracker';

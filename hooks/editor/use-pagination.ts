@@ -7,16 +7,23 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
+import { EditorState, Transaction } from 'prosemirror-state';
 import {
   serializeDocument,
   createPositionMap,
   runPagination,
   DEFAULT_FEATURE_FILM_CONFIG,
   type PaginationResult,
+  type PaginationCache,
   type PageConfig,
   type PageIdentifier,
   type PositionMap,
+  type DocumentChange,
 } from '@/lib/verso';
+import {
+  getAccumulatedChanges,
+  createClearChangesTr,
+} from '@/lib/prosemirror/plugins';
 
 export interface UsePaginationOptions {
   /** Debounce delay in milliseconds (default: 150) */
@@ -25,6 +32,10 @@ export interface UsePaginationOptions {
   config?: PageConfig;
   /** Whether pagination is enabled (default: true) */
   enabled?: boolean;
+  /** Editor state for incremental pagination (optional) */
+  editorState?: EditorState | null;
+  /** Callback when pagination completes - use to dispatch change clear transaction */
+  onPaginationComplete?: (createClearTr: (tr: Transaction) => Transaction) => void;
 }
 
 export interface UsePaginationReturn {
@@ -61,6 +72,8 @@ export function usePagination(
     debounceMs = 150,
     config = DEFAULT_FEATURE_FILM_CONFIG,
     enabled = true,
+    editorState = null,
+    onPaginationComplete,
   } = options;
 
   const [result, setResult] = useState<PaginationResult | null>(null);
@@ -74,6 +87,7 @@ export function usePagination(
   const docVersionRef = useRef(0); // Track document version to discard stale results
   const lastRunTimeRef = useRef<number>(0); // Track last pagination run for throttling
   const isFirstRunRef = useRef(true); // Track if this is the first run
+  const paginationCacheRef = useRef<PaginationCache | null>(null); // Cache for incremental pagination
 
   /**
    * Run pagination on the current document
@@ -102,14 +116,31 @@ export function usePagination(
       // Create position map
       positionMapRef.current = createPositionMap(doc);
 
+      // Get accumulated changes for incremental pagination (if editor state available)
+      let changes: DocumentChange[] | undefined;
+      if (editorState) {
+        changes = getAccumulatedChanges(editorState);
+      }
+
       // Debug: Log serialized elements (comment out in production)
       if (process.env.NODE_ENV === 'development') {
-        console.log('[usePagination] Serialized elements:', elements.length, 'hasTitlePage:', hasTitlePage, 'version:', thisVersion);
+        const incrementalMode = paginationCacheRef.current && changes && changes.length > 0;
+        console.log('[usePagination] Serialized elements:', elements.length,
+          'hasTitlePage:', hasTitlePage,
+          'version:', thisVersion,
+          'incremental:', incrementalMode,
+          'changes:', changes?.length ?? 0
+        );
       }
 
       // Run pagination with title page awareness
       // WASM now handles all positioning - pixel_y values are absolute
-      const paginationResult = await runPagination(elements, config, hasTitlePage);
+      // Use incremental pagination when cache is available
+      const paginationResult = await runPagination(elements, config, {
+        hasTitlePage,
+        changes,
+        cache: paginationCacheRef.current ?? undefined,
+      });
 
       // Note: We no longer discard stale results - instead we always update with the
       // latest completed pagination. This ensures page frames are visible during rapid
@@ -117,6 +148,11 @@ export function usePagination(
       // but is still useful for visual display. Newer results will replace older ones.
       if (thisVersion !== docVersionRef.current && process.env.NODE_ENV === 'development') {
         console.log('[usePagination] Using slightly stale result (version', thisVersion, 'vs current', docVersionRef.current, ')');
+      }
+
+      // Store cache for next incremental pagination
+      if (paginationResult.cache) {
+        paginationCacheRef.current = paginationResult.cache;
       }
 
       // Debug: Log WASM result with diagnostic stats
@@ -127,20 +163,28 @@ export function usePagination(
           totalLines: paginationResult.stats.total_lines,
           avgLinesPerElement: paginationResult.stats.avg_lines_per_element?.toFixed(2),
           durationMs: performance.now() - startTime,
+          hasCache: !!paginationResult.cache,
         });
       }
 
       setResult(paginationResult);
       setTiming({ lastDurationMs: performance.now() - startTime });
+
+      // Notify caller to clear accumulated changes after successful pagination
+      if (onPaginationComplete && changes && changes.length > 0) {
+        onPaginationComplete(createClearChangesTr);
+      }
     } catch (err) {
       // Always set error - user should know pagination failed
       setError(err instanceof Error ? err : new Error(String(err)));
       console.error('[usePagination] Error:', err);
+      // Invalidate cache on error to force full recalculation next time
+      paginationCacheRef.current = null;
     } finally {
       // Always clear pending - a newer request will set it again if needed
       setIsPending(false);
     }
-  }, [doc, config, enabled]);
+  }, [doc, config, enabled, editorState, onPaginationComplete]);
 
   /**
    * Throttled pagination trigger - runs immediately on first doc, then throttles
@@ -233,10 +277,11 @@ export function usePagination(
   }, [result]);
 
   /**
-   * Force a recalculation
+   * Force a full recalculation (clears cache for non-incremental run)
    */
   const recalculate = useCallback(() => {
     lastDocRef.current = null; // Force change detection
+    paginationCacheRef.current = null; // Clear cache to force full recalculation
     runPaginationOnDoc();
   }, [runPaginationOnDoc]);
 

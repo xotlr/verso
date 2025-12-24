@@ -63,10 +63,12 @@ export const DISCRETE_MODE_META = 'discreteMode';
 /**
  * Convert WASM pagination result to page frames
  *
- * WASM is now the single source of truth for all positioning.
- * - `pixel_y` values are absolute content start positions
+ * WASM is the single source of truth for all positioning.
+ * - `pixel_y` values include cumulative decoration heights (WASM tracks these)
  * - Layout metadata provides margins and offsets
  * - Title page (if present) is included as pages[0] with pixel_y: 0
+ *
+ * Frame yOffset = pixel_y - top_margin (frame starts at page top, content starts at top_margin)
  */
 export function createPageFramesFromWasm(
   result: PaginationResult
@@ -82,8 +84,9 @@ export function createPageFramesFromWasm(
     const prevPage = i > 0 ? result.pages[i - 1] : null;
 
     // Determine frame position from WASM's pixel_y:
-    // - Title page (no elements, pixel_y = 0): frame at pixel_y
-    // - Content pages: frame at pixel_y - top_margin (frame starts before content)
+    // - pixel_y is where content STARTS (includes cumulative decoration heights)
+    // - Frame starts at pixel_y - top_margin (frame top edge before content)
+    // - Title page (no elements, pixel_y = 0): frame at 0
     const isTitlePage = page.elements.length === 0 && page.pixel_y === 0;
     const yOffset = isTitlePage ? page.pixel_y : page.pixel_y - topMargin;
 

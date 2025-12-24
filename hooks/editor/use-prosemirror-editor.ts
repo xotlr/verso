@@ -5,7 +5,7 @@
  * Coordinates initialization, state management, and WASM pagination.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { EditorState, Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
@@ -71,6 +71,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
   const [canRedo, setCanRedo] = useState(false);
   const [autocompleteState, setAutocompleteState] = useState<AutocompleteState | null>(null);
   const [currentDoc, setCurrentDoc] = useState<ProseMirrorNode | null>(null);
+  const [currentEditorState, setCurrentEditorState] = useState<EditorState | null>(null);
 
   // Track characters and locations for autocomplete
   const charactersRef = useRef<string[]>([]);
@@ -88,10 +89,22 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
   useEffect(() => { onUpdateRef.current = onUpdate; }, [onUpdate]);
   useEffect(() => { onScenesChangeRef.current = onScenesChange; }, [onScenesChange]);
 
-  // WASM pagination engine
+  // Callback to clear pagination change tracker after successful pagination
+  const handlePaginationComplete = useCallback((createClearTr: (tr: Transaction) => Transaction) => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    // Dispatch transaction to clear accumulated changes
+    const tr = createClearTr(view.state.tr);
+    view.dispatch(tr);
+  }, []);
+
+  // WASM pagination engine with incremental pagination support
   const pagination = usePagination(currentDoc, {
     debounceMs: 150,
     enabled: true,
+    editorState: currentEditorState,
+    onPaginationComplete: handlePaginationComplete,
   });
 
   // Editor commands
@@ -149,6 +162,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
         if (tr.docChanged) {
           const doc = newState.doc;
           setCurrentDoc(doc);
+          setCurrentEditorState(newState); // For incremental pagination
 
           // Debounce stats calculations
           if (statsTimeoutRef.current) clearTimeout(statsTimeoutRef.current);
@@ -212,6 +226,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     setWordCount(calculateWordCount(doc));
     setPageCount(calculatePageCount(doc));
     setCurrentDoc(doc);
+    setCurrentEditorState(state); // For incremental pagination
     setIsReady(true);
 
     const scenes = extractScenes(doc);

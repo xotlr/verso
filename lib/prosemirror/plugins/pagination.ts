@@ -451,6 +451,7 @@ function createPageBreakDecorations(
       pageBreak.position,
       () => {
         // Outer container - full width block, non-editable
+        // Decoration heights (set by WASM) create gaps in document flow
         const container = document.createElement('div');
         container.className = 'pm-page-break-container';
         container.contentEditable = 'false';
@@ -459,7 +460,7 @@ function createPageBreakDecorations(
         container.setAttribute('data-break-type', pageBreak.type);
         // Store lines used for CSS calculations
         container.setAttribute('data-lines-used', String(pageBreak.linesUsedOnPrevPage));
-        // Store WASM pixel position for CSS positioning (single source of truth)
+        // Store WASM pixel position for debugging/CSS variable
         container.style.setProperty('--wasm-pixel-y', `${pageBreak.pixelY}px`);
 
         // ---- ZONE 1: PREVIOUS PAGE BOTTOM ----

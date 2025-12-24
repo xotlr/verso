@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Undo2, Redo2, Settings, Maximize2, Minimize2, Play, History, Film, Users, Clapperboard, StickyNote } from 'lucide-react';
+import { Undo2, Redo2, Settings, Maximize2, Minimize2, Play, History, Film, Users, Clapperboard } from 'lucide-react';
+import { CiStickyNote } from 'react-icons/ci';
 import { useEditorPanel, type EditorPanelType } from './EditorPanelContext';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -185,7 +186,7 @@ export function EditorUnifiedToolbar({
             tooltipSide="bottom"
           />
           <ToolbarButton
-            icon={<StickyNote className="h-4 w-4" />}
+            icon={<CiStickyNote className="h-4 w-4" />}
             label={`Notes${notesCount > 0 ? ` (${notesCount})` : ''}`}
             onClick={() => handlePanelClick('notes')}
             isActive={activePanel === 'notes'}

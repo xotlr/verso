@@ -14,9 +14,10 @@ import {
   TEST_SCREENPLAY,
   QUICK_TEST,
   STRESS_TEST,
-  generateFullScript,
+  loadLyraScreenplay,
   getTestCharacterCount,
   getEstimatedDuration,
+  TestElement,
 } from '@/lib/prosemirror/dev/test-content';
 import { Play, Square, X, Bug, Zap, FileText, Gauge } from 'lucide-react';
 
@@ -24,23 +25,35 @@ interface TypingTestPanelProps {
   view: EditorView | null;
 }
 
-type TestType = 'quick' | 'standard' | 'stress' | 'burst' | 'fullScript';
+type TestType = 'quick' | 'standard' | 'stress' | 'burst' | 'lyra';
 
 const TEST_CONFIGS = {
-  quick: { label: 'Quick', icon: Zap, charsPerSecond: 15, description: '~50 chars', latencyThreshold: 50, droppedThreshold: 5 },
-  standard: { label: 'Standard', icon: FileText, charsPerSecond: 10, description: '~1000 chars', latencyThreshold: 50, droppedThreshold: 5 },
-  stress: { label: 'Stress', icon: Gauge, charsPerSecond: 20, description: '~1000 chars, long blocks', latencyThreshold: 50, droppedThreshold: 5 },
-  burst: { label: 'Burst', icon: Zap, charsPerSecond: 100, description: '200 chars @ max speed (extreme)', latencyThreshold: 30, droppedThreshold: 20 },
-  fullScript: { label: '100 Pages', icon: FileText, charsPerSecond: 30, description: '~150k chars', latencyThreshold: 50, droppedThreshold: 5 },
+  quick: { label: 'Quick', icon: Zap, charsPerSecond: 45, description: '~50 chars', latencyThreshold: 50, droppedThreshold: 5 },
+  standard: { label: 'Standard', icon: FileText, charsPerSecond: 30, description: '~1000 chars', latencyThreshold: 50, droppedThreshold: 5 },
+  stress: { label: 'Stress', icon: Gauge, charsPerSecond: 60, description: '~1000 chars, long blocks', latencyThreshold: 50, droppedThreshold: 5 },
+  burst: { label: 'Burst', icon: Zap, charsPerSecond: 200, description: '200 chars @ max speed (extreme)', latencyThreshold: 30, droppedThreshold: 20 },
+  lyra: { label: 'LYRA', icon: FileText, charsPerSecond: 100, description: 'Full screenplay', latencyThreshold: 50, droppedThreshold: 5 },
 };
 
 export function TypingTestPanel({ view }: TypingTestPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [isLoadingLyra, setIsLoadingLyra] = useState(false);
   const [testType, setTestType] = useState<TestType>('quick');
   const [progress, setProgress] = useState<TypingTestProgress | null>(null);
   const [result, setResult] = useState<TypingTestResult | null>(null);
+  const [lyraElements, setLyraElements] = useState<TestElement[] | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Load LYRA screenplay when that test type is selected
+  useEffect(() => {
+    if (testType === 'lyra' && !lyraElements && !isLoadingLyra) {
+      setIsLoadingLyra(true);
+      loadLyraScreenplay()
+        .then(setLyraElements)
+        .finally(() => setIsLoadingLyra(false));
+    }
+  }, [testType, lyraElements, isLoadingLyra]);
 
   // Memoize test elements to avoid regenerating on every render
   const testElements = useMemo(() => {
@@ -49,10 +62,10 @@ export function TypingTestPanel({ view }: TypingTestPanelProps) {
       case 'standard': return TEST_SCREENPLAY;
       case 'stress': return STRESS_TEST;
       case 'burst': return []; // Handled separately
-      case 'fullScript': return generateFullScript(10); // Start with 10 pages for demo
+      case 'lyra': return lyraElements || [];
       default: return QUICK_TEST;
     }
-  }, [testType]);
+  }, [testType, lyraElements]);
 
   const charCount = testType === 'burst' ? 200 : getTestCharacterCount(testElements);
   const config = TEST_CONFIGS[testType];
@@ -72,7 +85,7 @@ export function TypingTestPanel({ view }: TypingTestPanelProps) {
   }, []);
 
   const startTest = useCallback(async () => {
-    if (!view || isRunning) return;
+    if (!view || isRunning || (testType === 'lyra' && isLoadingLyra)) return;
 
     setIsRunning(true);
     setResult(null);
@@ -127,7 +140,7 @@ export function TypingTestPanel({ view }: TypingTestPanelProps) {
       setIsRunning(false);
       abortControllerRef.current = null;
     }
-  }, [view, isRunning, testType, testElements, config]);
+  }, [view, isRunning, testType, testElements, config, isLoadingLyra]);
 
   const stopTest = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -187,9 +200,15 @@ export function TypingTestPanel({ view }: TypingTestPanelProps) {
 
         {/* Test Info */}
         <div className="text-xs text-muted-foreground">
-          {charCount.toLocaleString()} chars, ~{estimatedSeconds}s @ {config.charsPerSecond} cps
-          <br />
-          <span className="opacity-70">Pass: &lt;{config.latencyThreshold}ms latency, &lt;{config.droppedThreshold}% dropped</span>
+          {testType === 'lyra' && isLoadingLyra ? (
+            <span>Loading LYRA screenplay...</span>
+          ) : (
+            <>
+              {charCount.toLocaleString()} chars, ~{estimatedSeconds}s @ {config.charsPerSecond} cps
+              <br />
+              <span className="opacity-70">Pass: &lt;{config.latencyThreshold}ms latency, &lt;{config.droppedThreshold}% dropped</span>
+            </>
+          )}
         </div>
 
         {/* Progress */}
@@ -351,9 +370,9 @@ export function TypingTestPanel({ view }: TypingTestPanelProps) {
         {/* Controls */}
         <div className="flex gap-2">
           {!isRunning ? (
-            <Button size="sm" onClick={startTest} disabled={!view} className="flex-1">
+            <Button size="sm" onClick={startTest} disabled={!view || (testType === 'lyra' && isLoadingLyra)} className="flex-1">
               <Play className="h-4 w-4 mr-1" />
-              Run Test
+              {testType === 'lyra' && isLoadingLyra ? 'Loading...' : 'Run Test'}
             </Button>
           ) : (
             <Button size="sm" variant="destructive" onClick={stopTest} className="flex-1">

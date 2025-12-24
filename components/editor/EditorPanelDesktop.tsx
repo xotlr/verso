@@ -28,18 +28,16 @@ interface EditorPanelDesktopProps {
   onAddDetectedShot?: (shot: DetectedShot) => void;
 }
 
-// Panel animation variants - using y: '-50%' for vertical centering
+// Panel animation variants
 const panelVariants = {
   hidden: {
     opacity: 0,
     x: 20,
-    y: '-50%',
     scale: 0.95,
   },
   visible: {
     opacity: 1,
     x: 0,
-    y: '-50%',
     scale: 1,
   },
 };
@@ -125,9 +123,10 @@ export function EditorPanelDesktop({
         {isPanelOpen && (
           <motion.div
             className={cn(
-              'fixed top-1/2 z-20',
+              'fixed top-16 bottom-16 z-20 flex flex-col',
               isRight ? 'right-16' : 'left-16'
             )}
+            style={{ width: `${EDITOR_PANEL_WIDTH}px` }}
             variants={panelVariants}
             initial="hidden"
             animate="visible"
@@ -140,20 +139,12 @@ export function EditorPanelDesktop({
           >
             <div
               className={cn(
-                'overflow-hidden',
+                'flex flex-col h-full overflow-hidden',
                 'bg-background',
                 'rounded-2xl border border-border/50',
                 'shadow-lg'
               )}
-              style={{
-                width: `${EDITOR_PANEL_WIDTH}px`,
-                maxHeight: 'calc(100vh - 8rem)',
-              }}
             >
-              <div
-                className="h-full overflow-hidden"
-                style={{ width: `${EDITOR_PANEL_WIDTH}px`, maxHeight: 'calc(100vh - 8rem)' }}
-              >
                 <AnimatePresence mode="wait">
                   {activePanel === 'scenes' && (
                     <motion.div
@@ -163,13 +154,14 @@ export function EditorPanelDesktop({
                       animate="visible"
                       exit="exit"
                       transition={{ duration: 0.15 }}
-                      className="h-full"
+                      className="flex-1 min-h-0 overflow-hidden flex flex-col"
                     >
                       <ScenesPanel
                         scenes={scenes}
                         view={view}
                         currentSceneId={currentSceneId}
-                        className="h-full"
+                        screenplayId={screenplayId}
+                        className="flex-1 min-h-0"
                       />
                     </motion.div>
                   )}
@@ -182,13 +174,13 @@ export function EditorPanelDesktop({
                       animate="visible"
                       exit="exit"
                       transition={{ duration: 0.15 }}
-                      className="h-full"
+                      className="flex-1 min-h-0 overflow-hidden flex flex-col"
                     >
                       <CharactersPanel
                         characters={characters}
                         screenplayId={screenplayId}
                         view={view}
-                        className="h-full"
+                        className="flex-1 min-h-0"
                       />
                     </motion.div>
                   )}
@@ -201,7 +193,7 @@ export function EditorPanelDesktop({
                       animate="visible"
                       exit="exit"
                       transition={{ duration: 0.15 }}
-                      className="h-full"
+                      className="flex-1 min-h-0 overflow-hidden flex flex-col"
                     >
                       <ShotlistPanel
                         screenplayId={screenplayId}
@@ -212,7 +204,7 @@ export function EditorPanelDesktop({
                         onEditShot={onEditShot}
                         onAddShot={onAddShot}
                         onAddDetectedShot={onAddDetectedShot}
-                        className="h-full"
+                        className="flex-1 min-h-0"
                       />
                     </motion.div>
                   )}
@@ -225,17 +217,16 @@ export function EditorPanelDesktop({
                       animate="visible"
                       exit="exit"
                       transition={{ duration: 0.15 }}
-                      className="h-full"
+                      className="flex-1 min-h-0 overflow-hidden flex flex-col"
                     >
                       <NotesPanel
                         screenplayId={screenplayId}
                         currentSceneId={notesSceneId}
-                        className="h-full"
+                        className="flex-1 min-h-0"
                       />
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </div>
             </div>
           </motion.div>
         )}

@@ -522,7 +522,7 @@ export function CharactersPanel({
   }, [filteredCharacters]);
 
   return (
-    <div className={cn('flex flex-col h-full', className)}>
+    <div className={cn('flex flex-col overflow-hidden', className)}>
       <PanelHeader
         title="Characters"
         count={characters.length}
@@ -565,7 +565,7 @@ export function CharactersPanel({
           </div>
 
           {/* Character List - Scrollable with Drag & Drop */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="p-3 space-y-1.5">
               {filteredCharacters.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground text-xs">

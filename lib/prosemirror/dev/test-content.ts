@@ -216,3 +216,104 @@ export function generateBurstContent(charCount: number): TestElement[] {
   const text = 'The quick brown fox jumps over the lazy dog. '.repeat(Math.ceil(charCount / 45)).slice(0, charCount);
   return [{ type: 'action', text }];
 }
+
+/**
+ * Parse a screenplay markdown file into TestElement array.
+ * Detects scene headings, characters, dialogue, parentheticals, action, and transitions.
+ */
+export function parseScreenplayMarkdown(content: string): TestElement[] {
+  const elements: TestElement[] = [];
+  const lines = content.split('\n');
+
+  let i = 0;
+  let lastWasCharacter = false;
+
+  while (i < lines.length) {
+    const line = lines[i].trim();
+
+    // Skip empty lines and metadata
+    if (!line || line.startsWith('LOGLINE') || line.startsWith('ACT ') || line.startsWith('SUPER:') || line.startsWith('Written by')) {
+      lastWasCharacter = false;
+      i++;
+      continue;
+    }
+
+    // Scene heading: starts with INT. or EXT. (may have number prefix like "1. INT.")
+    const sceneMatch = line.match(/^(?:\d+\.\s*)?(?:TO\s+)?(INT\.|EXT\.)/i);
+    if (sceneMatch) {
+      // Clean up the scene heading - remove number prefix
+      const cleanedLine = line.replace(/^\d+\.\s*(?:TO\s+)?/, '').trim();
+      elements.push({ type: 'scene_heading', text: cleanedLine });
+      lastWasCharacter = false;
+      i++;
+      continue;
+    }
+
+    // Transition: ends with TO: or is MATCH-CUT
+    if (/^(CUT TO:|DISSOLVE TO:|FADE TO:|MATCH-CUT|SMASH CUT|TIME CUT)/i.test(line)) {
+      elements.push({ type: 'transition', text: line });
+      lastWasCharacter = false;
+      i++;
+      continue;
+    }
+
+    // Character name: ALL CAPS, possibly with (CONT'D) or (V.O.) or (O.S.)
+    // Must be on its own line, typically short
+    const charMatch = line.match(/^([A-Z][A-Z\s']+)(?:\s*\((?:CONT'D|V\.O\.|O\.S\.)\))?$/);
+    if (charMatch && line.length < 40 && !line.includes('.') && !line.startsWith('THEN') && !line.startsWith('SOUND') && !line.startsWith('CLOSE') && !line.startsWith('WIDE') && !line.startsWith('AERIAL') && !line.startsWith('TRACKING') && !line.startsWith('EXTREME') && !line.startsWith('BLACK')) {
+      elements.push({ type: 'character', text: line });
+      lastWasCharacter = true;
+      i++;
+      continue;
+    }
+
+    // Parenthetical: starts with (
+    if (line.startsWith('(') && line.endsWith(')')) {
+      elements.push({ type: 'parenthetical', text: line });
+      i++;
+      continue;
+    }
+
+    // Dialogue: follows a character name
+    if (lastWasCharacter) {
+      elements.push({ type: 'dialogue', text: line });
+      lastWasCharacter = false;
+      i++;
+      continue;
+    }
+
+    // Everything else is action
+    elements.push({ type: 'action', text: line });
+    lastWasCharacter = false;
+    i++;
+  }
+
+  return elements;
+}
+
+// Cache for loaded LYRA screenplay
+let lyraCache: TestElement[] | null = null;
+
+/**
+ * Load and parse LYRA.md screenplay.
+ * Caches the result for subsequent calls.
+ */
+export async function loadLyraScreenplay(): Promise<TestElement[]> {
+  if (lyraCache) {
+    return lyraCache;
+  }
+
+  try {
+    const response = await fetch('/docs/LYRA.md');
+    if (!response.ok) {
+      throw new Error(`Failed to load LYRA.md: ${response.status}`);
+    }
+    const content = await response.text();
+    lyraCache = parseScreenplayMarkdown(content);
+    return lyraCache;
+  } catch (error) {
+    console.error('[loadLyraScreenplay] Error:', error);
+    // Return fallback content
+    return TEST_SCREENPLAY;
+  }
+}

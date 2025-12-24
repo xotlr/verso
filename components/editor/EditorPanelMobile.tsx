@@ -13,7 +13,8 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
-import { Film, Users, Clapperboard, StickyNote } from 'lucide-react';
+import { Film, Users, Clapperboard } from 'lucide-react';
+import { CiStickyNote } from 'react-icons/ci';
 import type { SceneInfo, CharacterInfo } from '@/hooks/editor/use-prosemirror-editor';
 import type { EditorView } from 'prosemirror-view';
 import type { SceneWithShots, Shot, DetectedShot } from '@/types/shotlist';
@@ -262,7 +263,7 @@ export function EditorPanelMobile({
             panel="notes"
             activePanel={currentPanel}
             onClick={handlePanelChange}
-            icon={<StickyNote className="h-6 w-6" />}
+            icon={<CiStickyNote className="h-6 w-6" />}
             label="Notes"
           />
         </div>

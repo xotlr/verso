@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Film, Users, Clapperboard, StickyNote } from 'lucide-react';
+import { Film, Users, Clapperboard } from 'lucide-react';
+import { CiStickyNote } from 'react-icons/ci';
 import { cn } from '@/lib/utils';
 
 type EditorPanelType = 'scenes' | 'characters' | 'shotlist' | 'notes';
@@ -106,7 +107,7 @@ export function EditorBottomNav() {
           panel="notes"
           activePanel={activePanel}
           onClick={handleTabClick}
-          icon={<StickyNote className="h-5 w-5" />}
+          icon={<CiStickyNote className="h-5 w-5" />}
           label="Notes"
         />
       </div>

@@ -6,8 +6,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { CiStickyNote } from 'react-icons/ci';
 import {
-  StickyNote,
   Plus,
   Search,
   X,
@@ -455,7 +455,7 @@ export function NotesPanel({
   }, [filteredNotes]);
 
   return (
-    <div className={cn('flex flex-col h-full', className)}>
+    <div className={cn('flex flex-col overflow-hidden', className)}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-2">
         <h2 className="font-semibold text-sm">Notes</h2>
@@ -482,7 +482,7 @@ export function NotesPanel({
         </div>
       ) : notes.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground text-sm p-3">
-          <StickyNote className="h-8 w-8 mx-auto mb-3 opacity-50" />
+          <CiStickyNote className="h-8 w-8 mx-auto mb-3 opacity-50" />
           <p className="font-medium">No notes yet</p>
           <p className="text-xs mt-1">
             Add notes to keep track of ideas.
@@ -524,7 +524,7 @@ export function NotesPanel({
           )}
 
           {/* Notes list with Drag & Drop */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="p-3 space-y-1.5">
               {filteredNotes.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground text-xs">

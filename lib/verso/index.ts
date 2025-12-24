@@ -48,7 +48,7 @@ export {
 export { serializeDocument, createPositionMap, hasTitlePage, type PositionMap } from './serializer';
 
 // Worker
-export { getPaginationWorker, runPagination } from './worker';
+export { getPaginationWorker, runPagination, type PaginateOptions } from './worker';
 
 // Export functionality
 export { exportToFountain, exportToFountainSync, downloadAsFountain, renderForExport } from './export';

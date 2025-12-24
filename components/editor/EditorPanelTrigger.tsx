@@ -4,7 +4,8 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { useEditorPanel } from './EditorPanelContext';
 import { Button } from '@/components/ui/button';
-import { PanelRight, Film, Users, Clapperboard, StickyNote } from 'lucide-react';
+import { PanelRight, Film, Users, Clapperboard } from 'lucide-react';
+import { CiStickyNote } from 'react-icons/ci';
 
 interface EditorPanelTriggerProps {
   className?: string;
@@ -30,7 +31,7 @@ export function EditorPanelTrigger({ className }: EditorPanelTriggerProps) {
       case 'shotlist':
         return <Clapperboard className="h-5 w-5" />;
       case 'notes':
-        return <StickyNote className="h-5 w-5" />;
+        return <CiStickyNote className="h-5 w-5" />;
       default:
         return <PanelRight className="h-5 w-5" />;
     }
