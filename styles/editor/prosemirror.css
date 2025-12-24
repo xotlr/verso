@@ -221,8 +221,7 @@
   /* No min-height - content dictates height for proper scrolling */
   background: hsl(var(--background));
   /* Centering via left: 50% + translateX(-50%) in inline styles for proper mobile scaling */
-  /* Smooth zoom transitions */
-  transition: transform 150ms ease-out;
+  /* Zoom is instant - scroll adjusts simultaneously so content stays locked to page */
 }
 
 /* Each page - container for ProseMirror content */
@@ -336,6 +335,21 @@
     color 100ms ease,
     font-weight 80ms ease;
   will-change: margin-left, margin-right, width;
+}
+
+/* ============================================
+   Element Height Quantization (WASM-Enforced)
+   ============================================ */
+/* WASM calculates exact heights for each element. This class is applied via
+   node decorations to force elements to their calculated height, containing
+   subpixel font rendering drift within each element's boundaries.
+   Without this, drift accumulates across elements causing page misalignment. */
+.pm-quantized-height {
+  /* Height and overflow are set via inline style from WASM height_px */
+  /* contain: layout style prevents this element's layout from affecting siblings */
+  contain: layout style;
+  /* box-sizing ensures padding doesn't add to the WASM-calculated height */
+  box-sizing: border-box;
 }
 
 /* Scene Heading - .ProseMirror prefix for higher specificity than reset */
@@ -771,8 +785,8 @@
 .pm-page-bottom {
   position: relative;
   width: 100%;
-  /* Use calculated height to fill remaining page space (matches WASM calculation) */
-  height: var(--page-bottom-padding, 32px);
+  /* Height set by inline styles from WASM calculation, fallback to 0 (not 32px) */
+  height: var(--page-bottom-padding, 0);
   padding: 0;
 
   /* No shadow on divider - clean separation */
@@ -834,7 +848,7 @@
 .pm-page-top {
   position: relative;
   width: 100%;
-  height: var(--pm-page-padding-top, 96px);  /* 1" top margin from WASM - fixed height, not min */
+  height: var(--wasm-top-margin, 96px);  /* Use same WASM variable as pm-first-page-margin */
   padding: 0;
 
   /* No shadow on divider - clean separation */
@@ -1447,6 +1461,8 @@
 /* Title page container - WGA standard layout */
 .pm-title-page {
   height: var(--wasm-page-height); /* From WASM - single source of truth */
+  max-height: var(--wasm-page-height); /* Prevent flexbox min-content expansion */
+  overflow: hidden; /* Clip content that exceeds page bounds */
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -1455,9 +1471,9 @@
   box-sizing: border-box;
   position: relative;
 
-  /* WGA standard: title at ~40% down (4.4" on 11" page) */
-  padding-top: 422px;  /* 4.4" × 96 DPI ≈ 422px */
-  padding-bottom: 96px; /* 1" bottom margin */
+  /* Title positioning and margins - from WASM for format profile support */
+  padding-top: var(--wasm-title-page-content-top, 422px);
+  padding-bottom: var(--wasm-bottom-margin, 96px);
 }
 
 /* All title page child elements - editable */

@@ -274,12 +274,15 @@ pub fn paginate_with_title_page(
                     );
 
                     // Record the split position
+                    let total_lines = split.first_part_lines + split.second_part_lines;
                     state.record_split_position(
                         &element.id.0,
                         first_page,
                         second_page,
                         start_line,
                         split.second_part_lines as u8,
+                        total_lines,
+                        if at_page_start { 0 } else { lines.space_before },
                     );
                 } else {
                     // Can't split meaningfully, push to next page
@@ -470,6 +473,17 @@ fn add_dual_dialogue_group(
 
         state.current_page.elements.push(page_element);
 
+        // Calculate exact container height in pixels for CSS quantization
+        // Dual dialogue elements share group's space_before only for the first element
+        let element_space = if idx == group.left_elements[0] ||
+                              (group.right_elements.first() == Some(&idx) && group.left_elements.is_empty()) {
+            space_before
+        } else {
+            0
+        };
+        let total_lines = element_space as f32 + lines.content_lines as f32;
+        let height_px = total_lines * state.line_height_px;
+
         // Track element position
         state.element_positions.insert(
             element.id.0.clone(),
@@ -478,6 +492,7 @@ fn add_dual_dialogue_group(
                 start_line: group_start_line,
                 end_line: group_start_line + lines.content_lines as u8 - 1,
                 is_split: false,
+                height_px,
             },
         );
     }

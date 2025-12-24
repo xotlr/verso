@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, RefObject } from 'react';
+import { flushSync } from 'react-dom';
 
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2.0;
@@ -10,6 +11,7 @@ export const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
 interface UseEditorZoomOptions {
   containerRef: RefObject<HTMLElement | null>;
+  scrollContainerRef?: RefObject<HTMLElement | null>;
   fitToWidthScale: number;
   minZoom?: number;
   maxZoom?: number;
@@ -68,6 +70,7 @@ function getNextZoomDown(currentZoom: number): number {
  */
 export function useEditorZoom({
   containerRef,
+  scrollContainerRef,
   fitToWidthScale,
   minZoom = MIN_ZOOM,
   maxZoom = MAX_ZOOM,
@@ -76,6 +79,31 @@ export function useEditorZoom({
   // Start with fit-to-width scale as the default
   const [zoom, setZoomState] = useState(fitToWidthScale);
   const [isUserZoomed, setIsUserZoomed] = useState(false);
+
+  // Keep a ref to current zoom for use in scroll adjustment without stale closures
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+
+  /**
+   * Adjust scroll position instantly when zoom changes.
+   * Temporarily disables smooth scroll to ensure instant adjustment.
+   */
+  const adjustScrollForZoom = useCallback((oldZoom: number, newZoom: number) => {
+    const scrollContainer = scrollContainerRef?.current;
+    if (!scrollContainer || oldZoom === newZoom) return;
+
+    // Disable smooth scroll temporarily (CSS has scroll-behavior: smooth)
+    const originalBehavior = scrollContainer.style.scrollBehavior;
+    scrollContainer.style.scrollBehavior = 'auto';
+
+    const ratio = newZoom / oldZoom;
+    scrollContainer.scrollTop = scrollContainer.scrollTop * ratio;
+
+    // Restore after a frame
+    requestAnimationFrame(() => {
+      scrollContainer.style.scrollBehavior = originalBehavior;
+    });
+  }, [scrollContainerRef]);
 
   // Track pinch gesture state
   const pinchStateRef = useRef<{
@@ -95,13 +123,18 @@ export function useEditorZoom({
     }
   }, [fitToWidthScale, isUserZoomed]);
 
-  // Set zoom with clamping
+  // Set zoom with clamping and scroll adjustment
   const setZoom = useCallback((newZoom: number) => {
+    const oldZoom = zoomRef.current;
     const clampedZoom = clamp(newZoom, minZoom, maxZoom);
-    setZoomState(clampedZoom);
-    setIsUserZoomed(true);
+    zoomRef.current = clampedZoom; // Update immediately for rapid events
+    flushSync(() => {
+      setZoomState(clampedZoom);
+      setIsUserZoomed(true);
+    });
+    adjustScrollForZoom(oldZoom, clampedZoom);
     onZoomChange?.(clampedZoom);
-  }, [minZoom, maxZoom, onZoomChange]);
+  }, [minZoom, maxZoom, onZoomChange, adjustScrollForZoom]);
 
   // Zoom in to next preset
   const zoomIn = useCallback(() => {
@@ -115,10 +148,15 @@ export function useEditorZoom({
 
   // Reset to fit-to-width
   const resetZoom = useCallback(() => {
-    setZoomState(fitToWidthScale);
-    setIsUserZoomed(false);
+    const oldZoom = zoomRef.current;
+    zoomRef.current = fitToWidthScale; // Update immediately for rapid events
+    flushSync(() => {
+      setZoomState(fitToWidthScale);
+      setIsUserZoomed(false);
+    });
+    adjustScrollForZoom(oldZoom, fitToWidthScale);
     onZoomChange?.(fitToWidthScale);
-  }, [fitToWidthScale, onZoomChange]);
+  }, [fitToWidthScale, onZoomChange, adjustScrollForZoom]);
 
   // Handle wheel zoom (Ctrl/Cmd + scroll)
   useEffect(() => {
@@ -133,11 +171,16 @@ export function useEditorZoom({
       e.stopPropagation();
 
       // Calculate zoom delta based on scroll amount
+      const oldZoom = zoomRef.current;
       const delta = -e.deltaY * WHEEL_SENSITIVITY;
-      const newZoom = clamp(zoom + delta, minZoom, maxZoom);
+      const newZoom = clamp(oldZoom + delta, minZoom, maxZoom);
 
-      setZoomState(newZoom);
-      setIsUserZoomed(true);
+      zoomRef.current = newZoom; // Update immediately for rapid events
+      flushSync(() => {
+        setZoomState(newZoom);
+        setIsUserZoomed(true);
+      });
+      adjustScrollForZoom(oldZoom, newZoom);
       onZoomChange?.(newZoom);
     };
 
@@ -147,7 +190,7 @@ export function useEditorZoom({
     return () => {
       container.removeEventListener('wheel', handleWheel);
     };
-  }, [containerRef, zoom, minZoom, maxZoom, onZoomChange]);
+  }, [containerRef, minZoom, maxZoom, onZoomChange, adjustScrollForZoom]);
 
   // Handle pinch-to-zoom gestures
   useEffect(() => {
@@ -167,7 +210,7 @@ export function useEditorZoom({
       if (pinchStateRef.current.pointers.size === 2) {
         const [p1, p2] = Array.from(pinchStateRef.current.pointers.values());
         pinchStateRef.current.initialDistance = getDistance(p1, p2);
-        pinchStateRef.current.initialZoom = zoom;
+        pinchStateRef.current.initialZoom = zoomRef.current;
       }
     };
 
@@ -186,11 +229,16 @@ export function useEditorZoom({
       if (initialDistance === 0) return;
 
       // Calculate zoom based on pinch scale
+      const oldZoom = zoomRef.current;
       const scale = currentDistance / initialDistance;
       const newZoom = clamp(initialZoom * scale, minZoom, maxZoom);
 
-      setZoomState(newZoom);
-      setIsUserZoomed(true);
+      zoomRef.current = newZoom; // Update immediately for rapid events
+      flushSync(() => {
+        setZoomState(newZoom);
+        setIsUserZoomed(true);
+      });
+      adjustScrollForZoom(oldZoom, newZoom);
     };
 
     const handlePointerUp = (e: PointerEvent) => {
@@ -199,7 +247,7 @@ export function useEditorZoom({
       // Reset initial values when gesture ends
       if (pinchStateRef.current.pointers.size < 2) {
         pinchStateRef.current.initialDistance = 0;
-        pinchStateRef.current.initialZoom = zoom;
+        pinchStateRef.current.initialZoom = zoomRef.current;
       }
     };
 
@@ -221,7 +269,7 @@ export function useEditorZoom({
       container.removeEventListener('pointercancel', handlePointerCancel);
       container.removeEventListener('pointerleave', handlePointerUp);
     };
-  }, [containerRef, zoom, minZoom, maxZoom]);
+  }, [containerRef, minZoom, maxZoom, adjustScrollForZoom]);
 
   return {
     zoom,

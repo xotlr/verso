@@ -218,6 +218,11 @@ export function applyLayoutMetadataCSS(layout: {
   root.style.setProperty('--wasm-content-area', `${layout.content_area_px}px`);
   root.style.setProperty('--wasm-title-page-offset', `${layout.title_page_offset_px}px`);
 
+  // Title page content positioning (WGA standard: title ~40% down = 4.4" = 422px at 96 DPI)
+  // TODO: Move this to WASM PageConfig for format profile customization
+  const titlePageContentTop = 422; // 4.4" × 96 DPI
+  root.style.setProperty('--wasm-title-page-content-top', `${titlePageContentTop}px`);
+
   // Derived values for convenience
   root.style.setProperty('--wasm-page-with-gap', `${layout.page_height_px + layout.page_gap_px}px`);
 

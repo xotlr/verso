@@ -1,7 +1,7 @@
 import { Plugin, PluginKey, EditorState, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { PaginationResult, PageIdentifier } from '@/lib/verso/types';
+import type { PaginationResult, PageIdentifier, ElementPosition } from '@/lib/verso/types';
 import type { PositionMap } from '@/lib/verso/serializer';
 
 export const paginationPluginKey = new PluginKey<PaginationState>('pagination');
@@ -362,16 +362,26 @@ function calculateFallbackPageBreaks(doc: ProseMirrorNode): PageBreak[] {
  * 2. pm-page-gap - Transparent gap between pages (shows editor background)
  * 3. pm-page-top - Top edge of next page with industry-standard page number (top-right)
  *
+ * Also creates node decorations for element height quantization - forcing each
+ * element to its exact WASM-calculated height to prevent subpixel drift.
+ *
  * @param doc - The document
  * @param pageBreaks - Page breaks from WASM
  * @param layoutStats - Layout stats from WASM (single source of truth for positioning)
+ * @param elementPositions - Element positions with height_px from WASM
  */
 function createPageBreakDecorations(
   doc: ProseMirrorNode,
   pageBreaks: PageBreak[],
-  _layoutStats: WasmLayoutStats | null
+  layoutStats: WasmLayoutStats | null,
+  elementPositions: Record<string, ElementPosition> | null
 ): DecorationSet {
   const decorations: Decoration[] = [];
+
+  // Get layout values from WASM (single source of truth)
+  // These are used DIRECTLY on elements, not via CSS variables
+  const pageGap = layoutStats?.pageGapPx ?? 40;
+  const topMargin = layoutStats?.topMarginPx ?? 96;
 
   // FIRST PAGE TOP MARGIN - Add spacer at document start
   // This provides the 96px top margin for page 1 (same as pages 2+ get from page break decorations)
@@ -386,6 +396,7 @@ function createPageBreakDecorations(
       () => {
         const spacer = document.createElement('div');
         spacer.className = 'pm-first-page-margin';
+        spacer.style.height = `${topMargin}px`;  // Direct from WASM, not CSS variable
         return spacer;
       },
       { side: -1 } // Render before content at this position
@@ -394,6 +405,8 @@ function createPageBreakDecorations(
   } else {
     // When there's a title page, add page 2 margin and number after it
     // Title page = UI page 1 (no number), first content = UI page 2 (needs "2.")
+    // NOTE: Title page CSS sets height: var(--wasm-page-height), so it already
+    // occupies the full page height. We DON'T need bottomPadding here - just gap + top.
     const posAfterTitlePage = firstNode.nodeSize;
     const page2Decoration = Decoration.widget(
       posAfterTitlePage,
@@ -403,20 +416,22 @@ function createPageBreakDecorations(
         container.contentEditable = 'false';
         container.setAttribute('data-pm-ignore', 'true');
 
-        // Page bottom (title page bottom) - fills remaining space
+        // Page bottom - 0px because title page CSS already fills the page
         const pageBottom = document.createElement('div');
         pageBottom.className = 'pm-page-bottom';
-        pageBottom.style.setProperty('--page-bottom-padding', '0px');
+        pageBottom.style.setProperty('height', '0px', 'important');  // Title page CSS handles full page
         container.appendChild(pageBottom);
 
-        // Gap between pages
+        // Gap between pages - WASM is single source of truth
         const gap = document.createElement('div');
         gap.className = 'pm-page-gap';
+        gap.style.setProperty('height', `${pageGap}px`, 'important');  // Direct from WASM
         container.appendChild(gap);
 
-        // Page top with "2." page number
+        // Page top with "2." page number - WASM is single source of truth
         const pageTop = document.createElement('div');
         pageTop.className = 'pm-page-top';
+        pageTop.style.setProperty('height', `${topMargin}px`, 'important');  // Direct from WASM
         const pageNum = document.createElement('span');
         pageNum.className = 'pm-page-number';
         pageNum.textContent = '2.';
@@ -430,9 +445,9 @@ function createPageBreakDecorations(
     decorations.push(page2Decoration);
   }
 
-  // When there's a title page, skip the first pageBreak (i=0) because
-  // pm-page-2-break already handles the title page → page 2 transition.
-  // This prevents double decorations at the same position.
+  // When there's a title page, skip pageBreaks[0] because pm-page-2-break
+  // handles the same position (posAfterTitlePage). pm-page-2-break uses
+  // pageBreaks[0].bottomPaddingPx for the WASM-calculated bottom padding.
   const startIndex = hasTitlePage ? 1 : 0;
 
   for (let i = startIndex; i < pageBreaks.length; i++) {
@@ -443,7 +458,7 @@ function createPageBreakDecorations(
       continue;
     }
 
-    // Use WASM-calculated bottom padding directly (WASM is single source of truth)
+    // Use WASM's bottomPaddingPx directly - single source of truth
     const bottomPadding = pageBreak.bottomPaddingPx;
 
     // Create the 3-zone page break widget
@@ -458,17 +473,16 @@ function createPageBreakDecorations(
         container.setAttribute('data-pm-ignore', 'true');
         container.setAttribute('data-page-number', displayPageIdentifier(pageBreak.pageIdentifier));
         container.setAttribute('data-break-type', pageBreak.type);
-        // Store lines used for CSS calculations
-        container.setAttribute('data-lines-used', String(pageBreak.linesUsedOnPrevPage));
-        // Store WASM pixel position for debugging/CSS variable
+        // Store WASM pixel position for debugging
         container.style.setProperty('--wasm-pixel-y', `${pageBreak.pixelY}px`);
+        container.style.setProperty('--wasm-bottom-padding', `${bottomPadding}px`);
 
         // ---- ZONE 1: PREVIOUS PAGE BOTTOM ----
-        // This zone fills the remaining space on the page to ensure alignment
+        // This zone fills the remaining space on the page - WASM is single source of truth
         const pageBottom = document.createElement('div');
         pageBottom.className = 'pm-page-bottom';
-        // Set dynamic height to fill remaining page space (used in discrete mode)
-        pageBottom.style.setProperty('--page-bottom-padding', `${bottomPadding}px`);
+        // Set height directly from WASM with !important to guarantee CSS override
+        pageBottom.style.setProperty('height', `${bottomPadding}px`, 'important');
 
         // MORE indicator for split dialogue (at bottom of previous page)
         if (pageBreak.type === 'dialogue-split' && pageBreak.moreMarker) {
@@ -488,15 +502,17 @@ function createPageBreakDecorations(
         container.appendChild(pageBottom);
 
         // ---- ZONE 2: GAP BETWEEN PAGES ----
-        // Transparent gap - no content, just shows editor background
+        // Transparent gap - WASM is single source of truth for height
         const gap = document.createElement('div');
         gap.className = 'pm-page-gap';
+        gap.style.setProperty('height', `${pageGap}px`, 'important');  // Direct from WASM with !important
         container.appendChild(gap);
 
         // ---- ZONE 3: NEXT PAGE TOP ----
-        // Page number positioned inside the page-top zone (not in frame overlay)
+        // Page number positioned inside the page-top zone - WASM is single source of truth
         const pageTop = document.createElement('div');
         pageTop.className = 'pm-page-top';
+        pageTop.style.setProperty('height', `${topMargin}px`, 'important');  // Direct from WASM with !important
 
         // Calculate UI page number (WASM doesn't know about title page)
         // If title page exists, add 1 to WASM page number
@@ -538,6 +554,35 @@ function createPageBreakDecorations(
     );
 
     decorations.push(pageBreakWidget);
+  }
+
+  // ---- ELEMENT HEIGHT QUANTIZATION ----
+  // Create node decorations that force each element to its exact WASM-calculated height.
+  // This contains subpixel font rendering drift within each element's boundaries.
+  if (elementPositions) {
+    // Screenplay element types that need height quantization
+    const quantizedTypes = new Set([
+      'scene_heading', 'action', 'character', 'dialogue',
+      'parenthetical', 'transition', 'shot', 'ending'
+    ]);
+
+    doc.forEach((node, offset) => {
+      // Skip non-quantized types (title_page, dual_dialogue handled separately)
+      if (!quantizedTypes.has(node.type.name)) return;
+
+      // Element ID is the string position (matches serializer)
+      const elementId = offset.toString();
+      const position = elementPositions[elementId];
+
+      if (position && position.height_px > 0 && !position.is_split) {
+        // Create node decoration with exact height from WASM
+        const heightDecoration = Decoration.node(offset, offset + node.nodeSize, {
+          style: `height: ${position.height_px}px !important; overflow: hidden;`,
+          class: 'pm-quantized-height'
+        });
+        decorations.push(heightDecoration);
+      }
+    });
   }
 
   return DecorationSet.create(doc, decorations);
@@ -710,7 +755,9 @@ export function createPaginationPlugin(): Plugin {
         const pluginState = paginationPluginKey.getState(state);
         if (!pluginState) return DecorationSet.empty;
 
-        return createPageBreakDecorations(state.doc, pluginState.pageBreaks, pluginState.layoutStats);
+        // Pass element_positions from WASM result for height quantization
+        const elementPositions = pluginState.wasmResult?.element_positions ?? null;
+        return createPageBreakDecorations(state.doc, pluginState.pageBreaks, pluginState.layoutStats, elementPositions);
       },
     },
   });

@@ -253,6 +253,10 @@ pub struct ElementPosition {
 
     /// Whether element was split across pages
     pub is_split: bool,
+
+    /// Exact container height in pixels (content lines + space_before) * line_height
+    /// CSS should use this to force element height and contain subpixel drift
+    pub height_px: f32,
 }
 
 /// Warning generated during pagination

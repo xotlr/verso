@@ -221,6 +221,11 @@ impl PaginationState {
         self.current_page.elements.push(page_element);
         self.current_page.lines_used += space_before + line_calc.total_lines as u8;
 
+        // Calculate exact container height in pixels for CSS quantization
+        // This includes space_before + content lines, all at line_height_px
+        let total_lines = space_before as f32 + line_calc.content_lines as f32;
+        let height_px = total_lines * self.line_height_px;
+
         // Track element position
         self.element_positions.insert(
             element.id.0.clone(),
@@ -229,6 +234,7 @@ impl PaginationState {
                 start_line,
                 end_line: start_line + line_calc.content_lines as u8 - 1,
                 is_split: false,
+                height_px,
             },
         );
     }
@@ -303,7 +309,15 @@ impl PaginationState {
         second_page: PageIdentifier,
         start_line: u8,
         end_line: u8,
+        total_lines: u32,
+        space_before: u8,
     ) {
+        // Calculate exact container height for the full element (both parts)
+        // For split elements, CSS will need to handle the split separately
+        // but we provide the total height for reference
+        let total_with_space = space_before as f32 + total_lines as f32;
+        let height_px = total_with_space * self.line_height_px;
+
         self.element_positions.insert(
             element_id.to_string(),
             ElementPosition {
@@ -311,6 +325,7 @@ impl PaginationState {
                 start_line,
                 end_line,
                 is_split: true,
+                height_px,
             },
         );
     }

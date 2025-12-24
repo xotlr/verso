@@ -177,17 +177,9 @@
     font-family: var(--font-inter), system-ui, sans-serif;
   }
 
-  /* ===== THEME TRANSITIONS ===== */
-  /* Using View Transitions API for smooth circular reveal */
+  /* ===== ANIMATIONS ===== */
   :root {
     --animation-speed: 0.2s;
-  }
-
-  /* View Transitions API - disable default crossfade, use clip-path instead */
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
-    animation: none;
-    mix-blend-mode: normal;
   }
 
   /* Interactive elements - snappy feedback */

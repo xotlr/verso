@@ -197,6 +197,7 @@ export function ProseMirrorEditor({
     fitToWidthScale,
   } = useEditorZoom({
     containerRef: scrollContainerRef,
+    scrollContainerRef: scrollContainerRef,
     fitToWidthScale: responsiveScale,
   });
 

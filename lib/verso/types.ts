@@ -253,6 +253,8 @@ export interface ElementPosition {
   start_line: number;
   end_line: number;
   is_split: boolean;
+  /** Exact container height in pixels - CSS should use this to force element height */
+  height_px: number;
 }
 
 export type WarningType =
