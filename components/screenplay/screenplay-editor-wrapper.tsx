@@ -2,15 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { ProseMirrorEditor } from "@/components/prosemirror";
 import { EditorFloatingPanel } from "@/components/editor/editor-floating-panel";
-import { VersionHistorySidebar } from "@/components/version-history/version-history-sidebar";
-import { VersionCompareDialog } from "@/components/version-history/version-compare-dialog";
-import { VersionCompareTwoDialog } from "@/components/version-history/version-compare-two-dialog";
-import { SaveVersionDialog } from "@/components/version-history/save-version-dialog";
-import { SceneWorkspacePanel } from "@/components/scene-workspace-panel";
-import { ScreenplayDetailsDrawer } from "./screenplay-details-drawer";
-import { ShareDialog } from "@/components/share-dialog";
 import { EditorPanel } from "@/components/editor/EditorPanel";
 import { CollaborationAvatars } from "@/components/collaboration/CollaborationAvatars";
 import { Scene, Character, Location } from "@/types/screenplay";
@@ -27,7 +21,40 @@ import type { SceneInfo, CharacterInfo } from "@/hooks/editor/use-prosemirror-ed
 import type { EditorView } from "prosemirror-view";
 import type { CollaborationOperation } from "@/types/collaboration";
 import type { DetectedShot, Shot, SceneWithShots } from "@/types/shotlist";
-import { ShotEditor } from "@/components/shotlist/shot-editor";
+
+// Lazy-load heavy dialog components to reduce initial bundle size
+const VersionHistorySidebar = dynamic(
+  () => import("@/components/version-history/version-history-sidebar").then(m => ({ default: m.VersionHistorySidebar })),
+  { ssr: false }
+);
+const VersionCompareDialog = dynamic(
+  () => import("@/components/version-history/version-compare-dialog").then(m => ({ default: m.VersionCompareDialog })),
+  { ssr: false }
+);
+const VersionCompareTwoDialog = dynamic(
+  () => import("@/components/version-history/version-compare-two-dialog").then(m => ({ default: m.VersionCompareTwoDialog })),
+  { ssr: false }
+);
+const SaveVersionDialog = dynamic(
+  () => import("@/components/version-history/save-version-dialog").then(m => ({ default: m.SaveVersionDialog })),
+  { ssr: false }
+);
+const SceneWorkspacePanel = dynamic(
+  () => import("@/components/scene-workspace-panel").then(m => ({ default: m.SceneWorkspacePanel })),
+  { ssr: false }
+);
+const ScreenplayDetailsDrawer = dynamic(
+  () => import("./screenplay-details-drawer").then(m => ({ default: m.ScreenplayDetailsDrawer })),
+  { ssr: false }
+);
+const ShareDialog = dynamic(
+  () => import("@/components/share-dialog").then(m => ({ default: m.ShareDialog })),
+  { ssr: false }
+);
+const ShotEditor = dynamic(
+  () => import("@/components/shotlist/shot-editor").then(m => ({ default: m.ShotEditor })),
+  { ssr: false }
+);
 
 interface ScreenplayEditorWrapperProps {
   projectId: string; // Actually screenplayId - keeping prop name for compatibility
@@ -163,9 +190,15 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   useEffect(() => {
     const loadScreenplay = async () => {
       try {
-        const response = await fetch(`/api/screenplays/${screenplayId}`);
-        if (response.ok) {
-          const screenplay = await response.json();
+        // Fetch screenplay and shots in parallel for faster loading
+        const [screenplayRes, shotsRes] = await Promise.all([
+          fetch(`/api/screenplays/${screenplayId}`),
+          fetch(`/api/screenplays/${screenplayId}/shots`),
+        ]);
+
+        // Process screenplay data
+        if (screenplayRes.ok) {
+          const screenplay = await screenplayRes.json();
           setScreenplayText(screenplay.content || "");
           const title = screenplay.title || "Untitled Screenplay";
           setScreenplayTitle(title);
@@ -220,17 +253,12 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
 
           // Initialize timelapse with current content
           initializeTimelapse(screenplay.content || "");
+        }
 
-          // Load shots from database
-          try {
-            const shotsResponse = await fetch(`/api/screenplays/${screenplayId}/shots`);
-            if (shotsResponse.ok) {
-              const data = await shotsResponse.json();
-              setShots(data.shots || []);
-            }
-          } catch (shotError) {
-            console.error("Error loading shots:", shotError);
-          }
+        // Process shots data (already fetched in parallel)
+        if (shotsRes.ok) {
+          const data = await shotsRes.json();
+          setShots(data.shots || []);
         }
       } catch (error) {
         console.error("Error loading screenplay:", error);
