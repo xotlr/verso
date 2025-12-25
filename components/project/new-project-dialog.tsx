@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Loader2, User, Users } from 'lucide-react';
 import { useTeam } from '@/contexts/team-context';
+import { useDialogState } from '@/hooks/use-dialog-state';
 
 interface ProjectRole {
   id: string;
@@ -65,8 +66,7 @@ export function NewProjectDialog({ isOpen, onClose, onCreated }: NewProjectDialo
   const [selectedTeamId, setSelectedTeamId] = useState<string>('personal');
   const [selectedType, setSelectedType] = useState<string>('FEATURE_FILM');
   const [selectedRole, setSelectedRole] = useState<string>('writer');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { isLoading, error, setIsLoading, setError, reset } = useDialogState();
 
   // Set default to current team when dialog opens
   React.useEffect(() => {
@@ -135,7 +135,7 @@ export function NewProjectDialog({ isOpen, onClose, onCreated }: NewProjectDialo
     setSelectedTeamId('personal');
     setSelectedType('FEATURE_FILM');
     setSelectedRole('writer');
-    setError(null);
+    reset();
     onClose();
   };
 

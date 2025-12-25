@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useDialogState } from '@/hooks/use-dialog-state';
 
 // Role definitions with icons and colors
 const ROLE_DEFINITIONS: {
@@ -97,8 +98,7 @@ export function ApplyRoleDialog({
   onApplicationSubmitted,
 }: ApplyRoleDialogProps) {
   const [message, setMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { isLoading, error, setIsLoading, setError, reset } = useDialogState();
 
   const roleDef = roleNeed ? getRoleDefinition(roleNeed.role) : null;
   const Icon = roleDef?.icon || Briefcase;
@@ -147,7 +147,7 @@ export function ApplyRoleDialog({
   const handleClose = (open: boolean) => {
     if (!open) {
       setMessage('');
-      setError(null);
+      reset();
     }
     onOpenChange(open);
   };

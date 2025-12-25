@@ -48,27 +48,6 @@ function getCategoryIcon(category: AutocompleteSuggestion['category']) {
 }
 
 /**
- * Get category label color.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function getCategoryColor(category: AutocompleteSuggestion['category']) {
-  switch (category) {
-    case 'character':
-      return 'text-purple-500';
-    case 'location':
-      return 'text-blue-500';
-    case 'time':
-      return 'text-amber-500';
-    case 'transition':
-      return 'text-orange-500';
-    case 'extension':
-      return 'text-emerald-500';
-    default:
-      return 'text-muted-foreground';
-  }
-}
-
-/**
  * Autocomplete dropdown component for ProseMirror editor.
  */
 export function AutocompleteDropdown({

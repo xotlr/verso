@@ -427,32 +427,6 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     saveScreenplay(content);
   }, [saveScreenplay]);
 
-  // Handle TV/Episode field updates
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _handleEpisodeInfoChange = useCallback(async (updates: {
-    type?: ScreenplayType;
-    season?: number | null;
-    episode?: number | null;
-    episodeTitle?: string | null;
-  }) => {
-    // Update local state
-    if (updates.type !== undefined) setScreenplayType(updates.type);
-    if (updates.season !== undefined) setSeason(updates.season);
-    if (updates.episode !== undefined) setEpisode(updates.episode);
-    if (updates.episodeTitle !== undefined) setEpisodeTitle(updates.episodeTitle);
-
-    // Save to database
-    try {
-      await fetch(`/api/screenplays/${screenplayId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      });
-    } catch (error) {
-      console.error("Error updating episode info:", error);
-    }
-  }, [screenplayId]);
-
   // Handle scene/character extraction from ProseMirror
   // Must be declared before early return to follow React hooks rules
   const handleScenesChange = useCallback((newSceneInfos: SceneInfo[], newCharInfos: CharacterInfo[], newDetectedShots: DetectedShot[]) => {

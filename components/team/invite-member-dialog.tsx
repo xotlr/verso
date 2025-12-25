@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select'
 import { Loader2, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
+import { useDialogState } from '@/hooks/use-dialog-state'
 
 interface InviteMemberDialogProps {
   teamId: string
@@ -43,8 +44,7 @@ export function InviteMemberDialog({
 }: InviteMemberDialogProps) {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'ADMIN' | 'MEMBER'>('MEMBER')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { isLoading, error, setIsLoading, setError, reset } = useDialogState()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -95,7 +95,7 @@ export function InviteMemberDialog({
     if (!open) {
       setEmail('')
       setRole('MEMBER')
-      setError(null)
+      reset()
     }
     onOpenChange(open)
   }
