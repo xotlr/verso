@@ -451,7 +451,7 @@ const SidebarMenuSkeleton = React.forwardRef<
     showIcon?: boolean
     index?: number
   }
->(({ className, showIcon = false, ...props }, ref) => {
+>(({ className, showIcon: _showIcon = false, ...props }, ref) => {
   return (
     <div
       ref={ref}
@@ -508,13 +508,13 @@ SidebarMenuSubButton.displayName = "SidebarMenuSubButton"
 const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
->(({ className, ...props }, ref) => null)
+>(({ className: _className, ..._props }, _ref) => null)
 SidebarTrigger.displayName = "SidebarTrigger"
 
 const SidebarRail = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<"button">
->(({ ...props }, ref) => null)
+>(({ ..._props }, _ref) => null)
 SidebarRail.displayName = "SidebarRail"
 
 export {

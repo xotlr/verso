@@ -57,9 +57,8 @@ export function ScenesPanel({
 
   // Custom hooks for selection and act management
   const sceneIds = useMemo(() => scenes.map(s => s.id), [scenes]);
-  const { selectedScenes, selectedCount, handleSelect, clearSelection } = useSceneSelection({ sceneIds });
+  const { selectedScenes, selectedCount, handleSelect } = useSceneSelection({ sceneIds });
   const {
-    hiddenActs,
     editingActId,
     editingName,
     hiddenActsCount,

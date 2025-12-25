@@ -121,7 +121,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   }, [urlScreenplayId]);
 
   // Get screenplay title from props or localStorage
-  const [screenplayTitle, setScreenplayTitle] = useState(propScreenplayTitle || 'Current Screenplay');
+  const [, setScreenplayTitle] = useState(propScreenplayTitle || 'Current Screenplay');
 
   // Fetch screenplay data from API
   useEffect(() => {
