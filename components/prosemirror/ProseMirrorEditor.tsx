@@ -27,7 +27,6 @@ import { applyLayoutCSS, applyLayoutMetadataCSS, DEFAULT_FEATURE_FILM_CONFIG, ty
 import { Button } from '@/components/ui/button';
 import { MobileEditorToolbar } from '@/components/editor/mobile-editor-toolbar';
 import { MobileSceneCharacterSheet } from '@/components/editor/MobileSceneCharacterSheet';
-import { TypingTestPanel } from './dev/TypingTestPanel';
 import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
 import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plugins/keymap';
 import { updateTypewriterScrollSettings } from '@/lib/prosemirror/plugins';
@@ -623,8 +622,6 @@ export function ProseMirrorEditor({
         />
       )}
 
-      {/* Dev-only typing test panel */}
-      {process.env.NODE_ENV === 'development' && <TypingTestPanel view={view} />}
     </div>
   );
 }
