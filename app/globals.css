@@ -4,40 +4,29 @@
 
 @layer base {
   :root {
-    /* ===== NEUTRAL COLOR PALETTE ===== */
+    /* Verso Theme - Clean monochrome */
+    --background: 0 0% 98%;
+    --background-subtle: 0 0% 96%;
+    --foreground: 0 0% 15%;
 
-    /* Backgrounds - Warm cream/ivory (iA Writer inspired) */
-    --background: 45 20% 96%;           /* Warm ivory */
-    --background-subtle: 45 15% 94%;
-    --card: 45 30% 99%;                 /* Warm white for cards */
-    --card-foreground: 30 10% 20%;
-    --popover: 45 30% 99%;
-    --popover-foreground: 30 10% 15%;
-    --page: 45 30% 99%;                 /* Paper color - warm white */
-    --page-foreground: 30 10% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --page: 0 0% 100%;
+    --page-foreground: 0 0% 15%;
 
-    /* Text - Warm dark tones */
-    --foreground: 30 10% 20%;           /* Warm dark gray */
-    --muted: 45 15% 95%;
-    --muted-foreground: 30 5% 45%;      /* Warm medium gray - WCAG AA compliant */
-
-    /* Primary accent (neutral dark) */
     --primary: 0 0% 15%;
     --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 15%;
+    --accent: 0 0% 94%;
+    --accent-foreground: 0 0% 10%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
 
-    /* Secondary - Warm */
-    --secondary: 45 15% 95%;
-    --secondary-foreground: 30 10% 20%;
-
-    /* Accent (for hovers, highlights) - Warm */
-    --accent: 45 15% 93%;
-    --accent-foreground: 30 10% 15%;
-
-    /* Destructive */
     --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 100%;
-
-    /* Semantic colors - subtle, low saturation */
     --success: 142 30% 50%;
     --success-foreground: 142 40% 25%;
     --warning: 38 35% 55%;
@@ -45,15 +34,12 @@
     --info: 210 30% 55%;
     --info-foreground: 210 45% 30%;
 
-    /* Borders - Warm tones */
-    --border: 35 15% 88%;
-    --input: 35 15% 88%;
-    --ring: 30 10% 40%;                 /* Focus ring */
-
-    /* Border radius */
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 0 0% 40%;
     --radius: 0.75rem;
 
-    /* ===== SHADOWS ===== */
+    /* Shadows */
     --shadow-color: 0 0% 0%;
     --shadow-xs: 0 1px 2px hsla(0, 0%, 0%, 0.04);
     --shadow-sm: 0 1px 3px hsla(0, 0%, 0%, 0.06), 0 1px 2px hsla(0, 0%, 0%, 0.04);
@@ -63,65 +49,52 @@
     --shadow-2xl: 0 25px 50px -12px hsla(0, 0%, 0%, 0.15);
     --shadow-inner: inset 0 2px 4px hsla(0, 0%, 0%, 0.04);
 
-    /* ===== ANIMATION TOKENS ===== */
+    /* Animation */
     --duration-instant: 0ms;
     --duration-fast: 100ms;
     --duration-normal: 200ms;
     --duration-slow: 300ms;
     --duration-slower: 500ms;
-
     --ease-in: cubic-bezier(0.4, 0, 1, 1);
     --ease-out: cubic-bezier(0, 0, 0.2, 1);
     --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
     --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
     --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-    /* Sidebar - Warm tones */
-    --sidebar-background: 45 25% 98%;
-    --sidebar-foreground: 30 10% 25%;
-    --sidebar-primary: 30 10% 15%;
-    --sidebar-primary-foreground: 45 30% 99%;
-    --sidebar-accent: 45 15% 93%;
-    --sidebar-accent-foreground: 30 10% 15%;
-    --sidebar-border: 35 15% 90%;
-    --sidebar-ring: 30 10% 40%;
+    /* Sidebar */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 0 0% 15%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 94%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 0 0% 40%;
   }
 
   .dark {
-    /* ===== DARK MODE: NEUTRAL DARK ===== */
-
-    /* Backgrounds */
-    --background: 0 0% 8%;              /* Near black */
+    --background: 0 0% 8%;
     --background-subtle: 0 0% 10%;
+    --foreground: 0 0% 85%;
+
     --card: 0 0% 10%;
     --card-foreground: 0 0% 92%;
     --popover: 0 0% 12%;
     --popover-foreground: 0 0% 92%;
-    --page: 0 0% 10%;                  /* Slightly lighter than background for paper */
+    --page: 0 0% 10%;
     --page-foreground: 0 0% 92%;
 
-    /* Text */
-    --foreground: 0 0% 85%;             /* Light gray text */
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 60%;       /* Medium gray secondary text - WCAG AA compliant */
-
-    /* Primary accent */
     --primary: 0 0% 90%;
     --primary-foreground: 0 0% 10%;
-
-    /* Secondary */
     --secondary: 0 0% 15%;
     --secondary-foreground: 0 0% 85%;
-
-    /* Accent */
     --accent: 0 0% 18%;
     --accent-foreground: 0 0% 90%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
 
-    /* Destructive */
     --destructive: 0 55% 50%;
     --destructive-foreground: 0 0% 100%;
-
-    /* Semantic colors - subtle, adjusted for dark mode */
     --success: 142 25% 55%;
     --success-foreground: 142 35% 75%;
     --warning: 38 30% 60%;
@@ -129,13 +102,10 @@
     --info: 210 25% 60%;
     --info-foreground: 210 40% 80%;
 
-    /* Borders */
     --border: 0 0% 20%;
     --input: 0 0% 20%;
     --ring: 0 0% 60%;
 
-    /* Shadows (stronger in dark mode) */
-    --shadow-color: 0 0% 0%;
     --shadow-xs: 0 1px 2px hsla(0, 0%, 0%, 0.2);
     --shadow-sm: 0 1px 3px hsla(0, 0%, 0%, 0.25), 0 1px 2px hsla(0, 0%, 0%, 0.15);
     --shadow-md: 0 4px 6px -1px hsla(0, 0%, 0%, 0.2), 0 2px 4px -1px hsla(0, 0%, 0%, 0.1);
@@ -143,7 +113,6 @@
     --shadow-xl: 0 20px 25px -5px hsla(0, 0%, 0%, 0.25), 0 10px 10px -5px hsla(0, 0%, 0%, 0.1);
     --shadow-2xl: 0 25px 50px -12px hsla(0, 0%, 0%, 0.4);
 
-    /* Sidebar */
     --sidebar-background: 0 0% 8%;
     --sidebar-foreground: 0 0% 85%;
     --sidebar-primary: 0 0% 90%;
