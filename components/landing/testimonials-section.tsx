@@ -88,7 +88,7 @@ export function TestimonialsSection() {
     },
     {
       quote:
-        "I switched from Final Draft and never looked back. Verso is faster, more intuitive, and the export quality is perfect. Plus, the AI analysis actually gives useful feedback.",
+        "I switched from Final Draft and never looked back. Verso is faster, more intuitive, and the export quality is perfect.",
       author: "James O'Connor",
       role: "Independent Filmmaker",
       rating: 5,

@@ -496,6 +496,7 @@ export function ProseMirrorEditor({
             discreteMode={isDiscreteMode}
             pageStyle={pageStyle}
             showPageNumbers={settings.interface.showPageNumbers}
+            scrollContainerRef={scrollContainerRef}
           />
         )}
 
@@ -505,6 +506,7 @@ export function ProseMirrorEditor({
             frames={pageFrames}
             scale={scale}
             discreteMode={isDiscreteMode}
+            scrollContainerRef={scrollContainerRef}
           />
         )}
 

@@ -17,7 +17,6 @@ import {
   Focus,
   Command,
   Clock,
-  Brain,
 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
@@ -93,12 +92,6 @@ export function FeaturesEnhancedSection() {
       title: "Version History",
       description:
         "Unlimited version history with visual diff view. Never lose a draft, easily compare revisions.",
-    },
-    {
-      icon: <Brain className="h-6 w-6" />,
-      title: "AI Analysis",
-      description:
-        "Verso-powered screenplay analysis. Get intelligent feedback on pacing, dialogue, and structure.",
     },
     {
       icon: <Smartphone className="h-6 w-6" />,
