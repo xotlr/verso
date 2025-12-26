@@ -46,7 +46,8 @@ export function usePageFrameVirtualization({
   bufferPages = 3,
   minFramesForVirtualization = 10,
 }: UsePageFrameVirtualizationOptions): UsePageFrameVirtualizationReturn {
-  const [visibleRange, setVisibleRange] = useState({ startIndex: 0, endIndex: totalFrames });
+  // Use Infinity as initial endIndex - will be clamped to totalFrames when returned
+  const [visibleRange, setVisibleRange] = useState({ startIndex: 0, endIndex: Infinity });
   const rafIdRef = useRef<number | null>(null);
 
   // Total height of all pages (unscaled)
@@ -55,17 +56,20 @@ export function usePageFrameVirtualization({
     ? totalFrames * PAGE_HEIGHT_PX + (totalFrames - 1) * PAGE_GAP_PX
     : PAGE_HEIGHT_PX;
 
-  // Don't virtualize for small documents
-  const isVirtualized = totalFrames >= minFramesForVirtualization;
+  // Check if scroll container is available
+  const scrollContainer = scrollContainerRef.current;
+
+  // Only virtualize when: enough frames AND scroll container is ready
+  const canVirtualize = totalFrames >= minFramesForVirtualization && scrollContainer !== null;
 
   const calculateVisibleRange = useCallback(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer || !isVirtualized) {
+    const container = scrollContainerRef.current;
+    if (!container) {
       return { startIndex: 0, endIndex: totalFrames };
     }
 
-    const scrollTop = scrollContainer.scrollTop;
-    const viewportHeight = scrollContainer.clientHeight;
+    const scrollTop = container.scrollTop;
+    const viewportHeight = container.clientHeight;
 
     // Convert viewport scroll position to document coordinates
     // The content is scaled, so we need to adjust
@@ -82,14 +86,17 @@ export function usePageFrameVirtualization({
     const endIndex = Math.min(totalFrames, lastVisiblePage + bufferPages + 1);
 
     return { startIndex, endIndex };
-  }, [scrollContainerRef, scale, totalFrames, pageWithGap, bufferPages, isVirtualized]);
+  }, [scrollContainerRef, scale, totalFrames, pageWithGap, bufferPages]);
 
   // Update visible range on scroll with RAF throttling
   useEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (!scrollContainer || !isVirtualized) {
-      // Reset to full range when not virtualized
-      setVisibleRange({ startIndex: 0, endIndex: totalFrames });
+    // When not virtualizing, we don't need scroll listeners
+    if (!canVirtualize) {
+      return;
+    }
+
+    const container = scrollContainerRef.current;
+    if (!container) {
       return;
     }
 
@@ -116,33 +123,43 @@ export function usePageFrameVirtualization({
     setVisibleRange(calculateVisibleRange());
 
     // Listen for scroll events (passive for performance)
-    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    container.addEventListener('scroll', handleScroll, { passive: true });
 
     // Also recalculate on resize
     const resizeObserver = new ResizeObserver(handleScroll);
-    resizeObserver.observe(scrollContainer);
+    resizeObserver.observe(container);
 
     return () => {
-      scrollContainer.removeEventListener('scroll', handleScroll);
+      container.removeEventListener('scroll', handleScroll);
       resizeObserver.disconnect();
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
         rafIdRef.current = null;
       }
     };
-  }, [scrollContainerRef, isVirtualized, totalFrames, calculateVisibleRange]);
+  }, [canVirtualize, scrollContainerRef, calculateVisibleRange]);
 
-  // Recalculate when scale changes
+  // Recalculate when scale changes (only when virtualizing)
   useEffect(() => {
-    if (isVirtualized) {
+    if (canVirtualize) {
       setVisibleRange(calculateVisibleRange());
     }
-  }, [scale, isVirtualized, calculateVisibleRange]);
+  }, [scale, canVirtualize, calculateVisibleRange]);
+
+  // When not virtualizing, return full range
+  if (!canVirtualize) {
+    return {
+      startIndex: 0,
+      endIndex: totalFrames,
+      totalHeight,
+      isVirtualized: false,
+    };
+  }
 
   return {
     startIndex: visibleRange.startIndex,
-    endIndex: visibleRange.endIndex,
+    endIndex: Math.min(visibleRange.endIndex, totalFrames), // Clamp to actual frame count
     totalHeight,
-    isVirtualized,
+    isVirtualized: true,
   };
 }
