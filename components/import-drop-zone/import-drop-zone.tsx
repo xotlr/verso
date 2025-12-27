@@ -7,7 +7,7 @@
  * Optionally shows a preview dialog before confirming the import.
  */
 
-import { useCallback, useRef, useState, DragEvent } from 'react';
+import { useCallback, useRef, useState, DragEvent, useMemo } from 'react';
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getSupportedExtensions, getAcceptString } from '@/lib/parsers';
@@ -17,6 +17,7 @@ import { useFileImport } from './use-file-import';
 import { useImportPreview } from './use-import-preview';
 import { ImportPreviewDialog } from '@/components/import-preview-dialog';
 import { ImportDropZoneProps } from './types';
+import { getImportQuip } from '@/lib/import-quips';
 import type { ParserFormat, ImportWarning, ParseWarning } from '@/lib/parsers/types';
 
 /**
@@ -144,6 +145,14 @@ export function ImportDropZone({
 
   const supportedFormats = getSupportedExtensions().join(', .');
 
+  // Generate a playful quip based on the imported title
+  const importQuip = useMemo(() => {
+    if (result?.title) {
+      return getImportQuip(result.title);
+    }
+    return null;
+  }, [result?.title]);
+
   return (
     <div
       className={cn(
@@ -227,7 +236,7 @@ export function ImportDropZone({
           </div>
           <div className="text-center">
             <p className="text-sm sm:text-base font-medium text-success-foreground">
-              Import successful
+              {importQuip || 'Import successful'}
             </p>
             <p className="text-xs sm:text-sm text-muted-foreground">
               {result.scenes?.length || 0} scenes, {result.wordCount || 0} words
