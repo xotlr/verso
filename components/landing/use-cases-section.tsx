@@ -29,15 +29,15 @@ export function UseCasesSection() {
         <h2 className="mb-8 sm:mb-12 text-2xl sm:text-3xl md:text-4xl font-medium text-center">
           Built for every format
         </h2>
-        <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {useCases.map((useCase, index) => (
             <motion.div
               key={index}
-              className="group relative overflow-hidden rounded-lg bg-primary cursor-pointer"
+              className="group relative overflow-hidden rounded-xl bg-muted border border-border/50 cursor-pointer"
               whileHover="hover"
               initial="initial"
             >
-              {/* Default state: Just heading */}
+              {/* Default state: Icon + heading */}
               <motion.div
                 variants={{
                   initial: {
@@ -52,14 +52,14 @@ export function UseCasesSection() {
                 transition={{ duration: 0.4, ease: easeTransition }}
                 className="relative z-0 flex min-h-[20rem] sm:min-h-[24rem] flex-col items-center justify-center p-8"
               >
-                <h3 className="text-2xl sm:text-3xl font-medium text-primary-foreground">
+                <h3 className="text-2xl sm:text-3xl font-medium text-primary">
                   {useCase.name}
                 </h3>
               </motion.div>
 
-              {/* White overlay - slides up from bottom */}
+              {/* Primary overlay - slides up from bottom */}
               <motion.div
-                className="absolute inset-0 z-10 bg-white dark:bg-zinc-100"
+                className="absolute inset-0 z-10 bg-primary"
                 variants={{
                   initial: { y: "100%" },
                   hover: { y: "0%" },
@@ -75,10 +75,10 @@ export function UseCasesSection() {
                   hover: { opacity: 1, y: 0 },
                 }}
                 transition={{ duration: 0.4, ease: easeTransition }}
-                className="absolute inset-0 z-20 flex min-h-[20rem] sm:min-h-[24rem] items-center justify-center p-8 text-zinc-900"
+                className="absolute inset-0 z-20 flex min-h-[20rem] sm:min-h-[24rem] items-center justify-center p-8 text-primary-foreground"
               >
                 <div className="space-y-3 text-center max-w-sm">
-                  <p className="text-sm font-medium opacity-60 uppercase tracking-wider">
+                  <p className="text-sm font-medium opacity-70 uppercase tracking-wider">
                     {useCase.name}
                   </p>
                   <p className="text-base sm:text-lg leading-relaxed">

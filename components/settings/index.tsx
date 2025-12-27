@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { Download, Upload, RotateCcw, Palette, Type, Layout, Keyboard } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
+import { Download, Upload, RotateCcw, Palette, Type, Layout, Keyboard, LogOut } from 'lucide-react';
 import { useSettings } from '@/contexts/settings-context';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -313,6 +313,18 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Sign Out - Mobile only (desktop has it in sidebar) */}
+      <div className="mt-6 pt-6 border-t md:hidden">
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={() => signOut({ callbackUrl: '/' })}
+        >
+          <LogOut className="h-4 w-4" />
+          Log out
+        </Button>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { Check, ArrowRight, Play } from "lucide-react"
 import { Aurora } from "@/components/aurora"
 import { Noise } from "@/components/noise"
 import { RotatingText } from "@/components/landing/rotating-text"
+import { AppPreviewSection } from "@/components/landing/app-preview-section"
 import { UseCasesSection } from "@/components/landing/use-cases-section"
 import { FeaturesEnhancedSection } from "@/components/landing/features-enhanced-section"
 import { HowItWorksSection } from "@/components/landing/how-it-works-section"
@@ -80,6 +81,9 @@ export default function LandingPage() {
 
       {/* How It Works */}
       <HowItWorksSection />
+
+      {/* App Preview with Parallax */}
+      <AppPreviewSection />
 
       {/* Pricing Preview Section */}
       <section className="py-24 sm:py-32">

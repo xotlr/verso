@@ -9,6 +9,7 @@ import { SeriesBreadcrumb } from "@/components/series/series-breadcrumb";
 import { Search, ChevronLeft, Share2 } from "lucide-react";
 import { NotificationBell } from "@/components/notifications";
 import { Logo } from "@/components/logo";
+import { MobileHeaderMenu } from "@/components/mobile-header-menu";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -101,6 +102,7 @@ export function AppHeader({ className }: AppHeaderProps) {
   const [dynamicTitle, setDynamicTitle] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [breadcrumbData, setBreadcrumbData] = useState<BreadcrumbData | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Clear breadcrumb when navigating away from screenplay routes
   useEffect(() => {
@@ -223,15 +225,10 @@ export function AppHeader({ className }: AppHeaderProps) {
         )}
       </div>
 
-      {/* Mobile: Search button on right */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="md:hidden h-9 w-9 -mr-1"
-        onClick={() => window.dispatchEvent(new CustomEvent('command-palette-open'))}
-      >
-        <Search className="h-5 w-5" />
-      </Button>
+      {/* Mobile: Hamburger menu on right */}
+      <div className="md:hidden -mr-1">
+        <MobileHeaderMenu open={menuOpen} onOpenChange={setMenuOpen} />
+      </div>
 
       {/* Desktop: Individual action buttons */}
       <div className="ml-auto hidden md:flex items-center gap-1">

@@ -1,8 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
 import { FileText, LayoutGrid, Share2, Download, Pencil } from "lucide-react"
-import { cn } from "@/lib/utils"
 
 interface StepProps {
   number: number
@@ -12,62 +10,24 @@ interface StepProps {
 }
 
 function Step({ number, icon, title, description }: StepProps) {
-  const [isVisible, setIsVisible] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true)
-        }
-      },
-      { threshold: 0.1 }
-    )
-
-    if (ref.current) {
-      observer.observe(ref.current)
-    }
-
-    return () => observer.disconnect()
-  }, [])
-
   return (
-    <div
-      ref={ref}
-      className={cn(
-        "relative flex-1 scroll-fade-in",
-        isVisible && "in-view"
-      )}
-    >
-      {/* Card container matching app style */}
-      <div className="h-full p-4 sm:p-5 rounded-xl border bg-card hover:border-border/80 hover:shadow-md transition-all duration-300">
-        <div className="flex flex-col h-full">
-          {/* Icon and number row */}
-          <div className="flex items-center gap-3 mb-3">
-            <div className="relative flex-shrink-0">
-              <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 text-primary">
-                <div className="[&>svg]:h-5 [&>svg]:w-5 sm:[&>svg]:h-6 sm:[&>svg]:w-6">
-                  {icon}
-                </div>
-              </div>
-            </div>
-            {/* Step number badge */}
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-muted text-muted-foreground text-xs font-semibold">
-              {number}
-            </div>
-          </div>
+    <div className="relative group">
+      {/* Large background number */}
+      <span className="absolute -top-4 -left-2 text-[80px] sm:text-[100px] font-bold text-muted/30 select-none leading-none pointer-events-none">
+        {number}
+      </span>
 
-          {/* Content */}
-          <div className="flex-1 space-y-1.5">
-            <h3 className="text-sm sm:text-base font-semibold leading-tight">
-              {title}
-            </h3>
-            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-3 sm:line-clamp-none">
-              {description}
-            </p>
+      {/* Content card */}
+      <div className="relative pt-12 sm:pt-16">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 text-primary">
+            {icon}
           </div>
+          <h3 className="text-lg sm:text-xl font-semibold">{title}</h3>
         </div>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {description}
+        </p>
       </div>
     </div>
   )
@@ -108,19 +68,19 @@ export function HowItWorksSection() {
   ]
 
   return (
-    <section id="how-it-works" className="py-16 sm:py-20 lg:py-24 scroll-mt-16">
-      <div className="container max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="text-center space-y-2 sm:space-y-3 mb-10 sm:mb-12 lg:mb-16">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold">
+    <section id="how-it-works" className="py-16 sm:py-20 lg:py-24 scroll-mt-16 overflow-hidden">
+      <div className="container max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="text-center space-y-2 sm:space-y-3 mb-12 sm:mb-16">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium">
             How it works
           </h2>
-          <p className="text-sm sm:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-sm sm:text-base lg:text-lg text-muted-foreground max-w-xl mx-auto">
             Five steps from blank page to finished script
           </p>
         </div>
 
-        {/* Grid layout: 2 cols on mobile, 5 cols on desktop */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+        {/* Grid layout with large background numbers */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-12 sm:gap-10 lg:gap-12">
           {steps.map((step, index) => (
             <Step
               key={index}

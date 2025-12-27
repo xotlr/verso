@@ -72,17 +72,21 @@ export function Aurora({ colors, speed = 1.0, className = '' }: AuroraProps) {
   }, [colors]);
 
   return (
-    <MeshGradient
-      className={`w-full h-full ${className}`}
-      options={{
-        colors: themeColors,
-        animationSpeed: speed * 0.6,
-        frequency: {
-          x: 0.00012,
-          y: 0.00018,
-          delta: 0.00006,
-        },
-      }}
-    />
+    <div className={`w-full h-full relative overflow-hidden ${className}`}>
+      <MeshGradient
+        className="w-full h-full scale-110"
+        options={{
+          colors: themeColors,
+          animationSpeed: speed * 0.6,
+          frequency: {
+            x: 0.00012,
+            y: 0.00018,
+            delta: 0.00006,
+          },
+        }}
+      />
+      {/* Soft blur overlay */}
+      <div className="absolute inset-0 backdrop-blur-sm pointer-events-none" />
+    </div>
   );
 }
