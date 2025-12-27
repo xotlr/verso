@@ -36,13 +36,13 @@ function getPrimaryPalette(): [string, string, string, string] {
   }
 
   // Blend primary toward background for subtlety
-  const blendedPrimaryL = (primary.l * 0.4 + background.l * 0.6);
-  const blendedPrimaryS = (primary.s * 0.5 + background.s * 0.5);
+  const blendedPrimaryL = (primary.l * 0.03 + background.l * 0.97);
+  const blendedPrimaryS = (primary.s * 0.05 + background.s * 0.95);
 
   return [
+    hslToHex(background.h, background.s, background.l * 0.9), // darker bg
     hslToHex(background.h, background.s, background.l), // background base
-    hslToHex(background.h, background.s, Math.min(100, background.l * 1.1)), // slightly lighter bg
-    hslToHex(background.h, background.s, Math.min(100, background.l * 1.2)), // lighter bg
+    hslToHex(background.h, background.s, Math.min(100, background.l * 1.25)), // lighter bg
     hslToHex(primary.h, blendedPrimaryS, blendedPrimaryL), // subtle primary accent
   ];
 }
@@ -76,8 +76,12 @@ export function Aurora({ colors, speed = 1.0, className = '' }: AuroraProps) {
       className={`w-full h-full ${className}`}
       options={{
         colors: themeColors,
-        animationSpeed: speed,
-        frequency: 0.00008, // lower = fewer/larger waves
+        animationSpeed: speed * 0.6,
+        frequency: {
+          x: 0.00012,
+          y: 0.00018,
+          delta: 0.00006,
+        },
       }}
     />
   );
