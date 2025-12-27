@@ -1,0 +1,20 @@
+# Robots.txt for verso.ac
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://verso.ac/sitemap.xml
+
+# Disallow private/auth routes
+Disallow: /api/
+Disallow: /screenplay/
+Disallow: /project/
+Disallow: /board/
+Disallow: /cards/
+Disallow: /graph/
+Disallow: /visualization/
+Disallow: /shotlist/
+Disallow: /settings
+Disallow: /shared/
+Disallow: /read/

@@ -66,6 +66,7 @@ import { useSession } from 'next-auth/react';
 import type { EmbedType } from '@/lib/export/embed';
 import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
 import type { ImportResult } from '@/components/import-drop-zone/types';
+import { getImportQuipShort } from '@/lib/import-quips';
 import { ResourceDropZoneOverlay } from '@/components/resource-drop-zone-overlay';
 import { toast } from 'sonner';
 import { ReportsInlineContent } from '@/components/reports/ReportsInlineContent';
@@ -551,7 +552,7 @@ export default function ProjectPage() {
       }
 
       const screenplay = await response.json();
-      toast.success('Screenplay imported to project');
+      toast.success(getImportQuipShort(result.title || screenplay.title));
       loadProject();
       router.push(`/editor/${screenplay.id}`);
     } catch (error) {

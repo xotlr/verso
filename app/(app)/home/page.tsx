@@ -29,6 +29,7 @@ import { PendingInviteBanner } from '@/components/pending-invite-banner';
 import { PendingProjectRoleInviteBanner } from '@/components/pending-project-role-invite-banner';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { ImportResult, ImportDropZoneOverlay, useFileImport } from '@/components/import-drop-zone';
+import { getImportQuipShort } from '@/lib/import-quips';
 
 import { useGreeting } from '@/hooks/use-greeting';
 import { useWorkspaceData, type ProjectItem, type ScreenplayItem } from '@/hooks/use-workspace-data';
@@ -230,7 +231,7 @@ function WorkspacePageContent() {
       }
 
       const screenplay = await response.json();
-      toast.success('Screenplay imported');
+      toast.success(getImportQuipShort(result.title || screenplay.title));
       router.push(`/editor/${screenplay.id}`);
     } catch (error) {
       console.error('Error importing screenplay:', error);

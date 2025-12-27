@@ -27,6 +27,7 @@ import { Plus } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
 import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
 import type { ImportResult } from '@/components/import-drop-zone/types';
+import { getImportQuipShort } from '@/lib/import-quips';
 
 interface ProjectRole {
   id: string;
@@ -134,7 +135,7 @@ export default function ProjectsPage() {
       }
 
       const screenplay = await response.json();
-      toast.success('Screenplay imported successfully');
+      toast.success(getImportQuipShort(result.title || screenplay.title));
       router.push(`/editor/${screenplay.id}`);
     } catch (error) {
       console.error('Error importing screenplay:', error);

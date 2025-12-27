@@ -14,9 +14,9 @@ const structuredData = {
       "applicationCategory": "MultimediaApplication",
       "applicationSubCategory": "Screenwriting Software",
       "operatingSystem": "Web Browser (Chrome, Firefox, Safari, Edge)",
-      "url": "https://verso.ink",
-      "image": "https://verso.ink/og-image.png",
-      "screenshot": "https://verso.ink/images/editor-preview.png",
+      "url": "https://verso.ac",
+      "image": "https://verso.ac/og-image.png",
+      "screenshot": "https://verso.ac/images/editor-preview.png",
       "featureList": [
         "Industry-standard screenplay formatting",
         "Real-time collaboration",
@@ -58,15 +58,84 @@ const structuredData = {
     {
       "@type": "Organization",
       "name": "Verso",
-      "url": "https://verso.ink",
-      "logo": "https://verso.ink/og-image.png",
+      "url": "https://verso.ac",
+      "logo": "https://verso.ac/og-image.png",
       "description": "Professional screenwriting software for film and television writers."
     },
     {
       "@type": "WebSite",
       "name": "VERSO",
-      "url": "https://verso.ink",
+      "url": "https://verso.ac",
       "description": "Professional screenwriting software"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is the free tier actually free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Unlimited pages, unlimited screenplays, 1 project, PDF export, index cards, beat board. No credit card required. No trial period."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I import from Final Draft?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Import from Final Draft, Fountain, Highland, Fade In, PDF, and more. Formatting carries over."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does it work offline?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Verso is a PWA. Write offline, sync when you reconnect. You can install it like a native app."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does collaboration work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Pro plan and up. Invite collaborators by email. You both edit the same script simultaneously. Cursors visible, changes instant."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What formats can I export?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "PDF (free). Final Draft (FDX), Fountain, plain text (paid plans)."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I cancel anytime?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Cancel whenever. You keep access until your billing period ends. Your scripts stay accessible on the free tier."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is my work private?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Encrypted in transit and at rest. We don't read your scripts. We don't sell your data. You can delete everything anytime."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Student discounts?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Email us with your .edu address. We'll set you up."
+          }
+        }
+      ]
     }
   ]
 }

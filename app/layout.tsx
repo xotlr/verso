@@ -74,6 +74,10 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://verso.ac'),
+  alternates: {
+    canonical: '/',
+  },
   title: "VERSO - Professional Screenplay Editor",
   description: "Professional screenwriting software. Industry-standard formatting, real-time collaboration, runs in your browser.",
   manifest: "/manifest.json",
@@ -83,7 +87,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://verso.ink",
+    url: "https://verso.ac",
     siteName: "VERSO",
     title: "VERSO - Professional Screenplay Editor",
     description: "Professional screenwriting software. Industry-standard formatting, real-time collaboration, runs in your browser.",

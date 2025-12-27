@@ -30,6 +30,7 @@ import { useViewMode } from '@/hooks/use-view-mode';
 import { Plus, Tv } from 'lucide-react';
 import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
 import type { ImportResult } from '@/components/import-drop-zone/types';
+import { getImportQuipShort } from '@/lib/import-quips';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -94,7 +95,7 @@ export default function SeriesListPage() {
       }
 
       const screenplay = await response.json();
-      toast.success('Screenplay imported successfully');
+      toast.success(getImportQuipShort(result.title || screenplay.title));
       router.push(`/editor/${screenplay.id}`);
     } catch (error) {
       console.error('Error importing screenplay:', error);

@@ -60,6 +60,7 @@ import { SeriesResourcesTab } from '@/components/series/series-resources-tab';
 import { SeriesBreadcrumb } from '@/components/series/series-breadcrumb';
 import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
 import type { ImportResult } from '@/components/import-drop-zone/types';
+import { getImportQuipShort } from '@/lib/import-quips';
 import { toast } from 'sonner';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
@@ -332,7 +333,7 @@ export default function SeriesPage() {
       }
 
       const screenplay = await response.json();
-      toast.success('Episode imported to series');
+      toast.success(getImportQuipShort(result.title || screenplay.title));
       mutate();
       router.push(`/editor/${screenplay.id}`);
     } catch (error) {
