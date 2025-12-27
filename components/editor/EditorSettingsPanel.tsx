@@ -204,6 +204,18 @@ export function EditorSettingsPanel({
               />
             </SettingsRow>
 
+            <SettingsRow
+              label="Real-time collaboration"
+              description="Sync edits with collaborators"
+            >
+              <Switch
+                checked={settings.editor.yjsCollaboration}
+                onCheckedChange={(checked) =>
+                  updateEditorSettings({ yjsCollaboration: checked })
+                }
+              />
+            </SettingsRow>
+
             <div className="space-y-2 opacity-50 pointer-events-none">
               <div className="flex items-center gap-2">
                 <Label className="text-sm text-foreground">

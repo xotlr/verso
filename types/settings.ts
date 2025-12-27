@@ -117,6 +117,7 @@ export interface EditorSettings {
   scrollMode: 'discrete' | 'continuous';
   pageStyle: PageStyle; // 'themed' uses theme colors, 'plain' uses off-white
   showSceneNumbers: boolean; // Show scene numbers even with title page (production mode)
+  yjsCollaboration: boolean; // Enable Yjs CRDT real-time collaboration
 }
 
 export interface InterfaceSettings {
@@ -267,6 +268,7 @@ export const defaultSettings: AppSettings = {
     scrollMode: 'discrete',
     pageStyle: 'themed', // Use theme-colored pages by default
     showSceneNumbers: false, // Show scene numbers even with title page
+    yjsCollaboration: false, // Yjs CRDT collaboration disabled by default
   },
   interface: {
     showStatsBar: true,

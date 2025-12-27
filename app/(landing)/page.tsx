@@ -9,13 +9,14 @@ import { AppPreviewSection } from "@/components/landing/app-preview-section"
 import { UseCasesSection } from "@/components/landing/use-cases-section"
 import { FeaturesEnhancedSection } from "@/components/landing/features-enhanced-section"
 import { HowItWorksSection } from "@/components/landing/how-it-works-section"
+import { ComparisonSection } from "@/components/landing/comparison-section"
 import { FAQSection } from "@/components/landing/faq-section"
 
 export default function LandingPage() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden -mt-[4.5rem] pt-[4.5rem]">
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden -mt-[4.5rem] pt-[4.5rem] rounded-b-[3rem]">
         {/* Aurora Background - extends behind navbar */}
         <div className="absolute inset-0 -z-10 bg-primary">
           <Aurora speed={1.0} />
@@ -79,6 +80,9 @@ export default function LandingPage() {
       {/* Features Section (Tabbed) */}
       <FeaturesEnhancedSection />
 
+      {/* Comparison Section */}
+      <ComparisonSection />
+
       {/* How It Works */}
       <HowItWorksSection />
 
@@ -86,7 +90,7 @@ export default function LandingPage() {
       <AppPreviewSection />
 
       {/* Pricing Preview Section */}
-      <section className="py-24 sm:py-32">
+      <section className="py-24 sm:py-32 bg-muted rounded-[3rem]">
         <div className="container max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center space-y-4 mb-16 sm:mb-20">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium">

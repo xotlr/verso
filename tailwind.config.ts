@@ -43,6 +43,21 @@ const config: Config = {
   				'"Courier New"',
   				'Courier',
   				'monospace'
+  			],
+  			bodoni: [
+  				'var(--font-bodoni-moda)',
+  				'Georgia',
+  				'serif'
+  			],
+  			plaster: [
+  				'var(--font-plaster)',
+  				'Impact',
+  				'sans-serif'
+  			],
+  			montserrat: [
+  				'var(--font-montserrat)',
+  				'system-ui',
+  				'sans-serif'
   			]
   		},
   		colors: {

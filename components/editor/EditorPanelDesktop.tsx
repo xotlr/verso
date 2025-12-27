@@ -62,6 +62,7 @@ export function EditorPanelDesktop({
   onAddShot,
   onAddDetectedShot,
 }: EditorPanelDesktopProps) {
+
   const { open, activePanel, setActivePanel, position, isMobile } = useEditorPanel();
   const { settings } = useSettings();
   const [isInFocusMode, setIsInFocusMode] = useState(false);

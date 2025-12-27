@@ -7,6 +7,8 @@ import type { ElementType } from '@/lib/prosemirror';
 import type { AutocompleteState, AutocompleteSuggestion } from '@/lib/prosemirror/plugins';
 import type { PaginationResult } from '@/lib/verso';
 import type { DetectedShot } from '@/types/shotlist';
+import type * as Y from 'yjs';
+import type { Awareness } from 'y-protocols/awareness';
 
 /**
  * Options for initializing the ProseMirror editor.
@@ -20,6 +22,17 @@ export interface UseProseMirrorEditorOptions {
   showSceneNumbers?: boolean;
   /** Enable timelapse mode - syncs content without recreating editor (for playback) */
   timelapseMode?: boolean;
+
+  // Yjs CRDT collaboration options
+  /** Yjs XmlFragment for collaborative editing */
+  yXmlFragment?: Y.XmlFragment;
+  /** Yjs Awareness for cursor/presence sync */
+  awareness?: Awareness;
+  /** User info for cursor display */
+  yjsUserInfo?: {
+    name: string;
+    color: string;
+  };
 }
 
 /**

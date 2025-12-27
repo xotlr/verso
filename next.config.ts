@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
   // Fix workspace root detection (multiple lockfiles issue)
   outputFileTracingRoot: __dirname,
 
-  // Allow Supabase storage images
+  // Allow Supabase storage images with optimization
   images: {
     remotePatterns: [
       {
@@ -25,6 +25,11 @@ const nextConfig: NextConfig = {
         pathname: '/storage/v1/object/public/**',
       },
     ],
+    // Optimize image sizes for common breakpoints
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    // Enable modern image formats for better compression
+    formats: ['image/avif', 'image/webp'],
   },
 
   // Enable subdomain routing for local development

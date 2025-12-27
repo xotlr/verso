@@ -2,8 +2,8 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Undo2, Film } from 'lucide-react';
+import { usePanelVirtualization } from '@/hooks/use-panel-virtualization';
 import { DndContext, closestCenter, DragEndEvent, DragStartEvent, DragOverlay } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -12,6 +12,7 @@ import {
 import type { SceneInfo } from '@/hooks/editor/use-prosemirror-editor';
 import type { EditorView } from 'prosemirror-view';
 import { TextSelection } from 'prosemirror-state';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { PanelHeader } from './PanelHeader';
 import { PanelEmptyState } from './PanelEmptyState';
 import { usePanelDndSensors } from './use-panel-dnd';
@@ -30,6 +31,13 @@ interface ScenesPanelProps {
   onAddShotToScene?: (sceneId: string) => void;
   className?: string;
 }
+
+// Flattened item types for virtualization
+type FlatListItem =
+  | { type: 'restore-button'; id: string }
+  | { type: 'ungrouped-scene'; id: string; scene: SceneInfo; sceneIndex: number }
+  | { type: 'act-header'; id: string; act: Act }
+  | { type: 'act-scene'; id: string; scene: SceneInfo; sceneIndex: number; actId: string };
 
 /**
  * Scenes panel showing hierarchical act/scene structure with navigation.
@@ -64,12 +72,15 @@ export function ScenesPanel({
     hiddenActsCount,
     ungroupAct,
     resetAllGroups,
+    groupScenes,
+    ungroupScenes,
     startEditingAct,
     saveActName,
     cancelEditingAct,
     setEditingName,
     getActDisplayName,
     isActHidden,
+    getSceneCustomGroup,
   } = useActManagement({ screenplayId });
 
   // Toggle filter helper
@@ -167,6 +178,63 @@ export function ScenesPanel({
 
     return { visibleActs: visible, ungroupedScenes: ungrouped };
   }, [filteredActs, isActHidden]);
+
+  // Flatten hierarchy for virtualization
+  const flattenedItems = useMemo((): FlatListItem[] => {
+    const items: FlatListItem[] = [];
+
+    // Restore button if there are hidden acts
+    if (hiddenActsCount > 0) {
+      items.push({ type: 'restore-button', id: 'restore-groups' });
+    }
+
+    // Ungrouped scenes
+    ungroupedScenes.forEach((scene) => {
+      items.push({
+        type: 'ungrouped-scene',
+        id: scene.id,
+        scene,
+        sceneIndex: scenes.indexOf(scene),
+      });
+    });
+
+    // Grouped acts with their scenes
+    visibleActs.forEach((act) => {
+      items.push({ type: 'act-header', id: act.id, act: act as Act });
+
+      if (expandedActs.has(act.id)) {
+        (act.scenes as SceneInfo[]).forEach((scene) => {
+          items.push({
+            type: 'act-scene',
+            id: scene.id,
+            scene,
+            sceneIndex: scenes.indexOf(scene),
+            actId: act.id,
+          });
+        });
+      }
+    });
+
+    return items;
+  }, [hiddenActsCount, ungroupedScenes, visibleActs, expandedActs, scenes]);
+
+  // All scene IDs for sortable context
+  const allSceneIds = useMemo(() => {
+    return flattenedItems
+      .filter((item): item is Extract<FlatListItem, { type: 'ungrouped-scene' | 'act-scene' }> =>
+        item.type === 'ungrouped-scene' || item.type === 'act-scene'
+      )
+      .map(item => item.id);
+  }, [flattenedItems]);
+
+  // Virtualization hook
+  const { parentRef, isVirtualized, virtualItems, totalSize, getItem, allItems } =
+    usePanelVirtualization({
+      items: flattenedItems,
+      estimateSize: 44,
+      getItemKey: (item) => item.id,
+      minItemsForVirtualization: 25,
+    });
 
   const toggleAct = useCallback((actId: string) => {
     setExpandedActs(prev => {
@@ -272,10 +340,97 @@ export function ScenesPanel({
     setActiveId(null);
   }, []);
 
+  // Handle grouping selected scenes
+  const handleGroupScenes = useCallback((sceneId: string) => {
+    // If scene is selected and there are selections, group all selected
+    // Otherwise just group this single scene
+    const scenesToGroup = selectedScenes.has(sceneId) && selectedCount > 0
+      ? Array.from(selectedScenes)
+      : [sceneId];
+    groupScenes(scenesToGroup);
+  }, [selectedScenes, selectedCount, groupScenes]);
+
+  // Handle ungrouping selected scenes
+  const handleUngroupScenes = useCallback((sceneId: string) => {
+    const scenesToUngroup = selectedScenes.has(sceneId) && selectedCount > 0
+      ? Array.from(selectedScenes)
+      : [sceneId];
+    ungroupScenes(scenesToUngroup);
+  }, [selectedScenes, selectedCount, ungroupScenes]);
+
+  // Render a single flattened item
+  const renderFlatItem = useCallback((item: FlatListItem) => {
+    switch (item.type) {
+      case 'restore-button':
+        return (
+          <button
+            key={item.id}
+            onClick={resetAllGroups}
+            className={cn(
+              'w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg',
+              'text-[10px] text-muted-foreground',
+              'hover:bg-accent/50 hover:text-foreground',
+              'transition-colors'
+            )}
+          >
+            <Undo2 className="h-3 w-3" />
+            Restore all groups ({hiddenActsCount})
+          </button>
+        );
+
+      case 'act-header':
+        return (
+          <ActHeader
+            key={item.id}
+            act={item.act}
+            isExpanded={expandedActs.has(item.act.id)}
+            isEditing={editingActId === item.act.id}
+            editingName={editingName}
+            displayName={getActDisplayName(item.act)}
+            onToggle={() => toggleAct(item.act.id)}
+            onStartEditing={(e) => startEditingAct(item.act.id, getActDisplayName(item.act), e)}
+            onEditingNameChange={setEditingName}
+            onSaveEdit={saveActName}
+            onCancelEdit={cancelEditingAct}
+            onUngroup={() => ungroupAct(item.act.id)}
+          />
+        );
+
+      case 'ungrouped-scene':
+      case 'act-scene': {
+        const customGroup = getSceneCustomGroup(item.scene.id);
+        return (
+          <SortableSceneItem
+            key={item.id}
+            scene={item.scene}
+            sceneIndex={item.sceneIndex}
+            isActive={item.scene.id === currentSceneId}
+            isSelected={selectedScenes.has(item.scene.id)}
+            selectedCount={selectedCount}
+            isInCustomGroup={!!customGroup}
+            navigateToScene={navigateToScene}
+            formatSceneHeading={formatSceneHeading}
+            onSelect={handleSelect}
+            onRename={handleSceneRename}
+            onAddShot={onAddShotToScene}
+            onGroup={() => handleGroupScenes(item.scene.id)}
+            onUngroup={() => handleUngroupScenes(item.scene.id)}
+          />
+        );
+      }
+    }
+  }, [
+    resetAllGroups, hiddenActsCount, expandedActs, editingActId, editingName,
+    getActDisplayName, toggleAct, startEditingAct, setEditingName, saveActName,
+    cancelEditingAct, ungroupAct, currentSceneId, selectedScenes, selectedCount,
+    navigateToScene, formatSceneHeading, handleSelect, handleSceneRename, onAddShotToScene,
+    getSceneCustomGroup, handleGroupScenes, handleUngroupScenes
+  ]);
+
   // Render drag overlay
-  const renderDragOverlay = (sceneList: SceneInfo[]) => (
+  const renderDragOverlay = () => (
     <DragOverlay dropAnimation={{ duration: 200, easing: 'ease-out' }}>
-      {activeScene && sceneList.some(s => s.id === activeScene.id) && (
+      {activeScene && allSceneIds.includes(activeScene.id) && (
         <div className="bg-background rounded-lg shadow-2xl ring-2 ring-primary border border-border px-2.5 py-2 text-xs font-medium flex items-center gap-2">
           {formatSceneHeading(activeScene)}
           {selectedCount > 1 && selectedScenes.has(activeScene.id) && (
@@ -311,9 +466,9 @@ export function ScenesPanel({
       )}
 
       {/* Content */}
-      <ScrollArea className="flex-1 min-h-0">
+      <ScrollArea className="flex-1 min-h-0" viewportRef={parentRef}>
         <div className="p-3">
-          {visibleActs.length === 0 && ungroupedScenes.length === 0 ? (
+          {flattenedItems.length === 0 ? (
             <PanelEmptyState
               icon={Film}
               title={activeFilterCount > 0 ? 'No matching scenes' : 'No scenes yet'}
@@ -323,112 +478,47 @@ export function ScenesPanel({
               action={activeFilterCount > 0 ? { label: 'Clear filters', onClick: clearFilters } : undefined}
             />
           ) : (
-            <div className="space-y-2">
-              {/* Restore groups button when there are ungrouped acts */}
-              {hiddenActsCount > 0 && (
-                <button
-                  onClick={resetAllGroups}
-                  className={cn(
-                    'w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg',
-                    'text-[10px] text-muted-foreground',
-                    'hover:bg-accent/50 hover:text-foreground',
-                    'transition-colors'
-                  )}
-                >
-                  <Undo2 className="h-3 w-3" />
-                  Restore all groups ({hiddenActsCount})
-                </button>
-              )}
-
-              {/* Ungrouped scenes - shown as flat list */}
-              {ungroupedScenes.length > 0 && (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  onDragCancel={handleDragCancel}
-                >
-                  <SortableContext
-                    items={ungroupedScenes.map(s => s.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-0.5">
-                      {ungroupedScenes.map((scene) => (
-                        <SortableSceneItem
-                          key={scene.id}
-                          scene={scene}
-                          sceneIndex={scenes.indexOf(scene)}
-                          isActive={scene.id === currentSceneId}
-                          isSelected={selectedScenes.has(scene.id)}
-                          selectedCount={selectedCount}
-                          navigateToScene={navigateToScene}
-                          formatSceneHeading={formatSceneHeading}
-                          onSelect={handleSelect}
-                          onRename={handleSceneRename}
-                          onAddShot={onAddShotToScene}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                  {renderDragOverlay(ungroupedScenes)}
-                </DndContext>
-              )}
-
-              {/* Grouped acts */}
-              {visibleActs.map((act) => (
-                <div key={act.id}>
-                  <ActHeader
-                    act={act}
-                    isExpanded={expandedActs.has(act.id)}
-                    isEditing={editingActId === act.id}
-                    editingName={editingName}
-                    displayName={getActDisplayName(act as Act)}
-                    onToggle={() => toggleAct(act.id)}
-                    onStartEditing={(e) => startEditingAct(act.id, getActDisplayName(act as Act), e)}
-                    onEditingNameChange={setEditingName}
-                    onSaveEdit={saveActName}
-                    onCancelEdit={cancelEditingAct}
-                    onUngroup={() => ungroupAct(act.id)}
-                  />
-
-                  {/* Scenes list with drag & drop */}
-                  {expandedActs.has(act.id) && (
-                    <DndContext
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragStart={handleDragStart}
-                      onDragEnd={handleDragEnd}
-                      onDragCancel={handleDragCancel}
-                    >
-                      <SortableContext
-                        items={act.scenes.map(s => s.id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <div className="mt-0.5 space-y-0.5">
-                          {(act.scenes as SceneInfo[]).map((scene) => (
-                            <SortableSceneItem
-                              key={scene.id}
-                              scene={scene}
-                              sceneIndex={scenes.indexOf(scene)}
-                              isActive={scene.id === currentSceneId}
-                              isSelected={selectedScenes.has(scene.id)}
-                              selectedCount={selectedCount}
-                              navigateToScene={navigateToScene}
-                              formatSceneHeading={formatSceneHeading}
-                              onSelect={handleSelect}
-                              onRename={handleSceneRename}
-                              onAddShot={onAddShotToScene}
-                            />
-                          ))}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
+            >
+              <SortableContext
+                items={allSceneIds}
+                strategy={verticalListSortingStrategy}
+              >
+                {isVirtualized && virtualItems ? (
+                  // Virtualized rendering for large lists
+                  <div style={{ height: totalSize, position: 'relative' }}>
+                    {virtualItems.map((virtualItem) => {
+                      const item = getItem(virtualItem);
+                      return (
+                        <div
+                          key={virtualItem.key}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            transform: `translateY(${virtualItem.start}px)`,
+                          }}
+                        >
+                          {renderFlatItem(item)}
                         </div>
-                      </SortableContext>
-                      {renderDragOverlay(act.scenes as SceneInfo[])}
-                    </DndContext>
-                  )}
-                </div>
-              ))}
-            </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  // Non-virtualized rendering for small lists
+                  <div className="space-y-0.5">
+                    {allItems.map((item) => renderFlatItem(item))}
+                  </div>
+                )}
+              </SortableContext>
+              {renderDragOverlay()}
+            </DndContext>
           )}
         </div>
       </ScrollArea>

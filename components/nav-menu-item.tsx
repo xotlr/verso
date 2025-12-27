@@ -46,7 +46,7 @@ export function NavMenuItem({
           <Link
             href={url}
             className={cn(
-              "transition-all duration-150 text-sm group/item flex items-center justify-center rounded-md",
+              "transition-all duration-150 text-sm group/item flex items-center justify-center rounded-lg",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "hover:bg-accent hover:text-accent-foreground active:scale-[0.98]",
               isActive
@@ -69,7 +69,7 @@ export function NavMenuItem({
           <button
             onClick={onClick}
             className={cn(
-              "transition-all duration-150 text-sm group/item flex items-center justify-center rounded-md",
+              "transition-all duration-150 text-sm group/item flex items-center justify-center rounded-lg",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
               "hover:bg-accent hover:text-accent-foreground active:scale-[0.98]",
               "text-muted-foreground"

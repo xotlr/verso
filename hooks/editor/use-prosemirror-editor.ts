@@ -25,6 +25,7 @@ import {
   updatePaginationState,
   updateSceneNumberingSettings,
 } from '@/lib/prosemirror/plugins';
+import { yjsUndoCheck, yjsRedoCheck } from '@/lib/prosemirror/plugins/yjs-collaboration';
 import type { AutocompleteState } from '@/lib/prosemirror/plugins';
 
 import { usePagination } from './use-pagination';
@@ -54,7 +55,21 @@ export { extractShots };
  * Main hook for ProseMirror screenplay editor.
  */
 export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseProseMirrorEditorReturn {
-  const { initialContent, onUpdate, onScenesChange, editable = true, showSceneNumbers = false, timelapseMode = false } = options;
+  const {
+    initialContent,
+    onUpdate,
+    onScenesChange,
+    editable = true,
+    showSceneNumbers = false,
+    timelapseMode = false,
+    // Yjs CRDT collaboration options
+    yXmlFragment,
+    awareness,
+    yjsUserInfo,
+  } = options;
+
+  // Track if Yjs collaboration is enabled
+  const isYjsEnabled = !!(yXmlFragment && awareness);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -108,8 +123,8 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     onPaginationComplete: handlePaginationComplete,
   });
 
-  // Editor commands
-  const commands = useEditorCommands(viewRef);
+  // Editor commands (uses Yjs undo/redo when collaboration is enabled)
+  const commands = useEditorCommands(viewRef, { isYjsEnabled });
 
   // Update pagination plugin state when WASM results arrive
   useEffect(() => {
@@ -142,6 +157,16 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
       onCoverPageDetected: (_coverPage) => {
         // Cover page detection callback - no-op but could be used for future features
       },
+      // Yjs CRDT collaboration - when enabled, replaces prosemirror-history
+      yjs: isYjsEnabled,
+      yjsOptions: isYjsEnabled && yXmlFragment && awareness ? {
+        yXmlFragment,
+        awareness,
+        cursorColor: yjsUserInfo?.color,
+        cursorName: yjsUserInfo?.name,
+      } : undefined,
+      // Disable standard history when Yjs is enabled (Yjs has its own undo manager)
+      history: !isYjsEnabled,
     });
 
     // Create state
@@ -216,9 +241,14 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
         }
         setCurrentSceneId(activeSceneId);
 
-        // Update undo/redo state
-        setCanUndo(undo(newState));
-        setCanRedo(redo(newState));
+        // Update undo/redo state (use Yjs check functions when collaboration is enabled)
+        if (isYjsEnabled) {
+          setCanUndo(yjsUndoCheck(newState));
+          setCanRedo(yjsRedoCheck(newState));
+        } else {
+          setCanUndo(undo(newState));
+          setCanRedo(redo(newState));
+        }
       },
     });
 
@@ -252,8 +282,9 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
       isInitializedRef.current = false;
     };
   // In timelapse mode, don't recreate editor on content changes - we sync via transaction
+  // When Yjs is enabled, also recreate editor if collaboration settings change
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, timelapseMode ? [editable] : [initialContent, editable]);
+  }, timelapseMode ? [editable, isYjsEnabled] : [initialContent, editable, isYjsEnabled, yXmlFragment, awareness]);
 
   // Timelapse mode: sync content changes via transaction (don't recreate editor)
   useEffect(() => {

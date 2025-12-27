@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunces, Plus_Jakarta_Sans, Source_Sans_3, Cormorant_Garamond, Crimson_Pro } from "next/font/google";
+import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunces, Plus_Jakarta_Sans, Bodoni_Moda, Plaster, Montserrat } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SettingsProvider } from "@/contexts/settings-context";
@@ -7,6 +7,8 @@ import { ShortcutsProvider } from "@/lib/shortcuts/shortcuts-context";
 import { TeamProvider } from "@/contexts/team-context";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { WebVitals } from "@/components/analytics/web-vitals";
+import { PerformancePanel } from "@/components/analytics/performance-panel";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -53,21 +55,21 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
 });
 
-const sourceSans3 = Source_Sans_3({
-  weight: ['400', '500', '600', '700'],
-  variable: "--font-source-sans",
+const bodoniModa = Bodoni_Moda({
+  weight: ['400', '700'],
+  variable: "--font-bodoni-moda",
   subsets: ["latin"],
 });
 
-const cormorantGaramond = Cormorant_Garamond({
-  weight: ['400', '500', '600', '700'],
-  variable: "--font-cormorant-garamond",
+const plaster = Plaster({
+  weight: '400',
+  variable: "--font-plaster",
   subsets: ["latin"],
 });
 
-const crimsonPro = Crimson_Pro({
-  weight: ['400', '500', '600', '700'],
-  variable: "--font-crimson-pro",
+const montserrat = Montserrat({
+  weight: ['400', '500', '600', '700', '800', '900'],
+  variable: "--font-montserrat",
   subsets: ["latin"],
 });
 
@@ -113,9 +115,10 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable} ${sourceSans3.variable} ${cormorantGaramond.variable} ${crimsonPro.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable} ${bodoniModa.variable} ${plaster.variable} ${montserrat.variable}`}
     >
       <body className="antialiased overflow-hidden h-screen">
+        <WebVitals />
         <AuthProvider>
           <ThemeProvider
             defaultTheme="system"
@@ -125,6 +128,7 @@ export default function RootLayout({
                 <TeamProvider>
                   {children}
                   <Toaster position="bottom-right" />
+                  <PerformancePanel />
                 </TeamProvider>
               </ShortcutsProvider>
             </SettingsProvider>

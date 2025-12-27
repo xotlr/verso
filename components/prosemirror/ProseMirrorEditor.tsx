@@ -9,6 +9,8 @@ import {
   CharacterInfo,
 } from '@/hooks/editor/use-prosemirror-editor';
 import type { DetectedShot } from '@/types/shotlist';
+import type * as Y from 'yjs';
+import type { Awareness } from 'y-protocols/awareness';
 import { useResponsiveScale } from '@/hooks/editor/use-responsive-scale';
 import { useEditorZoom } from '@/hooks/editor/use-editor-zoom';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -71,6 +73,16 @@ export interface ProseMirrorEditorProps {
   charactersCount?: number;
   shotlistCount?: number;
   notesCount?: number;
+  // Yjs CRDT collaboration options
+  /** Yjs XmlFragment for collaborative editing */
+  yXmlFragment?: Y.XmlFragment;
+  /** Yjs Awareness for cursor/presence sync */
+  awareness?: Awareness;
+  /** User info for cursor display */
+  yjsUserInfo?: {
+    name: string;
+    color: string;
+  };
 }
 
 /**
@@ -162,6 +174,10 @@ export function ProseMirrorEditor({
   charactersCount = 0,
   shotlistCount = 0,
   notesCount = 0,
+  // Yjs CRDT collaboration
+  yXmlFragment,
+  awareness,
+  yjsUserInfo,
 }: ProseMirrorEditorProps) {
   const { settings } = useSettings();
   // Read scroll mode directly from settings
@@ -242,6 +258,10 @@ export function ProseMirrorEditor({
     editable,
     showSceneNumbers,
     timelapseMode,
+    // Yjs CRDT collaboration options
+    yXmlFragment,
+    awareness,
+    yjsUserInfo,
   });
 
   // In timelapse mode, use pre-computed cached pagination for accurate page frames

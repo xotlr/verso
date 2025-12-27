@@ -206,12 +206,14 @@ export function useOfflineSave({
       localVersion: localVersionRef.current,
     }
     await saveDraft(draft)
-    setSyncStatus('pending')
+    if (isMountedRef.current) setSyncStatus('pending')
 
     // 2. If online, try server save immediately
     if (isOnline) {
-      setIsSyncing(true)
-      setSyncStatus('syncing')
+      if (isMountedRef.current) {
+        setIsSyncing(true)
+        setSyncStatus('syncing')
+      }
 
       const result = await saveToServer(content, draftTitle)
 
@@ -241,8 +243,10 @@ export function useOfflineSave({
         screenplayId,
         payload: { content, title: draftTitle },
       })
-      setSyncStatus('offline')
-      setPendingCount(prev => prev + 1)
+      if (isMountedRef.current) {
+        setSyncStatus('offline')
+        setPendingCount(prev => prev + 1)
+      }
     }
   }, [screenplayId, isOnline, saveToServer])
 

@@ -1,7 +1,9 @@
 'use client'
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { OptimizedAvatarImage } from '@/components/ui/optimized-avatar-image'
 import { cn } from '@/lib/utils'
+import { AVATAR_SIZE_MAP } from '@/lib/image-utils'
 
 interface ProfileAvatarProps {
   userId: string
@@ -34,7 +36,7 @@ const textClasses = {
 }
 
 export function ProfileAvatar({
-  userId: _userId,
+  userId,
   imageUrl,
   name,
   email,
@@ -59,9 +61,11 @@ export function ProfileAvatar({
         className
       )}
     >
-      <AvatarImage
-        src={imageUrl || undefined}
+      <OptimizedAvatarImage
+        src={imageUrl}
         alt={name || ''}
+        size={AVATAR_SIZE_MAP[size]}
+        userId={userId}
         className="object-cover rounded-md"
       />
       <AvatarFallback

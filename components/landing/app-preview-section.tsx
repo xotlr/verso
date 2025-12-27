@@ -2,7 +2,7 @@
 
 import { useRef } from "react"
 import { motion, useScroll, useTransform } from "framer-motion"
-import { Safari } from "@/components/ui/safari"
+import { BrowserFrame } from "@/components/ui/browser-frame"
 
 interface AppPreviewSectionProps {
   imageSrc?: string
@@ -22,10 +22,10 @@ export function AppPreviewSection({
   const scale = useTransform(scrollYProgress, [0, 0.5, 1], [0.98, 1, 0.98])
 
   return (
-    <section ref={containerRef} className="py-20 sm:py-28 overflow-hidden bg-muted">
-      <div className="container max-w-6xl mx-auto px-4 sm:px-6">
+    <section ref={containerRef} className="py-20 sm:py-28 overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Section header */}
-        <div className="text-center space-y-3 mb-12 sm:mb-16">
+        <div className="text-center space-y-3 mb-2 sm:mb-4">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium">
             See it in action
           </h2>
@@ -39,8 +39,8 @@ export function AppPreviewSection({
           style={{ y, scale }}
           className="relative"
         >
-          <Safari
-            url="verso.app/editor"
+          <BrowserFrame
+            url="app.verso.ac/editor"
             imageSrc={imageSrc}
             className="shadow-2xl shadow-black/5 dark:shadow-black/20"
           />

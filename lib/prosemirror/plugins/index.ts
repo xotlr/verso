@@ -15,6 +15,7 @@ import { createPastePlugin, CoverPageData } from './paste-handler';
 import { createTypewriterScrollPlugin } from './typewriter-scroll';
 import { createShotMarkersPlugin, ShotMarker } from './shot-markers';
 import { createPaginationChangeTracker } from './pagination-change-tracker';
+import { createYjsCollaborationPlugins, type YjsCollaborationPluginOptions } from './yjs-collaboration';
 
 export interface CreatePluginsOptions {
   // Enable input rules for auto-formatting
@@ -55,6 +56,10 @@ export interface CreatePluginsOptions {
   initialShotMarkers?: ShotMarker[];
   // Enable pagination change tracking for incremental pagination
   paginationChangeTracker?: boolean;
+  // Yjs CRDT collaboration (replaces history plugin when enabled)
+  yjs?: boolean;
+  // Yjs plugin options
+  yjsOptions?: YjsCollaborationPluginOptions;
 }
 
 const defaultOptions: CreatePluginsOptions = {
@@ -101,8 +106,12 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
   // Base keymap (basic text editing)
   plugins.push(createBaseKeymapPlugin());
 
-  // History (undo/redo)
-  if (opts.history) {
+  // History (undo/redo) - Yjs has its own undo manager
+  if (opts.yjs && opts.yjsOptions) {
+    // Use Yjs collaboration plugins (includes undo/redo)
+    plugins.push(...createYjsCollaborationPlugins(opts.yjsOptions));
+  } else if (opts.history) {
+    // Use standard prosemirror-history
     plugins.push(history());
   }
 

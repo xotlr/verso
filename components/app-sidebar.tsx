@@ -13,6 +13,7 @@ import {
   BarChart3,
   PenTool,
   LogOut,
+  Waypoints,
   Sparkles,
   CreditCard,
   FolderOpen,
@@ -199,7 +200,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
     {
       title: "Story Graph",
       url: `/graph/${screenplayId}`,
-      icon: Sparkles,
+      icon: Waypoints,
     },
     {
       title: "Index Cards",

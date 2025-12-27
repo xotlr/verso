@@ -687,6 +687,36 @@
 }
 
 /* ============================================
+   Yjs Remote User Cursors
+   ============================================ */
+.yjs-cursor {
+  position: relative;
+  display: inline-block;
+  pointer-events: none;
+  z-index: 999;
+}
+
+.yjs-cursor-label {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1000;
+  color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  opacity: 0.9;
+}
+
+.dark .yjs-cursor-label {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* ============================================
    Current Line Highlight
    ============================================ */
 .pm-line-highlight {

@@ -329,7 +329,7 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex items-center justify-center overflow-hidden rounded-md p-2 text-left outline-none ring-sidebar-ring transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground [&>svg]:size-4 [&>svg]:shrink-0",
+  "peer/menu-button flex items-center justify-center overflow-hidden rounded-lg p-2 text-left outline-none ring-sidebar-ring transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground [&>svg]:size-4 [&>svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -456,7 +456,7 @@ const SidebarMenuSkeleton = React.forwardRef<
     <div
       ref={ref}
       data-sidebar="menu-skeleton"
-      className={cn("flex size-8 items-center justify-center rounded-md", className)}
+      className={cn("flex size-8 items-center justify-center rounded-lg", className)}
       {...props}
     >
       <Skeleton className="size-4 rounded-md" data-sidebar="menu-skeleton-icon" />

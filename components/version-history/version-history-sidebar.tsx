@@ -212,7 +212,7 @@ export function VersionHistorySidebar({
     }
   };
 
-  const handleDoCompare = () => {
+  const handleStartComparison = () => {
     if (compareFrom && compareTo && onCompareTwoVersions) {
       const [older, newer] = compareFrom.versionNumber < compareTo.versionNumber
         ? [compareFrom, compareTo]
@@ -221,7 +221,7 @@ export function VersionHistorySidebar({
     }
   };
 
-  const exitCompareMode = () => {
+  const handleExitCompareMode = () => {
     setCompareMode(false);
     setCompareFrom(null);
     setCompareTo(null);
@@ -342,14 +342,14 @@ export function VersionHistorySidebar({
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={exitCompareMode}
+                            onClick={handleExitCompareMode}
                             className="h-6 px-2 text-xs"
                           >
                             Cancel
                           </Button>
                           <Button
                             size="sm"
-                            onClick={handleDoCompare}
+                            onClick={handleStartComparison}
                             disabled={!compareFrom || !compareTo}
                             className="h-6 px-2 text-xs"
                           >

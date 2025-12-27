@@ -189,9 +189,9 @@ export function ScreenplayListCard({
           className={cn(
             'absolute inset-0 bg-muted border border-border shadow-sm transition-transform duration-300',
             // Film: diagonal spread (x + y)
-            !isSeries && 'translate-x-[3px] sm:translate-x-1.5 group-hover/stack:translate-x-3 sm:group-hover/stack:translate-x-6',
+            !isSeries && 'translate-x-1.5 sm:translate-x-3 group-hover/stack:translate-x-3 sm:group-hover/stack:translate-x-6',
             // Both: vertical spread
-            'translate-y-[3px] sm:translate-y-1.5 group-hover/stack:translate-y-3 sm:group-hover/stack:translate-y-6',
+            'translate-y-1.5 sm:translate-y-3 group-hover/stack:translate-y-3 sm:group-hover/stack:translate-y-6',
             cardRadius,
           )}
         />
@@ -200,8 +200,8 @@ export function ScreenplayListCard({
         <div
           className={cn(
             'absolute inset-0 bg-muted border border-border shadow-sm transition-transform duration-300',
-            !isSeries && 'translate-x-[2px] sm:translate-x-1 group-hover/stack:translate-x-2 sm:group-hover/stack:translate-x-4',
-            'translate-y-[2px] sm:translate-y-1 group-hover/stack:translate-y-2 sm:group-hover/stack:translate-y-4',
+            !isSeries && 'translate-x-1 sm:translate-x-2 group-hover/stack:translate-x-2 sm:group-hover/stack:translate-x-4',
+            'translate-y-1 sm:translate-y-2 group-hover/stack:translate-y-2 sm:group-hover/stack:translate-y-4',
             cardRadius,
           )}
         />
@@ -210,8 +210,8 @@ export function ScreenplayListCard({
         <div
           className={cn(
             'absolute inset-0 bg-muted border border-border shadow-sm transition-transform duration-300',
-            !isSeries && 'translate-x-px sm:translate-x-0.5 group-hover/stack:translate-x-1 sm:group-hover/stack:translate-x-2.5',
-            'translate-y-px sm:translate-y-0.5 group-hover/stack:translate-y-1 sm:group-hover/stack:translate-y-2.5',
+            !isSeries && 'translate-x-0.5 sm:translate-x-1 group-hover/stack:translate-x-1 sm:group-hover/stack:translate-x-2',
+            'translate-y-0.5 sm:translate-y-1 group-hover/stack:translate-y-1 sm:group-hover/stack:translate-y-2',
             cardRadius,
           )}
         />
@@ -404,15 +404,6 @@ export function ScreenplayListCard({
         </div>
       </Link>
 
-      {/* Paper corner peel effect - top right, always visible */}
-      <div
-        className={cn(
-          'absolute top-0 right-0 pointer-events-none',
-          'w-4 h-4 bg-muted rounded-bl-xl',
-          'transition-all duration-300 ease-out',
-          'group-hover:w-6 group-hover:h-6',
-        )}
-      />
       </div>
     </div>
   );

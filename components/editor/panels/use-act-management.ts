@@ -5,13 +5,21 @@ interface UseActManagementOptions {
   screenplayId?: string;
 }
 
+// Custom group: a user-created act with specific scene IDs
+interface CustomGroup {
+  id: string;
+  name: string;
+  sceneIds: string[];
+}
+
 export function useActManagement({ screenplayId }: UseActManagementOptions) {
   const [actNames, setActNames] = useState<Map<string, string>>(new Map());
   const [hiddenActs, setHiddenActs] = useState<Set<string>>(new Set());
+  const [customGroups, setCustomGroups] = useState<CustomGroup[]>([]);
   const [editingActId, setEditingActId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
-  // Load act names and hidden acts from localStorage
+  // Load act names, hidden acts, and custom groups from localStorage
   useEffect(() => {
     if (!screenplayId) return;
 
@@ -33,6 +41,15 @@ export function useActManagement({ screenplayId }: UseActManagementOptions) {
         console.error('Failed to parse hidden acts:', e);
       }
     }
+
+    const storedGroups = localStorage.getItem(`custom-groups-${screenplayId}`);
+    if (storedGroups) {
+      try {
+        setCustomGroups(JSON.parse(storedGroups));
+      } catch (e) {
+        console.error('Failed to parse custom groups:', e);
+      }
+    }
   }, [screenplayId]);
 
   // Save act names to localStorage
@@ -47,6 +64,12 @@ export function useActManagement({ screenplayId }: UseActManagementOptions) {
     localStorage.setItem(`hidden-acts-${screenplayId}`, JSON.stringify([...hidden]));
   }, [screenplayId]);
 
+  // Save custom groups to localStorage
+  const saveCustomGroups = useCallback((groups: CustomGroup[]) => {
+    if (!screenplayId) return;
+    localStorage.setItem(`custom-groups-${screenplayId}`, JSON.stringify(groups));
+  }, [screenplayId]);
+
   // Ungroup/hide an act (scenes will show without grouping)
   const ungroupAct = useCallback((actId: string) => {
     const newHidden = new Set(hiddenActs);
@@ -55,11 +78,47 @@ export function useActManagement({ screenplayId }: UseActManagementOptions) {
     saveHiddenActs(newHidden);
   }, [hiddenActs, saveHiddenActs]);
 
+  // Group selected scenes into a new custom act
+  const groupScenes = useCallback((sceneIds: string[]) => {
+    if (sceneIds.length === 0) return;
+
+    const newGroup: CustomGroup = {
+      id: `custom-${Date.now()}`,
+      name: `Group ${customGroups.length + 1}`,
+      sceneIds,
+    };
+
+    const newGroups = [...customGroups, newGroup];
+    setCustomGroups(newGroups);
+    saveCustomGroups(newGroups);
+  }, [customGroups, saveCustomGroups]);
+
+  // Remove scenes from their custom group
+  const ungroupScenes = useCallback((sceneIds: string[]) => {
+    const sceneIdSet = new Set(sceneIds);
+    const newGroups = customGroups
+      .map(group => ({
+        ...group,
+        sceneIds: group.sceneIds.filter(id => !sceneIdSet.has(id)),
+      }))
+      .filter(group => group.sceneIds.length > 0);
+
+    setCustomGroups(newGroups);
+    saveCustomGroups(newGroups);
+  }, [customGroups, saveCustomGroups]);
+
+  // Check if a scene is in a custom group
+  const getSceneCustomGroup = useCallback((sceneId: string): CustomGroup | null => {
+    return customGroups.find(g => g.sceneIds.includes(sceneId)) || null;
+  }, [customGroups]);
+
   // Reset all groupings
   const resetAllGroups = useCallback(() => {
     setHiddenActs(new Set());
+    setCustomGroups([]);
     if (screenplayId) {
       localStorage.removeItem(`hidden-acts-${screenplayId}`);
+      localStorage.removeItem(`custom-groups-${screenplayId}`);
     }
   }, [screenplayId]);
 
@@ -103,6 +162,7 @@ export function useActManagement({ screenplayId }: UseActManagementOptions) {
   return {
     // State
     hiddenActs,
+    customGroups,
     editingActId,
     editingName,
     hiddenActsCount: hiddenActs.size,
@@ -110,6 +170,8 @@ export function useActManagement({ screenplayId }: UseActManagementOptions) {
     // Actions
     ungroupAct,
     resetAllGroups,
+    groupScenes,
+    ungroupScenes,
     startEditingAct,
     saveActName,
     cancelEditingAct,
@@ -118,5 +180,6 @@ export function useActManagement({ screenplayId }: UseActManagementOptions) {
     // Helpers
     getActDisplayName,
     isActHidden,
+    getSceneCustomGroup,
   };
 }

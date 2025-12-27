@@ -57,7 +57,7 @@ export function FAQSection() {
     {
       question: "Can I import from Final Draft?",
       answer:
-        "Yes. Import FDX, Fountain, or plain text. Formatting carries over.",
+        "Yes. Import from Final Draft, Fountain, Highland, Fade In, PDF, and more. Formatting carries over.",
     },
     {
       question: "Does it work offline?",
@@ -93,8 +93,8 @@ export function FAQSection() {
 
   return (
     <section id="faq" className="py-20 sm:py-32 scroll-mt-16">
-      <div className="container max-w-3xl mx-auto px-4 sm:px-6">
-        <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6">
+        <div className="text-center space-y-3 sm:space-y-4 mb-6 sm:mb-8">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium">
             Questions
           </h2>

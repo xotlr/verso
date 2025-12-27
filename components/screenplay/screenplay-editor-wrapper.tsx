@@ -1,26 +1,27 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
 import { ProseMirrorEditor } from "@/components/prosemirror";
 import { EditorFloatingPanel } from "@/components/editor/editor-floating-panel";
 import { EditorPanel } from "@/components/editor/EditorPanel";
 import { CollaborationAvatars } from "@/components/collaboration/CollaborationAvatars";
-import { Scene, Character, Location } from "@/types/screenplay";
+import { Scene, Character } from "@/types/screenplay";
 import { ScreenplayVersion } from "@/types/version";
 import { parseScreenplayText } from "@/lib/screenplay/utils";
 import { useSettings } from "@/contexts/settings-context";
-import { useOfflineSave } from "@/hooks/use-offline-save";
 import { useCollaboration } from "@/hooks/use-collaboration";
-import { useTimelapseRecorder } from "@/hooks/timelapse";
+import { useYjsCollaboration } from "@/hooks/use-yjs-collaboration";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useShotManagement, useScreenplayPersistence } from "@/hooks/screenplay";
 import type { SceneInfo, CharacterInfo } from "@/hooks/editor/use-prosemirror-editor";
 import type { EditorView } from "prosemirror-view";
 import type { CollaborationOperation } from "@/types/collaboration";
-import type { DetectedShot, Shot, SceneWithShots } from "@/types/shotlist";
+import type { DetectedShot, Shot } from "@/types/shotlist";
 
 // Lazy-load heavy dialog components to reduce initial bundle size
 const VersionHistorySidebar = dynamic(
@@ -61,69 +62,51 @@ interface ScreenplayEditorWrapperProps {
   onTitleChange?: (title: string) => void;
 }
 
-// Helper to group shots by scene
-function groupShotsByScene(scenes: SceneInfo[], shots: Shot[]): SceneWithShots[] {
-  return scenes.map((scene, index) => ({
-    sceneId: scene.id,
-    sceneHeading: `${scene.type}. ${scene.location} - ${scene.timeOfDay}`,
-    sceneNumber: index + 1,
-    shots: shots.filter(shot => shot.sceneId === scene.id),
-  }));
-}
-
 type ScreenplayType = 'FEATURE' | 'TV' | 'SHORT';
 
 export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange }: ScreenplayEditorWrapperProps) {
+
   const router = useRouter();
-  const [screenplayText, setScreenplayText] = useState("");
-  const [screenplayTitle, setScreenplayTitle] = useState("Untitled Screenplay");
-  const [scenes, setScenes] = useState<Scene[]>([]);
-  const [characters, setCharacters] = useState<Character[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
+  const { data: session } = useSession();
+
+  // Core persistence hook (handles save, version, timelapse, offline sync)
+  const persistence = useScreenplayPersistence({
+    screenplayId,
+    onTitleChange,
+    skipInitialLoad: true, // We load with metadata below
+  });
+
+  // UI state
   const [selectedSceneId, setSelectedSceneId] = useState<string | undefined>();
-  const [isLoading, setIsLoading] = useState(true);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
   const [compareVersion, setCompareVersion] = useState<ScreenplayVersion | null>(null);
   const [sceneWorkspaceScene, setSceneWorkspaceScene] = useState<Scene | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
-  const [isSaveVersionDialogOpen, setIsSaveVersionDialogOpen] = useState(false);
   const [compareTwoVersions, setCompareTwoVersions] = useState<{from: ScreenplayVersion, to: ScreenplayVersion} | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [sceneInfos, setSceneInfos] = useState<SceneInfo[]>([]);
   const [charInfos, setCharInfos] = useState<CharacterInfo[]>([]);
   const [detectedShots, setDetectedShots] = useState<DetectedShot[]>([]);
-  const [scenesWithShots, setScenesWithShots] = useState<SceneWithShots[]>([]);
-  const [shots, setShots] = useState<Shot[]>([]);
   const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
-  const [shotEditorOpen, setShotEditorOpen] = useState(false);
-  const [editingShot, setEditingShot] = useState<Shot | null>(null);
-  const [addingToScene, setAddingToScene] = useState<string | null>(null);
-  const [pendingDetectedShot, setPendingDetectedShot] = useState<DetectedShot | null>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const versionIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastVersionContentRef = useRef<string>("");
-  const screenplayTextRef = useRef(screenplayText);
 
-  // Offline save hook for local-first saving
+  // Shot management hook
   const {
-    save: offlineSave,
-    syncStatus,
-    isSyncing,
-  } = useOfflineSave({
+    setShots,
+    scenesWithShots,
+    shotEditorOpen,
+    setShotEditorOpen,
+    editingShot,
+    pendingDetectedShot,
+    handleShotsChange,
+    handleAddShot,
+    handleEditShot,
+    handleAddDetectedShot,
+    handleSaveShot,
+  } = useShotManagement({
     screenplayId,
-  });
-
-  const isSaving = isSyncing || syncStatus === 'syncing';
-
-  // Timelapse recording hook
-  const {
-    recordContentChange,
-    initializeWithContent: initializeTimelapse,
-  } = useTimelapseRecorder({
-    screenplayId,
-    enabled: true, // Always enabled - users can disable via settings
+    sceneInfos,
   });
 
   // TV/Episode fields
@@ -156,72 +139,100 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   const { settings } = useSettings();
   const layoutMode = settings.layout.layoutMode;
 
+  // Generate a stable user color based on user ID
+  const userColor = useMemo(() => {
+    if (!session?.user?.id) return '#666666';
+    // Generate a color from user ID hash
+    const hash = session.user.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const hue = hash % 360;
+    return `hsl(${hue}, 70%, 50%)`;
+  }, [session?.user?.id]);
+
+  // Yjs CRDT collaboration for real-time document sync
+  const yjsEnabled = settings.editor.yjsCollaboration ?? false;
+  const yjsCollaboration = useYjsCollaboration({
+    screenplayId,
+    userId: session?.user?.id ?? '',
+    userInfo: {
+      name: session?.user?.name ?? 'Anonymous',
+      email: session?.user?.email ?? '',
+      image: session?.user?.image,
+    },
+    enabled: yjsEnabled && !!session?.user?.id,
+    initialContent: persistence.screenplayText,
+  });
+
+  // Broadcast Yjs connection status to header
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('yjs-status-update', {
+      detail: {
+        enabled: yjsEnabled,
+        isConnected: yjsCollaboration.isConnected,
+        isSynced: yjsCollaboration.isSynced,
+      },
+    }));
+  }, [yjsEnabled, yjsCollaboration.isConnected, yjsCollaboration.isSynced]);
+
+  // Destructure stable refs from persistence (do this once to avoid re-render loops)
+  // The persistence object changes every render, but these callbacks are stable
+  const {
+    screenplayTextRef,
+    setScreenplayText,
+    setScenes,
+    setCharacters,
+    setLocations,
+    handleTextChange: persistenceHandleTextChange,
+  } = persistence;
+
   // Real-time collaboration
   const collaboration = useCollaboration({
     screenplayId,
     editorType: layoutMode === 'modern' ? 'prosemirror' : 'classic',
-    enabled: true, // TODO: Make this conditional based on user permissions
+    enabled: true,
     onRemoteChange: useCallback((operation: CollaborationOperation) => {
-      // Handle remote changes from other users
       if (operation.operationType === 'replace' && operation.content) {
-        // Update screenplay text with remote changes
         const remoteText = operation.content;
-
-        // Only apply if different from current content
         if (remoteText !== screenplayTextRef.current) {
           setScreenplayText(remoteText);
-          screenplayTextRef.current = remoteText;
-
-          // Parse and update scenes/characters
           const parsed = parseScreenplayText(remoteText);
           setScenes(parsed.scenes || []);
           setCharacters(parsed.characters || []);
           setLocations(parsed.locations || []);
-
-          toast.info('Screenplay updated by collaborator', {
-            duration: 2000,
-          });
+          toast.info('Screenplay updated by collaborator', { duration: 2000 });
         }
       }
-    }, []),
+    }, [screenplayTextRef, setScreenplayText, setScenes, setCharacters, setLocations]),
   });
 
-  // Load screenplay from database
+  // Load screenplay and metadata from database
   useEffect(() => {
     const loadScreenplay = async () => {
       try {
-        // Fetch screenplay and shots in parallel for faster loading
         const [screenplayRes, shotsRes] = await Promise.all([
           fetch(`/api/screenplays/${screenplayId}`),
           fetch(`/api/screenplays/${screenplayId}/shots`),
         ]);
 
-        // Process screenplay data
         if (screenplayRes.ok) {
           const screenplay = await screenplayRes.json();
-          setScreenplayText(screenplay.content || "");
-          const title = screenplay.title || "Untitled Screenplay";
-          setScreenplayTitle(title);
-          if (onTitleChange) {
-            onTitleChange(title);
-          }
-          const parsed = parseScreenplayText(screenplay.content || "");
-          setScenes(parsed.scenes || []);
-          setCharacters(parsed.characters || []);
-          setLocations(parsed.locations || []);
 
-          // Load TV/Episode fields
+          // Set content via persistence hook
+          persistence.setScreenplayText(screenplay.content || "");
+          persistence.setScreenplayTitle(screenplay.title || "Untitled Screenplay");
+
+          const parsed = parseScreenplayText(screenplay.content || "");
+          persistence.setScenes(parsed.scenes || []);
+          persistence.setCharacters(parsed.characters || []);
+          persistence.setLocations(parsed.locations || []);
+
+          // Load metadata fields (not in persistence hook)
           setScreenplayType(screenplay.type || 'FEATURE');
           setSeason(screenplay.season || null);
           setEpisode(screenplay.episode || null);
           setEpisodeTitle(screenplay.episodeTitle || null);
-
-          // Load metadata fields
           setLogline(screenplay.logline || null);
           setGenre(screenplay.genre || null);
           setAuthor(screenplay.author || null);
-
-          // Load title page fields
           setTitlePageFields({
             contactName: screenplay.contactName,
             contactEmail: screenplay.contactEmail,
@@ -243,19 +254,15 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
               detail: {
                 series: screenplay.series,
                 season: screenplay.seasonRef,
-                episode: {
-                  episode: screenplay.episode,
-                  episodeTitle: screenplay.episodeTitle,
-                },
+                episode: { episode: screenplay.episode, episodeTitle: screenplay.episodeTitle },
               },
             }));
           }
 
-          // Initialize timelapse with current content
-          initializeTimelapse(screenplay.content || "");
+          // Initialize timelapse
+          persistence.initializeTimelapse(screenplay.content || "");
         }
 
-        // Process shots data (already fetched in parallel)
         if (shotsRes.ok) {
           const data = await shotsRes.json();
           setShots(data.shots || []);
@@ -263,7 +270,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
       } catch (error) {
         console.error("Error loading screenplay:", error);
       } finally {
-        setIsLoading(false);
+        persistence.setIsLoading(false);
       }
     };
 
@@ -271,169 +278,22 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screenplayId]);
 
-  // Keep scenesWithShots in sync when sceneInfos or shots change
-  useEffect(() => {
-    if (sceneInfos.length > 0) {
-      setScenesWithShots(groupShotsByScene(sceneInfos, shots));
-    }
-  }, [sceneInfos, shots]);
+  // Destructure stable refs from collaboration for handleTextChange callback
+  const { isConnected: collabIsConnected, broadcastChange } = collaboration;
 
-  // Create a version snapshot
-  const createVersion = useCallback(async (
-    content: string,
-    reason: "manual" | "auto" | "interval" | "restore",
-    message?: string
-  ) => {
-    // Skip if content hasn't changed since last version
-    if (content === lastVersionContentRef.current && reason !== "manual") {
-      return;
-    }
-
-    try {
-      const wordCount = content.split(/\s+/).filter(Boolean).length;
-      const sceneCount = (content.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim) || []).length;
-
-      const response = await fetch(`/api/screenplays/${screenplayId}/versions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content,
-          reason,
-          wordCount,
-          sceneCount,
-          message: message || undefined,
-        }),
-      });
-
-      if (response.ok) {
-        lastVersionContentRef.current = content;
-        if (reason === "manual") {
-          toast.success("Version saved");
-        }
-      }
-    } catch (error) {
-      console.error("Error creating version:", error);
-    }
-  }, [screenplayId]);
-
-  // Save screenplay to database (local-first)
-  const saveScreenplay = useCallback(async (content: string, createVersionSnapshot = false) => {
-    try {
-      // Use offline-capable save
-      await offlineSave(content, screenplayTitle);
-
-      // Show dialog for manual save to get commit message
-      if (createVersionSnapshot) {
-        setIsSaveVersionDialogOpen(true);
-      }
-    } catch (error) {
-      console.error("Error saving screenplay:", error);
-    }
-  }, [offlineSave, screenplayTitle]);
-
-  // Handle save with message from dialog
-  const handleSaveVersionWithMessage = useCallback(async (message?: string) => {
-    const currentContent = screenplayTextRef.current;
-    await createVersion(currentContent, "manual", message);
-  }, [createVersion]);
-
-  // Debounced auto-save with ref pattern to prevent re-renders
+  // Wrap handleTextChange to also broadcast to collaborators
   const handleTextChange = useCallback((text: string) => {
-    // Store in ref - no re-render!
-    screenplayTextRef.current = text;
+    persistenceHandleTextChange(text);
 
-    // Record for timelapse (debounced internally by the hook)
-    recordContentChange(text);
-
-    // Debounce save AND state updates
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+    // Broadcast changes to collaborators (debounced with the save)
+    if (collabIsConnected) {
+      broadcastChange({
+        type: 'replace',
+        content: text,
+        cursorPosition: 0,
+      });
     }
-    saveTimeoutRef.current = setTimeout(() => {
-      // Update state only when saving (every 2 seconds)
-      setScreenplayText(text);
-
-      // Parse scenes/characters only on save
-      const parsed = parseScreenplayText(text);
-      setScenes(parsed.scenes || []);
-      setCharacters(parsed.characters || []);
-      setLocations(parsed.locations || []);
-
-      // Broadcast changes to collaborators
-      if (collaboration.isConnected) {
-        collaboration.broadcastChange({
-          type: 'replace',
-          content: text,
-          cursorPosition: 0, // TODO: Get actual cursor position
-        });
-      }
-
-      // Save to server
-      saveScreenplay(text);
-    }, 2000); // Auto-save after 2 seconds of inactivity
-  }, [saveScreenplay, collaboration, recordContentChange]);
-
-  // Sync ref with state on initial load and version restore
-  useEffect(() => {
-    screenplayTextRef.current = screenplayText;
-  }, [screenplayText]);
-
-  // Interval-based versioning (every 30 minutes)
-  useEffect(() => {
-    versionIntervalRef.current = setInterval(() => {
-      const currentText = screenplayTextRef.current;
-      if (currentText && currentText !== lastVersionContentRef.current) {
-        createVersion(currentText, "interval");
-      }
-    }, 30 * 60 * 1000); // 30 minutes
-
-    return () => {
-      if (versionIntervalRef.current) {
-        clearInterval(versionIntervalRef.current);
-      }
-    };
-  }, [createVersion]);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Listen for title save events from header
-  useEffect(() => {
-    const handleTitleSave = async (e: Event) => {
-      const customEvent = e as CustomEvent<{ title: string }>;
-      const newTitle = customEvent.detail.title;
-
-      try {
-        const response = await fetch(`/api/screenplays/${screenplayId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: newTitle })
-        });
-
-        if (response.ok) {
-          setScreenplayTitle(newTitle);
-          if (onTitleChange) {
-            onTitleChange(newTitle);
-          }
-          toast.success("Title updated");
-        } else {
-          toast.error("Failed to update title");
-        }
-      } catch (error) {
-        console.error('Failed to update title:', error);
-        toast.error("Failed to update title");
-      }
-    };
-
-    window.addEventListener('screenplay-title-save', handleTitleSave);
-    return () => window.removeEventListener('screenplay-title-save', handleTitleSave);
-  }, [screenplayId, onTitleChange]);
+  }, [persistenceHandleTextChange, collabIsConnected, broadcastChange]);
 
   // Listen for share dialog open events from header
   useEffect(() => {
@@ -444,16 +304,6 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     window.addEventListener('editor-open-share', handleOpenShare);
     return () => window.removeEventListener('editor-open-share', handleOpenShare);
   }, []);
-
-  // Handle restore from version history
-  const handleRestore = useCallback((content: string) => {
-    setScreenplayText(content);
-    const parsed = parseScreenplayText(content);
-    setScenes(parsed.scenes || []);
-    setCharacters(parsed.characters || []);
-    setLocations(parsed.locations || []);
-    saveScreenplay(content);
-  }, [saveScreenplay]);
 
   // Handle scene/character extraction from ProseMirror
   // Must be declared before early return to follow React hooks rules
@@ -488,74 +338,9 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
       appearances: [],
     }));
     setCharacters(convertedChars);
-  }, []);
+  }, [setScenes, setCharacters]);
 
-  // Handle shots changes from the shotlist panel
-  const handleShotsChange = useCallback((updatedShots: Shot[]) => {
-    setShots(updatedShots);
-  }, []);
-
-  // Handle adding a new shot
-  const handleAddShot = useCallback((sceneId: string) => {
-    setAddingToScene(sceneId);
-    setEditingShot(null);
-    setPendingDetectedShot(null);
-    setShotEditorOpen(true);
-  }, []);
-
-  // Handle editing an existing shot
-  const handleEditShot = useCallback((shot: Shot) => {
-    setEditingShot(shot);
-    setAddingToScene(null);
-    setPendingDetectedShot(null);
-    setShotEditorOpen(true);
-  }, []);
-
-  // Handle adding a detected shot (opens editor with pre-filled data)
-  const handleAddDetectedShot = useCallback((detected: DetectedShot) => {
-    setAddingToScene(detected.sceneId);
-    setPendingDetectedShot(detected);
-    setEditingShot(null);
-    setShotEditorOpen(true);
-  }, []);
-
-  // Handle saving a shot (create or update)
-  const handleSaveShot = useCallback(async (shotData: Partial<Shot>) => {
-    try {
-      if (editingShot) {
-        // Update existing shot
-        const response = await fetch(`/api/screenplays/${screenplayId}/shots/${editingShot.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(shotData),
-        });
-        if (!response.ok) throw new Error("Failed to update shot");
-        const updatedShot = await response.json();
-        setShots(prev => prev.map(s => s.id === updatedShot.id ? updatedShot : s));
-        toast.success("Shot updated");
-      } else if (addingToScene) {
-        // Create new shot
-        const response = await fetch(`/api/screenplays/${screenplayId}/shots`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...shotData, sceneId: addingToScene }),
-        });
-        if (!response.ok) throw new Error("Failed to create shot");
-        const newShot = await response.json();
-        setShots(prev => [...prev, newShot]);
-        toast.success("Shot added");
-      }
-      setShotEditorOpen(false);
-      setEditingShot(null);
-      setAddingToScene(null);
-      setPendingDetectedShot(null);
-    } catch (error) {
-      console.error("Error saving shot:", error);
-      toast.error("Failed to save shot");
-    }
-  }, [screenplayId, editingShot, addingToScene]);
-
-  if (isLoading) {
+  if (persistence.isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="space-y-4 w-full max-w-2xl p-8">
@@ -601,13 +386,13 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         </div>
 
         <ProseMirrorEditor
-          content={screenplayText}
+          content={persistence.screenplayText}
           onContentChange={handleTextChange}
           onScenesChange={handleScenesChange}
           onCurrentSceneChange={setCurrentSceneId}
-          onSave={() => saveScreenplay(screenplayText, true)}
+          onSave={() => persistence.saveScreenplay(persistence.screenplayText, true)}
           onViewReady={setEditorView}
-          isSaving={isSaving}
+          isSaving={persistence.isSaving}
           editable={true}
           showElementIndicator={true}
           showStats={true}
@@ -619,6 +404,10 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           charactersCount={charInfos.length}
           shotlistCount={detectedShots.length}
           notesCount={0}
+          // Yjs CRDT collaboration (when enabled in settings)
+          yXmlFragment={yjsEnabled ? yjsCollaboration.yXmlFragment ?? undefined : undefined}
+          awareness={yjsEnabled ? yjsCollaboration.awareness ?? undefined : undefined}
+          yjsUserInfo={yjsEnabled ? { name: session?.user?.name ?? 'Anonymous', color: userColor } : undefined}
         />
       </div>
 
@@ -626,10 +415,10 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
       <EditorFloatingPanel
         isOpen={isPanelOpen}
         onClose={() => setIsPanelOpen(false)}
-        scenes={scenes}
-        characters={characters}
-        locations={locations}
-        selectedScene={scenes.find(s => s.id === selectedSceneId)}
+        scenes={persistence.scenes}
+        characters={persistence.characters}
+        locations={persistence.locations}
+        selectedScene={persistence.scenes.find(s => s.id === selectedSceneId)}
         onSceneClick={(scene) => {
           setSelectedSceneId(scene.id);
         }}
@@ -645,18 +434,18 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         screenplayId={screenplayId}
         isOpen={isVersionHistoryOpen}
         onClose={() => setIsVersionHistoryOpen(false)}
-        onRestore={handleRestore}
+        onRestore={persistence.handleRestore}
         onCompare={(version) => setCompareVersion(version)}
         onCompareTwoVersions={(fromVersion, toVersion) => setCompareTwoVersions({ from: fromVersion, to: toVersion })}
-        onSaveVersion={() => setIsSaveVersionDialogOpen(true)}
-        currentContent={screenplayText}
+        onSaveVersion={() => persistence.setIsSaveVersionDialogOpen(true)}
+        currentContent={persistence.screenplayText}
       />
       <VersionCompareDialog
         isOpen={!!compareVersion}
         onClose={() => setCompareVersion(null)}
-        currentContent={screenplayText}
+        currentContent={persistence.screenplayText}
         version={compareVersion}
-        onRestore={handleRestore}
+        onRestore={persistence.handleRestore}
       />
       <ScreenplayDetailsDrawer
         isOpen={isDetailsOpen}
@@ -675,19 +464,19 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         open={isShareDialogOpen}
         onOpenChange={setIsShareDialogOpen}
         screenplayId={screenplayId}
-        screenplayTitle={screenplayTitle}
+        screenplayTitle={persistence.screenplayTitle}
       />
       <SaveVersionDialog
-        isOpen={isSaveVersionDialogOpen}
-        onClose={() => setIsSaveVersionDialogOpen(false)}
-        onSave={handleSaveVersionWithMessage}
+        isOpen={persistence.isSaveVersionDialogOpen}
+        onClose={() => persistence.setIsSaveVersionDialogOpen(false)}
+        onSave={persistence.handleSaveVersionWithMessage}
       />
       <VersionCompareTwoDialog
         isOpen={!!compareTwoVersions}
         onClose={() => setCompareTwoVersions(null)}
         fromVersion={compareTwoVersions?.from ?? null}
         toVersion={compareTwoVersions?.to ?? null}
-        onRestore={handleRestore}
+        onRestore={persistence.handleRestore}
       />
       <ShotEditor
         open={shotEditorOpen}

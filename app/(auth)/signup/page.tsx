@@ -81,7 +81,7 @@ export default function SignupPage() {
   }
 
   return (
-    <Card className="border-0 shadow-xl">
+    <Card className="border-0 shadow-xl bg-muted rounded-2xl">
       <CardHeader className="text-center space-y-4 pb-2">
         <div className="flex justify-center">
           <div className="p-4 rounded-xl bg-primary">
@@ -190,14 +190,13 @@ export default function SignupPage() {
             <Separator className="w-full" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">
+            <span className="bg-muted px-2 text-muted-foreground">
               Or continue with
             </span>
           </div>
         </div>
 
         <Button
-          variant="outline"
           className="w-full h-11"
           onClick={handleGoogleSignup}
           disabled={isLoading}

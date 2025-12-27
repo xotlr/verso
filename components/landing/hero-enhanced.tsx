@@ -11,7 +11,7 @@ export function HeroEnhanced() {
     <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
       {/* Aurora Background */}
       <div className="absolute inset-0 -z-10">
-        <Aurora amplitude={1.4} blend={0.7} speed={0.6} />
+        <Aurora speed={0.6} />
       </div>
 
       {/* Noise Overlay */}
@@ -76,7 +76,7 @@ export function HeroEnhanced() {
               ))}
             </div>
             <p className="text-sm text-muted-foreground">
-              Join 10,000+ screenwriters bringing their stories to life
+              Join screenwriters bringing their stories to life
             </p>
           </div>
         </div>

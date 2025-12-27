@@ -13,6 +13,11 @@ interface EditorHeaderProps {
 export function EditorHeader({ className }: EditorHeaderProps) {
   const [screenplayTitle, setScreenplayTitle] = useState<string>("Loading...");
   const [isOnline, setIsOnline] = useState(true);
+  const [yjsStatus, setYjsStatus] = useState<{
+    enabled: boolean;
+    isConnected: boolean;
+    isSynced: boolean;
+  }>({ enabled: false, isConnected: false, isSynced: false });
 
   // Track online/offline status
   useEffect(() => {
@@ -39,6 +44,21 @@ export function EditorHeader({ className }: EditorHeaderProps) {
 
     window.addEventListener('screenplay-title-update', handleTitleUpdate);
     return () => window.removeEventListener('screenplay-title-update', handleTitleUpdate);
+  }, []);
+
+  // Listen for Yjs collaboration status updates
+  useEffect(() => {
+    const handleYjsStatus = (e: Event) => {
+      const customEvent = e as CustomEvent<{
+        enabled: boolean;
+        isConnected: boolean;
+        isSynced: boolean;
+      }>;
+      setYjsStatus(customEvent.detail);
+    };
+
+    window.addEventListener('yjs-status-update', handleYjsStatus);
+    return () => window.removeEventListener('yjs-status-update', handleYjsStatus);
   }, []);
 
   const handleTitleSave = useCallback((newTitle: string) => {
@@ -82,6 +102,19 @@ export function EditorHeader({ className }: EditorHeaderProps) {
         <div className="flex items-center gap-1.5 text-orange-500">
           <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
           <span className="text-xs font-medium hidden md:inline">Offline</span>
+        </div>
+      )}
+
+      {/* Yjs collaboration status */}
+      {yjsStatus.enabled && isOnline && (
+        <div className="flex items-center gap-1.5">
+          <div className={cn(
+            "h-2 w-2 rounded-full",
+            yjsStatus.isSynced ? "bg-green-500" : "bg-orange-500 animate-pulse"
+          )} />
+          <span className="text-xs text-muted-foreground hidden md:inline">
+            {yjsStatus.isSynced ? "Synced" : yjsStatus.isConnected ? "Syncing..." : "Connecting..."}
+          </span>
         </div>
       )}
 

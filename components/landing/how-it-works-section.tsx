@@ -11,24 +11,17 @@ interface StepProps {
 
 function Step({ number, icon, title, description }: StepProps) {
   return (
-    <div className="relative group">
-      {/* Large background number */}
-      <span className="absolute -top-4 -left-2 text-[80px] sm:text-[100px] font-bold text-muted/30 select-none leading-none pointer-events-none">
-        {number}
-      </span>
-
-      {/* Content card */}
-      <div className="relative pt-12 sm:pt-16">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 text-primary">
-            {icon}
-          </div>
-          <h3 className="text-lg sm:text-xl font-semibold">{title}</h3>
+    <div className="p-3 sm:p-6 rounded-2xl bg-muted-foreground/10 card-interactive">
+      <div className="flex items-center justify-between mb-2 sm:mb-3">
+        <div className="text-muted-foreground/20 [&>svg]:h-5 [&>svg]:w-5 sm:[&>svg]:h-6 sm:[&>svg]:w-6">
+          {icon}
         </div>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          {description}
-        </p>
+        <span className="text-2xl sm:text-3xl font-medium text-muted-foreground/30">{number}</span>
       </div>
+      <h3 className="text-xs sm:text-base font-medium mb-1 sm:mb-2">{title}</h3>
+      <p className="text-[10px] sm:text-sm text-muted-foreground leading-relaxed">
+        {description}
+      </p>
     </div>
   )
 }
@@ -68,9 +61,9 @@ export function HowItWorksSection() {
   ]
 
   return (
-    <section id="how-it-works" className="py-16 sm:py-20 lg:py-24 scroll-mt-16 overflow-hidden">
+    <section id="how-it-works" className="py-16 sm:py-20 lg:py-24 scroll-mt-16 overflow-hidden bg-muted rounded-[3rem]">
       <div className="container max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="text-center space-y-2 sm:space-y-3 mb-12 sm:mb-16">
+        <div className="text-center space-y-2 sm:space-y-3 mb-6 sm:mb-8">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-medium">
             How it works
           </h2>
@@ -79,8 +72,8 @@ export function HowItWorksSection() {
           </p>
         </div>
 
-        {/* Grid layout with large background numbers */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-12 sm:gap-10 lg:gap-12">
+        {/* Bento grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1 sm:gap-2">
           {steps.map((step, index) => (
             <Step
               key={index}

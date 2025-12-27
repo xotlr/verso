@@ -1,17 +1,21 @@
-import { useState, useCallback } from "react";
-import { toast } from "sonner";
-import type { DetectedShot, Shot } from "@/types/shotlist";
+'use client';
+
+import { useState, useCallback, useMemo } from 'react';
+import { toast } from 'sonner';
+import type { DetectedShot, Shot, SceneWithShots } from '@/types/shotlist';
+import type { SceneInfo } from '@/hooks/editor/use-prosemirror-editor';
 
 interface UseShotManagementOptions {
   screenplayId: string;
-  initialShots?: Shot[];
+  sceneInfos: SceneInfo[];
 }
 
 interface UseShotManagementReturn {
   shots: Shot[];
   setShots: React.Dispatch<React.SetStateAction<Shot[]>>;
+  scenesWithShots: SceneWithShots[];
   shotEditorOpen: boolean;
-  setShotEditorOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setShotEditorOpen: (open: boolean) => void;
   editingShot: Shot | null;
   addingToScene: string | null;
   pendingDetectedShot: DetectedShot | null;
@@ -20,17 +24,41 @@ interface UseShotManagementReturn {
   handleEditShot: (shot: Shot) => void;
   handleAddDetectedShot: (detected: DetectedShot) => void;
   handleSaveShot: (shotData: Partial<Shot>) => Promise<void>;
+  closeShotEditor: () => void;
 }
 
+/**
+ * Helper to group shots by scene
+ */
+function groupShotsByScene(scenes: SceneInfo[], shots: Shot[]): SceneWithShots[] {
+  return scenes.map((scene, index) => ({
+    sceneId: scene.id,
+    sceneHeading: `${scene.type}. ${scene.location} - ${scene.timeOfDay}`,
+    sceneNumber: index + 1,
+    shots: shots.filter(shot => shot.sceneId === scene.id),
+  }));
+}
+
+/**
+ * Custom hook for managing shots in a screenplay.
+ * Handles CRUD operations, shot editor state, and grouping shots by scene.
+ */
 export function useShotManagement({
   screenplayId,
-  initialShots = [],
+  sceneInfos,
 }: UseShotManagementOptions): UseShotManagementReturn {
-  const [shots, setShots] = useState<Shot[]>(initialShots);
+  const [shots, setShots] = useState<Shot[]>([]);
   const [shotEditorOpen, setShotEditorOpen] = useState(false);
   const [editingShot, setEditingShot] = useState<Shot | null>(null);
   const [addingToScene, setAddingToScene] = useState<string | null>(null);
   const [pendingDetectedShot, setPendingDetectedShot] = useState<DetectedShot | null>(null);
+
+  // Derive scenesWithShots from sceneInfos and shots (no state needed)
+  // Using useMemo instead of state+effect eliminates a render cycle
+  const scenesWithShots = useMemo(() => {
+    if (sceneInfos.length === 0) return [];
+    return groupShotsByScene(sceneInfos, shots);
+  }, [sceneInfos, shots]);
 
   // Handle shots changes from the shotlist panel
   const handleShotsChange = useCallback((updatedShots: Shot[]) => {
@@ -61,51 +89,51 @@ export function useShotManagement({
     setShotEditorOpen(true);
   }, []);
 
+  // Close the shot editor and reset state
+  const closeShotEditor = useCallback(() => {
+    setShotEditorOpen(false);
+    setEditingShot(null);
+    setAddingToScene(null);
+    setPendingDetectedShot(null);
+  }, []);
+
   // Handle saving a shot (create or update)
-  const handleSaveShot = useCallback(
-    async (shotData: Partial<Shot>) => {
-      try {
-        if (editingShot) {
-          // Update existing shot
-          const response = await fetch(
-            `/api/screenplays/${screenplayId}/shots/${editingShot.id}`,
-            {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(shotData),
-            }
-          );
-          if (!response.ok) throw new Error("Failed to update shot");
-          const updatedShot = await response.json();
-          setShots((prev) => prev.map((s) => (s.id === updatedShot.id ? updatedShot : s)));
-          toast.success("Shot updated");
-        } else if (addingToScene) {
-          // Create new shot
-          const response = await fetch(`/api/screenplays/${screenplayId}/shots`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...shotData, sceneId: addingToScene }),
-          });
-          if (!response.ok) throw new Error("Failed to create shot");
-          const newShot = await response.json();
-          setShots((prev) => [...prev, newShot]);
-          toast.success("Shot added");
-        }
-        setShotEditorOpen(false);
-        setEditingShot(null);
-        setAddingToScene(null);
-        setPendingDetectedShot(null);
-      } catch (error) {
-        console.error("Error saving shot:", error);
-        toast.error("Failed to save shot");
+  const handleSaveShot = useCallback(async (shotData: Partial<Shot>) => {
+    try {
+      if (editingShot) {
+        // Update existing shot
+        const response = await fetch(`/api/screenplays/${screenplayId}/shots/${editingShot.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(shotData),
+        });
+        if (!response.ok) throw new Error("Failed to update shot");
+        const updatedShot = await response.json();
+        setShots(prev => prev.map(s => s.id === updatedShot.id ? updatedShot : s));
+        toast.success("Shot updated");
+      } else if (addingToScene) {
+        // Create new shot
+        const response = await fetch(`/api/screenplays/${screenplayId}/shots`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...shotData, sceneId: addingToScene }),
+        });
+        if (!response.ok) throw new Error("Failed to create shot");
+        const newShot = await response.json();
+        setShots(prev => [...prev, newShot]);
+        toast.success("Shot added");
       }
-    },
-    [screenplayId, editingShot, addingToScene]
-  );
+      closeShotEditor();
+    } catch (error) {
+      console.error("Error saving shot:", error);
+      toast.error("Failed to save shot");
+    }
+  }, [screenplayId, editingShot, addingToScene, closeShotEditor]);
 
   return {
     shots,
     setShots,
+    scenesWithShots,
     shotEditorOpen,
     setShotEditorOpen,
     editingShot,
@@ -116,5 +144,6 @@ export function useShotManagement({
     handleEditShot,
     handleAddDetectedShot,
     handleSaveShot,
+    closeShotEditor,
   };
 }

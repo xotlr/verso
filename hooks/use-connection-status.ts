@@ -27,12 +27,14 @@ export function useConnectionStatus(): ConnectionStatus {
   }, [])
 
   useEffect(() => {
-    // Initial state from navigator
-    const initialOnline = typeof navigator !== 'undefined' ? navigator.onLine : true
-    setIsOnline(initialOnline)
-    if (initialOnline) {
-      setLastOnlineAt(Date.now())
-    }
+    // Delay initial state updates to next tick to avoid cascading re-renders
+    const timeout = setTimeout(() => {
+      const initialOnline = typeof navigator !== 'undefined' ? navigator.onLine : true
+      setIsOnline(initialOnline)
+      if (initialOnline) {
+        setLastOnlineAt(Date.now())
+      }
+    }, 0)
 
     const handleOnline = () => {
       setIsOnline(true)
@@ -48,6 +50,7 @@ export function useConnectionStatus(): ConnectionStatus {
     window.addEventListener('offline', handleOffline)
 
     return () => {
+      clearTimeout(timeout)
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }

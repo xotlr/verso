@@ -53,7 +53,7 @@ function FeatureCard({ icon, title, description, index = 0 }: FeatureCardProps) 
     <div
       ref={ref}
       className={cn(
-        "p-3 sm:p-6 rounded-xl border bg-card card-interactive scroll-fade-in",
+        "p-3 sm:p-6 rounded-2xl bg-muted-foreground/10 card-interactive scroll-fade-in",
         isVisible && "in-view"
       )}
       style={{ transitionDelay: `${index * 50}ms` }}
@@ -73,7 +73,7 @@ export function FeaturesEnhancedSection() {
       icon: <FileText className="h-6 w-6" />,
       title: "Auto-Formatting",
       description:
-        "Tab. Enter. You're in dialogue. Verso formats as you type — scene headings, action, parentheticals, all of it.",
+        "Tab. Enter. You're in dialogue. Verso formats as you type. Scene headings, action, parentheticals, all of it.",
     },
     {
       icon: <Focus className="h-6 w-6" />,
@@ -168,9 +168,9 @@ export function FeaturesEnhancedSection() {
   ]
 
   return (
-    <section id="features" className="py-20 sm:py-32 bg-muted/30 scroll-mt-16">
-      <div className="container max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
+    <section id="features" className="py-20 sm:py-32 bg-muted rounded-[3rem] scroll-mt-16">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="text-center space-y-3 sm:space-y-4 mb-6 sm:mb-8">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium">
             What you get
           </h2>
@@ -187,7 +187,7 @@ export function FeaturesEnhancedSection() {
           </TabsList>
 
           <TabsContent value="writing" className="mt-6 sm:mt-8">
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5">
               {writingFeatures.map((feature, index) => (
                 <FeatureCard key={index} {...feature} index={index} />
               ))}
@@ -195,7 +195,7 @@ export function FeaturesEnhancedSection() {
           </TabsContent>
 
           <TabsContent value="production" className="mt-6 sm:mt-8">
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-1.5">
               {productionFeatures.map((feature, index) => (
                 <FeatureCard key={index} {...feature} index={index} />
               ))}
@@ -203,7 +203,7 @@ export function FeaturesEnhancedSection() {
           </TabsContent>
 
           <TabsContent value="collaboration" className="mt-6 sm:mt-8">
-            <div className="grid grid-cols-2 gap-3 sm:gap-6">
+            <div className="grid grid-cols-2 gap-1.5">
               {collaborationFeatures.map((feature, index) => (
                 <FeatureCard key={index} {...feature} index={index} />
               ))}

@@ -26,35 +26,25 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full p-2">
       <div
         className={cn(
-          "relative max-w-6xl mx-auto px-2 flex h-14 items-center justify-between",
-          "rounded-md bg-card/80 backdrop-blur-xl border border-border/50 shadow-sm"
+          "relative max-w-5xl mx-auto px-4 flex h-16 items-center justify-between",
+          "rounded-2xl bg-card/80 backdrop-blur-xl border border-border/50 shadow-sm"
         )}
       >
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2.5 font-semibold text-lg group z-10"
+          className="flex items-center z-10 transition-transform duration-300 hover:scale-105"
         >
-          <Logo size={36} className="transition-transform duration-300 group-hover:scale-105" />
-          <span className="hidden sm:inline transition-colors duration-200 group-hover:text-primary">
-            Verso
-          </span>
+          <Logo size={32} />
         </Link>
 
         {/* Desktop Navigation - absolutely centered */}
-        <nav className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
+        <nav className="hidden md:flex items-center gap-0.5 absolute left-1/2 -translate-x-1/2">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={cn(
-                "relative px-4 py-2 text-sm font-medium text-muted-foreground",
-                "transition-colors duration-200 hover:text-foreground",
-                "after:absolute after:bottom-0 after:left-4 after:right-4 after:h-0.5",
-                "after:bg-primary after:scale-x-0 after:origin-left",
-                "after:transition-transform after:duration-300",
-                "hover:after:scale-x-100"
-              )}
+              className="px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl transition-all duration-200"
             >
               {link.label}
             </Link>
@@ -62,21 +52,21 @@ export function Navbar() {
         </nav>
 
         {/* Desktop Auth Buttons */}
-        <div className="hidden md:flex items-center gap-3 z-10">
+        <div className="hidden md:flex items-center gap-2 z-10">
           {session ? (
-            <Button size="sm" asChild className="group h-9 pl-3 pr-4">
+            <Button size="sm" asChild className="group h-8 pl-2 pr-3 rounded-xl">
               <Link href="/home" className="flex items-center gap-2">
-                <Avatar className="h-6 w-6">
+                <Avatar className="h-5 w-5">
                   <AvatarImage src={session.user?.image || undefined} />
                   <AvatarFallback
-                    className="text-xs text-white font-medium"
+                    className="text-[10px] text-white font-medium"
                     style={getSimpleGradientStyle(session.user?.id || session.user?.email || 'user')}
                   >
                     {session.user?.name?.charAt(0) || "U"}
                   </AvatarFallback>
                 </Avatar>
                 <span>Go to App</span>
-                <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                <ArrowRight className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5" />
               </Link>
             </Button>
           ) : (
@@ -85,18 +75,18 @@ export function Navbar() {
                 variant="ghost"
                 size="sm"
                 asChild
-                className="h-9 px-4 hover:bg-accent/80 transition-colors duration-200"
+                className="h-8 px-3 rounded-xl hover:bg-accent/80 transition-colors duration-200"
               >
                 <Link href="/login">Sign in</Link>
               </Button>
               <Button
                 size="sm"
                 asChild
-                className="h-9 px-4 group transition-all duration-200 hover:shadow-md"
+                className="h-8 px-4 rounded-xl group transition-all duration-200 hover:shadow-md"
               >
                 <Link href="/signup" className="flex items-center gap-1.5">
                   Get Started
-                  <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  <ArrowRight className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
               </Button>
             </>
@@ -106,8 +96,8 @@ export function Navbar() {
         {/* Mobile Menu Trigger */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild className="md:hidden">
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <Menu className="h-5 w-5" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl">
+              <Menu className="h-4 w-4" />
               <span className="sr-only">Open menu</span>
             </Button>
           </SheetTrigger>

@@ -45,12 +45,17 @@ export function useCollaboration({
   const [isConnected, setIsConnected] = useState(false);
   const [remoteUsers, setRemoteUsers] = useState<RemoteUser[]>([]);
   const serviceRef = useRef<CollaborationService | null>(null);
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const mountedRef = useRef(true);
+
+  // Use ref pattern for onRemoteChange to avoid effect re-runs when callback changes
+  const onRemoteChangeRef = useRef(onRemoteChange);
+  useEffect(() => { onRemoteChangeRef.current = onRemoteChange; }, [onRemoteChange]);
 
   // Initialize collaboration service
   useEffect(() => {
     if (!enabled || !session?.user?.id) return;
+
+    mountedRef.current = true;
 
     serviceRef.current = new CollaborationService(
       screenplayId,
@@ -58,35 +63,33 @@ export function useCollaboration({
       editorType
     );
 
-    // Set up callbacks
+    // Set up callbacks with mounted check
     serviceRef.current.onConnectionChange((connected) => {
-      setIsConnected(connected);
-      if (!connected && enabled) {
-        // Attempt to reconnect with exponential backoff
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-
-        reconnectTimeoutRef.current = setTimeout(() => {
-          setReconnectAttempts(prev => prev + 1);
-        }, delay);
-      } else if (connected) {
-        setReconnectAttempts(0);
+      if (mountedRef.current) {
+        setIsConnected(connected);
       }
     });
 
     serviceRef.current.onPresenceChange((users) => {
-      setRemoteUsers(users);
+      if (mountedRef.current) {
+        setRemoteUsers(users);
+      }
     });
 
-    if (onRemoteChange) {
-      serviceRef.current.onRemoteChange(onRemoteChange);
+    // Use ref to get current callback (avoids dependency on onRemoteChange)
+    if (onRemoteChangeRef.current) {
+      serviceRef.current.onRemoteChange((op) => {
+        if (mountedRef.current) {
+          onRemoteChangeRef.current?.(op);
+        }
+      });
     }
 
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
+      mountedRef.current = false;
+      serviceRef.current?.disconnect();
     };
-  }, [screenplayId, editorType, enabled, session?.user?.id, onRemoteChange, reconnectAttempts]);
+  }, [screenplayId, editorType, enabled, session?.user?.id]);
 
   // Auto-connect when enabled
   useEffect(() => {

@@ -2,7 +2,6 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import {
   Users,
@@ -15,6 +14,8 @@ import {
   Play,
   Clipboard,
 } from 'lucide-react';
+import { usePanelVirtualization } from '@/hooks/use-panel-virtualization';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,6 +46,25 @@ import { usePanelDndSensors } from './use-panel-dnd';
 
 export type CharacterRole = 'Protagonist' | 'Antagonist' | 'Supporting' | 'Minor';
 
+// Pure helper functions - defined outside component for stable references
+const getRoleLabel = (role: CharacterRole): string => {
+  switch (role) {
+    case 'Protagonist': return 'LEAD';
+    case 'Antagonist': return 'ANTAG';
+    case 'Supporting': return 'SUPPORT';
+    case 'Minor': return 'MINOR';
+  }
+};
+
+const getFilterLabel = (role: CharacterRole | 'all'): string => {
+  switch (role) {
+    case 'all': return 'All';
+    case 'Protagonist': return 'Lead';
+    case 'Antagonist': return 'Antag';
+    default: return role;
+  }
+};
+
 interface CharactersPanelProps {
   characters: CharacterInfo[];
   screenplayId?: string;
@@ -53,26 +73,24 @@ interface CharactersPanelProps {
   className?: string;
 }
 
-// Sortable character item component
+// Sortable character item component - memoized to prevent re-renders
 interface SortableCharacterItemProps {
   char: CharacterInfo;
   index: number;
   role: CharacterRole;
   isProtagonist: boolean;
   cycleRole: (charId: string) => void;
-  getRoleLabel: (role: CharacterRole) => string;
   onGoToFirstAppearance: (charName: string) => void;
   onGoToFirstDialogue: (charName: string) => void;
   onCopyName: (charName: string) => void;
 }
 
-function SortableCharacterItem({
+const SortableCharacterItem = React.memo(function SortableCharacterItem({
   char,
   index,
   role,
   isProtagonist,
   cycleRole,
-  getRoleLabel,
   onGoToFirstAppearance,
   onGoToFirstDialogue,
   onCopyName,
@@ -247,23 +265,30 @@ function SortableCharacterItem({
       </div>
     </div>
   );
-}
+});
 
 /**
  * Characters panel showing character list with role management.
+ * Wrapped in React.memo to prevent re-renders when parent state changes.
  */
-export function CharactersPanel({
+export const CharactersPanel = React.memo(function CharactersPanel({
   characters,
   screenplayId,
   view,
   onAddCharacter,
   className,
 }: CharactersPanelProps) {
+
   const [characterRoles, setCharacterRoles] = useState<Map<string, CharacterRole>>(new Map());
   const [characterFilter, setCharacterFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState<CharacterRole | 'all'>('all');
+  const [loadComplete, setLoadComplete] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
+
+  // Ref to access characterRoles without causing callback recreation
+  const characterRolesRef = useRef(characterRoles);
+  characterRolesRef.current = characterRoles;
 
   // Navigate to first appearance of character (any mention)
   const goToFirstAppearance = useCallback((charName: string) => {
@@ -389,22 +414,30 @@ export function CharactersPanel({
         console.error('Failed to load character roles from API:', e);
       } finally {
         isInitialLoadRef.current = false;
+        setLoadComplete(true);
       }
     };
 
     loadRoles();
   }, [screenplayId, storageKey]);
 
+  // Ref to track characters for auto-assign (avoids dependency on prop)
+  const charactersRef = useRef(characters);
+  charactersRef.current = characters;
+
   // Auto-assign roles based on dialogue count when no roles exist
+  // Only runs once after load completes, if no roles were loaded
   useEffect(() => {
-    // Only run after initial load is complete
-    if (isInitialLoadRef.current) return;
-    // Only auto-assign if we have characters but no roles assigned
-    if (characters.length === 0) return;
+    // Wait for load to complete
+    if (!loadComplete) return;
+    // Only auto-assign if no roles assigned yet
     if (characterRoles.size > 0) return;
 
+    const chars = charactersRef.current;
+    if (chars.length === 0) return;
+
     // Sort characters by dialogue count (highest first)
-    const sortedChars = [...characters].sort((a, b) => b.dialogueCount - a.dialogueCount);
+    const sortedChars = [...chars].sort((a, b) => b.dialogueCount - a.dialogueCount);
 
     // Auto-assign roles based on dialogue ranking
     const autoRoles = new Map<string, CharacterRole>();
@@ -424,7 +457,7 @@ export function CharactersPanel({
     if (autoRoles.size > 0) {
       setCharacterRoles(autoRoles);
     }
-  }, [characters, characterRoles.size]);
+  }, [loadComplete, characterRoles.size]);
 
   // Save character roles to localStorage and API when they change
   useEffect(() => {
@@ -459,15 +492,22 @@ export function CharactersPanel({
   }, [characterRoles, screenplayId, storageKey]);
 
   // Sort characters by dialogue count (most talkative first) and filter
+  // Uses ref for characterRoles to avoid recreating array when Map changes
   const filteredCharacters = useMemo(() => {
     return [...characters]
       .sort((a, b) => b.dialogueCount - a.dialogueCount)
       .filter(char => {
         const matchesName = char.name.toLowerCase().includes(characterFilter.toLowerCase());
-        const matchesRole = roleFilter === 'all' || characterRoles.get(char.id) === roleFilter;
+        const matchesRole = roleFilter === 'all' || characterRolesRef.current.get(char.id) === roleFilter;
         return matchesName && matchesRole;
       });
-  }, [characters, characterFilter, roleFilter, characterRoles]);
+  }, [characters, characterFilter, roleFilter]);
+
+  // Memoize item IDs for SortableContext to prevent re-renders
+  const sortableItemIds = useMemo(
+    () => filteredCharacters.map(c => c.id),
+    [filteredCharacters]
+  );
 
   const updateCharacterRole = useCallback((charId: string, role: CharacterRole) => {
     setCharacterRoles(prev => {
@@ -477,34 +517,28 @@ export function CharactersPanel({
     });
   }, []);
 
+  // Use ref pattern to avoid depending on characterRoles Map directly
+  // This keeps the callback stable and prevents child re-renders
   const cycleRole = useCallback((charId: string) => {
     const roles: CharacterRole[] = ['Protagonist', 'Antagonist', 'Supporting', 'Minor'];
-    const currentRole = characterRoles.get(charId) || 'Supporting';
+    const currentRole = characterRolesRef.current.get(charId) || 'Supporting';
     const currentIndex = roles.indexOf(currentRole);
     const nextIndex = (currentIndex + 1) % roles.length;
     updateCharacterRole(charId, roles[nextIndex]);
-  }, [characterRoles, updateCharacterRole]);
-
-  const getRoleLabel = (role: CharacterRole) => {
-    switch (role) {
-      case 'Protagonist': return 'LEAD';
-      case 'Antagonist': return 'ANTAG';
-      case 'Supporting': return 'SUPPORT';
-      case 'Minor': return 'MINOR';
-    }
-  };
-
-  const getFilterLabel = (role: CharacterRole | 'all') => {
-    switch (role) {
-      case 'all': return 'All';
-      case 'Protagonist': return 'Lead';
-      case 'Antagonist': return 'Antag';
-      default: return role;
-    }
-  };
+  }, [updateCharacterRole]);
 
   // Sensors for drag & drop
   const sensors = usePanelDndSensors();
+
+  // Virtualization for large character lists
+  const { parentRef, isVirtualized, virtualItems, totalSize, getItem, allItems } =
+    usePanelVirtualization({
+    items: filteredCharacters,
+    estimateSize: 52, // Approximate height of each character item
+    overscan: 5,
+    getItemKey: (char) => char.id,
+    minItemsForVirtualization: 20,
+  });
 
   // Handle drag end - log reorder for now
   const handleDragEnd = useCallback((event: DragEndEvent) => {
@@ -563,9 +597,9 @@ export function CharactersPanel({
             </div>
           </div>
 
-          {/* Character List - Scrollable with Drag & Drop */}
-          <ScrollArea className="flex-1 min-h-0">
-            <div className="p-3 space-y-1.5">
+          {/* Character List - Scrollable with Drag & Drop (Virtualized) */}
+          <ScrollArea className="flex-1 min-h-0" viewportRef={parentRef}>
+            <div className="p-3">
               {filteredCharacters.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground text-xs">
                   No characters match your filter.
@@ -576,29 +610,72 @@ export function CharactersPanel({
                   collisionDetection={closestCenter}
                   onDragEnd={handleDragEnd}
                 >
+                  {/* SortableContext needs ALL item IDs for drag calculations */}
                   <SortableContext
-                    items={filteredCharacters.map(c => c.id)}
+                    items={sortableItemIds}
                     strategy={verticalListSortingStrategy}
                   >
-                    {filteredCharacters.map((char, index) => {
-                      const role = characterRoles.get(char.id) || 'Supporting';
-                      const isProtagonist = role === 'Protagonist';
+                    {isVirtualized && virtualItems ? (
+                      // Virtualized rendering for large lists
+                      <div
+                        style={{
+                          height: totalSize,
+                          position: 'relative',
+                        }}
+                      >
+                        {virtualItems.map((virtualItem) => {
+                          const char = getItem(virtualItem);
+                          const role = characterRolesRef.current.get(char.id) || 'Supporting';
+                          const isProtagonist = role === 'Protagonist';
 
-                      return (
-                        <SortableCharacterItem
-                          key={char.id}
-                          char={char}
-                          index={index}
-                          role={role}
-                          isProtagonist={isProtagonist}
-                          cycleRole={cycleRole}
-                          getRoleLabel={getRoleLabel}
-                          onGoToFirstAppearance={goToFirstAppearance}
-                          onGoToFirstDialogue={goToFirstDialogue}
-                          onCopyName={copyName}
-                        />
-                      );
-                    })}
+                          return (
+                            <div
+                              key={virtualItem.key}
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                transform: `translateY(${virtualItem.start}px)`,
+                              }}
+                            >
+                              <SortableCharacterItem
+                                char={char}
+                                index={virtualItem.index}
+                                role={role}
+                                isProtagonist={isProtagonist}
+                                cycleRole={cycleRole}
+                                onGoToFirstAppearance={goToFirstAppearance}
+                                onGoToFirstDialogue={goToFirstDialogue}
+                                onCopyName={copyName}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      // Regular rendering for small lists
+                      <div className="space-y-1.5">
+                        {allItems.map((char, index) => {
+                          const role = characterRolesRef.current.get(char.id) || 'Supporting';
+                          const isProtagonist = role === 'Protagonist';
+
+                          return (
+                            <SortableCharacterItem
+                              key={char.id}
+                              char={char}
+                              index={index}
+                              role={role}
+                              isProtagonist={isProtagonist}
+                              cycleRole={cycleRole}
+                              onGoToFirstAppearance={goToFirstAppearance}
+                              onGoToFirstDialogue={goToFirstDialogue}
+                              onCopyName={copyName}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
                   </SortableContext>
                 </DndContext>
               )}
@@ -608,4 +685,4 @@ export function CharactersPanel({
       )}
     </div>
   );
-}
+});

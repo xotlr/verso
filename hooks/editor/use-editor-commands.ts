@@ -9,6 +9,7 @@ import { EditorView } from 'prosemirror-view';
 import { undo, redo } from 'prosemirror-history';
 import { screenplaySchema, ElementType, serializeForStorage } from '@/lib/prosemirror';
 import { applySuggestion } from '@/lib/prosemirror/plugins';
+import { yjsUndo, yjsRedo } from '@/lib/prosemirror/plugins/yjs-collaboration';
 import type { AutocompleteSuggestion } from '@/lib/prosemirror/plugins';
 
 export interface EditorCommands {
@@ -41,27 +42,45 @@ export interface EditorCommands {
   applyAutocompleteSuggestion: (suggestion: AutocompleteSuggestion) => void;
 }
 
+export interface UseEditorCommandsOptions {
+  /** Whether Yjs collaboration is enabled (uses different undo/redo commands) */
+  isYjsEnabled?: boolean;
+}
+
 /**
  * Creates editor command callbacks bound to a view reference.
  */
-export function useEditorCommands(viewRef: MutableRefObject<EditorView | null>): EditorCommands {
-  // Undo command
+export function useEditorCommands(
+  viewRef: MutableRefObject<EditorView | null>,
+  options: UseEditorCommandsOptions = {}
+): EditorCommands {
+  const { isYjsEnabled = false } = options;
+
+  // Undo command - uses Yjs undo when collaboration is enabled
   const handleUndo = useCallback(() => {
     const view = viewRef.current;
     if (view) {
-      undo(view.state, view.dispatch);
+      if (isYjsEnabled) {
+        yjsUndo(view.state, view.dispatch);
+      } else {
+        undo(view.state, view.dispatch);
+      }
       view.focus();
     }
-  }, [viewRef]);
+  }, [viewRef, isYjsEnabled]);
 
-  // Redo command
+  // Redo command - uses Yjs redo when collaboration is enabled
   const handleRedo = useCallback(() => {
     const view = viewRef.current;
     if (view) {
-      redo(view.state, view.dispatch);
+      if (isYjsEnabled) {
+        yjsRedo(view.state, view.dispatch);
+      } else {
+        redo(view.state, view.dispatch);
+      }
       view.focus();
     }
-  }, [viewRef]);
+  }, [viewRef, isYjsEnabled]);
 
   // Focus the editor
   const focus = useCallback(() => {
