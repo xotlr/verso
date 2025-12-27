@@ -64,7 +64,7 @@ export default function PrivacyPage() {
           <section className="mb-12">
             <h2 className="text-xl font-medium mb-4">Your Rights</h2>
             <p className="text-muted-foreground mb-4">
-              You have the right to access, correct, or delete your personal data at any time. You can export all your content from your account settings. To delete your account and all associated data, contact us at privacy@verso.ink.
+              You have the right to access, correct, or delete your personal data at any time. You can export all your content from your account settings. To delete your account and all associated data, contact us at privacy@verso.ac.
             </p>
           </section>
 
@@ -79,8 +79,8 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-medium mb-4">Contact Us</h2>
             <p className="text-muted-foreground mb-4">
               If you have questions about this Privacy Policy, please contact us at{" "}
-              <a href="mailto:privacy@verso.ink" className="text-primary hover:underline">
-                privacy@verso.ink
+              <a href="mailto:privacy@verso.ac" className="text-primary hover:underline">
+                privacy@verso.ac
               </a>
             </p>
           </section>

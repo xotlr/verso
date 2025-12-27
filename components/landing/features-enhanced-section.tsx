@@ -71,33 +71,33 @@ export function FeaturesEnhancedSection() {
   const writingFeatures = [
     {
       icon: <FileText className="h-6 w-6" />,
-      title: "Industry-Standard Formatting",
+      title: "Auto-Formatting",
       description:
-        "Automatic screenplay formatting that follows Hollywood standards. Just write, we handle the rest.",
+        "Tab. Enter. You're in dialogue. Verso formats as you type — scene headings, action, parentheticals, all of it.",
     },
     {
       icon: <Focus className="h-6 w-6" />,
       title: "Focus Mode",
       description:
-        "Distraction-free writing environment inspired by the best minimal editors. Hide everything but your words.",
+        "Hide the sidebar, toolbar, everything. Just your script and a blinking cursor.",
     },
     {
       icon: <Command className="h-6 w-6" />,
       title: "Command Palette",
       description:
-        "Lightning-fast keyboard-driven navigation. Access any feature without touching your mouse.",
+        "Press ⌘K. Search any command. No mouse required.",
     },
     {
       icon: <Clock className="h-6 w-6" />,
       title: "Version History",
       description:
-        "Unlimited version history with visual diff view. Never lose a draft, easily compare revisions.",
+        "Every save is recoverable. Compare drafts side-by-side with visual diffs.",
     },
     {
       icon: <Smartphone className="h-6 w-6" />,
-      title: "Mobile Writing",
+      title: "Mobile Editor",
       description:
-        "Full-featured mobile editor with touch-optimized toolbar. Write anywhere, on any device.",
+        "Write on your phone. Same features, touch-optimized. Your script syncs across devices.",
     },
   ]
 
@@ -106,64 +106,64 @@ export function FeaturesEnhancedSection() {
       icon: <LayoutGrid className="h-6 w-6" />,
       title: "Index Cards",
       description:
-        "Organize scenes visually with drag-and-drop index cards. Perfect for outlining and restructuring.",
+        "Drag scenes around. Reorder acts. See your structure at a glance.",
     },
     {
       icon: <Rows3 className="h-6 w-6" />,
       title: "Beat Board",
       description:
-        "Map out story beats and see the big picture. Track character arcs and plot points.",
+        "Plot your beats on a timeline. Track arcs across the whole script.",
     },
     {
       icon: <Calendar className="h-6 w-6" />,
       title: "Production Tools",
       description:
-        "Shotlists, shooting schedules, budgets, and crew role assignments all in one place.",
+        "Shotlists, schedules, budgets. All connected to your script.",
     },
     {
       icon: <TrendingUp className="h-6 w-6" />,
-      title: "Story Visualization",
+      title: "Story Graphs",
       description:
-        "Interactive story graphs, character timelines, and contribution heatmaps reveal narrative patterns.",
+        "See when characters appear, how dialogue distributes, where tension peaks.",
     },
     {
       icon: <Sparkles className="h-6 w-6" />,
       title: "Character Tracking",
       description:
-        "Automatic character appearance tracking, dialogue statistics, and relationship mapping.",
+        "Who appears where. How much they talk. Auto-generated from your script.",
     },
     {
       icon: <BarChart3 className="h-6 w-6" />,
-      title: "Analytics Dashboard",
+      title: "Analytics",
       description:
-        "Word counts, screen time estimates, dialogue distribution, and productivity metrics.",
+        "Page count, screen time estimates, dialogue percentages. Numbers, not guesses.",
     },
   ]
 
   const collaborationFeatures = [
     {
       icon: <Users className="h-6 w-6" />,
-      title: "Real-Time Collaboration",
+      title: "Real-Time Editing",
       description:
-        "Write together in real-time. Perfect for writing partners, rooms, and production teams.",
+        "Two writers, one script, same time. See each other's cursors. No merge conflicts.",
     },
     {
       icon: <Folder className="h-6 w-6" />,
-      title: "Project Management",
+      title: "Projects",
       description:
-        "Multi-project organization with templates, tags, and customizable metadata.",
+        "Organize scripts into projects. Add metadata, tags, and notes.",
     },
     {
       icon: <Globe className="h-6 w-6" />,
-      title: "Publishing Platform",
+      title: "Publish",
       description:
-        "Share your work publicly on the Explore page. Build an audience and get discovered.",
+        "Share a public link. Let people read your work on the Explore page.",
     },
     {
       icon: <Download className="h-6 w-6" />,
-      title: "Universal Export",
+      title: "Export",
       description:
-        "Export to PDF, Final Draft (FDX), Fountain, and more. Your screenplay, your format.",
+        "PDF, Final Draft, Fountain. Your script, your format, your file.",
     },
   ]
 
@@ -172,10 +172,10 @@ export function FeaturesEnhancedSection() {
       <div className="container max-w-6xl mx-auto px-4 sm:px-6">
         <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium">
-            Everything you need to write
+            What you get
           </h2>
           <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4 sm:px-0">
-            Powerful features designed for every stage of the screenwriting process
+            Writing, production, and collaboration tools in one place
           </p>
         </div>
 

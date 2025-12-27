@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 
 interface RenameProjectDialogProps {
@@ -12,6 +13,7 @@ interface RenameProjectDialogProps {
   onOpenChange: (open: boolean) => void;
   projectId: string;
   currentName: string;
+  currentDescription?: string | null;
   onSuccess?: () => void;
 }
 
@@ -20,10 +22,20 @@ export function RenameProjectDialog({
   onOpenChange,
   projectId,
   currentName,
+  currentDescription,
   onSuccess,
 }: RenameProjectDialogProps) {
   const [name, setName] = useState(currentName);
+  const [description, setDescription] = useState(currentDescription || '');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Reset form when dialog opens with new values
+  useEffect(() => {
+    if (open) {
+      setName(currentName);
+      setDescription(currentDescription || '');
+    }
+  }, [open, currentName, currentDescription]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +45,11 @@ export function RenameProjectDialog({
       return;
     }
 
-    if (name.trim() === currentName) {
+    const trimmedName = name.trim();
+    const trimmedDescription = description.trim() || null;
+    const hasChanges = trimmedName !== currentName || trimmedDescription !== (currentDescription || null);
+
+    if (!hasChanges) {
       onOpenChange(false);
       return;
     }
@@ -46,19 +62,22 @@ export function RenameProjectDialog({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({
+          name: trimmedName,
+          description: trimmedDescription,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to rename project');
+        throw new Error('Failed to update project');
       }
 
-      toast.success('Project renamed successfully');
+      toast.success('Project updated');
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
-      console.error('Error renaming project:', error);
-      toast.error('Failed to rename project');
+      console.error('Error updating project:', error);
+      toast.error('Failed to update project');
     } finally {
       setIsLoading(false);
     }
@@ -68,9 +87,9 @@ export function RenameProjectDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Rename Project</DialogTitle>
+          <DialogTitle>Edit Project</DialogTitle>
           <DialogDescription>
-            Enter a new name for your project.
+            Update your project name and description.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -86,6 +105,17 @@ export function RenameProjectDialog({
                 disabled={isLoading}
               />
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Enter project description (optional)"
+                disabled={isLoading}
+                rows={3}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -97,7 +127,7 @@ export function RenameProjectDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading || !name.trim()}>
-              {isLoading ? 'Renaming...' : 'Rename'}
+              {isLoading ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
         </form>

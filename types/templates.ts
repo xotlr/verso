@@ -106,91 +106,30 @@ export interface ScreenplayFormData {
   tvFormat?: TVFormat;
 }
 
-// Default content templates
+// Default content templates - minimal structure for all types
 export const templateContent: Record<ScreenplayTypeId, string> = {
-  'film': `FADE IN:
+  'film': `INT. LOCATION - DAY
 
-INT. LOCATION - DAY
-
-Action description. This is where you describe what's happening on screen. Keep it concise and visual.
-
-                         CHARACTER NAME
-         Dialogue goes here. Keep it natural and
-         character-driven.
-
-EXT. ANOTHER LOCATION - NIGHT
-
-More action.
-
-FADE OUT.
-
-                                    THE END
-`,
-
-  'tv-series': `                              "EPISODE TITLE"
-
-                            Episode #101
-
-                                      by
-
-                                  Writer Name
-
-
-                                   TEASER
-
-FADE IN:
-
-INT. LOCATION - DAY
-
-Opening hook to grab the audience.
+Action description.
 
                          CHARACTER NAME
          Dialogue.
+`,
 
-                                                      FADE OUT.
+  'tv-series': `INT. LOCATION - DAY
 
-                             END OF TEASER
-
-
-                                  ACT ONE
-
-FADE IN:
-
-INT. LOCATION - DAY
-
-Story begins.
+Action description.
 
                          CHARACTER NAME
          Dialogue.
-
-                                                      FADE OUT.
-
-                              END OF ACT ONE
-
-
-                                  ACT TWO
-
-FADE IN:
-
-INT. LOCATION - LATER
-
-Story develops.
-
-                                                      FADE OUT.
-
-                              END OF ACT TWO
-
-
-                                    END
 `,
 
-  'blank': `FADE IN:
+  'blank': `INT. LOCATION - DAY
 
-INT. LOCATION - DAY
+Action description.
 
-
-
-FADE OUT.
+                         CHARACTER NAME
+         Dialogue.
 `,
 };
 

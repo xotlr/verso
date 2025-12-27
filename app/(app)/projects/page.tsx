@@ -11,6 +11,7 @@ import { ListPageToolbar, SORT_OPTIONS } from '@/components/ui/list-page-toolbar
 import { ListWithPreview } from '@/components/ui/list-preview-panel';
 import { ProjectFolderCard, ProjectFolderCardSkeleton } from '@/components/project/project-folder-card';
 import { ProjectListRow, ProjectListRowSkeleton } from '@/components/project/project-list-row';
+import { RenameProjectDialog } from '@/components/project/rename-project-dialog';
 import { useViewMode } from '@/hooks/use-view-mode';
 import {
   AlertDialog,
@@ -69,6 +70,7 @@ export default function ProjectsPage() {
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [viewMode, setViewMode] = useViewMode('projects');
   const [hoveredProject, setHoveredProject] = useState<ProjectItem | null>(null);
+  const [renameTarget, setRenameTarget] = useState<ProjectItem | null>(null);
 
   useEffect(() => {
     loadProjects();
@@ -195,6 +197,18 @@ export default function ProjectsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Rename Project Dialog */}
+      {renameTarget && (
+        <RenameProjectDialog
+          open={!!renameTarget}
+          onOpenChange={(open) => !open && setRenameTarget(null)}
+          projectId={renameTarget.id}
+          currentName={renameTarget.name}
+          currentDescription={renameTarget.description}
+          onSuccess={loadProjects}
+        />
+      )}
+
       <PageLayout
         title="Projects"
         description={`${filteredProjects.length} project${filteredProjects.length !== 1 ? 's' : ''}${searchQuery ? ' (filtered)' : ''}`}
@@ -271,6 +285,7 @@ export default function ProjectsPage() {
                 }}
                 onDelete={() => setDeleteTarget(project.id)}
                 onOpen={() => router.push(`/project/${project.id}`)}
+                onRename={() => setRenameTarget(project)}
               />
             ))}
           </div>
@@ -309,6 +324,7 @@ export default function ProjectsPage() {
                   }}
                   onOpen={() => router.push(`/project/${project.id}`)}
                   onDelete={() => setDeleteTarget(project.id)}
+                  onRename={() => setRenameTarget(project)}
                   isHovered={hoveredProject?.id === project.id}
                   onHover={() => setHoveredProject(project)}
                   onLeave={() => setHoveredProject(null)}

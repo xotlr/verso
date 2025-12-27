@@ -73,19 +73,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Save settings to localStorage whenever they change
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-        // Apply CSS custom properties
-        applyThemeVariables(settings);
-      } catch (error) {
-        console.error('Failed to save settings:', error);
-      }
-    }
-  }, [settings, isLoaded]);
-
   const applyThemeVariables = useCallback((settings: AppSettings) => {
     const root = document.documentElement;
     const isDark = root.classList.contains('dark');
@@ -113,6 +100,19 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     root.setAttribute('data-ui-font', settings.visual.uiFont);
     root.setAttribute('data-screenplay-font', settings.visual.screenplayFont);
   }, []);
+
+  // Save settings to localStorage whenever they change
+  useEffect(() => {
+    if (isLoaded) {
+      try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        // Apply CSS custom properties
+        applyThemeVariables(settings);
+      } catch (error) {
+        console.error('Failed to save settings:', error);
+      }
+    }
+  }, [settings, isLoaded, applyThemeVariables]);
 
   // Watch for theme changes (light/dark toggle) and re-apply colors
   useEffect(() => {

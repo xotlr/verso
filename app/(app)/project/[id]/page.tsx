@@ -54,12 +54,14 @@ import {
   Image as ImageIcon,
   Grid3X3,
   BarChart3,
+  Pencil,
 } from 'lucide-react';
 import { ExternalLinkCard, ExternalLinkData } from '@/components/external-link-card';
 import { AddLinkDialog } from '@/components/add-link-dialog';
 import { AddExistingScreenplayDialog } from '@/components/add-existing-screenplay-dialog';
 import { ProjectRolesManager, type ProjectRole } from '@/components/project/roles';
 import { ProjectRoleNeedsManager } from '@/components/project/project-role-needs-manager';
+import { RenameProjectDialog } from '@/components/project/rename-project-dialog';
 import { useSession } from 'next-auth/react';
 import type { EmbedType } from '@/lib/export/embed';
 import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
@@ -187,6 +189,8 @@ export default function ProjectPage() {
   const [exportDialogCallsheet, setExportDialogCallsheet] = useState<{ id: string; title: string } | null>(null);
   const [savingCallsheet, setSavingCallsheet] = useState(false);
 
+  // Rename dialog state
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -508,6 +512,26 @@ export default function ProjectPage() {
     }
   };
 
+  const handleUnlinkScreenplay = async (screenplayId: string) => {
+    try {
+      const response = await fetch(`/api/screenplays/${screenplayId}/move`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: null }),
+      });
+
+      if (response.ok) {
+        toast.success('Screenplay unlinked from project');
+        loadProject();
+      } else {
+        throw new Error('Failed to unlink screenplay');
+      }
+    } catch (error) {
+      console.error('Error unlinking screenplay:', error);
+      toast.error('Failed to unlink screenplay');
+    }
+  };
+
   const handleImportComplete = async (result: ImportResult) => {
     if (!result.success || !result.content) return;
 
@@ -583,6 +607,17 @@ export default function ProjectPage() {
         />
       )}
 
+      {project && (
+        <RenameProjectDialog
+          open={renameDialogOpen}
+          onOpenChange={setRenameDialogOpen}
+          projectId={projectId}
+          currentName={project.name}
+          currentDescription={project.description}
+          onSuccess={loadProject}
+        />
+      )}
+
       {/* Callsheet dialogs */}
       <CallsheetDialog
         open={callsheetDialogOpen}
@@ -649,8 +684,17 @@ export default function ProjectPage() {
             </div>
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-2 mb-2">
                   <h1 className="text-3xl font-bold text-foreground">{project.name}</h1>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => setRenameDialogOpen(true)}
+                    aria-label="Edit project"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
                 </div>
                 {project.description && (
                   <p className="text-muted-foreground">{project.description}</p>
@@ -895,6 +939,7 @@ export default function ProjectPage() {
                       href={`/screenplay/${screenplay.id}`}
                       onEdit={() => router.push(`/screenplay/${screenplay.id}`)}
                       onDelete={() => setDeleteTarget({ id: screenplay.id, type: 'screenplays' })}
+                      onRemoveFromProject={() => handleUnlinkScreenplay(screenplay.id)}
                       showProject={false}
                       showType={false}
                       showFavorite={false}

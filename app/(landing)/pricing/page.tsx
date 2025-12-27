@@ -54,81 +54,78 @@ export default function PricingPage() {
   const plans = [
     {
       name: "Free",
-      description: "Perfect for getting started",
+      description: "Write unlimited pages",
       monthlyPrice: 0,
       yearlyPrice: 0,
       features: [
-        "Unlimited screenplays & pages",
+        "Unlimited screenplays",
         "1 project",
-        "Industry-standard formatting",
+        "Auto-formatting",
         "PDF export",
-        "Dark mode",
+        "Index cards + beat board",
       ],
       limitations: [
-        "Limited export formats",
+        "No FDX/Fountain export",
         "No collaboration",
       ],
-      cta: "Get Started",
+      cta: "Start Free",
       ctaHref: "/signup",
       priceIdMonthly: undefined,
       priceIdYearly: undefined,
     },
     {
       name: "Plus",
-      description: "For serious screenwriters",
+      description: "Multiple projects, all exports",
       monthlyPrice: 12.99,
       yearlyPrice: 99.99,
       yearlyDiscount: "Save $56",
       features: [
         "Unlimited projects",
-        "All export formats (PDF, FDX, Fountain)",
-        "Index cards & beat board",
+        "FDX + Fountain export",
         "Character analytics",
         "Cloud sync",
         "Priority support",
       ],
       limitations: [],
-      cta: "Upgrade to Plus",
+      cta: "Try Plus",
       highlighted: true,
       priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
       priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PLUS_YEARLY_PRICE_ID,
     },
     {
       name: "Pro",
-      description: "For writing teams",
+      description: "Write with your team",
       monthlyPrice: 29.99,
       yearlyPrice: 249.99,
       yearlyDiscount: "Save $110",
       features: [
         "Everything in Plus",
         "Real-time collaboration",
-        "Up to 5 team members",
+        "Up to 5 writers",
         "Version history",
-        "Comments & notes",
-        "Team workspace",
+        "Comments + notes",
       ],
       limitations: [],
-      cta: "Upgrade to Pro",
+      cta: "Try Pro",
       priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID,
       priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID,
     },
     {
       name: "Max",
-      description: "For production & studios",
+      description: "Production-ready",
       monthlyPrice: 99.99,
       yearlyPrice: 899.99,
       yearlyDiscount: "Save $300",
       perUser: true,
       features: [
         "Everything in Pro",
-        "Unlimited team members",
-        "Production tools",
-        "Schedules & budgets",
+        "Unlimited team",
+        "Schedules + budgets",
         "Admin controls",
         "Custom branding",
       ],
       limitations: [],
-      cta: "Upgrade to Max",
+      cta: "Contact Sales",
       priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_MAX_MONTHLY_PRICE_ID,
       priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_MAX_YEARLY_PRICE_ID,
     },
@@ -139,10 +136,10 @@ export default function PricingPage() {
       <div className="container max-w-7xl mx-auto px-4 sm:px-6">
         <div className="text-center space-y-4 mb-16 sm:mb-20">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-medium">
-            Simple, transparent pricing
+            Pricing
           </h1>
           <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto">
-            Choose the plan that works for you. Upgrade or downgrade at any time.
+            Free tier is real. Upgrade when you need to.
           </p>
         </div>
 
@@ -261,13 +258,10 @@ export default function PricingPage() {
         {/* FAQ or Additional Info */}
         <div className="mt-16 text-center">
           <p className="text-muted-foreground">
-            All plans include a 14-day free trial. No credit card required to start.
+            No credit card for free tier. 14-day trial on paid plans.
           </p>
           <p className="text-muted-foreground mt-2">
-            Questions?{" "}
-            <Link href="/contact" className="text-primary hover:underline">
-              Contact us
-            </Link>
+            Questions? <Link href="/contact" className="text-primary hover:underline">help@verso.ac</Link>
           </p>
         </div>
       </div>

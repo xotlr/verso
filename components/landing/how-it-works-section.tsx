@@ -77,33 +77,33 @@ export function HowItWorksSection() {
   const steps = [
     {
       icon: <FileText className="h-6 w-6 lg:h-7 lg:w-7" />,
-      title: "Create Your Project",
+      title: "Create",
       description:
-        "Start with a blank screenplay or choose from templates with metadata setup.",
+        "New project. Blank page or template. Add title, logline, metadata.",
     },
     {
       icon: <LayoutGrid className="h-6 w-6 lg:h-7 lg:w-7" />,
-      title: "Organize Your Story",
+      title: "Outline",
       description:
-        "Use index cards, beat boards, and character tracking to visualize your narrative.",
+        "Index cards for scenes. Beat board for structure. Drag to reorder.",
     },
     {
       icon: <Pencil className="h-6 w-6 lg:h-7 lg:w-7" />,
-      title: "Write with Auto-Formatting",
+      title: "Write",
       description:
-        "Focus on story while Verso handles industry-standard formatting automatically.",
+        "Type. Formatting happens automatically. Stay in flow.",
     },
     {
       icon: <Share2 className="h-6 w-6 lg:h-7 lg:w-7" />,
-      title: "Collaborate in Real-Time",
+      title: "Collaborate",
       description:
-        "Invite co-writers and producers. See live changes with full version history.",
+        "Invite your co-writer. Edit together. Track every change.",
     },
     {
       icon: <Download className="h-6 w-6 lg:h-7 lg:w-7" />,
-      title: "Export & Share",
+      title: "Export",
       description:
-        "Export to PDF, Final Draft, or Fountain. Share links or publish to the community.",
+        "PDF, FDX, Fountain. Download or share a public link.",
     },
   ]
 
@@ -112,10 +112,10 @@ export function HowItWorksSection() {
       <div className="container max-w-7xl mx-auto px-4 sm:px-6">
         <div className="text-center space-y-2 sm:space-y-3 mb-10 sm:mb-12 lg:mb-16">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold">
-            From idea to finished screenplay
+            How it works
           </h2>
           <p className="text-sm sm:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto">
-            A streamlined workflow designed for how screenwriters actually work
+            Five steps from blank page to finished script
           </p>
         </div>
 

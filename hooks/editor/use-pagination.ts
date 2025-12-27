@@ -97,9 +97,8 @@ export function usePagination(
       return;
     }
 
-    // Increment version and capture it for this request
+    // Increment version for tracking (value used for debugging if needed)
     docVersionRef.current++;
-    const thisVersion = docVersionRef.current;
 
     setIsPending(true);
     setError(null);

@@ -81,6 +81,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
   // Debounce refs
   const extractionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const statsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Callback refs to avoid dependency issues
   const onUpdateRef = useRef(onUpdate);
@@ -118,6 +119,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     const positionMap = pagination.getPositionMap();
     updatePaginationState(view, pagination.result, positionMap);
     setPageCount(pagination.pageCount);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.result, pagination.pageCount, pagination.getPositionMap]);
 
   // Create the editor state and view
@@ -137,7 +139,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
       sceneNumberingOptions: {
         forceShow: showSceneNumbers,
       },
-      onCoverPageDetected: (coverPage) => {
+      onCoverPageDetected: (_coverPage) => {
         // Cover page detection callback - no-op but could be used for future features
       },
     });
@@ -169,10 +171,13 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
             setPageCount(calculatePageCount(doc));
           }, 300);
 
-          // Notify parent of content change
-          if (onUpdateRef.current) {
-            onUpdateRef.current(serializeForStorage(doc));
-          }
+          // Debounce content serialization and parent notification (expensive!)
+          if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
+          updateTimeoutRef.current = setTimeout(() => {
+            if (onUpdateRef.current) {
+              onUpdateRef.current(serializeForStorage(doc));
+            }
+          }, 150); // 150ms debounce for responsiveness
 
           // Debounce scene/character extraction
           if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
@@ -241,6 +246,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     return () => {
       if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
       if (statsTimeoutRef.current) clearTimeout(statsTimeoutRef.current);
+      if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
       view.destroy();
       viewRef.current = null;
       isInitializedRef.current = false;

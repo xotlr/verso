@@ -50,44 +50,44 @@ export function FAQSection() {
 
   const faqs = [
     {
-      question: "Is Verso really free to use?",
+      question: "Is the free tier actually free?",
       answer:
-        "Yes! Verso's Free plan includes up to 3 projects with full access to industry-standard formatting, index cards, beat boards, and PDF export. You can upgrade to Pro for unlimited projects and advanced features whenever you're ready.",
+        "Yes. Unlimited pages, unlimited screenplays, 1 project, PDF export, index cards, beat board. No credit card required. No trial period.",
     },
     {
-      question: "Can I import my existing screenplay?",
+      question: "Can I import from Final Draft?",
       answer:
-        "Absolutely. Verso supports importing from Final Draft (FDX), Fountain, and plain text formats. We'll automatically convert your screenplay to our format while preserving all formatting and structure.",
+        "Yes. Import FDX, Fountain, or plain text. Formatting carries over.",
     },
     {
-      question: "Does Verso work offline?",
+      question: "Does it work offline?",
       answer:
-        "Yes! Verso is a Progressive Web App (PWA) that works fully offline. Your work syncs automatically when you're back online, and you can even install it on your device like a native app.",
+        "Yes. Verso is a PWA. Write offline, sync when you reconnect. You can install it like a native app.",
     },
     {
-      question: "How does real-time collaboration work?",
+      question: "How does collaboration work?",
       answer:
-        "With Team or Pro plans, you can invite collaborators to your projects. Multiple people can write simultaneously, see each other's cursors and changes in real-time, and chat inline. Perfect for writing rooms and co-writing partnerships.",
+        "Pro plan and up. Invite collaborators by email. You both edit the same script simultaneously. Cursors visible, changes instant.",
     },
     {
-      question: "What export formats do you support?",
+      question: "What formats can I export?",
       answer:
-        "Verso exports to PDF (with or without watermarks), Final Draft (FDX), Fountain markdown, and plain text. Pro users get access to all formats, while Free users can export to PDF.",
+        "PDF (free). Final Draft (FDX), Fountain, plain text (paid plans).",
     },
     {
-      question: "Can I cancel my subscription anytime?",
+      question: "Can I cancel anytime?",
       answer:
-        "Yes, you can cancel your Pro or Team subscription at any time. You'll retain access to all features until the end of your billing period, and your projects will remain accessible on the Free plan.",
+        "Yes. Cancel whenever. You keep access until your billing period ends. Your scripts stay accessible on the free tier.",
     },
     {
-      question: "Is my screenplay data secure and private?",
+      question: "Is my work private?",
       answer:
-        "Your work is encrypted in transit and at rest. We use industry-standard security practices and never share your content with third parties. You own your work completely, and you can delete it at any time.",
+        "Encrypted in transit and at rest. We don't read your scripts. We don't sell your data. You can delete everything anytime.",
     },
     {
-      question: "Do you offer educational or non-profit discounts?",
+      question: "Student discounts?",
       answer:
-        "Yes! We offer significant discounts for students, educators, and non-profit organizations. Contact us with your institutional email for verification and we'll set you up with special pricing.",
+        "Yes. Email us with your .edu address. We'll set you up.",
     },
   ]
 
@@ -96,10 +96,10 @@ export function FAQSection() {
       <div className="container max-w-3xl mx-auto px-4 sm:px-6">
         <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium">
-            Frequently asked questions
+            Questions
           </h2>
           <p className="text-base sm:text-lg text-muted-foreground px-4 sm:px-0">
-            Everything you need to know about Verso
+            The short answers
           </p>
         </div>
 
@@ -117,13 +117,13 @@ export function FAQSection() {
 
         <div className="mt-8 sm:mt-12 p-4 sm:p-6 rounded-xl bg-muted/50 text-center">
           <p className="text-xs sm:text-sm text-muted-foreground mb-2 sm:mb-3">
-            Still have questions?
+            Something else?
           </p>
           <a
-            href="mailto:support@verso.app"
+            href="mailto:help@verso.ac"
             className="text-xs sm:text-sm font-medium text-primary hover:underline"
           >
-            Contact our support team
+            help@verso.ac
           </a>
         </div>
       </div>

@@ -61,8 +61,8 @@ export default function ContactPage() {
               <p className="text-sm text-muted-foreground mb-3">
                 For general inquiries and support
               </p>
-              <a href="mailto:hello@verso.ink" className="text-sm text-primary hover:underline">
-                hello@verso.ink
+              <a href="mailto:hello@verso.ac" className="text-sm text-primary hover:underline">
+                hello@verso.ac
               </a>
             </div>
 

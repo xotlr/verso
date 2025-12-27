@@ -65,7 +65,8 @@ export function useTimelapsePlayback({
   });
 
   // Exclude screenplay (not relevant for authenticated playback)
-  const { screenplay: _screenplay, ...rest } = playerState;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { screenplay, ...rest } = playerState;
   return rest;
 }
 

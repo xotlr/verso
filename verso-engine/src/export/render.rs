@@ -282,42 +282,47 @@ fn render_title_page(
 ) -> TitlePageLayout {
     let center_x = page_width / 2.0;
 
-    // Title: centered, about 1/3 down the page
-    let title = metadata.title.as_ref().map(|t| {
-        let text = t.to_uppercase();
-        let text_width = text.len() as f64 * CHAR_WIDTH_INCHES;
-        TextItem {
-            x: center_x - text_width / 2.0,
-            y: page_height * 0.35,
-            text,
-            font_style: FontStyle::Bold,
-            element_type: None,
-        }
+    // Title: centered, about 1/3 down the page (always show, use "UNTITLED" if empty)
+    let title_text = metadata
+        .title
+        .as_ref()
+        .filter(|t| !t.trim().is_empty())
+        .map(|t| t.to_uppercase())
+        .unwrap_or_else(|| "UNTITLED".to_string());
+    let title_width = title_text.len() as f64 * CHAR_WIDTH_INCHES;
+    let title = Some(TextItem {
+        x: center_x - title_width / 2.0,
+        y: page_height * 0.35,
+        text: title_text,
+        font_style: FontStyle::Bold,
+        element_type: None,
     });
 
-    // "written by": centered, below title
-    let written_by = metadata.author.as_ref().map(|_| {
-        let text = "written by".to_string();
-        let text_width = text.len() as f64 * CHAR_WIDTH_INCHES;
-        TextItem {
-            x: center_x - text_width / 2.0,
-            y: page_height * 0.42,
-            text,
-            font_style: FontStyle::Regular,
-            element_type: None,
-        }
+    // "written by": centered, below title (always show)
+    let written_by_text = "written by".to_string();
+    let written_by_width = written_by_text.len() as f64 * CHAR_WIDTH_INCHES;
+    let written_by = Some(TextItem {
+        x: center_x - written_by_width / 2.0,
+        y: page_height * 0.42,
+        text: written_by_text,
+        font_style: FontStyle::Regular,
+        element_type: None,
     });
 
-    // Author: centered, below "written by"
-    let author = metadata.author.as_ref().map(|a| {
-        let text_width = a.len() as f64 * CHAR_WIDTH_INCHES;
-        TextItem {
-            x: center_x - text_width / 2.0,
-            y: page_height * 0.45,
-            text: a.clone(),
-            font_style: FontStyle::Regular,
-            element_type: None,
-        }
+    // Author: centered, below "written by" (show empty space if no author)
+    let author_text = metadata
+        .author
+        .as_ref()
+        .filter(|a| !a.trim().is_empty())
+        .cloned()
+        .unwrap_or_default();
+    let author_width = author_text.len() as f64 * CHAR_WIDTH_INCHES;
+    let author = Some(TextItem {
+        x: center_x - author_width / 2.0,
+        y: page_height * 0.45,
+        text: author_text,
+        font_style: FontStyle::Regular,
+        element_type: None,
     });
 
     // Draft info: lower right

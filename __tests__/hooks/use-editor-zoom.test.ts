@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useEditorZoom, ZOOM_PRESETS } from '@/hooks/editor/use-editor-zoom'
-import { createRef, RefObject } from 'react'
+import { RefObject } from 'react'
 
 describe('useEditorZoom', () => {
   let containerRef: RefObject<HTMLDivElement>

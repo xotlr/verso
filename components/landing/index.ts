@@ -6,5 +6,4 @@ export { HowItWorksSection } from './how-it-works-section';
 export { Navbar } from './navbar';
 export { NavbarEnhanced } from './navbar-enhanced';
 export { RotatingText } from './rotating-text';
-export { StatsSection } from './stats-section';
-export { TestimonialsSection } from './testimonials-section';
+export { UseCasesSection } from './use-cases-section';

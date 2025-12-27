@@ -136,8 +136,7 @@ describe('checkScreenplayAccess', () => {
   })
 
   describe('role hierarchy', () => {
-    const roles: ShareRole[] = ['VIEWER', 'COMMENTER', 'EDITOR', 'ADMIN']
-
+    // Available roles for reference: VIEWER, COMMENTER, EDITOR, ADMIN
     it.each([
       ['ADMIN', 'VIEWER', true],
       ['ADMIN', 'COMMENTER', true],

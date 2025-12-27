@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef, RefObject } from 'react';
 
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2.0;
-const ZOOM_STEP = 0.25;
 const WHEEL_SENSITIVITY = 0.002;
 
 // Zoom preset values

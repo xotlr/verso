@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useViewMode, type ViewMode, type PageType } from '@/hooks/use-view-mode'
+import { useViewMode, type PageType } from '@/hooks/use-view-mode'
 
 describe('useViewMode', () => {
   // Mock localStorage

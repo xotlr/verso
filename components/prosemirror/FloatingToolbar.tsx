@@ -113,7 +113,9 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
 
   // Update toolbar position based on selection
   const updatePosition = useCallback(() => {
-    if (!view) {
+    // Check if view is ready (docView is the DOM representation)
+    // docView exists at runtime but isn't in the TypeScript types
+    if (!view || !(view as unknown as { docView: unknown }).docView) {
       setPosition((prev) => ({ ...prev, visible: false }));
       return;
     }
@@ -128,7 +130,7 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
       return;
     }
 
-    // Get selection coordinates
+    // Get selection coordinates (safe now that docView is confirmed)
     const start = view.coordsAtPos(from);
     const end = view.coordsAtPos(to);
 
@@ -225,8 +227,8 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
       className={cn(
         'fixed z-50',
         'flex items-center gap-0.5 p-1',
-        'bg-popover/98 backdrop-blur-lg',
-        'border border-border rounded-2xl shadow-lg',
+        'bg-popover backdrop-blur-sm',
+        'border border-border rounded-2xl shadow-xl',
         'animate-in fade-in-0 zoom-in-95 duration-150',
         className
       )}

@@ -190,7 +190,7 @@ export function StatusContent() {
           <p className="text-muted-foreground">
             Subscribe to status updates via{' '}
             <a
-              href="mailto:status@verso.ink"
+              href="mailto:status@verso.ac"
               className="text-primary hover:underline"
             >
               email

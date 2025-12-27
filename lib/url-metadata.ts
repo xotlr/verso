@@ -132,7 +132,7 @@ export async function fetchUrlMetadata(url: string): Promise<UrlMetadata> {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Verso/1.0; +https://verso.ink)',
+        'User-Agent': 'Mozilla/5.0 (compatible; Verso/1.0; +https://verso.ac)',
         'Accept': 'text/html,application/xhtml+xml',
       },
     });

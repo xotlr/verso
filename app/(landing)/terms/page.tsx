@@ -86,8 +86,8 @@ export default function TermsPage() {
             <h2 className="text-xl font-medium mb-4">Contact</h2>
             <p className="text-muted-foreground mb-4">
               For questions about these Terms, contact us at{" "}
-              <a href="mailto:legal@verso.ink" className="text-primary hover:underline">
-                legal@verso.ink
+              <a href="mailto:legal@verso.ac" className="text-primary hover:underline">
+                legal@verso.ac
               </a>
             </p>
           </section>

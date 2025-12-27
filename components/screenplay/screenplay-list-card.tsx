@@ -19,6 +19,7 @@ import {
   FolderInput,
   FolderPlus,
   Layers,
+  Unlink,
 } from 'lucide-react';
 import { PiFilmScript } from 'react-icons/pi';
 import { HiOutlineRectangleGroup } from 'react-icons/hi2';
@@ -59,6 +60,7 @@ export interface ScreenplayListCardProps {
   onDelete?: () => void;
   onToggleFavorite?: () => void;
   onMoveToProject?: () => void;
+  onRemoveFromProject?: () => void;
   onCreateProject?: () => void;
   onAddToStack?: () => void;
 }
@@ -152,6 +154,7 @@ export function ScreenplayListCard({
   onDelete,
   onToggleFavorite,
   onMoveToProject,
+  onRemoveFromProject,
   onCreateProject,
   onAddToStack,
 }: ScreenplayListCardProps) {
@@ -160,7 +163,7 @@ export function ScreenplayListCard({
   const isCompact = variant === 'compact';
   const isSeries = screenplay.type === 'TV';
 
-  const hasActions = onEdit || onExport || onDelete || onToggleFavorite || onMoveToProject || onCreateProject || onAddToStack;
+  const hasActions = onEdit || onExport || onDelete || onToggleFavorite || onMoveToProject || onRemoveFromProject || onCreateProject || onAddToStack;
 
   // Get author display name - prefer custom author field, then user name
   const authorName = screenplay.author || screenplay.user?.name;
@@ -324,6 +327,12 @@ export function ScreenplayListCard({
                     <DropdownMenuItem onClick={createMenuHandler(onMoveToProject)}>
                       <FolderInput className="mr-2 h-4 w-4" />
                       Move to Project
+                    </DropdownMenuItem>
+                  )}
+                  {onRemoveFromProject && (
+                    <DropdownMenuItem onClick={createMenuHandler(onRemoveFromProject)}>
+                      <Unlink className="mr-2 h-4 w-4" />
+                      Unlink
                     </DropdownMenuItem>
                   )}
                   {onCreateProject && (

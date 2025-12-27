@@ -111,6 +111,8 @@ export function useStackOperations({
         setIsLoading(false);
       }
     },
+    // addToStack is defined below and changes with same deps, intentionally omitted
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [screenplays, stacks, setScreenplays, setStacks]
   );
 

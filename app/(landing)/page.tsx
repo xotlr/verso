@@ -5,10 +5,9 @@ import { Check, ArrowRight, Play } from "lucide-react"
 import { Aurora } from "@/components/aurora"
 import { Noise } from "@/components/noise"
 import { RotatingText } from "@/components/landing/rotating-text"
-import { StatsSection } from "@/components/landing/stats-section"
+import { UseCasesSection } from "@/components/landing/use-cases-section"
 import { FeaturesEnhancedSection } from "@/components/landing/features-enhanced-section"
 import { HowItWorksSection } from "@/components/landing/how-it-works-section"
-import { TestimonialsSection } from "@/components/landing/testimonials-section"
 import { FAQSection } from "@/components/landing/faq-section"
 
 export default function LandingPage() {
@@ -17,12 +16,8 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden -mt-[4.5rem] pt-[4.5rem]">
         {/* Aurora Background - extends behind navbar */}
-        <div className="absolute inset-0 -z-10">
-          <Aurora
-            amplitude={1.4}
-            blend={0.7}
-            speed={0.6}
-          />
+        <div className="absolute inset-0 -z-10 bg-primary">
+          <Aurora speed={1.0} />
         </div>
 
         {/* Noise Overlay */}
@@ -45,9 +40,8 @@ export default function LandingPage() {
             </h1>
 
             <p className="text-base sm:text-lg text-muted-foreground max-w-xl leading-relaxed px-4 sm:px-0">
-              Verso is the modern screenwriting tool that helps you focus on your
-              story. With powerful organization tools, industry-standard formatting,
-              and seamless collaboration.
+              Industry-standard formatting. Real-time collaboration. Runs in your browser.
+              Free to start.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2 sm:pt-4 w-full sm:w-auto px-4 sm:px-0">
@@ -74,24 +68,12 @@ export default function LandingPage() {
               </Button>
             </div>
 
-            {/* Social Proof */}
-            <div className="pt-6 sm:pt-8 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
-              <div className="flex -space-x-2">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div
-                    key={i}
-                    className="w-8 h-8 rounded-full bg-muted border-2 border-background"
-                  />
-                ))}
-              </div>
-              <span>Trusted by 10,000+ screenwriters worldwide</span>
-            </div>
           </div>
         </div>
       </section>
 
-      {/* Stats Section */}
-      <StatsSection />
+      {/* Use Cases Section */}
+      <UseCasesSection />
 
       {/* Features Section (Tabbed) */}
       <FeaturesEnhancedSection />
@@ -99,18 +81,15 @@ export default function LandingPage() {
       {/* How It Works */}
       <HowItWorksSection />
 
-      {/* Testimonials */}
-      <TestimonialsSection />
-
       {/* Pricing Preview Section */}
       <section className="py-24 sm:py-32">
         <div className="container max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center space-y-4 mb-16 sm:mb-20">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium">
-              Simple, transparent pricing
+              Pricing
             </h2>
             <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto">
-              Start free and upgrade as you grow. No hidden fees.
+              Free tier is real. Paid tiers unlock more.
             </p>
           </div>
 
@@ -118,28 +97,28 @@ export default function LandingPage() {
             <PricingCard
               name="Free"
               price="$0"
-              description="Perfect for getting started"
+              description="Write unlimited pages"
               features={[
                 "Unlimited screenplays",
                 "1 project",
                 "PDF export",
-                "Basic analytics",
+                "Index cards",
               ]}
-              cta="Get Started"
+              cta="Start Free"
               ctaHref="/signup"
             />
             <PricingCard
               name="Plus"
               price="$12.99"
               period="/month"
-              description="For serious writers"
+              description="Multiple projects, all exports"
               features={[
                 "Unlimited projects",
-                "All export formats",
+                "FDX + Fountain export",
                 "Character analytics",
                 "Cloud sync",
               ]}
-              cta="Start Plus Trial"
+              cta="Try Plus"
               ctaHref="/signup"
               highlighted
             />
@@ -147,25 +126,25 @@ export default function LandingPage() {
               name="Pro"
               price="$29.99"
               period="/month"
-              description="For writing teams"
+              description="Write with your team"
               features={[
                 "Everything in Plus",
                 "Real-time collaboration",
-                "Up to 5 team members",
+                "Up to 5 writers",
                 "Version history",
               ]}
-              cta="Start Pro Trial"
+              cta="Try Pro"
               ctaHref="/signup"
             />
             <PricingCard
               name="Max"
               price="$99.99"
               period="/user/month"
-              description="For production"
+              description="Production-ready"
               features={[
                 "Everything in Pro",
                 "Unlimited team",
-                "Production tools",
+                "Schedules + budgets",
                 "Admin controls",
               ]}
               cta="Contact Sales"
@@ -182,11 +161,10 @@ export default function LandingPage() {
       <section className="py-24 sm:py-32 bg-primary text-primary-foreground">
         <div className="container max-w-3xl mx-auto px-4 sm:px-6 text-center space-y-6 sm:space-y-8">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-medium">
-            Ready to write your masterpiece?
+            Start writing now
           </h2>
           <p className="text-base sm:text-lg opacity-80 max-w-xl mx-auto">
-            Join thousands of screenwriters who trust Verso for their creative
-            work. Start free, upgrade when you need to.
+            No credit card. No setup. Open Verso and write.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center pt-2">
             <Button
@@ -238,32 +216,32 @@ function PricingCard({
 }) {
   return (
     <div
-      className={`p-4 sm:p-6 rounded-xl border transition-all duration-300 ${
+      className={`relative p-4 sm:p-6 rounded-xl border transition-all duration-300 hover:-translate-y-1 ${
         highlighted
-          ? "border-primary bg-primary/5 shadow-lg lg:scale-[1.02] ring-2 ring-primary/20"
-          : "bg-card hover:border-border/80 hover:shadow-md"
+          ? "border-primary bg-primary text-primary-foreground shadow-lg lg:scale-[1.02] hover:shadow-xl"
+          : "bg-card hover:border-border/80 hover:shadow-lg"
       }`}
     >
       {highlighted && (
-        <Badge className="mb-2 sm:mb-4 font-normal text-xs bg-primary text-primary-foreground">Most Popular</Badge>
+        <Badge variant="secondary" className="absolute -top-3 left-1/2 -translate-x-1/2 font-normal text-xs text-muted-foreground uppercase tracking-wide">Most Popular</Badge>
       )}
       <h3 className="text-base sm:text-lg font-medium">{name}</h3>
       <div className="mt-1 sm:mt-2 mb-2 sm:mb-4">
         <span className="text-2xl sm:text-4xl font-medium">{price}</span>
-        {period && <span className="text-xs sm:text-sm text-muted-foreground/60">{period}</span>}
+        {period && <span className={`text-xs sm:text-sm ${highlighted ? "text-primary-foreground/60" : "text-muted-foreground/60"}`}>{period}</span>}
       </div>
-      <p className="text-xs sm:text-sm text-muted-foreground/80 mb-3 sm:mb-6 line-clamp-2 sm:line-clamp-none">{description}</p>
+      <p className={`text-xs sm:text-sm mb-3 sm:mb-6 line-clamp-2 sm:line-clamp-none ${highlighted ? "text-primary-foreground/80" : "text-muted-foreground/80"}`}>{description}</p>
       <ul className="space-y-2 sm:space-y-3 mb-3 sm:mb-6">
         {features.map((feature, i) => (
-          <li key={i} className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm font-light">
-            <Check className="h-3 w-3 sm:h-4 sm:w-4 text-primary flex-shrink-0" />
+          <li key={i} className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm font-normal">
+            <Check className={`h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 ${highlighted ? "text-primary-foreground" : "text-primary"}`} />
             <span className="line-clamp-1 sm:line-clamp-none">{feature}</span>
           </li>
         ))}
       </ul>
       <Button
-        className="w-full h-9 sm:h-11 text-xs sm:text-sm group"
-        variant={highlighted ? "default" : "outline"}
+        className={`w-full h-9 sm:h-11 text-xs sm:text-sm group rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${highlighted ? "bg-black/70 text-white/90 hover:bg-black hover:text-white" : "bg-white/70 text-black/70 hover:bg-white hover:text-black"}`}
+        variant="ghost"
         asChild
       >
         <Link href={ctaHref} className="flex items-center justify-center gap-1 sm:gap-2">

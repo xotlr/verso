@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import type {
   PageIdentifier,
   ElementType,
-  PageConfig,
   Element,
 } from '@/lib/verso/types'
 
