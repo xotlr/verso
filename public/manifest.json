@@ -1,7 +1,7 @@
 {
   "name": "VERSO - Professional Screenplay Editor",
   "short_name": "VERSO",
-  "description": "Write and format screenplays with AI assistance",
+  "description": "Professional screenwriting software. Industry-standard formatting, real-time collaboration, runs in your browser.",
   "start_url": "/home",
   "display": "standalone",
   "background_color": "#fafafa",

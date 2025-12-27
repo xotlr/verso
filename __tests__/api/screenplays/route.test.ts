@@ -267,25 +267,7 @@ describe('POST /api/screenplays', () => {
     expect(data.title).toBe('My Screenplay')
   })
 
-  it('enforces plan limits', async () => {
-    mockAuth.mockResolvedValue({
-      user: { id: 'user-1', name: 'Test User', email: 'test@example.com' },
-      expires: new Date(Date.now() + 86400000).toISOString(),
-    })
-
-    mockPrisma.user.findUnique.mockResolvedValue({ plan: 'FREE' } as never)
-    mockPrisma.screenplay.count.mockResolvedValue(3) // At FREE limit
-
-    const request = new Request('http://localhost/api/screenplays', {
-      method: 'POST',
-      body: JSON.stringify({ title: 'My Screenplay' }),
-    })
-    const response = await POST(request)
-    const data = await response.json()
-
-    expect(response.status).toBe(403)
-    expect(data.code).toBe('PLAN_LIMIT_EXCEEDED')
-  })
+  // Plan limits for standalone screenplays removed - unlimited for all plans
 
   it('verifies project access', async () => {
     mockAuth.mockResolvedValue({

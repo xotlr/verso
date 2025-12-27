@@ -7,13 +7,7 @@ import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 import { screenplaySchema } from "@/lib/prosemirror/schema"
 import { serializeForStorage, plainTextToProseMirror } from "@/lib/prosemirror/serialization"
 
-// Plan limits for screenplay creation
-const PLAN_LIMITS: Record<string, number> = {
-  FREE: 3,
-  PLUS: 20,
-  PRO: 50,
-  TEAM: 100,
-}
+// Plan limits removed - unlimited standalone screenplays for all plans
 
 // GET /api/screenplays - List all screenplays for the user (standalone and in projects)
 export async function GET(request: Request) {
@@ -237,33 +231,6 @@ export async function POST(request: Request) {
       genre,
       author,
     } = result.data
-
-    // Enforce plan limits for standalone screenplays
-    if (!projectId && !teamId) {
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: { plan: true },
-      })
-
-      const plan = user?.plan || "FREE"
-      const limit = PLAN_LIMITS[plan]
-
-      const screenplayCount = await prisma.screenplay.count({
-        where: { userId: session.user.id, projectId: null, teamId: null },
-      })
-
-      if (screenplayCount >= limit) {
-        return NextResponse.json(
-          {
-            error: `You've reached the limit of ${limit} standalone screenplays on the ${plan} plan. Upgrade or add to a project.`,
-            code: "PLAN_LIMIT_EXCEEDED",
-            limit,
-            current: screenplayCount,
-          },
-          { status: 403 }
-        )
-      }
-    }
 
     // If projectId provided, verify user owns it or is a team member
     if (projectId) {

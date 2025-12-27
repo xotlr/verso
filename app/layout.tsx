@@ -75,8 +75,33 @@ const montserrat = Montserrat({
 
 export const metadata: Metadata = {
   title: "VERSO - Professional Screenplay Editor",
-  description: "Write and format screenplays with AI assistance",
+  description: "Professional screenwriting software. Industry-standard formatting, real-time collaboration, runs in your browser.",
   manifest: "/manifest.json",
+  keywords: ["screenwriting", "screenplay", "script", "screenwriter", "film", "television", "writing software", "final draft alternative"],
+  authors: [{ name: "Verso" }],
+  creator: "Verso",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://verso.ink",
+    siteName: "VERSO",
+    title: "VERSO - Professional Screenplay Editor",
+    description: "Professional screenwriting software. Industry-standard formatting, real-time collaboration, runs in your browser.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "VERSO - Professional Screenplay Editor",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "VERSO - Professional Screenplay Editor",
+    description: "Professional screenwriting software. Industry-standard formatting, real-time collaboration, runs in your browser.",
+    images: ["/og-image.png"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
