@@ -16,7 +16,7 @@ export default function LandingPage() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden -mt-[4.5rem] pt-[4.5rem] rounded-b-[3rem]">
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden -mt-20 pt-20 rounded-b-[3rem]">
         {/* Aurora Background - extends behind navbar */}
         <div className="absolute inset-0 -z-10 bg-primary">
           <Aurora speed={1.0} />

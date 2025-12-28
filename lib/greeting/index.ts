@@ -1,26 +1,6 @@
 /**
  * Greeting System
- * Contextual, behavior-reactive greetings
+ * Re-exports from unified voice system for backward compatibility
  */
 
-// Types
-export * from './types';
-
-// Constants
-export * from './constants';
-
-// Core functions
-export {
-  getContextualGreeting,
-  shouldShowName,
-  pickSmartGreeting,
-  getDaysSinceLastWrite,
-  getWordMilestone,
-  getScreenplayMilestone,
-  isWeekend,
-  getTimePeriod,
-  getDailySeed,
-} from './contextual-greeting';
-
-// Greeting pools (for testing/extension)
-export * from './greeting-pools';
+export * from '../voice/features/greeting';
