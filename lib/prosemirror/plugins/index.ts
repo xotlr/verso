@@ -16,6 +16,7 @@ import { createTypewriterScrollPlugin } from './typewriter-scroll';
 import { createShotMarkersPlugin, ShotMarker } from './shot-markers';
 import { createPaginationChangeTracker } from './pagination-change-tracker';
 import { createYjsCollaborationPlugins, type YjsCollaborationPluginOptions } from './yjs-collaboration';
+import { createTypingMetricsPlugin, type TypingMetricsOptions } from './typing-metrics';
 
 export interface CreatePluginsOptions {
   // Enable input rules for auto-formatting
@@ -60,6 +61,10 @@ export interface CreatePluginsOptions {
   yjs?: boolean;
   // Yjs plugin options
   yjsOptions?: YjsCollaborationPluginOptions;
+  // Enable typing metrics for debug panel (dev only)
+  typingMetrics?: boolean;
+  // Typing metrics options
+  typingMetricsOptions?: TypingMetricsOptions;
 }
 
 const defaultOptions: CreatePluginsOptions = {
@@ -77,6 +82,7 @@ const defaultOptions: CreatePluginsOptions = {
   typewriterScrollEnabled: false, // Off by default, user can enable in settings
   shotMarkers: true, // Enabled by default for shot-to-text linking
   paginationChangeTracker: true, // Enabled by default for incremental pagination
+  typingMetrics: process.env.NODE_ENV === 'development', // Dev-only
 };
 
 /**
@@ -168,6 +174,11 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
     onCoverPageDetected: opts.onCoverPageDetected,
   }));
 
+  // Typing metrics (dev only)
+  if (opts.typingMetrics) {
+    plugins.push(createTypingMetricsPlugin(opts.typingMetricsOptions || {}));
+  }
+
   return plugins;
 }
 
@@ -236,3 +247,11 @@ export {
   createClearChangesTr,
 } from './pagination-change-tracker';
 export type { ChangeTrackerState } from './pagination-change-tracker';
+
+// Typing metrics plugin exports (dev only)
+export {
+  createTypingMetricsPlugin,
+  typingMetricsPluginKey,
+  TYPING_METRICS_ENABLE_META,
+} from './typing-metrics';
+export type { TypingMetricsOptions, TypingMetricsState } from './typing-metrics';

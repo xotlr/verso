@@ -61,6 +61,9 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     yXmlFragment,
     awareness,
     yjsUserInfo,
+    // Debug metrics callbacks (dev only)
+    onKeystrokeLatency,
+    onTransactionTime,
   } = options;
 
   // Track if Yjs collaboration is enabled
@@ -162,6 +165,12 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
       } : undefined,
       // Disable standard history when Yjs is enabled (Yjs has its own undo manager)
       history: !isYjsEnabled,
+      // Debug typing metrics (dev only)
+      typingMetrics: process.env.NODE_ENV === 'development',
+      typingMetricsOptions: {
+        onLatencyMeasured: onKeystrokeLatency,
+        onTransactionProcessed: onTransactionTime,
+      },
     });
 
     // Create state

@@ -34,6 +34,7 @@ import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plu
 import { updateTypewriterScrollSettings } from '@/lib/prosemirror/plugins';
 import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
 import { useSettings } from '@/contexts/settings-context';
+import { useDebugMetrics } from '@/components/analytics/debug-metrics-context';
 import '@/styles/editor/prosemirror.css';
 
 export type ViewMode = 'discrete' | 'continuous';
@@ -236,6 +237,9 @@ export function ProseMirrorEditor({
     applyLayoutCSS(DEFAULT_FEATURE_FILM_CONFIG);
   }, []);
 
+  // Debug metrics context (dev only) - get early for passing to hook
+  const debugMetrics = useDebugMetrics();
+
   const {
     containerRef,
     currentElementType,
@@ -262,6 +266,9 @@ export function ProseMirrorEditor({
     yXmlFragment,
     awareness,
     yjsUserInfo,
+    // Debug metrics callbacks (dev only)
+    onKeystrokeLatency: debugMetrics?.pushKeystrokeLatency,
+    onTransactionTime: debugMetrics?.setTransactionTime,
   });
 
   // In timelapse mode, use pre-computed cached pagination for accurate page frames
@@ -298,6 +305,13 @@ export function ProseMirrorEditor({
       applyLayoutMetadataCSS(paginationResult.stats.layout);
     }
   }, [paginationResult]);
+
+  // Push WASM pagination stats to debug panel (dev only)
+  useEffect(() => {
+    if (!debugMetrics || !paginationResult?.stats) return;
+    debugMetrics.setWasmStats(paginationResult.stats, paginationResult.stats.layout ?? null);
+    debugMetrics.setWasmReady(true);
+  }, [debugMetrics, paginationResult]);
 
   // Create page frames from WASM pagination result
   // WASM now handles all positioning including title page offset

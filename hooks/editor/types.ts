@@ -33,6 +33,12 @@ export interface UseProseMirrorEditorOptions {
     name: string;
     color: string;
   };
+
+  // Debug metrics callbacks (dev only)
+  /** Callback when keystroke latency is measured */
+  onKeystrokeLatency?: (latencyMs: number) => void;
+  /** Callback when transaction is processed */
+  onTransactionTime?: (timeMs: number) => void;
 }
 
 /**

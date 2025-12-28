@@ -9,6 +9,7 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { WebVitals } from "@/components/analytics/web-vitals";
 import { PerformancePanel } from "@/components/analytics/performance-panel";
+import { DebugMetricsProvider } from "@/components/analytics/debug-metrics-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -155,9 +156,11 @@ export default function RootLayout({
             <SettingsProvider>
               <ShortcutsProvider>
                 <TeamProvider>
-                  {children}
-                  <Toaster position="bottom-right" />
-                  <PerformancePanel />
+                  <DebugMetricsProvider>
+                    {children}
+                    <Toaster position="bottom-right" />
+                    <PerformancePanel />
+                  </DebugMetricsProvider>
                 </TeamProvider>
               </ShortcutsProvider>
             </SettingsProvider>
