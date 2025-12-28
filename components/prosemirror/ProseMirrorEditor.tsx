@@ -307,11 +307,15 @@ export function ProseMirrorEditor({
   }, [paginationResult]);
 
   // Push WASM pagination stats to debug panel (dev only)
+  // Extract stable callbacks to avoid infinite loop - the context object changes
+  // when state updates, but the callbacks themselves are stable (useCallback with [])
+  const setWasmStats = debugMetrics?.setWasmStats;
+  const setWasmReady = debugMetrics?.setWasmReady;
   useEffect(() => {
-    if (!debugMetrics || !paginationResult?.stats) return;
-    debugMetrics.setWasmStats(paginationResult.stats, paginationResult.stats.layout ?? null);
-    debugMetrics.setWasmReady(true);
-  }, [debugMetrics, paginationResult]);
+    if (!setWasmStats || !setWasmReady || !paginationResult?.stats) return;
+    setWasmStats(paginationResult.stats, paginationResult.stats.layout ?? null);
+    setWasmReady(true);
+  }, [setWasmStats, setWasmReady, paginationResult]);
 
   // Create page frames from WASM pagination result
   // WASM now handles all positioning including title page offset

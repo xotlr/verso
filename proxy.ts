@@ -71,7 +71,8 @@ function addSecurityHeaders(response: NextResponse, host: string): NextResponse 
   const cspDirectives = [
     "default-src 'self'",
     // Scripts: self + inline (Next.js requires this) + eval in dev only
-    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://js.stripe.com https://challenges.cloudflare.com`,
+    // 'wasm-unsafe-eval' needed for WASM pagination engine (more secure than 'unsafe-eval' - only allows WASM)
+    `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""} https://js.stripe.com https://challenges.cloudflare.com`,
     // Styles: self + inline (required for ProseMirror and Tailwind)
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     // Images: self + data URIs + blob + external image hosts
