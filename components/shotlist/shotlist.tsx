@@ -12,7 +12,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-  ArrowLeft,
   ChevronDown,
   ChevronRight,
   Plus,
@@ -25,7 +24,6 @@ interface ShotlistProps {
   scenesWithShots: SceneWithShots[];
   onShotsChange: (shots: Shot[]) => void;
   onSceneClick: (sceneId: string) => void;
-  onBackToEditor: () => void;
 }
 
 export function Shotlist({
@@ -33,7 +31,6 @@ export function Shotlist({
   scenesWithShots,
   onShotsChange,
   onSceneClick,
-  onBackToEditor,
 }: ShotlistProps) {
   const [expandedScenes, setExpandedScenes] = useState<Set<string>>(
     new Set(scenesWithShots.map((s) => s.sceneId))
@@ -177,41 +174,8 @@ export function Shotlist({
     [screenplayId, scenesWithShots, onShotsChange]
   );
 
-  const totalShots = scenesWithShots.reduce(
-    (acc, scene) => acc + scene.shots.length,
-    0
-  );
-
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onBackToEditor}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Script
-          </Button>
-          <div className="h-5 w-px bg-border" />
-          <div className="flex items-center gap-2">
-            <Clapperboard className="h-5 w-5 text-muted-foreground" />
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Shotlist</h1>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
-            {totalShots} shot{totalShots !== 1 ? "s" : ""}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            across {scenesWithShots.length} scene{scenesWithShots.length !== 1 ? "s" : ""}
-          </span>
-        </div>
-      </div>
-
+    <div className="flex flex-col h-full">
       {/* Scene list */}
       <ScrollArea className="flex-1">
         <div className="p-6 space-y-4">

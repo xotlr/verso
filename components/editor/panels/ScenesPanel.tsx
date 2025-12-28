@@ -13,6 +13,7 @@ import type { SceneInfo } from '@/hooks/editor/use-prosemirror-editor';
 import type { EditorView } from 'prosemirror-view';
 import { TextSelection } from 'prosemirror-state';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { PanelContainer } from './PanelContainer';
 import { PanelHeader } from './PanelHeader';
 import { PanelEmptyState } from './PanelEmptyState';
 import { usePanelDndSensors } from './use-panel-dnd';
@@ -444,12 +445,14 @@ export function ScenesPanel({
   );
 
   return (
-    <div className={cn('flex flex-col overflow-hidden', className)}>
+    <PanelContainer className={className}>
       <PanelHeader
         title="Scenes"
+        description="Navigate your script"
         count={scenes.length}
         onAdd={onAddScene}
         addLabel="Add scene"
+        viewHref={screenplayId ? `/cards/${screenplayId}` : undefined}
       />
 
       {/* Search & Filters */}
@@ -522,6 +525,6 @@ export function ScenesPanel({
           )}
         </div>
       </ScrollArea>
-    </div>
+    </PanelContainer>
   );
 }

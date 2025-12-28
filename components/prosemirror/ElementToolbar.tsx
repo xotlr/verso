@@ -76,8 +76,11 @@ export function ElementToolbar({ view, currentElementType, className }: ElementT
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const { isMobile } = useSidebar();
 
-  // Elements to show in toolbar (memoized to avoid recreating on each render)
-  const toolbarElements = useMemo<ElementType[]>(() => [...ELEMENT_CYCLE_ORDER], []);
+  // Elements to show in toolbar (shot excluded - available via right-click only)
+  const toolbarElements = useMemo<ElementType[]>(
+    () => ELEMENT_CYCLE_ORDER.filter(type => type !== 'shot'),
+    []
+  );
 
   // Toolbar should be visible if timer says so OR if mouse is hovering
   const shouldBeVisible = isVisible || isHovering;
@@ -175,7 +178,7 @@ export function ElementToolbar({ view, currentElementType, className }: ElementT
         'left-[calc(50%_+_var(--sidebar-offset))] -translate-x-1/2',
         // Horizontal layout like classic editor
         'items-center gap-0.5 p-1',
-        'bg-background rounded-[var(--radius)] border border-border shadow-lg',
+        'bg-background rounded-[var(--radius)] border border-border/30 shadow-lg',
         // Contextual visibility
         'transition-opacity duration-300',
         shouldBeVisible ? 'opacity-100' : 'opacity-0 pointer-events-none',

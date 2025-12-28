@@ -10,7 +10,6 @@ import {
   Plus,
   LayoutGrid,
   Rows3,
-  BarChart3,
   PenTool,
   LogOut,
   Waypoints,
@@ -206,11 +205,6 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
       title: "Index Cards",
       url: `/cards/${screenplayId}`,
       icon: LayoutGrid,
-    },
-    {
-      title: "Reports",
-      url: `/visualization/${screenplayId}`,
-      icon: BarChart3,
     },
   ] : [];
 

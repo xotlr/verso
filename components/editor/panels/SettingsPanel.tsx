@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Monitor, Layout, Type, Accessibility, RotateCcw, Sparkles } from 'lucide-react';
+import { PanelContainer } from './PanelContainer';
 import { PanelHeader } from './PanelHeader';
+import { PanelTabs, type PanelTab } from './PanelTabs';
+import { PanelContent } from './PanelContent';
+import { PanelFooter } from './PanelFooter';
 import { cn } from '@/lib/utils';
 import { useSettings } from '@/contexts/settings-context';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -23,13 +26,6 @@ interface SettingsPanelProps {
 }
 
 type SectionId = 'interface' | 'layout' | 'editor' | 'accessibility';
-
-const sections: { id: SectionId; icon: React.ReactNode; label: string }[] = [
-  { id: 'interface', icon: <Monitor className="h-4 w-4" />, label: 'Interface' },
-  { id: 'layout', icon: <Layout className="h-4 w-4" />, label: 'Layout' },
-  { id: 'editor', icon: <Type className="h-4 w-4" />, label: 'Editor' },
-  { id: 'accessibility', icon: <Accessibility className="h-4 w-4" />, label: 'Access' },
-];
 
 interface SettingsRowProps {
   label: string;
@@ -75,6 +71,13 @@ export function SettingsPanel({ className }: SettingsPanelProps) {
     updateEditorSettings,
     resetSettings,
   } = useSettings();
+
+  const tabs: PanelTab<SectionId>[] = useMemo(() => [
+    { id: 'interface', icon: <Monitor className="h-4 w-4" />, label: 'Interface' },
+    { id: 'layout', icon: <Layout className="h-4 w-4" />, label: 'Layout' },
+    { id: 'editor', icon: <Type className="h-4 w-4" />, label: 'Editor' },
+    { id: 'accessibility', icon: <Accessibility className="h-4 w-4" />, label: 'Access' },
+  ], []);
 
   const renderSectionContent = () => {
     switch (activeSection) {
@@ -265,39 +268,21 @@ export function SettingsPanel({ className }: SettingsPanelProps) {
   };
 
   return (
-    <div className={cn('flex flex-col overflow-hidden', className)}>
-      <PanelHeader title="Settings" />
+    <PanelContainer className={className}>
+      <PanelHeader title="Settings" description="Editor preferences" />
 
-      {/* Section Tabs */}
-      <div className="flex items-center justify-around px-2 py-2 border-b border-border shrink-0">
-        {sections.map((section) => (
-          <button
-            key={section.id}
-            onClick={() => setActiveSection(section.id)}
-            className={cn(
-              'flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors',
-              'hover:bg-accent/50',
-              activeSection === section.id
-                ? 'text-primary bg-accent/30'
-                : 'text-muted-foreground'
-            )}
-            title={section.label}
-          >
-            {section.icon}
-            <span className="text-[10px] font-medium">{section.label}</span>
-          </button>
-        ))}
-      </div>
+      <PanelTabs
+        tabs={tabs}
+        activeTab={activeSection}
+        onTabChange={setActiveSection}
+        variant="icon"
+      />
 
-      {/* Content */}
-      <ScrollArea className="flex-1 min-h-0">
-        <div className="p-4">
-          {renderSectionContent()}
-        </div>
-      </ScrollArea>
+      <PanelContent>
+        {renderSectionContent()}
+      </PanelContent>
 
-      {/* Footer */}
-      <div className="px-4 py-3 border-t border-border shrink-0">
+      <PanelFooter>
         <button
           onClick={resetSettings}
           className="w-full flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors py-2 rounded-lg hover:bg-accent/50"
@@ -305,7 +290,7 @@ export function SettingsPanel({ className }: SettingsPanelProps) {
           <RotateCcw className="h-4 w-4" />
           Reset to defaults
         </button>
-      </div>
-    </div>
+      </PanelFooter>
+    </PanelContainer>
   );
 }

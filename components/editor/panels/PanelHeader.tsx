@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 
 interface PanelHeaderProps {
   title: string;
+  /** Optional description shown below the title */
+  description?: string;
   count?: number;
   onAdd?: () => void;
   addLabel?: string;
@@ -17,6 +19,7 @@ interface PanelHeaderProps {
 
 export function PanelHeader({
   title,
+  description,
   count,
   onAdd,
   addLabel = 'Add',
@@ -25,9 +28,14 @@ export function PanelHeader({
 }: PanelHeaderProps) {
   return (
     <div className={cn('px-4 py-3 border-b border-border flex items-center gap-2', className)}>
-      <h2 className="font-semibold text-sm">{title}</h2>
+      <div className="flex-1 min-w-0">
+        <h2 className="font-semibold text-sm">{title}</h2>
+        {description && (
+          <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+        )}
+      </div>
       {count !== undefined && (
-        <span className="text-[10px] text-muted-foreground ml-auto">
+        <span className="text-[10px] text-muted-foreground">
           {count}
         </span>
       )}

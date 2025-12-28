@@ -77,7 +77,7 @@ export function EditorBottomNav() {
   const visiblePanel = mobileOpen ? activePanel : null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-background/95 backdrop-blur-lg border-t border-border safe-area-bottom pointer-events-auto">
+    <nav className="fixed bottom-0 left-0 right-0 z-[100] md:hidden bg-sidebar/95 backdrop-blur-lg border-t border-border safe-area-bottom pointer-events-auto">
       <div className="relative flex items-center h-14">
         <TabButton
           panel="scenes"

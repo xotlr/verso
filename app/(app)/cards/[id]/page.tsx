@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { IndexCards, IndexCard } from "@/components/index-cards";
 import { PageLayout } from "@/components/layouts/page-layout";
+import { PageHeader } from "@/components/layouts/page-header";
 import { Scene, Location } from "@/types/screenplay";
 import { deserializeFromStorage } from "@/lib/prosemirror/serialization";
 import { extractScenes } from "@/hooks/editor/document-extractors";
@@ -188,6 +189,12 @@ export default function CardsPage() {
 
   return (
     <PageLayout>
+      <PageHeader
+        title="Index Cards"
+        description="Drag to reorder scenes. Click status to change."
+        backHref={`/screenplay/${id}`}
+        stats={<span>{scenes.length} scene{scenes.length !== 1 ? 's' : ''}</span>}
+      />
       <IndexCards
         scenes={scenes}
         cards={cards}

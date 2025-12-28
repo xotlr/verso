@@ -39,6 +39,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { CharacterInfo } from '@/hooks/editor/use-prosemirror-editor';
+import { PanelContainer } from './PanelContainer';
 import { PanelHeader } from './PanelHeader';
 import { PanelSearch } from './PanelSearch';
 import { PanelEmptyState } from './PanelEmptyState';
@@ -555,9 +556,10 @@ export const CharactersPanel = React.memo(function CharactersPanel({
   }, [filteredCharacters]);
 
   return (
-    <div className={cn('flex flex-col overflow-hidden', className)}>
+    <PanelContainer className={className}>
       <PanelHeader
         title="Characters"
+        description="Track speaking roles"
         count={characters.length}
         onAdd={onAddCharacter}
         addLabel="Add character"
@@ -683,6 +685,6 @@ export const CharactersPanel = React.memo(function CharactersPanel({
           </ScrollArea>
         </>
       )}
-    </div>
+    </PanelContainer>
   );
 });

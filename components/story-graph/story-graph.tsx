@@ -9,8 +9,6 @@ import { Beat } from '@/components/beat-board';
 import { GraphFilterState, GraphLayoutType, StoryNode, GraphLink } from '@/types/graph';
 import { useGraphData } from './hooks/use-graph-data';
 import { StoryGraphToolbar } from './story-graph-toolbar';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft } from 'lucide-react';
 import { sanitizeForD3Text } from '@/lib/utils';
 
 interface StoryGraphProps {
@@ -20,7 +18,6 @@ interface StoryGraphProps {
   characters: Character[];
   locations: Location[];
   beats: Beat[];
-  onBackToEditor?: () => void;
   onSceneClick?: (sceneId: string) => void;
 }
 
@@ -38,7 +35,6 @@ export function StoryGraph({
   characters,
   locations,
   beats,
-  onBackToEditor,
   onSceneClick,
 }: StoryGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -371,35 +367,6 @@ export function StoryGraph({
 
   return (
     <div className="w-full h-full flex flex-col bg-background">
-      {/* Header */}
-      <div className="border-b border-border bg-card px-6 py-5 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {onBackToEditor && (
-              <Button variant="ghost" size="sm" onClick={onBackToEditor}>
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Back to Editor
-              </Button>
-            )}
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Story Graph</h1>
-              <p className="text-sm text-muted-foreground mt-1">{screenplayTitle}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
-              {scenes.length} scenes
-            </span>
-            <span className="bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
-              {characters.length} characters
-            </span>
-            <span className="bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
-              {beats.length} beats
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* Graph container */}
       <div ref={containerRef} className="flex-1 relative overflow-hidden">
         <StoryGraphToolbar

@@ -6,7 +6,7 @@
 export const toolbarStyles = {
   // Container styles
   container: {
-    base: 'bg-background border border-border/50 shadow-lg shadow-black/10',
+    base: 'bg-sidebar border border-border/50 shadow-lg shadow-black/10',
     rounded: 'rounded-lg',
     padding: {
       horizontal: 'px-2 gap-0.5',

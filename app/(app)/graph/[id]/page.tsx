@@ -11,6 +11,7 @@ import { safeGetItem, getStorageErrorMessage } from '@/lib/storage';
 import { AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageLayout } from '@/components/layouts/page-layout';
+import { PageHeader } from '@/components/layouts/page-header';
 
 interface ScreenplayData {
   id: string;
@@ -109,10 +110,6 @@ export default function GraphPage() {
     }
   }, [screenplay?.title]);
 
-  const handleBackToEditor = () => {
-    router.push(`/screenplay/${screenplayId}`);
-  };
-
   const handleSceneClick = (sceneId: string) => {
     // Navigate to editor with scene selected
     router.push(`/screenplay/${screenplayId}?scene=${sceneId}`);
@@ -179,6 +176,18 @@ export default function GraphPage() {
 
   return (
     <PageLayout>
+      <PageHeader
+        title="Story Graph"
+        description="Visualize your screenplay structure and connections"
+        backHref={`/screenplay/${screenplayId}`}
+        stats={
+          <>
+            <span>{scenes.length} scenes</span>
+            <span>{characters.length} characters</span>
+            <span>{beats.length} beats</span>
+          </>
+        }
+      />
       <ErrorBoundary componentName="Story Graph">
         {/* Storage warning banner */}
         {storageWarning && (
@@ -204,7 +213,6 @@ export default function GraphPage() {
           characters={characters}
           locations={locations}
           beats={beats}
-          onBackToEditor={handleBackToEditor}
           onSceneClick={handleSceneClick}
         />
       </ErrorBoundary>

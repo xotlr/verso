@@ -3,14 +3,11 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { CiStickyNote } from 'react-icons/ci';
 import {
   Plus,
-  Search,
-  X,
   MoreHorizontal,
   Trash2,
   Pin,
@@ -41,7 +38,9 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { PanelContainer } from './PanelContainer';
 import { PanelHeader } from './PanelHeader';
+import { PanelSearch } from './PanelSearch';
 
 export interface Note {
   id: string;
@@ -450,9 +449,10 @@ export function NotesPanel({
   }, [filteredNotes]);
 
   return (
-    <div className={cn('flex flex-col overflow-hidden', className)}>
+    <PanelContainer className={className}>
       <PanelHeader
         title="Notes"
+        description="Comments and reminders"
         count={notes.length}
         onAdd={handleAddNote}
         addLabel="Add note"
@@ -487,24 +487,11 @@ export function NotesPanel({
           {/* Search */}
           {notes.length > 3 && (
             <div className="p-3 border-b border-border shrink-0">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search notes..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-8 pl-8 pr-8 text-xs"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
+              <PanelSearch
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search notes..."
+              />
             </div>
           )}
 
@@ -548,6 +535,6 @@ export function NotesPanel({
           </ScrollArea>
         </>
       )}
-    </div>
+    </PanelContainer>
   );
 }

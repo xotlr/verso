@@ -9,8 +9,8 @@ import { ActId, SceneMeta, ActConfig, DEFAULT_ACTS } from "@/types/beat-board";
 import { deserializeFromStorage } from "@/lib/prosemirror/serialization";
 import { extractScenes } from "@/hooks/editor/document-extractors";
 import type { SceneInfo } from "@/hooks/editor/types";
-import { Loader2, ChevronLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
+import { PageHeader } from "@/components/layouts/page-header";
 
 // Convert SceneInfo from document extractor to Scene type
 function convertToScene(info: SceneInfo, index: number): Scene {
@@ -184,28 +184,12 @@ export default function BoardPage() {
 
   return (
     <PageLayout>
-      {/* Page Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-4 mb-4">
-          <Button variant="ghost" size="sm" onClick={handleBackToEditor}>
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back to Editor
-          </Button>
-        </div>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Structure</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Organize your scenes into acts
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">
-              {assignedCount} of {scenes.length} scene{scenes.length !== 1 ? 's' : ''} assigned
-            </span>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Structure"
+        description="Organize your scenes into acts"
+        backHref={`/screenplay/${id}`}
+        stats={<span>{assignedCount} of {scenes.length} scene{scenes.length !== 1 ? 's' : ''} assigned</span>}
+      />
 
       {/* Board Content */}
       {scenes.length === 0 ? (

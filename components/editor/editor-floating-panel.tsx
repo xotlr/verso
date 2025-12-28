@@ -108,7 +108,7 @@ export function EditorFloatingPanel({
       <div
         className={cn(
           "fixed right-4 top-20 bottom-4 w-80 z-50",
-          "bg-card/95 backdrop-blur-md border border-border/50 rounded-2xl shadow-2xl",
+          "bg-sidebar/95 backdrop-blur-md border border-border/50 rounded-2xl shadow-2xl",
           "flex flex-col overflow-hidden",
           "transform transition-all duration-300 ease-out",
           isOpen

@@ -3,15 +3,12 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Clapperboard,
   ChevronDown,
   ChevronUp,
-  Search,
-  X,
   Plus,
   MoreHorizontal,
   Edit2,
@@ -55,7 +52,9 @@ import {
   ShotStatus,
 } from '@/types/shotlist';
 import { getShotDisplayName } from '@/lib/screenplay/patterns';
+import { PanelContainer } from './PanelContainer';
 import { PanelHeader } from './PanelHeader';
+import { PanelSearch } from './PanelSearch';
 
 interface ShotlistPanelProps {
   screenplayId: string;
@@ -386,9 +385,10 @@ export function ShotlistPanel({
   }, [scenesWithShots]);
 
   return (
-    <div className={cn('flex flex-col overflow-hidden', className)}>
+    <PanelContainer className={className}>
       <PanelHeader
         title="Shotlist"
+        description="Plan your shots"
         count={totalShots}
         viewHref={`/shotlist/${screenplayId}`}
       />
@@ -407,26 +407,11 @@ export function ShotlistPanel({
           {/* Search and Filter */}
           {totalShots > 3 && (
             <div className="p-3 space-y-2 border-b border-border shrink-0">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search shots..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-8 pl-8 pr-8 text-xs"
-                />
-                {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-              </div>
+              <PanelSearch
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search shots..."
+              />
               <div className="flex gap-1 flex-wrap">
                 {(['all', 'planned', 'setup', 'shot', 'approved'] as const).map(
                   (status) => (
@@ -627,6 +612,6 @@ export function ShotlistPanel({
           </ScrollArea>
         </>
       )}
-    </div>
+    </PanelContainer>
   );
 }

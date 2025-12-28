@@ -311,29 +311,18 @@ export function IndexCards({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b border-border bg-card px-6 py-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Index Cards</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Drag to reorder scenes. Click status to change.
-            </p>
-          </div>
-          <div className="hidden sm:flex items-center gap-3">
-            {Object.entries(STATUS_COLORS).map(([key, value]) => (
-              <div key={key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <div className={cn('w-2 h-2 rounded-full', value.dot)} />
-                <span>{value.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* Cards Grid */}
       <ScrollArea className="flex-1">
-      <div className="p-6">
+      <div className="p-6 space-y-4">
+        {/* Status legend */}
+        <div className="hidden sm:flex items-center gap-3 justify-end">
+          {Object.entries(STATUS_COLORS).map(([key, value]) => (
+            <div key={key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className={cn('w-2 h-2 rounded-full', value.dot)} />
+              <span>{value.label}</span>
+            </div>
+          ))}
+        </div>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}

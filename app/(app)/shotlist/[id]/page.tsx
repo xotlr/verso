@@ -8,6 +8,7 @@ import { parseScreenplayText } from "@/lib/screenplay/utils";
 import { Shot, SceneWithShots } from "@/types/shotlist";
 import { Scene } from "@/types/screenplay";
 import { Loader2 } from "lucide-react";
+import { PageHeader } from "@/components/layouts/page-header";
 
 export default function ShotlistPage() {
   const router = useRouter();
@@ -77,10 +78,6 @@ export default function ShotlistPage() {
     router.push(`/screenplay/${id}?scene=${sceneId}`);
   }, [router, id]);
 
-  const handleBackToEditor = useCallback(() => {
-    router.push(`/screenplay/${id}`);
-  }, [router, id]);
-
   // Group shots by scene
   const scenesWithShots: SceneWithShots[] = scenes.map((scene) => ({
     sceneId: scene.id,
@@ -115,14 +112,26 @@ export default function ShotlistPage() {
     );
   }
 
+  const totalShots = shots.length;
+
   return (
     <PageLayout>
+      <PageHeader
+        title="Shotlist"
+        description="Plan and organize your shots by scene"
+        backHref={`/screenplay/${id}`}
+        backLabel="Back to Script"
+        stats={
+          <span>
+            {totalShots} shot{totalShots !== 1 ? 's' : ''} across {scenes.length} scene{scenes.length !== 1 ? 's' : ''}
+          </span>
+        }
+      />
       <Shotlist
         screenplayId={id}
         scenesWithShots={scenesWithShots}
         onShotsChange={handleShotsChange}
         onSceneClick={handleSceneClick}
-        onBackToEditor={handleBackToEditor}
       />
     </PageLayout>
   );
