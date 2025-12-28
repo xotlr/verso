@@ -1,7 +1,6 @@
 "use client"
 
 import { Bell } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import {
   Popover,
   PopoverContent,
@@ -18,10 +17,15 @@ export function NotificationBell() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative h-8 w-8 min-h-0"
+        <button
+          className={cn(
+            "relative flex items-center justify-center rounded-lg p-2 text-sm outline-none transition-colors",
+            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            "hover:bg-accent hover:text-accent-foreground",
+            "active:bg-accent active:text-accent-foreground",
+            "[&_svg]:text-muted-foreground [&_svg]:hover:text-foreground",
+            "size-8"
+          )}
           aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
           suppressHydrationWarning
         >
@@ -37,7 +41,7 @@ export function NotificationBell() {
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
-        </Button>
+        </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
         <NotificationPanel

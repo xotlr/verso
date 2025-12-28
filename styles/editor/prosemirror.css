@@ -359,19 +359,23 @@
   padding-top: var(--pm-space-scene-heading);
   margin-top: 0;
   margin-bottom: 0;
-  margin-left: 0;
-  margin-right: 0;
-  width: 576px; /* Full printable width */
+  /* Extend left to include scene number gutter space */
+  margin-left: -80px;
+  padding-left: 80px;
+  /* Extend right for right scene number gutter */
+  margin-right: -80px;
+  padding-right: 80px;
+  width: calc(576px + 160px); /* Full printable width + both gutters */
 
   text-transform: uppercase;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
 
-/* Scene number in the left gutter - positioned outside content area */
+/* Scene number in the left gutter - positioned in the extended scene heading margin */
 .pm-scene-number-left {
   position: absolute;
-  left: -80px;  /* Position in left gutter, outside content */
+  left: 0;  /* At left edge of extended scene heading (in the 80px gutter) */
   width: 60px;
   text-align: right;
   /* Align with scene heading text (below padding-top) */
@@ -385,8 +389,27 @@
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
 }
 
-/* Hover effect on scene heading shows scene number more prominently */
-.pm-scene-heading:hover .pm-scene-number-left {
+/* Scene number in the right gutter - industry standard for shooting scripts */
+.pm-scene-number-right {
+  position: absolute;
+  right: 0;  /* At right edge of extended scene heading (in the 80px gutter) */
+  width: 60px;
+  text-align: left;
+  padding-left: 20px;  /* Space from content edge */
+  /* Align with scene heading text (below padding-top) */
+  top: var(--pm-space-scene-heading);
+  color: hsl(var(--foreground) / 0.4);  /* Softer, less intrusive */
+  font-size: var(--pm-font-size);
+  line-height: var(--pm-line-height);
+  font-weight: 400;
+  user-select: none;
+  pointer-events: none;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+}
+
+/* Hover effect on scene heading shows scene numbers more prominently */
+.pm-scene-heading:hover .pm-scene-number-left,
+.pm-scene-heading:hover .pm-scene-number-right {
   color: hsl(var(--foreground) / 0.7);
 }
 
@@ -1182,43 +1205,6 @@
   transition: all 400ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Focus mode - elevated pop-out effect */
-.pm-editor-wrapper.pm-focus-mode {
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--background);
-
-  /* 4-layer shadow stack for convincing depth */
-  box-shadow:
-    0 0 0 1px hsl(0 0% 100% / 0.08),          /* Rim light */
-    0 10px 25px -8px hsl(0 0% 0% / 0.25),     /* Near shadow */
-    0 25px 50px -12px hsl(0 0% 0% / 0.35),    /* Mid depth */
-    0 0 100px hsl(0 0% 0% / 0.15);            /* Ambient */
-
-  /* Enter animation with emphasized decelerate */
-  animation: focus-mode-enter 400ms cubic-bezier(0.05, 0.7, 0.1, 1) 50ms both;
-}
-
-@keyframes focus-mode-enter {
-  from {
-    opacity: 0;
-    transform: scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Dark mode - 4-layer with subtle glow */
-.dark .pm-editor-wrapper.pm-focus-mode {
-  box-shadow:
-    0 0 0 1px hsl(0 0% 100% / 0.12),          /* Brighter rim */
-    0 10px 25px -8px hsl(0 0% 0% / 0.4),      /* Near shadow */
-    0 25px 50px -12px hsl(0 0% 0% / 0.5),     /* Mid depth */
-    0 0 120px hsl(0 0% 100% / 0.08);          /* Glow effect */
-}
-
 /* Page shadow transitions */
 .pm-editor-page {
   transition: box-shadow 400ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease;
@@ -1227,7 +1213,6 @@
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .pm-editor-wrapper,
-  .pm-editor-wrapper.pm-focus-mode,
   .pm-editor-page {
     transition-duration: 0.01ms !important;
     animation: none !important;
@@ -1635,6 +1620,7 @@
 /* Ensure no numbers appear on/within title page */
 /* This is a CSS fallback in case any decorations render unexpectedly */
 .pm-title-page .pm-scene-number-left,
+.pm-title-page .pm-scene-number-right,
 .pm-title-page .pm-page-number {
   display: none !important;
 }

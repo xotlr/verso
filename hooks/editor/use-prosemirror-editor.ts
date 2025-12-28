@@ -56,6 +56,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     onScenesChange,
     editable = true,
     showSceneNumbers = false,
+    sceneNumberPosition = 'both',
     timelapseMode = false,
     // Yjs CRDT collaboration options
     yXmlFragment,
@@ -151,6 +152,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
       },
       sceneNumberingOptions: {
         enabled: showSceneNumbers,
+        position: sceneNumberPosition,
       },
       onCoverPageDetected: (_coverPage) => {
         // Cover page detection callback - no-op but could be used for future features
@@ -283,13 +285,16 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     setCurrentDoc(view.state.doc);
   }, [timelapseMode, initialContent]);
 
-  // Update scene numbering settings when showSceneNumbers changes
+  // Update scene numbering settings when showSceneNumbers or position changes
   useEffect(() => {
     const view = viewRef.current;
     if (!view || !isInitializedRef.current) return;
 
-    updateSceneNumberingSettings(view, { enabled: showSceneNumbers });
-  }, [showSceneNumbers]);
+    updateSceneNumberingSettings(view, {
+      enabled: showSceneNumbers,
+      position: sceneNumberPosition,
+    });
+  }, [showSceneNumbers, sceneNumberPosition]);
 
   return {
     containerRef: containerRef as React.RefObject<HTMLDivElement>,

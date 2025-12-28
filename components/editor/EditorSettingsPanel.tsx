@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { PageStyle } from '@/types/settings';
+import type { PageStyle, SceneNumberPosition } from '@/types/settings';
 
 interface EditorSettingsPanelProps {
   open: boolean;
@@ -218,7 +218,7 @@ export function EditorSettingsPanel({
 
             <SettingsRow
               label="Scene numbers"
-              description="Show numbers in left margin"
+              description="Display numbers on scene headings"
             >
               <Switch
                 checked={settings.editor.showSceneNumbers}
@@ -227,6 +227,29 @@ export function EditorSettingsPanel({
                 }
               />
             </SettingsRow>
+
+            {settings.editor.showSceneNumbers && (
+              <SettingsRow
+                label="Number position"
+                description="Left, right, or both (industry standard)"
+              >
+                <Select
+                  value={settings.editor.sceneNumberPosition ?? 'both'}
+                  onValueChange={(value: SceneNumberPosition) =>
+                    updateEditorSettings({ sceneNumberPosition: value })
+                  }
+                >
+                  <SelectTrigger className="w-28 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="left">Left</SelectItem>
+                    <SelectItem value="right">Right</SelectItem>
+                    <SelectItem value="both">Both</SelectItem>
+                  </SelectContent>
+                </Select>
+              </SettingsRow>
+            )}
 
             <div className="space-y-2 opacity-50 pointer-events-none">
               <div className="flex items-center gap-2">
@@ -303,7 +326,7 @@ export function EditorSettingsPanel({
       <motion.div
         className={cn(
           'z-50 w-72 bg-background',
-          'rounded-2xl border border-border/50',
+          'rounded-lg border border-border/50',
           'shadow-lg',
           'overflow-hidden flex flex-col',
           isSide

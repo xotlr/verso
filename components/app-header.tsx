@@ -2,14 +2,15 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { EditableTitle } from "@/components/editable-title";
 import { SeriesBreadcrumb } from "@/components/series/series-breadcrumb";
-import { Search, ChevronLeft, Share2 } from "lucide-react";
+import { Search, ChevronLeft, Share2, History, Play } from "lucide-react";
 import { NotificationBell } from "@/components/notifications";
 import { Logo } from "@/components/logo";
 import { MobileHeaderMenu } from "@/components/mobile-header-menu";
+import { HeaderIconButton } from "@/components/header-icon-button";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -171,98 +172,110 @@ export function AppHeader({ className }: AppHeaderProps) {
                        pathname.startsWith("/profile/") ||
                        pathname.startsWith("/team/");
 
+  // Check if on a screenplay page (for showing screenplay-specific buttons)
+  const isScreenplayPage = pathname.startsWith('/screenplay/');
+
   return (
-    <header className={cn(
-      "sticky top-0 z-40 flex h-11 shrink-0 items-center gap-2 bg-sidebar px-4",
-      className
-    )}>
-      {/* Desktop: Active item display or breadcrumb */}
-      <div className="hidden md:flex items-center">
-        {breadcrumbData ? (
-          <SeriesBreadcrumb
-            series={breadcrumbData.series}
-            season={breadcrumbData.season}
-            episode={breadcrumbData.episode}
-          />
-        ) : activeItem.isTitle ? (
-          <EditableTitle
-            value={activeItem.label}
-            onSave={handleTitleSave}
-          />
-        ) : (
-          <span className="text-sm font-medium text-foreground">
-            {activeItem.label}
-          </span>
-        )}
-      </div>
+    <TooltipProvider delayDuration={300}>
+      <header className={cn(
+        "sticky top-0 z-40 flex h-11 shrink-0 items-center gap-2 bg-sidebar px-4",
+        className
+      )}>
+        {/* Desktop: Active item display or breadcrumb */}
+        <div className="hidden md:flex items-center">
+          {breadcrumbData ? (
+            <SeriesBreadcrumb
+              series={breadcrumbData.series}
+              season={breadcrumbData.season}
+              episode={breadcrumbData.episode}
+            />
+          ) : activeItem.isTitle ? (
+            <EditableTitle
+              value={activeItem.label}
+              onSave={handleTitleSave}
+            />
+          ) : (
+            <span className="text-sm font-medium text-foreground">
+              {activeItem.label}
+            </span>
+          )}
+        </div>
 
-      {/* Mobile: Back button on detail pages, Logo on main pages */}
-      {isDetailPage ? (
-        <button
-          onClick={() => window.history.back()}
-          className="md:hidden flex items-center justify-center h-9 w-9 -ml-2 rounded-md hover:bg-accent"
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </button>
-      ) : (
-        <Link
-          href="/home"
-          className="md:hidden flex items-center -ml-1"
-        >
-          <Logo size={28} className="text-foreground" />
-        </Link>
-      )}
-
-      {/* Mobile: Page title */}
-      <div className="md:hidden flex-1 flex items-center justify-center gap-2">
-        <span className="font-semibold text-sm">{pageTitle}</span>
-        {/* Offline indicator - only shows when disconnected */}
-        {!isOnline && (
-          <div className="flex items-center gap-1 text-orange-500">
-            <div className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse" />
-            <span className="text-[10px] font-medium">Offline</span>
-          </div>
-        )}
-      </div>
-
-      {/* Mobile: Hamburger menu on right */}
-      <div className="md:hidden -mr-1">
-        <MobileHeaderMenu open={menuOpen} onOpenChange={setMenuOpen} />
-      </div>
-
-      {/* Desktop: Individual action buttons */}
-      <div className="ml-auto hidden md:flex items-center gap-1">
-        {/* Offline indicator - only shows when disconnected */}
-        {!isOnline && (
-          <div className="flex items-center gap-1.5 mr-2 text-orange-500">
-            <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
-            <span className="text-xs font-medium">Offline</span>
-          </div>
-        )}
-        {/* Share button for screenplay pages */}
-        {pathname.startsWith('/screenplay/') && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 min-h-0"
-            onClick={() => window.dispatchEvent(new CustomEvent('editor-open-share'))}
-            title="Share"
+        {/* Mobile: Back button on detail pages, Logo on main pages */}
+        {isDetailPage ? (
+          <button
+            onClick={() => window.history.back()}
+            className="md:hidden flex items-center justify-center h-9 w-9 -ml-2 rounded-md hover:bg-accent"
           >
-            <Share2 className="h-4 w-4" />
-          </Button>
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+        ) : (
+          <Link
+            href="/home"
+            className="md:hidden flex items-center -ml-1"
+          >
+            <Logo size={28} className="text-foreground" />
+          </Link>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 min-h-0"
-          onClick={() => window.dispatchEvent(new CustomEvent('command-palette-open'))}
-          title="Search (⌘K)"
-        >
-          <Search className="h-4 w-4" />
-        </Button>
-        <ThemeToggle />
-        <NotificationBell />
-      </div>
-    </header>
+
+        {/* Mobile: Page title */}
+        <div className="md:hidden flex-1 flex items-center justify-center gap-2">
+          <span className="font-semibold text-sm">{pageTitle}</span>
+          {/* Offline indicator - only shows when disconnected */}
+          {!isOnline && (
+            <div className="flex items-center gap-1 text-orange-500">
+              <div className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse" />
+              <span className="text-[10px] font-medium">Offline</span>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile: Hamburger menu on right */}
+        <div className="md:hidden -mr-1">
+          <MobileHeaderMenu open={menuOpen} onOpenChange={setMenuOpen} />
+        </div>
+
+        {/* Desktop: Individual action buttons */}
+        <div className="ml-auto hidden md:flex items-center gap-1">
+          {/* Offline indicator - only shows when disconnected */}
+          {!isOnline && (
+            <div className="flex items-center gap-1.5 mr-2 text-orange-500">
+              <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+              <span className="text-xs font-medium">Offline</span>
+            </div>
+          )}
+
+          {/* Screenplay-specific buttons */}
+          {isScreenplayPage && (
+            <>
+              <HeaderIconButton
+                icon={<Share2 className="h-4 w-4" />}
+                tooltip="Share"
+                onClick={() => window.dispatchEvent(new CustomEvent('editor-open-share'))}
+              />
+              <HeaderIconButton
+                icon={<History className="h-4 w-4" />}
+                tooltip="Version History"
+                onClick={() => window.dispatchEvent(new CustomEvent('editor-open-version-history'))}
+              />
+              <HeaderIconButton
+                icon={<Play className="h-4 w-4" />}
+                tooltip="View Timelapse"
+                onClick={() => window.dispatchEvent(new CustomEvent('editor-open-timelapse'))}
+              />
+            </>
+          )}
+
+          {/* Global buttons */}
+          <HeaderIconButton
+            icon={<Search className="h-4 w-4" />}
+            tooltip="Search (⌘K)"
+            onClick={() => window.dispatchEvent(new CustomEvent('command-palette-open'))}
+          />
+          <ThemeToggle />
+          <NotificationBell />
+        </div>
+      </header>
+    </TooltipProvider>
   );
 }

@@ -104,8 +104,9 @@ export function EditorPanelDesktop({
         <div
           className={cn(
             'fixed top-1/2 -translate-y-1/2 z-30',
-            isRight ? 'right-3' : 'left-3'
+            isRight && 'right-3'
           )}
+          style={!isRight ? { left: 'calc(var(--sidebar-width) + 12px)' } : undefined}
         >
           <ActivityBar
             activePanel={activePanel}
@@ -125,9 +126,12 @@ export function EditorPanelDesktop({
           <motion.div
             className={cn(
               'fixed top-16 bottom-16 z-20 flex flex-col',
-              isRight ? 'right-16' : 'left-16'
+              isRight && 'right-16'
             )}
-            style={{ width: `${EDITOR_PANEL_WIDTH}px` }}
+            style={{
+              width: `${EDITOR_PANEL_WIDTH}px`,
+              ...(!isRight && { left: 'calc(var(--sidebar-width) + 64px)' }),
+            }}
             variants={panelVariants}
             initial="hidden"
             animate="visible"
@@ -142,7 +146,7 @@ export function EditorPanelDesktop({
               className={cn(
                 'flex flex-col h-full overflow-hidden',
                 'bg-background',
-                'rounded-2xl border border-border/50',
+                'rounded-lg border border-border/50',
                 'shadow-lg'
               )}
             >

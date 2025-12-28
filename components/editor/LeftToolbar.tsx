@@ -52,13 +52,13 @@ export function LeftToolbar({
     <TooltipProvider delayDuration={300}>
       <motion.div
         className={cn(
-          'fixed z-40 top-1/2 -translate-y-1/2',
+          'fixed z-40 top-1/2 -translate-y-1/2 transition-[left] duration-500 ease-out',
           className
         )}
-        initial={false}
-        animate={{
-          left: isInFocusMode ? 16 : 72, // 72 = collapsed sidebar (56px) + 16px gap
+        style={{
+          left: isInFocusMode ? 12 : 'calc(var(--sidebar-width) + 12px)',
         }}
+        initial={false}
         transition={{
           type: 'spring',
           stiffness: 300,

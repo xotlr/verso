@@ -109,6 +109,9 @@ export interface AutocompleteSettings {
 
 export type PageStyle = 'themed' | 'plain';
 
+// Scene number position for production/shooting scripts
+export type SceneNumberPosition = 'left' | 'right' | 'both';
+
 export interface EditorSettings {
   autocomplete: AutocompleteSettings;
   textContrast: number; // 15-35, default 25 (lightness percentage)
@@ -117,6 +120,7 @@ export interface EditorSettings {
   scrollMode: 'discrete' | 'continuous';
   pageStyle: PageStyle; // 'themed' uses theme colors, 'plain' uses off-white
   showSceneNumbers: boolean; // Show scene numbers next to scene headings
+  sceneNumberPosition: SceneNumberPosition; // Position: left, right, or both margins
   yjsCollaboration: boolean; // Enable Yjs CRDT real-time collaboration
 }
 
@@ -268,6 +272,7 @@ export const defaultSettings: AppSettings = {
     scrollMode: 'discrete',
     pageStyle: 'themed', // Use theme-colored pages by default
     showSceneNumbers: true, // Show scene numbers next to scene headings
+    sceneNumberPosition: 'both', // Industry standard: both margins for shooting scripts
     yjsCollaboration: false, // Yjs CRDT collaboration disabled by default
   },
   interface: {

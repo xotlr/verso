@@ -15,6 +15,7 @@ interface ToolbarButtonProps {
   onClick: () => void;
   isActive?: boolean;
   disabled?: boolean;
+  variant?: 'default' | 'ghost';
   tooltipSide?: 'top' | 'right' | 'bottom' | 'left';
   className?: string;
 }
@@ -29,10 +30,18 @@ export function ToolbarButton({
   onClick,
   isActive = false,
   disabled = false,
+  variant = 'default',
   tooltipSide = 'right',
   className,
 }: ToolbarButtonProps) {
   const { button } = toolbarStyles;
+
+  // Determine state classes based on variant
+  const getStateClasses = () => {
+    if (disabled) return button.states.disabled;
+    if (variant === 'ghost') return button.states.ghost;
+    return isActive ? button.states.active : button.states.inactive;
+  };
 
   return (
     <Tooltip>
@@ -44,8 +53,7 @@ export function ToolbarButton({
             button.base,
             button.size,
             button.rounded,
-            disabled && button.states.disabled,
-            isActive ? button.states.active : button.states.inactive,
+            getStateClasses(),
             className
           )}
         >

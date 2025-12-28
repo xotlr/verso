@@ -20,7 +20,7 @@ import { AutocompleteDropdown } from './AutocompleteDropdown';
 import { EditorContextMenu } from './EditorContextMenu';
 import { ElementToolbar } from './ElementToolbar';
 import { LeftToolbar } from '@/components/editor/LeftToolbar';
-import { RightToolbar } from '@/components/editor/RightToolbar';
+import { FocusButton } from '@/components/editor/FocusButton';
 import { EditorUnifiedToolbar } from '@/components/editor/EditorUnifiedToolbar';
 import { EditorScrollArea, EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { PageFrameRenderer, PageGapRenderer } from './PageFrameRenderer';
@@ -190,6 +190,8 @@ export function ProseMirrorEditor({
   const pageStyle = settings.editor.pageStyle ?? 'themed';
   // Show scene numbers even when document has title page
   const showSceneNumbers = settings.editor.showSceneNumbers ?? true;
+  // Scene number position: left, right, or both (industry standard)
+  const sceneNumberPosition = settings.editor.sceneNumberPosition ?? 'both';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_currentSpread, setCurrentSpread] = useState(0);
   const [isInFocusMode, setIsInFocusMode] = useState(false);
@@ -261,6 +263,7 @@ export function ProseMirrorEditor({
     onScenesChange,
     editable,
     showSceneNumbers,
+    sceneNumberPosition,
     timelapseMode,
     // Yjs CRDT collaboration options
     yXmlFragment,
@@ -484,7 +487,7 @@ export function ProseMirrorEditor({
         ) : (
           // Verso: Separate floating toolbars (Procreate style)
           <>
-            <RightToolbar
+            <FocusButton
               onToggleFocusMode={toggleFocusMode}
               isInFocusMode={isInFocusMode}
             />

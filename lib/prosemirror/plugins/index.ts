@@ -190,7 +190,9 @@ export {
   createSceneNumberingPlugin,
   sceneNumberingPluginKey,
   updateSceneNumberingSettings,
+  updateWasmSceneNumbers,
   getSceneNumberingState,
+  SCENE_NUMBERING_WASM_META,
 } from './scene-numbering';
 export type { SceneNumberingOptions } from './scene-numbering';
 export { createSmartClickPlugin, smartClickPluginKey } from './smart-click';

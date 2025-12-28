@@ -7,7 +7,7 @@ export const toolbarStyles = {
   // Container styles
   container: {
     base: 'bg-background border border-border/50 shadow-lg shadow-black/10',
-    rounded: 'rounded-md',
+    rounded: 'rounded-lg',
     padding: {
       horizontal: 'px-2 gap-0.5',
       vertical: 'py-2 gap-1',
@@ -18,10 +18,11 @@ export const toolbarStyles = {
   button: {
     base: 'relative flex items-center justify-center transition-all duration-150',
     size: 'w-9 h-9',
-    rounded: 'rounded-md',
+    rounded: 'rounded-lg',
     states: {
       active: 'bg-primary/10 text-primary',
       inactive: 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+      ghost: 'text-muted-foreground hover:bg-primary hover:text-primary-foreground',
       disabled: 'opacity-40 pointer-events-none',
     },
   },

@@ -7,6 +7,7 @@ import type { ElementType } from '@/lib/prosemirror';
 import type { AutocompleteState, AutocompleteSuggestion } from '@/lib/prosemirror/plugins';
 import type { PaginationResult } from '@/lib/verso';
 import type { DetectedShot } from '@/types/shotlist';
+import type { SceneNumberPosition } from '@/types/settings';
 import type * as Y from 'yjs';
 import type { Awareness } from 'y-protocols/awareness';
 
@@ -20,6 +21,8 @@ export interface UseProseMirrorEditorOptions {
   editable?: boolean;
   /** Show scene numbers even when document has title page (production mode) */
   showSceneNumbers?: boolean;
+  /** Position of scene numbers: left, right, or both (industry standard for shooting scripts) */
+  sceneNumberPosition?: SceneNumberPosition;
   /** Enable timelapse mode - syncs content without recreating editor (for playback) */
   timelapseMode?: boolean;
 
