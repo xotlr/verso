@@ -77,8 +77,8 @@ interface EditorPanelProviderProps extends PropsWithChildren {
 
 export function EditorPanelProvider({
   children,
-  defaultOpen = true,
-  defaultPanel = 'scenes',
+  defaultOpen = false,
+  defaultPanel = null,
   defaultPosition = 'right',
 }: EditorPanelProviderProps) {
   // Desktop state

@@ -230,8 +230,28 @@ export function AppHeader({ className }: AppHeaderProps) {
           )}
         </div>
 
-        {/* Mobile: Hamburger menu on right */}
-        <div className="md:hidden -mr-1">
+        {/* Mobile: Action buttons + Hamburger menu on right */}
+        <div className="md:hidden flex items-center gap-1 -mr-1">
+          {/* Screenplay-specific buttons on mobile */}
+          {isScreenplayPage && (
+            <>
+              <HeaderIconButton
+                icon={<Share2 className="h-4 w-4" />}
+                tooltip="Share"
+                onClick={() => window.dispatchEvent(new CustomEvent('editor-open-share'))}
+              />
+              <HeaderIconButton
+                icon={<History className="h-4 w-4" />}
+                tooltip="History"
+                onClick={() => window.dispatchEvent(new CustomEvent('editor-open-version-history'))}
+              />
+              <HeaderIconButton
+                icon={<Play className="h-4 w-4" />}
+                tooltip="Timelapse"
+                onClick={() => window.dispatchEvent(new CustomEvent('editor-open-timelapse'))}
+              />
+            </>
+          )}
           <MobileHeaderMenu open={menuOpen} onOpenChange={setMenuOpen} />
         </div>
 

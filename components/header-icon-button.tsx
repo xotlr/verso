@@ -30,18 +30,18 @@ export const HeaderIconButton = React.forwardRef<HTMLButtonElement, HeaderIconBu
         ref={ref}
         className={cn(
           // Base styles matching SidebarMenuButton
-          'flex items-center justify-center rounded-lg p-2 text-sm outline-none transition-colors',
+          'flex items-center justify-center rounded-lg p-2 text-sm outline-none transition-all duration-150',
           'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           'disabled:pointer-events-none disabled:opacity-50',
           // Size
           'size-8',
           // Hover and active states matching sidebar
           'hover:bg-accent hover:text-accent-foreground',
-          'active:bg-accent active:text-accent-foreground',
-          isActive && 'bg-accent text-accent-foreground font-medium',
+          'active:scale-[0.98]',
+          isActive && 'bg-primary text-primary-foreground font-medium',
           // Icon color
           '[&_svg]:text-muted-foreground [&_svg]:hover:text-foreground',
-          isActive && '[&_svg]:text-foreground',
+          isActive && '[&_svg]:text-primary-foreground',
           className
         )}
         {...props}
