@@ -45,8 +45,8 @@ const ScreenplayDetailsDrawer = dynamic(
   () => import("./screenplay-details-drawer").then(m => ({ default: m.ScreenplayDetailsDrawer })),
   { ssr: false }
 );
-const ShareDialog = dynamic(
-  () => import("@/components/share-dialog").then(m => ({ default: m.ShareDialog })),
+const ShareDialogEnhanced = dynamic(
+  () => import("@/components/share/share-dialog-enhanced/ShareDialogEnhanced").then(m => ({ default: m.ShareDialogEnhanced })),
   { ssr: false }
 );
 const ShotEditor = dynamic(
@@ -166,9 +166,10 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         enabled: yjsEnabled,
         isConnected: yjsCollaboration.isConnected,
         isSynced: yjsCollaboration.isSynced,
+        isPersistenceSynced: yjsCollaboration.isPersistenceSynced,
       },
     }));
-  }, [yjsEnabled, yjsCollaboration.isConnected, yjsCollaboration.isSynced]);
+  }, [yjsEnabled, yjsCollaboration.isConnected, yjsCollaboration.isSynced, yjsCollaboration.isPersistenceSynced]);
 
   // Destructure stable refs from persistence (do this once to avoid re-render loops)
   // The persistence object changes every render, but these callbacks are stable
@@ -265,6 +266,26 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
 
     window.addEventListener('editor-open-share', handleOpenShare);
     return () => window.removeEventListener('editor-open-share', handleOpenShare);
+  }, []);
+
+  // Listen for timelapse open events from header
+  useEffect(() => {
+    const handleOpenTimelapse = () => {
+      router.push(`/screenplay/${screenplayId}/timelapse`);
+    };
+
+    window.addEventListener('editor-open-timelapse', handleOpenTimelapse);
+    return () => window.removeEventListener('editor-open-timelapse', handleOpenTimelapse);
+  }, [router, screenplayId]);
+
+  // Listen for version history open events from header
+  useEffect(() => {
+    const handleOpenVersionHistory = () => {
+      setIsVersionHistoryOpen(true);
+    };
+
+    window.addEventListener('editor-open-version-history', handleOpenVersionHistory);
+    return () => window.removeEventListener('editor-open-version-history', handleOpenVersionHistory);
   }, []);
 
   // Handle scene/character extraction from ProseMirror
@@ -422,7 +443,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         episodeTitle={episodeTitle}
         titlePageFields={titlePageFields}
       />
-      <ShareDialog
+      <ShareDialogEnhanced
         open={isShareDialogOpen}
         onOpenChange={setIsShareDialogOpen}
         screenplayId={screenplayId}

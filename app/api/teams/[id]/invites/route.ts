@@ -126,15 +126,6 @@ export async function POST(
       );
     }
 
-    // Check seat limits
-    const totalSeats = team._count.members + team._count.invites;
-    if (totalSeats >= team.maxSeats) {
-      return NextResponse.json(
-        { error: "SEAT_LIMIT_REACHED", message: `Team has reached the maximum of ${team.maxSeats} seats. Upgrade to add more members.` },
-        { status: 403 }
-      );
-    }
-
     const body = await request.json();
     const validatedData = createInviteSchema.safeParse(body);
 
@@ -147,7 +138,7 @@ export async function POST(
 
     const { email, role } = validatedData.data;
 
-    // Check if user is already a member
+    // Check if user is already a member (outside transaction - read-only check)
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
@@ -170,43 +161,54 @@ export async function POST(
       }
     }
 
-    // Check if invite already exists
-    const existingInvite = await prisma.teamInvite.findUnique({
-      where: {
-        teamId_email: {
+    // Create invite in transaction with seat limit check to prevent race conditions
+    const invite = await prisma.$transaction(async (tx) => {
+      // Check seat limits atomically
+      const [memberCount, inviteCount] = await Promise.all([
+        tx.teamMember.count({ where: { teamId: id } }),
+        tx.teamInvite.count({ where: { teamId: id } }),
+      ]);
+
+      const totalSeats = memberCount + inviteCount;
+      if (totalSeats >= team.maxSeats) {
+        throw new Error("SEAT_LIMIT_REACHED");
+      }
+
+      // Check if invite already exists (inside transaction for atomicity)
+      const existingInvite = await tx.teamInvite.findUnique({
+        where: {
+          teamId_email: {
+            teamId: id,
+            email,
+          },
+        },
+      });
+
+      if (existingInvite) {
+        throw new Error("INVITE_EXISTS");
+      }
+
+      // Create invite (expires in 7 days)
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      return tx.teamInvite.create({
+        data: {
           teamId: id,
           email,
+          role,
+          expiresAt,
+          invitedBy: session.user.id,
         },
-      },
-    });
-
-    if (existingInvite) {
-      return NextResponse.json(
-        { error: "An invite has already been sent to this email" },
-        { status: 400 }
-      );
-    }
-
-    // Create invite (expires in 7 days)
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    const invite = await prisma.teamInvite.create({
-      data: {
-        teamId: id,
-        email,
-        role,
-        expiresAt,
-        invitedBy: session.user.id,
-      },
-      include: {
-        inviter: {
-          select: { id: true, name: true, email: true, image: true },
+        include: {
+          inviter: {
+            select: { id: true, name: true, email: true, image: true },
+          },
+          team: {
+            select: { id: true, name: true, logo: true },
+          },
         },
-        team: {
-          select: { id: true, name: true, logo: true },
-        },
-      },
+      });
     });
 
     // Log audit event
@@ -221,6 +223,22 @@ export async function POST(
 
     return NextResponse.json(invite, { status: 201 });
   } catch (error) {
+    // Handle transaction errors
+    if (error instanceof Error) {
+      if (error.message === "SEAT_LIMIT_REACHED") {
+        return NextResponse.json(
+          { error: "SEAT_LIMIT_REACHED", message: "Team has reached its seat limit. Upgrade to add more members." },
+          { status: 403 }
+        );
+      }
+      if (error.message === "INVITE_EXISTS") {
+        return NextResponse.json(
+          { error: "An invite has already been sent to this email" },
+          { status: 400 }
+        );
+      }
+    }
+
     console.error("Error creating invite:", error);
     return NextResponse.json(
       { error: "Failed to create invite" },

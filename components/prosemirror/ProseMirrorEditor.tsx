@@ -468,8 +468,6 @@ export function ProseMirrorEditor({
           <>
             <RightToolbar
               onToggleFocusMode={toggleFocusMode}
-              onTimelapse={onTimelapse}
-              onVersionHistory={onToggleVersionHistory}
               isInFocusMode={isInFocusMode}
             />
             <LeftToolbar

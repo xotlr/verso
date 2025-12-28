@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { EditableTitle } from "@/components/editable-title";
-import { ArrowLeft, Share2 } from "lucide-react";
+import { ArrowLeft, Share2, Play, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface EditorHeaderProps {
@@ -17,7 +17,8 @@ export function EditorHeader({ className }: EditorHeaderProps) {
     enabled: boolean;
     isConnected: boolean;
     isSynced: boolean;
-  }>({ enabled: false, isConnected: false, isSynced: false });
+    isPersistenceSynced: boolean;
+  }>({ enabled: false, isConnected: false, isSynced: false, isPersistenceSynced: false });
 
   // Track online/offline status
   useEffect(() => {
@@ -53,6 +54,7 @@ export function EditorHeader({ className }: EditorHeaderProps) {
         enabled: boolean;
         isConnected: boolean;
         isSynced: boolean;
+        isPersistenceSynced: boolean;
       }>;
       setYjsStatus(customEvent.detail);
     };
@@ -71,6 +73,16 @@ export function EditorHeader({ className }: EditorHeaderProps) {
   const handleShare = useCallback(() => {
     // Dispatch event to open share dialog in editor
     window.dispatchEvent(new CustomEvent('editor-open-share'));
+  }, []);
+
+  const handleTimelapse = useCallback(() => {
+    // Dispatch event to open timelapse
+    window.dispatchEvent(new CustomEvent('editor-open-timelapse'));
+  }, []);
+
+  const handleVersionHistory = useCallback(() => {
+    // Dispatch event to open version history
+    window.dispatchEvent(new CustomEvent('editor-open-version-history'));
   }, []);
 
   return (
@@ -110,16 +122,47 @@ export function EditorHeader({ className }: EditorHeaderProps) {
         <div className="flex items-center gap-1.5">
           <div className={cn(
             "h-2 w-2 rounded-full",
-            yjsStatus.isSynced ? "bg-green-500" : "bg-orange-500 animate-pulse"
+            yjsStatus.isSynced && yjsStatus.isPersistenceSynced
+              ? "bg-green-500"
+              : "bg-orange-500 animate-pulse"
           )} />
           <span className="text-xs text-muted-foreground hidden md:inline">
-            {yjsStatus.isSynced ? "Synced" : yjsStatus.isConnected ? "Syncing..." : "Connecting..."}
+            {!yjsStatus.isPersistenceSynced
+              ? "Loading..."
+              : yjsStatus.isSynced
+                ? "Synced"
+                : yjsStatus.isConnected
+                  ? "Syncing..."
+                  : "Connecting..."}
           </span>
         </div>
       )}
 
-      {/* Share button - always visible */}
-      <div className="ml-auto md:ml-2">
+      {/* Action buttons - right side */}
+      <div className="ml-auto md:ml-2 flex items-center gap-1">
+        {/* Timelapse button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          onClick={handleTimelapse}
+          title="View Timelapse"
+        >
+          <Play className="h-4 w-4" />
+        </Button>
+
+        {/* Version History button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          onClick={handleVersionHistory}
+          title="Version History"
+        >
+          <History className="h-4 w-4" />
+        </Button>
+
+        {/* Share button */}
         <Button
           variant="ghost"
           size="icon"

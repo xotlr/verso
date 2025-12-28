@@ -102,11 +102,11 @@ export function EditorSection({ settings, updateEditorSettings }: EditorSectionP
             <div>
               <label className="text-sm font-medium">Show Scene Numbers</label>
               <p className="text-xs text-muted-foreground">
-                Display scene numbers even with a title page (for shooting scripts)
+                Display scene numbers next to scene headings
               </p>
             </div>
             <Checkbox
-              checked={settings.showSceneNumbers ?? false}
+              checked={settings.showSceneNumbers ?? true}
               onCheckedChange={(checked) => updateEditorSettings({
                 showSceneNumbers: checked as boolean
               })}

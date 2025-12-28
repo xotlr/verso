@@ -2,15 +2,19 @@
 
 /**
  * React hook for Yjs collaborative editing
- * 
+ *
  * Provides Yjs document, awareness, and connection state
  * for use with ProseMirror editor.
+ *
+ * IMPORTANT: This hook waits for IndexedDB persistence to sync
+ * before exposing yXmlFragment to prevent race conditions where
+ * the editor binds to an empty/stale document.
  */
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
-import { getYjsDocument, getYjsXmlFragment, destroyYjsDocument } from '@/lib/collaboration/yjs-document';
+import { getYjsDocument, getYjsXmlFragment } from '@/lib/collaboration/yjs-document';
 import { SupabaseYjsProvider } from '@/lib/collaboration/supabase-yjs-provider';
 
 export interface UseYjsCollaborationOptions {
@@ -28,14 +32,16 @@ export interface UseYjsCollaborationOptions {
 export interface UseYjsCollaborationReturn {
   /** The Yjs document */
   ydoc: Y.Doc | null;
-  /** The XmlFragment for ProseMirror binding */
+  /** The XmlFragment for ProseMirror binding (null until persistence synced) */
   yXmlFragment: Y.XmlFragment | null;
   /** Awareness instance for cursor sync */
   awareness: Awareness | null;
   /** Whether connected to sync provider */
   isConnected: boolean;
-  /** Whether initial sync is complete */
+  /** Whether initial sync is complete (both local persistence AND remote) */
   isSynced: boolean;
+  /** Whether local IndexedDB persistence is synced */
+  isPersistenceSynced: boolean;
   /** Remote users currently editing */
   remoteUsers: RemoteYjsUser[];
   /** Disconnect from collaboration */
@@ -58,12 +64,13 @@ export function useYjsCollaboration(
   options: UseYjsCollaborationOptions
 ): UseYjsCollaborationReturn {
   const { screenplayId, userId, userInfo, enabled = true, initialContent } = options;
-  
+
   const [ydoc, setYdoc] = useState<Y.Doc | null>(null);
   const [yXmlFragment, setYXmlFragment] = useState<Y.XmlFragment | null>(null);
   const [awareness, setAwareness] = useState<Awareness | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
+  const [isPersistenceSynced, setIsPersistenceSynced] = useState(false);
   const [remoteUsers, setRemoteUsers] = useState<RemoteYjsUser[]>([]);
 
   const providerRef = useRef<SupabaseYjsProvider | null>(null);
@@ -80,7 +87,7 @@ export function useYjsCollaboration(
     mountedRef.current = true;
 
     // Get or create Yjs document
-    const doc = getYjsDocument({
+    const { ydoc: doc, persistenceReady } = getYjsDocument({
       screenplayId,
       initialContent: initialContentRef.current,
       onSync: () => {
@@ -90,12 +97,19 @@ export function useYjsCollaboration(
       },
     });
 
-    const xmlFragment = getYjsXmlFragment(doc);
-    
     if (mountedRef.current) {
       setYdoc(doc);
-      setYXmlFragment(xmlFragment);
     }
+
+    // Wait for IndexedDB persistence to sync before exposing XmlFragment
+    // This prevents race condition where editor binds to empty/stale document
+    persistenceReady.then(() => {
+      if (!mountedRef.current) return;
+
+      const xmlFragment = getYjsXmlFragment(doc);
+      setYXmlFragment(xmlFragment);
+      setIsPersistenceSynced(true);
+    });
 
     // Create Supabase provider
     const provider = new SupabaseYjsProvider({
@@ -104,9 +118,9 @@ export function useYjsCollaboration(
       userId,
       userInfo,
     });
-    
+
     providerRef.current = provider;
-    
+
     if (mountedRef.current) {
       setAwareness(provider.awareness);
     }
@@ -128,14 +142,14 @@ export function useYjsCollaboration(
     // Listen for awareness changes (remote users)
     provider.awareness.on('change', () => {
       if (!mountedRef.current) return;
-      
+
       const states = provider.awareness.getStates();
       const users: RemoteYjsUser[] = [];
-      
+
       states.forEach((state, clientId) => {
         // Skip local user
         if (clientId === provider.awareness.clientID) return;
-        
+
         const user = state.user;
         if (user) {
           users.push({
@@ -148,7 +162,7 @@ export function useYjsCollaboration(
           });
         }
       });
-      
+
       setRemoteUsers(users);
     });
 
@@ -174,6 +188,7 @@ export function useYjsCollaboration(
     awareness,
     isConnected,
     isSynced,
+    isPersistenceSynced,
     remoteUsers,
     disconnect,
   };

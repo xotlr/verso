@@ -1,6 +1,6 @@
 /**
  * Yjs Document Manager
- * 
+ *
  * Manages Yjs documents for collaborative editing.
  * Each screenplay gets its own Yjs document instance.
  */
@@ -11,6 +11,7 @@ import { IndexeddbPersistence } from 'y-indexeddb';
 // Map of screenplay ID to Yjs document
 const documents = new Map<string, Y.Doc>();
 const persistences = new Map<string, IndexeddbPersistence>();
+const persistenceSyncStates = new Map<string, boolean>();
 
 export interface YjsDocumentOptions {
   screenplayId: string;
@@ -20,35 +21,74 @@ export interface YjsDocumentOptions {
   onSync?: () => void;
 }
 
+export interface YjsDocumentResult {
+  ydoc: Y.Doc;
+  /** Promise that resolves when IndexedDB persistence is synced */
+  persistenceReady: Promise<void>;
+  /** Whether IndexedDB persistence has synced */
+  isPersistenceSynced: () => boolean;
+}
+
 /**
  * Get or create a Yjs document for a screenplay
  */
-export function getYjsDocument(options: YjsDocumentOptions): Y.Doc {
+export function getYjsDocument(options: YjsDocumentOptions): YjsDocumentResult {
   const { screenplayId, initialContent, onSync } = options;
-  
+
   // Return existing document if available
   if (documents.has(screenplayId)) {
-    return documents.get(screenplayId)!;
+    const ydoc = documents.get(screenplayId)!;
+    return {
+      ydoc,
+      persistenceReady: persistenceSyncStates.get(screenplayId)
+        ? Promise.resolve()
+        : new Promise((resolve) => {
+            const persistence = persistences.get(screenplayId);
+            if (persistence) {
+              if (persistence.synced) {
+                resolve();
+              } else {
+                persistence.once('synced', () => resolve());
+              }
+            } else {
+              resolve();
+            }
+          }),
+      isPersistenceSynced: () => persistenceSyncStates.get(screenplayId) ?? false,
+    };
   }
-  
+
   // Create new document
   const ydoc = new Y.Doc();
   documents.set(screenplayId, ydoc);
-  
+  persistenceSyncStates.set(screenplayId, false);
+
   // Set up IndexedDB persistence for offline support
   const persistence = new IndexeddbPersistence(`screenplay-${screenplayId}`, ydoc);
   persistences.set(screenplayId, persistence);
-  
-  persistence.on('synced', () => {
-    // If document is empty after sync, initialize with content
-    const yXmlFragment = ydoc.getXmlFragment('prosemirror');
-    if (yXmlFragment.length === 0 && initialContent) {
-      // Initial content will be set by ProseMirror binding
-    }
-    onSync?.();
+
+  // Create promise that resolves when persistence syncs
+  const persistenceReady = new Promise<void>((resolve) => {
+    persistence.on('synced', () => {
+      persistenceSyncStates.set(screenplayId, true);
+
+      // If document is empty after sync, we need to initialize it
+      // This happens before the binding is created
+      const yXmlFragment = ydoc.getXmlFragment('prosemirror');
+      if (yXmlFragment.length === 0 && initialContent) {
+        // We'll let the hook handle initialization to avoid double-init
+      }
+
+      onSync?.();
+      resolve();
+    });
   });
-  
-  return ydoc;
+
+  return {
+    ydoc,
+    persistenceReady,
+    isPersistenceSynced: () => persistenceSyncStates.get(screenplayId) ?? false,
+  };
 }
 
 /**

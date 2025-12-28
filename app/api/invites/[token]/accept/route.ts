@@ -79,17 +79,18 @@ export async function POST(
       );
     }
 
-    // Verify seat limits (exclude this invite from count since we're about to delete it)
-    const currentMembers = invite.team._count.members;
-    if (currentMembers >= invite.team.maxSeats) {
-      return NextResponse.json(
-        { error: "Team has reached its seat limit" },
-        { status: 403 }
-      );
-    }
-
     // Accept invite: create member and delete invite in transaction
+    // Seat limit check is inside transaction to prevent race conditions
     const result = await prisma.$transaction(async (tx) => {
+      // Verify seat limits atomically inside transaction
+      const currentMemberCount = await tx.teamMember.count({
+        where: { teamId: invite.teamId },
+      });
+
+      if (currentMemberCount >= invite.team.maxSeats) {
+        throw new Error("SEAT_LIMIT_REACHED");
+      }
+
       // Create the membership
       const member = await tx.teamMember.create({
         data: {
@@ -134,6 +135,14 @@ export async function POST(
       membership: result,
     });
   } catch (error) {
+    // Handle seat limit error from transaction
+    if (error instanceof Error && error.message === "SEAT_LIMIT_REACHED") {
+      return NextResponse.json(
+        { error: "Team has reached its seat limit" },
+        { status: 403 }
+      );
+    }
+
     console.error("Error accepting invite:", error);
     return NextResponse.json(
       { error: "Failed to accept invite" },

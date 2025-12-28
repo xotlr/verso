@@ -114,8 +114,10 @@ export function extractCharacters(doc: ProseMirrorNode): CharacterInfo[] {
 
   doc.forEach((node) => {
     if (node.type.name === 'character') {
-      const id = node.attrs.characterId || node.textContent.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      // Strip extensions like (V.O.), (O.S.), (CONT'D) before generating ID
+      // This ensures "LYRA", "LYRA (V.O.)", "LYRA (O.S.)" all get the same ID
       const name = node.textContent.replace(/\s*\([^)]+\)\s*$/, '').trim();
+      const id = node.attrs.characterId || name.toLowerCase().replace(/[^a-z0-9]/g, '-');
 
       if (characterMap.has(id)) {
         const existing = characterMap.get(id)!;

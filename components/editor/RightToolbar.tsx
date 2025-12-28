@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Maximize2, Minimize2, Play, History } from 'lucide-react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { EditorToolbarContainer } from './EditorToolbarContainer';
@@ -12,12 +12,6 @@ interface RightToolbarProps {
   // Focus mode
   onToggleFocusMode: () => void;
 
-  // Timelapse
-  onTimelapse?: () => void;
-
-  // Version History
-  onVersionHistory?: () => void;
-
   // Focus mode state (for styling)
   isInFocusMode?: boolean;
 
@@ -26,13 +20,12 @@ interface RightToolbarProps {
 }
 
 /**
- * Right-side Procreate-style toolbar.
- * Contains: Focus mode toggle, Share button, Timelapse button
+ * Right-side floating toolbar.
+ * Contains: Focus mode toggle only.
+ * Timelapse and Version History buttons moved to header.
  */
 export function RightToolbar({
   onToggleFocusMode,
-  onTimelapse,
-  onVersionHistory,
   isInFocusMode = false,
   className,
 }: RightToolbarProps) {
@@ -62,26 +55,6 @@ export function RightToolbar({
             isActive={isInFocusMode}
             tooltipSide="bottom"
           />
-
-          {/* Timelapse button (conditional) */}
-          {onTimelapse && (
-            <ToolbarButton
-              icon={<Play className="h-4 w-4" />}
-              label="View Timelapse"
-              onClick={onTimelapse}
-              tooltipSide="bottom"
-            />
-          )}
-
-          {/* Version History button (conditional) */}
-          {onVersionHistory && (
-            <ToolbarButton
-              icon={<History className="h-4 w-4" />}
-              label="Version History"
-              onClick={onVersionHistory}
-              tooltipSide="bottom"
-            />
-          )}
         </EditorToolbarContainer>
       </motion.div>
     </TooltipProvider>

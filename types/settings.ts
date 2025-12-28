@@ -116,7 +116,7 @@ export interface EditorSettings {
   focusLineHighlight: boolean;
   scrollMode: 'discrete' | 'continuous';
   pageStyle: PageStyle; // 'themed' uses theme colors, 'plain' uses off-white
-  showSceneNumbers: boolean; // Show scene numbers even with title page (production mode)
+  showSceneNumbers: boolean; // Show scene numbers next to scene headings
   yjsCollaboration: boolean; // Enable Yjs CRDT real-time collaboration
 }
 
@@ -267,7 +267,7 @@ export const defaultSettings: AppSettings = {
     focusLineHighlight: false,
     scrollMode: 'discrete',
     pageStyle: 'themed', // Use theme-colored pages by default
-    showSceneNumbers: false, // Show scene numbers even with title page
+    showSceneNumbers: true, // Show scene numbers next to scene headings
     yjsCollaboration: false, // Yjs CRDT collaboration disabled by default
   },
   interface: {
