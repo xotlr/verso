@@ -189,7 +189,7 @@ export function ProseMirrorEditor({
   // Page style: 'themed' uses theme colors, 'plain' uses off-white
   const pageStyle = settings.editor.pageStyle ?? 'themed';
   // Show scene numbers even when document has title page
-  const showSceneNumbers = settings.editor.showSceneNumbers ?? false;
+  const showSceneNumbers = settings.editor.showSceneNumbers ?? true;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_currentSpread, setCurrentSpread] = useState(0);
   const [isInFocusMode, setIsInFocusMode] = useState(false);

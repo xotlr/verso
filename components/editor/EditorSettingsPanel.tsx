@@ -216,6 +216,18 @@ export function EditorSettingsPanel({
               />
             </SettingsRow>
 
+            <SettingsRow
+              label="Scene numbers"
+              description="Show numbers in left margin"
+            >
+              <Switch
+                checked={settings.editor.showSceneNumbers}
+                onCheckedChange={(checked) =>
+                  updateEditorSettings({ showSceneNumbers: checked })
+                }
+              />
+            </SettingsRow>
+
             <div className="space-y-2 opacity-50 pointer-events-none">
               <div className="flex items-center gap-2">
                 <Label className="text-sm text-foreground">

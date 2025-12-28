@@ -77,17 +77,24 @@ function createSceneNumberDecorations(state: EditorState, enabled: boolean): Dec
   state.doc.forEach((node: ProseMirrorNode, offset: number) => {
     if (node.type.name === 'scene_heading') {
       sceneCount++;
+      // Capture the current scene number BY VALUE (not by reference)
+      // This is critical because the widget callback is called later during rendering,
+      // after the forEach loop completes. Without this, all widgets would show the total count.
+      const currentSceneNumber = sceneCount;
 
       // Create widget for left number
-      const widget = Decoration.widget(offset, () => {
+      // Position at offset + 1 to insert INSIDE the node (after opening tag)
+      // This ensures the widget is a child of the scene_heading div,
+      // so position: absolute in CSS works relative to the scene heading
+      const widget = Decoration.widget(offset + 1, () => {
         const span = document.createElement('span');
         span.className = 'pm-scene-number-left';
-        span.textContent = sceneCount.toString();
-        span.setAttribute('data-scene-number', sceneCount.toString());
+        span.textContent = currentSceneNumber.toString();
+        span.setAttribute('data-scene-number', currentSceneNumber.toString());
         return span;
       }, {
-        side: -1,  // Position before the node
-        key: `scene-num-${offset}-${sceneCount}`
+        side: -1,  // Position before the text content
+        key: `scene-num-${offset}-${currentSceneNumber}`
       });
 
       decorations.push(widget);

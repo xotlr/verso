@@ -374,7 +374,8 @@
   left: -80px;  /* Position in left gutter, outside content */
   width: 60px;
   text-align: right;
-  top: 0;
+  /* Align with scene heading text (below padding-top) */
+  top: var(--pm-space-scene-heading);
   color: hsl(var(--foreground) / 0.4);  /* Softer, less intrusive */
   font-size: var(--pm-font-size);
   line-height: var(--pm-line-height);
