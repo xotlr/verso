@@ -70,11 +70,12 @@ describe('Rate Limiter', () => {
   })
 
   describe('getClientIp', () => {
-    it('should extract IP from x-forwarded-for header', () => {
+    it('should extract IP from x-forwarded-for header (uses last/trusted IP)', () => {
       const request = new Request('http://localhost', {
         headers: { 'x-forwarded-for': '192.168.1.1, 10.0.0.1' },
       })
-      expect(getClientIp(request)).toBe('192.168.1.1')
+      // Uses the last IP (added by trusted proxy) to prevent IP spoofing
+      expect(getClientIp(request)).toBe('10.0.0.1')
     })
 
     it('should return unknown when no IP header present', () => {

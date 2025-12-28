@@ -125,8 +125,8 @@ export interface WardrobeList {
   notes?: string;
 }
 
-export interface ProductionReport {
-  type: 'scene-breakdown' | 'cast-breakdown' | 'location-list' | 'day-out-of-days' | 'shooting-schedule' | 'props-list' | 'wardrobe-list';
+/** Base interface for production reports */
+interface ProductionReportBase {
   generatedAt: string;
   screenplay: {
     title: string;
@@ -134,5 +134,14 @@ export interface ProductionReport {
     totalPages: number;
     totalScenes: number;
   };
-  data: any; // Type depends on report type
 }
+
+/** Discriminated union for type-safe production reports */
+export type ProductionReport =
+  | (ProductionReportBase & { type: 'scene-breakdown'; data: SceneBreakdown[] })
+  | (ProductionReportBase & { type: 'cast-breakdown'; data: CastBreakdown[] })
+  | (ProductionReportBase & { type: 'location-list'; data: LocationBreakdown[] })
+  | (ProductionReportBase & { type: 'day-out-of-days'; data: DayOutOfDays[] })
+  | (ProductionReportBase & { type: 'shooting-schedule'; data: ShootingDay[] })
+  | (ProductionReportBase & { type: 'props-list'; data: PropsList[] })
+  | (ProductionReportBase & { type: 'wardrobe-list'; data: WardrobeList[] });

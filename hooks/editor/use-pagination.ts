@@ -20,6 +20,7 @@ import {
   type PositionMap,
   type DocumentChange,
 } from '@/lib/verso';
+import { PAGINATION_THROTTLE } from '@/lib/constants/editor';
 import {
   getAccumulatedChanges,
   createClearChangesTr,
@@ -182,11 +183,11 @@ export function usePagination(
 
     // Dynamic throttle interval based on document size
     const elementCount = doc.content.childCount;
-    const throttleInterval = elementCount > 500
-      ? 1000  // Very large doc (100+ pages): 1s throttle
-      : elementCount > 100
-        ? 500   // Large doc (20+ pages): 500ms throttle
-        : debounceMs; // Normal: use provided interval
+    const throttleInterval = elementCount > PAGINATION_THROTTLE.VERY_LARGE_DOC_THRESHOLD
+      ? PAGINATION_THROTTLE.VERY_LARGE_INTERVAL
+      : elementCount > PAGINATION_THROTTLE.LARGE_DOC_THRESHOLD
+        ? PAGINATION_THROTTLE.LARGE_INTERVAL
+        : debounceMs;
 
     const now = Date.now();
     const timeSinceLastRun = now - lastRunTimeRef.current;

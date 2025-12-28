@@ -153,10 +153,10 @@ const config: Config = {
   		keyframes: {
   			'shimmer': {
   				'0%': {
-  					transform: 'translateX(-100%)'
+  					transform: 'translate(-100%, 100%)'
   				},
   				'100%': {
-  					transform: 'translateX(100%)'
+  					transform: 'translate(100%, -100%)'
   				}
   			},
   			'fade-in': {
@@ -204,10 +204,30 @@ const config: Config = {
   					opacity: '1',
   					transform: 'scale(1)'
   				}
+  			},
+  			'shiny-text': {
+  				'0%, 90%, 100%': {
+  					'background-position': 'calc(-100% - var(--shiny-width)) 0'
+  				},
+  				'30%, 60%': {
+  					'background-position': 'calc(100% + var(--shiny-width)) 0'
+  				}
+  			},
+  			'pulse-subtle': {
+  				'0%, 100%': {
+  					opacity: '1',
+  					transform: 'scale(1)'
+  				},
+  				'50%': {
+  					opacity: '0.9',
+  					transform: 'scale(0.98)'
+  				}
   			}
   		},
   		animation: {
-  			'shimmer': 'shimmer 5s infinite',
+  			'shimmer': 'shimmer 6s ease-in-out infinite',
+  			'shiny-text': 'shiny-text 12s infinite',
+  			'pulse-subtle': 'pulse-subtle 2s ease-in-out infinite',
   			'fade-in': 'fade-in var(--duration-normal) var(--ease-out)',
   			'fade-out': 'fade-out var(--duration-normal) var(--ease-out)',
   			'slide-up': 'slide-up var(--duration-normal) var(--ease-out)',

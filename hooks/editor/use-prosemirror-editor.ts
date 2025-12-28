@@ -9,23 +9,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { EditorState, Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
-import { undo, redo } from 'prosemirror-history';
-
 import {
   screenplaySchema,
   ElementType,
-  ELEMENT_DISPLAY_NAMES,
   deserializeFromStorage,
-  serializeForStorage,
 } from '@/lib/prosemirror';
 
 import {
   createAllPlugins,
-  autocompletePluginKey,
   updatePaginationState,
   updateSceneNumberingSettings,
 } from '@/lib/prosemirror/plugins';
-import { yjsUndoCheck, yjsRedoCheck } from '@/lib/prosemirror/plugins/yjs-collaboration';
 import type { AutocompleteState } from '@/lib/prosemirror/plugins';
 
 import { usePagination } from './use-pagination';
@@ -38,6 +32,7 @@ import {
   extractShots,
   extractDetectedShotsFromDocument,
 } from './document-extractors';
+import { createDispatchHandler } from './create-dispatch-handler';
 import type {
   UseProseMirrorEditorOptions,
   UseProseMirrorEditorReturn,
@@ -152,7 +147,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
         onStateChange: setAutocompleteState,
       },
       sceneNumberingOptions: {
-        forceShow: showSceneNumbers,
+        enabled: showSceneNumbers,
       },
       onCoverPageDetected: (_coverPage) => {
         // Cover page detection callback - no-op but could be used for future features
@@ -176,80 +171,42 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
       plugins,
     });
 
+    // Create dispatch handler with extracted logic for testability
+    const dispatchTransaction = createDispatchHandler(
+      {
+        viewRef,
+        charactersRef,
+        locationsRef,
+        scenesRef,
+        isYjsEnabled,
+        timeoutRefs: {
+          stats: statsTimeoutRef,
+          update: updateTimeoutRef,
+          extraction: extractionTimeoutRef,
+        },
+        callbackRefs: {
+          onUpdate: onUpdateRef,
+          onScenesChange: onScenesChangeRef,
+        },
+      },
+      {
+        setCurrentDoc,
+        setCurrentEditorState,
+        setWordCount,
+        setPageCount,
+        setAutocompleteState,
+        setCurrentElementType: setCurrentElementTypeState,
+        setCurrentSceneId,
+        setCanUndo,
+        setCanRedo,
+      }
+    );
+
     // Create view with dispatch handler
     const view = new EditorView(containerRef.current, {
       state,
       editable: () => editable,
-      dispatchTransaction(tr: Transaction) {
-        const newState = view.state.apply(tr);
-        view.updateState(newState);
-
-        if (tr.docChanged) {
-          const doc = newState.doc;
-          setCurrentDoc(doc);
-          setCurrentEditorState(newState); // For incremental pagination
-
-          // Debounce stats calculations
-          if (statsTimeoutRef.current) clearTimeout(statsTimeoutRef.current);
-          statsTimeoutRef.current = setTimeout(() => {
-            setWordCount(calculateWordCount(doc));
-            setPageCount(calculatePageCount(doc));
-          }, 300);
-
-          // Debounce content serialization and parent notification (expensive!)
-          if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current);
-          updateTimeoutRef.current = setTimeout(() => {
-            if (onUpdateRef.current) {
-              onUpdateRef.current(serializeForStorage(doc));
-            }
-          }, 150); // 150ms debounce for responsiveness
-
-          // Debounce scene/character extraction
-          if (extractionTimeoutRef.current) clearTimeout(extractionTimeoutRef.current);
-          extractionTimeoutRef.current = setTimeout(() => {
-            const scenes = extractScenes(doc);
-            const characters = extractCharacters(doc);
-            const detectedShots = extractDetectedShotsFromDocument(doc, scenes);
-
-            charactersRef.current = characters.map(c => c.name);
-            locationsRef.current = scenes.map(s => s.location).filter((v, i, a) => v && a.indexOf(v) === i);
-            scenesRef.current = scenes;
-
-            if (onScenesChangeRef.current) {
-              onScenesChangeRef.current(scenes, characters, detectedShots);
-            }
-          }, 300);
-        }
-
-        // Update autocomplete state
-        const autocomplete = autocompletePluginKey.getState(newState) as AutocompleteState | undefined;
-        if (autocomplete) setAutocompleteState(autocomplete);
-
-        // Update current element type based on selection
-        const { $head } = newState.selection;
-        const parentType = $head.parent.type.name as ElementType;
-        if (ELEMENT_DISPLAY_NAMES[parentType]) {
-          setCurrentElementTypeState(parentType);
-        }
-
-        // Update current scene based on cursor position
-        const cursorPos = newState.selection.from;
-        let activeSceneId: string | null = null;
-        for (const scene of scenesRef.current) {
-          if (scene.position <= cursorPos) activeSceneId = scene.id;
-          else break;
-        }
-        setCurrentSceneId(activeSceneId);
-
-        // Update undo/redo state (use Yjs check functions when collaboration is enabled)
-        if (isYjsEnabled) {
-          setCanUndo(yjsUndoCheck(newState));
-          setCanRedo(yjsRedoCheck(newState));
-        } else {
-          setCanUndo(undo(newState));
-          setCanRedo(redo(newState));
-        }
-      },
+      dispatchTransaction,
     });
 
     viewRef.current = view;
@@ -322,7 +279,7 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     const view = viewRef.current;
     if (!view || !isInitializedRef.current) return;
 
-    updateSceneNumberingSettings(view, { forceShow: showSceneNumbers });
+    updateSceneNumberingSettings(view, { enabled: showSceneNumbers });
   }, [showSceneNumbers]);
 
   return {

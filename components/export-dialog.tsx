@@ -24,6 +24,7 @@ import {
   downloadFile,
 } from '@/lib/export/utils';
 import { toast } from 'sonner';
+import { REVISION_COLOR_CLASSES } from '@/lib/constants/editor';
 
 interface ExportDialogProps {
   isOpen: boolean;
@@ -256,18 +257,7 @@ export function ExportDialog({
 
             {revisionColor !== 'white' && (selectedFormat === 'pdf' || selectedFormat === 'html') && (
               <div className="flex items-center gap-2 p-3 bg-background rounded-lg">
-                <div
-                  className={`w-4 h-4 rounded ${
-                    revisionColor === 'blue' ? 'bg-blue-400' :
-                    revisionColor === 'pink' ? 'bg-pink-400' :
-                    revisionColor === 'yellow' ? 'bg-yellow-300' :
-                    revisionColor === 'green' ? 'bg-green-400' :
-                    revisionColor === 'goldenrod' ? 'bg-yellow-600' :
-                    revisionColor === 'buff' ? 'bg-orange-200' :
-                    revisionColor === 'salmon' ? 'bg-orange-300' :
-                    'bg-card border-2 border-border'
-                  }`}
-                />
+                <div className={`w-4 h-4 rounded ${REVISION_COLOR_CLASSES[revisionColor]}`} />
                 <div className="text-sm">
                   <p className="font-medium">Revision Color: {revisionColor}</p>
                   <p className="text-xs text-muted-foreground">

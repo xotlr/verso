@@ -1,9 +1,7 @@
 export { FAQSection } from './faq-section';
 export { FeaturesEnhancedSection } from './features-enhanced-section';
 export { Footer } from './footer';
-export { HeroEnhanced } from './hero-enhanced';
 export { HowItWorksSection } from './how-it-works-section';
 export { Navbar } from './navbar';
-export { NavbarEnhanced } from './navbar-enhanced';
 export { RotatingText } from './rotating-text';
 export { UseCasesSection } from './use-cases-section';

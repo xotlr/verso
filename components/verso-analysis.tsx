@@ -58,16 +58,21 @@ export function VersoAnalysis({ isOpen, screenplay, onClose }: VersoAnalysisProp
   };
 
   const formatAnalysis = (text: string): string => {
-    // Apply markdown-like formatting
-    const formatted = text
+    // Limit input length to prevent ReDoS attacks
+    const safeText = text.length > 100000 ? text.slice(0, 100000) : text;
+
+    // Apply markdown-like formatting with ReDoS-safe patterns
+    const formatted = safeText
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      // Use non-greedy with character class exclusion for safety
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
       .replace(/^#+\s+(.+)$/gm, '<h3 class="font-semibold text-lg mt-4 mb-2">$1</h3>')
       .replace(/^-\s+(.+)$/gm, '<li>$1</li>')
-      .replace(/(<li>.*<\/li>\n?)+/g, '<ul class="list-disc list-inside space-y-1 mb-3">$&</ul>')
+      // Fixed: use non-backtracking pattern for list wrapping
+      .replace(/(?:<li>[^<]*<\/li>\n?)+/g, '<ul class="list-disc list-inside space-y-1 mb-3">$&</ul>')
       .replace(/\n\n/g, '</p><p class="mb-3">')
       .replace(/^/, '<p class="mb-3">')
       .replace(/$/, '</p>');

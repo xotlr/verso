@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { filterByCharacter, filterByScenes } from "@/lib/screenplay/sides-filter"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
+
+// Rate limit: 60 requests per minute per IP+token (allows refreshes, prevents abuse)
+const SIDES_RATE_LIMIT = { maxRequests: 60, windowMs: 60 * 1000 }
 
 // GET /api/sides/[token] - Public: fetch filtered screenplay content
 export async function GET(
@@ -10,6 +14,16 @@ export async function GET(
 ) {
   try {
     const { token } = await params
+
+    // Rate limit by IP + token to prevent enumeration and abuse
+    const clientIp = getClientIp(request)
+    const rateLimitResult = await rateLimit(`sides:${clientIp}:${token}`, SIDES_RATE_LIMIT)
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 }
+      )
+    }
 
     const side = await prisma.digitalSide.findUnique({
       where: { token },

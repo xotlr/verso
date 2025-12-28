@@ -167,12 +167,35 @@ export const RATE_LIMITS = {
   PROJECT_CREATE: { maxRequests: 10, windowMs: 60 * 60 * 1000 },
 } as const;
 
-// Helper to get client IP from request
+/**
+ * Get client IP from request headers.
+ * Priority order for trusted proxies (Vercel/Cloudflare):
+ * 1. x-real-ip (set by Vercel)
+ * 2. cf-connecting-ip (set by Cloudflare)
+ * 3. x-forwarded-for (rightmost non-private IP to avoid spoofing)
+ */
 export function getClientIp(request: Request): string {
+  // Vercel sets x-real-ip to the actual client IP
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp) {
+    return realIp.trim();
+  }
+
+  // Cloudflare sets cf-connecting-ip
+  const cfIp = request.headers.get('cf-connecting-ip');
+  if (cfIp) {
+    return cfIp.trim();
+  }
+
+  // Fallback: x-forwarded-for - take the LAST entry (closest to our server)
+  // as earlier entries can be spoofed by the client
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) {
-    return forwarded.split(',')[0].trim();
+    const ips = forwarded.split(',').map(ip => ip.trim());
+    // Return the last IP (rightmost) as it's set by the trusted proxy
+    return ips[ips.length - 1] || 'unknown';
   }
+
   return 'unknown';
 }
 

@@ -2,6 +2,30 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkScreenplayAccess } from "@/lib/auth-utils";
+import { Prisma } from "@prisma/client";
+
+/** Scene reference in callsheet data */
+interface CallsheetScene {
+  sceneId?: string;
+  id?: string;
+}
+
+/** Callsheet JSON data structure */
+interface CallsheetData {
+  scenes?: CallsheetScene[];
+}
+
+/** ProseMirror node structure for scene headings */
+interface SceneHeadingNode {
+  type: string;
+  attrs?: { sceneId?: string };
+  content?: Array<{ text?: string }>;
+}
+
+/** Screenplay content JSON structure */
+interface ScreenplayContent {
+  content?: SceneHeadingNode[];
+}
 
 interface ShotWithNotes {
   id: string;
@@ -63,8 +87,7 @@ export async function GET(
     const callsheetId = searchParams.get("callsheetId");
 
     // Build query for shots
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const whereClause: any = {
+    const whereClause: Prisma.ShotWhereInput = {
       screenplayId: id,
       status: { in: ["shot", "approved"] },
     };
@@ -95,13 +118,11 @@ export async function GET(
       });
 
       // Extract scene IDs from callsheet data
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const callsheetData = callsheet?.data as any;
+      const callsheetData = callsheet?.data as CallsheetData | null;
       if (callsheetData?.scenes) {
-        const sceneIds = callsheetData.scenes.map(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (s: any) => s.sceneId || s.id
-        );
+        const sceneIds = callsheetData.scenes
+          .map((s) => s.sceneId || s.id)
+          .filter((id): id is string => id !== undefined);
         whereClause.sceneId = { in: sceneIds };
       }
     }
@@ -124,8 +145,7 @@ export async function GET(
     });
 
     // Extract scenes from screenplay content to get scene names
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const screenplayContent = screenplay.content as any;
+    const screenplayContent = screenplay.content as ScreenplayContent | null;
     const sceneMap = new Map<string, string>();
 
     if (screenplayContent?.content) {

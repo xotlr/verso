@@ -62,12 +62,15 @@ vi.mock('@/components/editor/panels/use-act-management', () => ({
     hiddenActsCount: 0,
     ungroupAct: vi.fn(),
     resetAllGroups: vi.fn(),
+    groupScenes: vi.fn(),
+    ungroupScenes: vi.fn(),
     startEditingAct: vi.fn(),
     saveActName: vi.fn(),
     cancelEditingAct: vi.fn(),
     setEditingName: vi.fn(),
     getActDisplayName: (act: { name: string }) => act.name,
     isActHidden: () => false,
+    getSceneCustomGroup: () => null,
   }),
 }));
 
@@ -78,11 +81,11 @@ import { ScenesPanel } from '@/components/editor/panels/ScenesPanel';
 function createMockScene(overrides: Partial<SceneInfo> = {}): SceneInfo {
   return {
     id: 'scene-1',
-    number: 1,
     position: 0,
     type: 'INT',
     location: 'COFFEE SHOP',
     timeOfDay: 'DAY',
+    sceneNumber: '1',
     ...overrides,
   };
 }
@@ -90,7 +93,7 @@ function createMockScene(overrides: Partial<SceneInfo> = {}): SceneInfo {
 function createMockScenes(count: number): SceneInfo[] {
   return Array.from({ length: count }, (_, i) => createMockScene({
     id: `scene-${i + 1}`,
-    number: i + 1,
+    sceneNumber: `${i + 1}`,
     position: i * 100,
     type: i % 2 === 0 ? 'INT' : 'EXT',
     location: `LOCATION ${i + 1}`,

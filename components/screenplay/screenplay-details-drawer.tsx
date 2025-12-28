@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FileText, Info, User } from 'lucide-react';
+import { useDebouncedCallback } from '@/hooks/use-debounce';
 
 interface TitlePageFields {
   contactName?: string | null;
@@ -26,6 +27,17 @@ interface TitlePageFields {
   showTitlePageCopyright?: boolean;
   showTitlePageDraft?: boolean;
 }
+
+/** All updateable screenplay fields */
+type ScreenplayField = keyof TitlePageFields | 'logline' | 'genre' | 'author' | 'type' | 'season' | 'episode' | 'episodeTitle';
+
+/** Value types for each field */
+type FieldValue<K extends ScreenplayField> =
+  K extends keyof TitlePageFields ? TitlePageFields[K] :
+  K extends 'logline' | 'genre' | 'author' | 'episodeTitle' ? string | null :
+  K extends 'type' ? 'FILM' | 'TV' :
+  K extends 'season' | 'episode' ? number | null :
+  never;
 
 interface ScreenplayDetailsDrawerProps {
   isOpen: boolean;
@@ -91,8 +103,11 @@ export function ScreenplayDetailsDrawer({
     }
   }, [titlePageFields]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateField = async (field: string, value: any) => {
+  // Raw update function (not debounced - use for immediate updates like selects/switches)
+  const updateFieldImmediate = useCallback(async <K extends ScreenplayField>(
+    field: K,
+    value: FieldValue<K>
+  ) => {
     try {
       await fetch(`/api/screenplays/${screenplayId}`, {
         method: 'PATCH',
@@ -102,13 +117,28 @@ export function ScreenplayDetailsDrawer({
     } catch (error) {
       console.error('Failed to update field:', error);
     }
-  };
+  }, [screenplayId]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateTitlePageField = async (field: keyof TitlePageFields, value: any) => {
+  // Debounced update for text inputs (300ms delay)
+  const updateField = useDebouncedCallback(
+    (field: ScreenplayField, value: unknown) => {
+      updateFieldImmediate(field as ScreenplayField, value as FieldValue<typeof field>);
+    },
+    300
+  );
+
+  const updateTitlePageField = useCallback(<K extends keyof TitlePageFields>(
+    field: K,
+    value: TitlePageFields[K],
+    immediate = false
+  ) => {
     setTitlePage(prev => ({ ...prev, [field]: value }));
-    await updateField(field, value);
-  };
+    if (immediate) {
+      updateFieldImmediate(field, value as FieldValue<typeof field>);
+    } else {
+      updateField(field, value);
+    }
+  }, [updateFieldImmediate, updateField]);
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -188,10 +218,9 @@ export function ScreenplayDetailsDrawer({
                     <Label htmlFor="type">Type</Label>
                     <Select
                       value={localType}
-                      onValueChange={(val) => {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        setLocalType(val as any);
-                        updateField('type', val);
+                      onValueChange={(val: 'FILM' | 'TV') => {
+                        setLocalType(val);
+                        updateFieldImmediate('type', val);
                       }}
                     >
                       <SelectTrigger>
@@ -214,7 +243,7 @@ export function ScreenplayDetailsDrawer({
                             value={localSeason}
                             onChange={(value) => {
                               setLocalSeason(value);
-                              updateField('season', value);
+                              updateFieldImmediate('season', value);
                             }}
                             min={1}
                             max={99}
@@ -228,7 +257,7 @@ export function ScreenplayDetailsDrawer({
                             value={localEpisode}
                             onChange={(value) => {
                               setLocalEpisode(value);
-                              updateField('episode', value);
+                              updateFieldImmediate('episode', value);
                             }}
                             min={1}
                             max={999}
@@ -264,7 +293,7 @@ export function ScreenplayDetailsDrawer({
                     <Switch
                       id="showContact"
                       checked={titlePage.showTitlePageContact ?? true}
-                      onCheckedChange={(checked) => updateTitlePageField('showTitlePageContact', checked)}
+                      onCheckedChange={(checked) => updateTitlePageField('showTitlePageContact', checked, true)}
                     />
                   </div>
                 </div>
@@ -332,7 +361,7 @@ export function ScreenplayDetailsDrawer({
                     <Switch
                       id="showCopyright"
                       checked={titlePage.showTitlePageCopyright ?? true}
-                      onCheckedChange={(checked) => updateTitlePageField('showTitlePageCopyright', checked)}
+                      onCheckedChange={(checked) => updateTitlePageField('showTitlePageCopyright', checked, true)}
                     />
                   </div>
                 </div>
@@ -344,7 +373,7 @@ export function ScreenplayDetailsDrawer({
                       <NumberInput
                         id="copyrightYear"
                         value={titlePage.copyrightYear ?? new Date().getFullYear()}
-                        onChange={(value) => updateTitlePageField('copyrightYear', value)}
+                        onChange={(value) => updateTitlePageField('copyrightYear', value, true)}
                         min={1900}
                         max={2100}
                       />
@@ -386,7 +415,7 @@ export function ScreenplayDetailsDrawer({
                     <Switch
                       id="showDraft"
                       checked={titlePage.showTitlePageDraft ?? true}
-                      onCheckedChange={(checked) => updateTitlePageField('showTitlePageDraft', checked)}
+                      onCheckedChange={(checked) => updateTitlePageField('showTitlePageDraft', checked, true)}
                     />
                   </div>
                 </div>
@@ -397,7 +426,7 @@ export function ScreenplayDetailsDrawer({
                       <Label htmlFor="draftLabel">Draft Label</Label>
                       <Select
                         value={titlePage.draftLabel || 'First Draft'}
-                        onValueChange={(val) => updateTitlePageField('draftLabel', val)}
+                        onValueChange={(val) => updateTitlePageField('draftLabel', val, true)}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -420,7 +449,7 @@ export function ScreenplayDetailsDrawer({
                         id="draftDate"
                         type="date"
                         value={titlePage.draftDate || ''}
-                        onChange={(e) => updateTitlePageField('draftDate', e.target.value || null)}
+                        onChange={(e) => updateTitlePageField('draftDate', e.target.value || null, true)}
                       />
                     </div>
                   </div>

@@ -185,7 +185,7 @@ export type { SceneNumberingOptions } from './scene-numbering';
 export { createSmartClickPlugin, smartClickPluginKey } from './smart-click';
 export { createAutocompletePlugin, autocompletePluginKey, applySuggestion } from './autocomplete';
 export type { AutocompleteState, AutocompleteSuggestion, AutocompletePluginOptions } from './autocomplete';
-export { createCollaborationPlugin, collaborationPluginKey, updateRemoteUsers, applyRemoteChange } from './collaboration';
+export { createCollaborationPlugin, collaborationPluginKey, updateRemoteUsers } from './collaboration';
 export type { CollaborationPluginOptions, CollaborationPluginState } from './collaboration';
 
 // Pagination plugin exports

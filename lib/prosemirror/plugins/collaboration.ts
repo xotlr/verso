@@ -1,13 +1,30 @@
 /**
  * ProseMirror Collaboration Plugin
  *
- * Handles real-time collaboration for ProseMirror editor
+ * Provides remote cursor display and local change broadcasting for timelapse.
+ *
+ * ## What This Plugin Does
+ *
+ * - **Remote cursor decorations**: Shows where other users are editing
+ * - **Change broadcasting**: Debounced (300ms) notifications of local edits
+ *   via `onLocalChange` callback for timelapse recording
+ *
+ * ## Real-time Collaboration
+ *
+ * Document sync is handled by Yjs CRDT:
+ * - Uses `useYjsCollaboration` hook → `SupabaseYjsProvider`
+ * - ProseMirror binds to Yjs via `createYjsCollaborationPlugins` (y-prosemirror)
+ * - Full conflict-free sync with proper cursor awareness
+ *
+ * @see `/hooks/use-yjs-collaboration.ts` - Collaboration hook
+ * @see `/lib/prosemirror/plugins/yjs-collaboration.ts` - Yjs plugin factory
  */
 
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { EditorView } from 'prosemirror-view';
-import type { CollaborationOperation, RemoteUser } from '@/types/collaboration';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { RemoteUser } from '@/types/collaboration';
 
 export const collaborationPluginKey = new PluginKey('collaboration');
 
@@ -109,8 +126,7 @@ export function createCollaborationPlugin(
 /**
  * Create decorations for remote cursors
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function createRemoteCursorDecorations(doc: any, remoteUsers: RemoteUser[]): DecorationSet {
+function createRemoteCursorDecorations(doc: ProseMirrorNode, remoteUsers: RemoteUser[]): DecorationSet {
   const decorations: Decoration[] = [];
 
   remoteUsers.forEach((user) => {
@@ -167,26 +183,3 @@ export function updateRemoteUsers(view: EditorView, users: RemoteUser[]) {
   view.dispatch(tr);
 }
 
-/**
- * Apply a remote change to the editor
- */
-export function applyRemoteChange(
-  view: EditorView,
-  operation: CollaborationOperation
-) {
-  // For now, we'll implement simple text-level sync
-  // In a production system, you'd want to use operational transforms (OT) or CRDTs
-
-  const currentContent = view.state.doc.textContent;
-  const newContent = operation.content || '';
-
-  // Only apply if content is different
-  if (currentContent !== newContent && operation.operationType === 'replace') {
-    const tr = view.state.tr
-      .replaceWith(0, view.state.doc.content.size, view.state.schema.text(newContent))
-      .setMeta(collaborationPluginKey, { type: 'remoteChange' })
-      .setMeta('addToHistory', false); // Don't add to undo history
-
-    view.dispatch(tr);
-  }
-}

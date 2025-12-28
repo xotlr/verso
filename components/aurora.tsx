@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { MeshGradient } from '@mesh-gradient/react';
+import { useEffect, useRef } from 'react';
+import { Gradient } from '@/lib/gradient';
 
 // Convert HSL to hex
 function hslToHex(h: number, s: number, l: number): string {
@@ -35,9 +35,13 @@ function getPrimaryPalette(): [string, string, string, string] {
     return ['#1a1a1a', '#2a2a2a', '#3a3a3a', '#2a2a2a'];
   }
 
-  // Blend primary toward background for subtlety
-  const blendedPrimaryL = (primary.l * 0.03 + background.l * 0.97);
-  const blendedPrimaryS = (primary.s * 0.05 + background.s * 0.95);
+  // Detect light mode and adjust visibility accordingly
+  const isLightMode = background.l > 50;
+  const primaryInfluence = isLightMode ? 0.15 : 0.05;
+
+  // More visible in light mode, subtle in dark mode
+  const blendedPrimaryL = primary.l * primaryInfluence + background.l * (1 - primaryInfluence);
+  const blendedPrimaryS = primary.s * (primaryInfluence * 2) + background.s * (1 - primaryInfluence * 2);
 
   return [
     hslToHex(background.h, background.s, background.l * 0.9), // darker bg
@@ -53,40 +57,53 @@ interface AuroraProps {
   className?: string;
 }
 
-export function Aurora({ colors, speed = 1.0, className = '' }: AuroraProps) {
-  const [themeColors, setThemeColors] = useState<[string, string, string, string]>(
-    colors || ['#1a1a1a', '#2a2a2a', '#3a3a3a', '#2a2a2a']
-  );
+export function Aurora({ colors, className = '' }: AuroraProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const gradientRef = useRef<Gradient | null>(null);
 
   useEffect(() => {
-    if (!colors) {
-      setThemeColors(getPrimaryPalette());
-    }
+    if (!canvasRef.current) return;
+
+    const themeColors = colors || getPrimaryPalette();
+    const gradient = new Gradient();
+    gradientRef.current = gradient;
+    gradient.connect(canvasRef.current, themeColors);
+
+    return () => {
+      gradient.disconnect();
+      gradientRef.current = null;
+    };
   }, [colors]);
 
+  // Watch for theme changes
   useEffect(() => {
-    if (colors) return;
-    const observer = new MutationObserver(() => setThemeColors(getPrimaryPalette()));
+    if (colors) return; // Skip if custom colors provided
+
+    const observer = new MutationObserver(() => {
+      // Wait for CSS variables to update after class change
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (gradientRef.current && canvasRef.current) {
+            gradientRef.current.disconnect();
+            const newGradient = new Gradient();
+            gradientRef.current = newGradient;
+            newGradient.connect(canvasRef.current, getPrimaryPalette());
+          }
+        }, 50);
+      });
+    });
+
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => observer.disconnect();
   }, [colors]);
 
   return (
     <div className={`w-full h-full relative overflow-hidden ${className}`}>
-      <MeshGradient
-        className="w-full h-full scale-110"
-        options={{
-          colors: themeColors,
-          animationSpeed: speed * 0.6,
-          frequency: {
-            x: 0.00012,
-            y: 0.00018,
-            delta: 0.00006,
-          },
-        }}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ display: 'block' }}
       />
-      {/* Soft blur overlay */}
-      <div className="absolute inset-0 backdrop-blur-sm pointer-events-none" />
     </div>
   );
 }

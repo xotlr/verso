@@ -170,7 +170,7 @@ function getAppUrl(host: string, pathname: string, protocol: string): string {
   return `${protocol}://app.${mainDomain}${pathname}`
 }
 
-export default authEdge((req) => {
+export const proxy = authEdge((req) => {
   const isLoggedIn = !!req.auth
   const { pathname } = req.nextUrl
   const host = req.headers.get("host") || ""

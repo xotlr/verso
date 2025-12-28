@@ -5,13 +5,13 @@ import { Node as ProseMirrorNode } from 'prosemirror-model';
 export const sceneNumberingPluginKey = new PluginKey<SceneNumberingState>('sceneNumbering');
 
 export interface SceneNumberingOptions {
-  // Force show scene numbers even when document has title page
-  forceShow?: boolean;
+  // Whether to show scene numbers
+  enabled?: boolean;
 }
 
 interface SceneNumberingState {
   decorations: DecorationSet;
-  forceShow: boolean;
+  enabled: boolean;
 }
 
 const SCENE_NUMBERING_UPDATE_META = 'sceneNumberingUpdate';
@@ -21,7 +21,7 @@ const SCENE_NUMBERING_UPDATE_META = 'sceneNumberingUpdate';
  * Numbers are sequential and update dynamically as scenes are added/removed.
  */
 export function createSceneNumberingPlugin(options: SceneNumberingOptions = {}) {
-  const initialForceShow = options.forceShow ?? false;
+  const initialEnabled = options.enabled ?? false;
 
   return new Plugin<SceneNumberingState>({
     key: sceneNumberingPluginKey,
@@ -29,18 +29,18 @@ export function createSceneNumberingPlugin(options: SceneNumberingOptions = {}) 
     state: {
       init(_, state): SceneNumberingState {
         return {
-          decorations: createSceneNumberDecorations(state, initialForceShow),
-          forceShow: initialForceShow,
+          decorations: createSceneNumberDecorations(state, initialEnabled),
+          enabled: initialEnabled,
         };
       },
       apply(tr, pluginState, oldState, newState): SceneNumberingState {
-        // Check for forceShow update
-        const updateMeta = tr.getMeta(SCENE_NUMBERING_UPDATE_META) as { forceShow?: boolean } | undefined;
+        // Check for enabled update
+        const updateMeta = tr.getMeta(SCENE_NUMBERING_UPDATE_META) as { enabled?: boolean } | undefined;
         if (updateMeta !== undefined) {
-          const newForceShow = updateMeta.forceShow ?? pluginState.forceShow;
+          const newEnabled = updateMeta.enabled ?? pluginState.enabled;
           return {
-            decorations: createSceneNumberDecorations(newState, newForceShow),
-            forceShow: newForceShow,
+            decorations: createSceneNumberDecorations(newState, newEnabled),
+            enabled: newEnabled,
           };
         }
 
@@ -49,7 +49,7 @@ export function createSceneNumberingPlugin(options: SceneNumberingOptions = {}) 
 
         return {
           ...pluginState,
-          decorations: createSceneNumberDecorations(newState, pluginState.forceShow),
+          decorations: createSceneNumberDecorations(newState, pluginState.enabled),
         };
       }
     },
@@ -65,19 +65,14 @@ export function createSceneNumberingPlugin(options: SceneNumberingOptions = {}) 
 /**
  * Creates decoration widgets for scene numbers.
  */
-function createSceneNumberDecorations(state: EditorState, forceShow: boolean): DecorationSet {
-  const decorations: Decoration[] = [];
-  let sceneCount = 0;
-
-  // Check if document starts with title page
-  const firstNode = state.doc.firstChild;
-  const hasTitlePage = firstNode?.type.name === 'title_page';
-
-  // If document has title page and forceShow is not enabled, skip all scene numbers
-  // (Spec scripts with title pages typically don't show scene numbers)
-  if (hasTitlePage && !forceShow) {
+function createSceneNumberDecorations(state: EditorState, enabled: boolean): DecorationSet {
+  // If scene numbering is disabled, return empty
+  if (!enabled) {
     return DecorationSet.empty;
   }
+
+  const decorations: Decoration[] = [];
+  let sceneCount = 0;
 
   state.doc.forEach((node: ProseMirrorNode, offset: number) => {
     if (node.type.name === 'scene_heading') {
@@ -107,7 +102,7 @@ function createSceneNumberDecorations(state: EditorState, forceShow: boolean): D
  */
 export function updateSceneNumberingSettings(
   view: EditorView,
-  options: { forceShow?: boolean }
+  options: { enabled?: boolean }
 ) {
   const tr = view.state.tr.setMeta(SCENE_NUMBERING_UPDATE_META, options);
   view.dispatch(tr);

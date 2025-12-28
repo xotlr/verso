@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
+
+// Rate limit: 100 requests per minute per IP+shareId (higher limit for pagination)
+const TIMELAPSE_RATE_LIMIT = { maxRequests: 100, windowMs: 60 * 1000 };
 
 // GET - Get public timelapse data by share ID
 export async function GET(
@@ -8,6 +12,17 @@ export async function GET(
 ) {
   try {
     const { shareId } = await params;
+
+    // Rate limit by IP + shareId to prevent abuse
+    const clientIp = getClientIp(request);
+    const rateLimitResult = await rateLimit(`timelapse:${clientIp}:${shareId}`, TIMELAPSE_RATE_LIMIT);
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
 
     const cursor = searchParams.get('cursor');

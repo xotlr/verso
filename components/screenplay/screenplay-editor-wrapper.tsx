@@ -12,15 +12,12 @@ import { Scene, Character } from "@/types/screenplay";
 import { ScreenplayVersion } from "@/types/version";
 import { parseScreenplayText } from "@/lib/screenplay/utils";
 import { useSettings } from "@/contexts/settings-context";
-import { useCollaboration } from "@/hooks/use-collaboration";
 import { useYjsCollaboration } from "@/hooks/use-yjs-collaboration";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
 import { useShotManagement, useScreenplayPersistence } from "@/hooks/screenplay";
 import type { SceneInfo, CharacterInfo } from "@/hooks/editor/use-prosemirror-editor";
 import type { EditorView } from "prosemirror-view";
-import type { CollaborationOperation } from "@/types/collaboration";
 import type { DetectedShot, Shot } from "@/types/shotlist";
 
 // Lazy-load heavy dialog components to reduce initial bundle size
@@ -148,8 +145,8 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     return `hsl(${hue}, 70%, 50%)`;
   }, [session?.user?.id]);
 
-  // Yjs CRDT collaboration for real-time document sync
-  const yjsEnabled = settings.editor.yjsCollaboration ?? false;
+  // Yjs CRDT collaboration for real-time document sync (always enabled)
+  const yjsEnabled = settings.editor.yjsCollaboration ?? true;
   const yjsCollaboration = useYjsCollaboration({
     screenplayId,
     userId: session?.user?.id ?? '',
@@ -176,33 +173,10 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   // Destructure stable refs from persistence (do this once to avoid re-render loops)
   // The persistence object changes every render, but these callbacks are stable
   const {
-    screenplayTextRef,
-    setScreenplayText,
+    handleTextChange: persistenceHandleTextChange,
     setScenes,
     setCharacters,
-    setLocations,
-    handleTextChange: persistenceHandleTextChange,
   } = persistence;
-
-  // Real-time collaboration
-  const collaboration = useCollaboration({
-    screenplayId,
-    editorType: layoutMode === 'modern' ? 'prosemirror' : 'classic',
-    enabled: true,
-    onRemoteChange: useCallback((operation: CollaborationOperation) => {
-      if (operation.operationType === 'replace' && operation.content) {
-        const remoteText = operation.content;
-        if (remoteText !== screenplayTextRef.current) {
-          setScreenplayText(remoteText);
-          const parsed = parseScreenplayText(remoteText);
-          setScenes(parsed.scenes || []);
-          setCharacters(parsed.characters || []);
-          setLocations(parsed.locations || []);
-          toast.info('Screenplay updated by collaborator', { duration: 2000 });
-        }
-      }
-    }, [screenplayTextRef, setScreenplayText, setScenes, setCharacters, setLocations]),
-  });
 
   // Load screenplay and metadata from database
   useEffect(() => {
@@ -278,22 +252,10 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screenplayId]);
 
-  // Destructure stable refs from collaboration for handleTextChange callback
-  const { isConnected: collabIsConnected, broadcastChange } = collaboration;
-
-  // Wrap handleTextChange to also broadcast to collaborators
+  // Handle text changes (Yjs handles real-time sync automatically via CRDT)
   const handleTextChange = useCallback((text: string) => {
     persistenceHandleTextChange(text);
-
-    // Broadcast changes to collaborators (debounced with the save)
-    if (collabIsConnected) {
-      broadcastChange({
-        type: 'replace',
-        content: text,
-        cursorPosition: 0,
-      });
-    }
-  }, [persistenceHandleTextChange, collabIsConnected, broadcastChange]);
+  }, [persistenceHandleTextChange]);
 
   // Listen for share dialog open events from header
   useEffect(() => {
@@ -377,11 +339,11 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
 
       {/* Main content area - editor */}
       <div className="flex-1 relative h-full">
-        {/* Collaboration Avatars - floating in top right */}
+        {/* Collaboration Avatars - floating in top right (Yjs awareness) */}
         <div className="fixed top-4 right-4 z-50">
           <CollaborationAvatars
-            remoteUsers={collaboration.remoteUsers}
-            isConnected={collaboration.isConnected}
+            remoteUsers={yjsCollaboration.remoteUsers}
+            isConnected={yjsCollaboration.isConnected}
           />
         </div>
 

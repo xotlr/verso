@@ -78,13 +78,13 @@ export function PerformancePanel() {
         <Button
           variant="outline"
           size="icon"
-          className="fixed bottom-4 left-4 z-50 h-9 w-9 rounded-full shadow-lg"
+          className="fixed bottom-4 right-4 z-50 h-9 w-9 rounded-full shadow-lg"
           title="Performance Metrics"
         >
           <Activity className="h-4 w-4" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-80 sm:w-96">
+      <SheetContent side="right" className="w-80 sm:w-96">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Activity className="h-4 w-4" />

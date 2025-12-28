@@ -1,10 +1,11 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, ArrowRight, Play } from "lucide-react"
+import { Check, ArrowRight } from "lucide-react"
 import { Aurora } from "@/components/aurora"
-import { Noise } from "@/components/noise"
+import { BlurOverlay } from "@/components/ui/blur-overlay"
 import { RotatingText } from "@/components/landing/rotating-text"
+import { AnimatedShinyText } from "@/components/ui/animated-shiny-text"
 import { AppPreviewSection } from "@/components/landing/app-preview-section"
 import { UseCasesSection } from "@/components/landing/use-cases-section"
 import { FeaturesEnhancedSection } from "@/components/landing/features-enhanced-section"
@@ -18,21 +19,20 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden -mt-20 pt-20 rounded-b-[3rem]">
         {/* Aurora Background - extends behind navbar */}
-        <div className="absolute inset-0 -z-10 bg-primary">
+        <div className="absolute inset-0 -z-10">
           <Aurora speed={1.0} />
         </div>
 
-        {/* Noise Overlay */}
-        <Noise opacity={0.03} className="-z-10" />
+        {/* Frosted glass overlay */}
+        <BlurOverlay blur={24} opacity={0.5} fadeEdges />
 
-        <div className="container max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-24">
+        <div className="container max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-24 relative z-10">
           <div className="flex flex-col items-center text-center space-y-6 sm:space-y-8">
-            <Badge
-              variant="secondary"
-              className="font-normal text-xs sm:text-sm px-3 py-1 relative overflow-hidden isolate before:absolute before:inset-0 before:animate-shimmer before:bg-gradient-to-r before:from-transparent before:via-white/30 before:to-transparent before:mix-blend-overlay"
-            >
-              Professional Screenwriting Software
-            </Badge>
+            <div className="group rounded-full border border-black/5 bg-neutral-100 text-base transition-all ease-in hover:bg-neutral-200 dark:border-white/5 dark:bg-neutral-900 dark:hover:bg-neutral-800">
+              <AnimatedShinyText className="inline-flex items-center justify-center px-4 py-1.5 text-xs sm:text-sm font-normal">
+                Unlimited screenplays, free forever
+              </AnimatedShinyText>
+            </div>
 
             <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight font-medium leading-[1.1]">
               Write your screenplay,{" "}
@@ -50,22 +50,11 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 asChild
-                className="h-12 sm:h-11 px-6 text-base sm:text-sm group btn-hover-lift w-full sm:w-auto"
+                className="rounded-full h-12 sm:h-11 px-6 text-base sm:text-sm group shadow-sm hover:shadow-md transition-shadow w-full sm:w-auto"
               >
                 <Link href="/signup" className="flex items-center justify-center gap-2">
                   Start Writing Free
                   <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </Link>
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                asChild
-                className="h-12 sm:h-11 px-6 text-base sm:text-sm group btn-hover-lift w-full sm:w-auto"
-              >
-                <Link href="/#how-it-works" className="flex items-center justify-center gap-2">
-                  <Play className="h-4 w-4" />
-                  See How It Works
                 </Link>
               </Button>
             </div>
@@ -224,14 +213,16 @@ function PricingCard({
 }) {
   return (
     <div
-      className={`relative p-4 sm:p-6 rounded-xl border transition-all duration-300 hover:-translate-y-1 ${
+      className={`relative p-4 sm:p-6 rounded-xl border transition-all duration-300 ${
         highlighted
           ? "border-primary bg-primary text-primary-foreground shadow-lg lg:scale-[1.02] hover:shadow-xl"
-          : "bg-card hover:border-border/80 hover:shadow-lg"
+          : "bg-card hover:border-border/80 hover:shadow-lg hover:-translate-y-1"
       }`}
     >
       {highlighted && (
-        <Badge variant="secondary" className="absolute -top-3 left-1/2 -translate-x-1/2 font-normal text-xs text-muted-foreground uppercase tracking-wide">Most Popular</Badge>
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary text-primary-foreground shadow-md px-4 py-1.5 text-xs font-medium uppercase tracking-wide whitespace-nowrap pointer-events-none">
+          Most Popular
+        </div>
       )}
       <h3 className="text-base sm:text-lg font-medium">{name}</h3>
       <div className="mt-1 sm:mt-2 mb-2 sm:mb-4">
@@ -248,7 +239,7 @@ function PricingCard({
         ))}
       </ul>
       <Button
-        className={`w-full h-9 sm:h-11 text-xs sm:text-sm group rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${highlighted ? "bg-black/70 text-white/90 hover:bg-black hover:text-white" : "bg-white/70 text-black/70 hover:bg-white hover:text-black"}`}
+        className={`w-full h-9 sm:h-11 text-xs sm:text-sm group rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${highlighted ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
         variant="ghost"
         asChild
       >

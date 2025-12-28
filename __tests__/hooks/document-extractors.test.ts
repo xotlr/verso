@@ -5,6 +5,8 @@ import {
   calculatePageCount,
   extractScenes,
   extractCharacters,
+  extractShots,
+  extractDetectedShotsFromDocument,
 } from '@/hooks/editor/document-extractors';
 
 // Minimal schema for testing
@@ -44,6 +46,17 @@ const testSchema = new Schema({
       group: 'block',
       toDOM: () => ['div', { class: 'dialogue' }, 0],
       parseDOM: [{ tag: 'div.dialogue' }],
+    },
+    shot: {
+      content: 'text*',
+      group: 'block',
+      attrs: {
+        shotType: { default: null },
+        subject: { default: null },
+        linkedShotId: { default: null },
+      },
+      toDOM: () => ['div', { class: 'shot' }, 0],
+      parseDOM: [{ tag: 'div.shot' }],
     },
     text: { group: 'inline' },
   },
@@ -91,6 +104,21 @@ function createAction(text: string): ProseMirrorNode {
 
 function createDialogue(text: string): ProseMirrorNode {
   return testSchema.node('dialogue', null, text ? [testSchema.text(text)] : []);
+}
+
+function createShot(
+  text: string,
+  attrs: { shotType?: string; subject?: string; linkedShotId?: string } = {}
+): ProseMirrorNode {
+  return testSchema.node(
+    'shot',
+    {
+      shotType: attrs.shotType || null,
+      subject: attrs.subject || null,
+      linkedShotId: attrs.linkedShotId || null,
+    },
+    text ? [testSchema.text(text)] : []
+  );
 }
 
 describe('calculateWordCount', () => {
@@ -314,5 +342,202 @@ describe('extractCharacters', () => {
 
     const characters = extractCharacters(doc);
     expect(characters[0].id).toBe('john-doe');
+  });
+});
+
+describe('extractScenes - edge cases', () => {
+  it('should handle scene heading without INT/EXT pattern', () => {
+    const doc = createDoc(
+      createSceneHeading('LATER THAT NIGHT')
+    );
+
+    const scenes = extractScenes(doc);
+    expect(scenes).toHaveLength(1);
+    // Should fall back to INT as default type when pattern doesn't match
+    expect(scenes[0].type).toBe('INT');
+    expect(scenes[0].location).toBe('LATER THAT NIGHT');
+  });
+
+  it('should handle empty scene heading', () => {
+    const doc = createDoc(
+      createSceneHeading('')
+    );
+
+    const scenes = extractScenes(doc);
+    expect(scenes).toHaveLength(1);
+    expect(scenes[0].type).toBe('INT');
+    // Empty scene heading results in empty location (attrs.location is empty)
+    expect(scenes[0].location).toBe('');
+  });
+});
+
+describe('extractShots', () => {
+  it('should extract shots with attributes', () => {
+    const scenes = [
+      { id: 'scene-1', type: 'INT', location: 'OFFICE', position: 0 },
+    ];
+
+    const doc = createDoc(
+      createSceneHeading('INT. OFFICE - DAY'),
+      createShot('Close-up of document', { shotType: 'CLOSE-UP', subject: 'document' })
+    );
+
+    const shots = extractShots(doc, scenes as any);
+
+    expect(shots).toHaveLength(1);
+    expect(shots[0].shotType).toBe('CLOSE-UP');
+    expect(shots[0].subject).toBe('document');
+    expect(shots[0].sceneId).toBe('scene-1');
+  });
+
+  it('should associate shots with correct scenes', () => {
+    const doc = createDoc(
+      createSceneHeading('INT. OFFICE - DAY', { id: 'scene-1' }),
+      createShot('First shot'),
+      createSceneHeading('EXT. STREET - NIGHT', { id: 'scene-2' }),
+      createShot('Second shot')
+    );
+
+    const scenes = extractScenes(doc);
+    const shots = extractShots(doc, scenes);
+
+    expect(shots).toHaveLength(2);
+    expect(shots[0].sceneId).toBe('scene-1');
+    expect(shots[1].sceneId).toBe('scene-2');
+  });
+
+  it('should return empty array when no shots exist', () => {
+    const doc = createDoc(
+      createSceneHeading('INT. OFFICE - DAY'),
+      createAction('No shots here.')
+    );
+
+    const scenes = extractScenes(doc);
+    const shots = extractShots(doc, scenes);
+
+    expect(shots).toHaveLength(0);
+  });
+
+  it('should handle shots before any scene', () => {
+    const doc = createDoc(
+      createShot('Orphan shot'),
+      createSceneHeading('INT. OFFICE - DAY')
+    );
+
+    const scenes = extractScenes(doc);
+    const shots = extractShots(doc, scenes);
+
+    expect(shots).toHaveLength(1);
+    expect(shots[0].sceneId).toBeNull();
+  });
+
+  it('should generate deterministic IDs', () => {
+    const doc = createDoc(
+      createShot('Test shot')
+    );
+
+    const shots1 = extractShots(doc, []);
+    const shots2 = extractShots(doc, []);
+
+    expect(shots1[0].id).toBe(shots2[0].id);
+    expect(shots1[0].id).toMatch(/^shot-\d+-\d+-\w+$/);
+  });
+
+  it('should handle linked shots', () => {
+    const doc = createDoc(
+      createShot('First shot', { linkedShotId: 'linked-123' })
+    );
+
+    const shots = extractShots(doc, []);
+
+    expect(shots[0].linkedShotId).toBe('linked-123');
+  });
+});
+
+describe('extractDetectedShotsFromDocument', () => {
+  it('should detect shot patterns in action text', () => {
+    const doc = createDoc(
+      createSceneHeading('INT. OFFICE - DAY', { id: 'scene-1' }),
+      createAction('CLOSE-UP: A hand reaches for the phone.')
+    );
+
+    const scenes = extractScenes(doc);
+    const detected = extractDetectedShotsFromDocument(doc, scenes);
+
+    expect(detected).toHaveLength(1);
+    expect(detected[0].shotType).toBe('CLOSE_UP');
+    expect(detected[0].sceneId).toBe('scene-1');
+  });
+
+  it('should detect wide shot patterns', () => {
+    const doc = createDoc(
+      createSceneHeading('EXT. BEACH - DAY', { id: 'scene-1' }),
+      createAction('WIDE SHOT: The beach stretches to the horizon.')
+    );
+
+    const scenes = extractScenes(doc);
+    const detected = extractDetectedShotsFromDocument(doc, scenes);
+
+    expect(detected).toHaveLength(1);
+    expect(detected[0].shotType).toBe('WIDE');
+  });
+
+  it('should skip empty lines', () => {
+    const doc = createDoc(
+      createAction(''),
+      createAction('Normal action text.')
+    );
+
+    const detected = extractDetectedShotsFromDocument(doc, []);
+
+    expect(detected).toHaveLength(0);
+  });
+
+  it('should not detect non-shot text', () => {
+    const doc = createDoc(
+      createAction('John walks into the room.'),
+      createDialogue('Hello everyone.')
+    );
+
+    const detected = extractDetectedShotsFromDocument(doc, []);
+
+    expect(detected).toHaveLength(0);
+  });
+
+  it('should generate unique IDs for detected shots', () => {
+    const doc = createDoc(
+      createAction('CLOSE-UP: First shot'),
+      createAction('CLOSE-UP: Second shot')
+    );
+
+    const detected = extractDetectedShotsFromDocument(doc, []);
+
+    expect(detected).toHaveLength(2);
+    expect(detected[0].id).not.toBe(detected[1].id);
+  });
+
+  it('should track line numbers', () => {
+    const doc = createDoc(
+      createAction('Normal line'),
+      createAction('POV: Looking through the window')
+    );
+
+    const detected = extractDetectedShotsFromDocument(doc, []);
+
+    expect(detected).toHaveLength(1);
+    expect(detected[0].lineNumber).toBe(2);
+  });
+
+  it('should handle shots before any scene', () => {
+    const doc = createDoc(
+      createAction('ESTABLISHING SHOT: City skyline'),
+      createSceneHeading('INT. OFFICE - DAY')
+    );
+
+    const scenes = extractScenes(doc);
+    const detected = extractDetectedShotsFromDocument(doc, scenes);
+
+    expect(detected).toHaveLength(1);
+    expect(detected[0].sceneId).toBeNull();
   });
 });

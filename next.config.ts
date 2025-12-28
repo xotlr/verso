@@ -13,6 +13,9 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
+  // Next.js 16: Turbopack is default. Empty config acknowledges plugins' webpack additions.
+  turbopack: {},
+
   // Fix workspace root detection (multiple lockfiles issue)
   outputFileTracingRoot: __dirname,
 
@@ -50,32 +53,8 @@ const nextConfig: NextConfig = {
     };
   },
 
-
-  // Enable WebAssembly support for the pagination engine
-  webpack: (config, { isServer }) => {
-    // Enable WASM
-    config.experiments = {
-      ...config.experiments,
-      asyncWebAssembly: true,
-    };
-
-    // Handle .wasm files
-    config.module.rules.push({
-      test: /\.wasm$/,
-      type: 'webassembly/async',
-    });
-
-    // Fix for WASM in workers
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        path: false,
-      };
-    }
-
-    return config;
-  },
+  // WebAssembly is loaded dynamically from /public/wasm/ via fetch
+  // No webpack/turbopack config needed - WASM served as static assets
 };
 
 export default withBundleAnalyzer(withSerwist(nextConfig));

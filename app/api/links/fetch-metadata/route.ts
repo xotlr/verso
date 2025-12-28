@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { fetchUrlMetadata, detectLinkCategory } from "@/lib/url-metadata"
 import { z } from "zod"
+import { promises as dns } from "dns"
 
 // Rate limiting (simple in-memory)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
@@ -43,7 +44,45 @@ const BLOCKED_HOSTNAME_PATTERNS = [
   /\.internal$/i, // .internal domains
 ]
 
-function isBlockedUrl(urlString: string): boolean {
+/**
+ * Check if an IP address is private/internal
+ */
+function isPrivateIP(ip: string): boolean {
+  // Loopback
+  if (ip === "127.0.0.1" || ip === "::1" || ip.startsWith("127.")) {
+    return true
+  }
+  // Link-local (AWS/GCP metadata)
+  if (ip.startsWith("169.254.")) {
+    return true
+  }
+  // Private ranges
+  if (ip.startsWith("10.")) {
+    return true
+  }
+  if (ip.startsWith("192.168.")) {
+    return true
+  }
+  // 172.16.0.0 - 172.31.255.255
+  const parts = ip.split(".")
+  if (parts[0] === "172") {
+    const second = parseInt(parts[1], 10)
+    if (second >= 16 && second <= 31) {
+      return true
+    }
+  }
+  // IPv6 private
+  if (ip.startsWith("fc") || ip.startsWith("fd") || ip.startsWith("fe80")) {
+    return true
+  }
+  return false
+}
+
+/**
+ * SSRF protection with DNS rebinding defense.
+ * Resolves hostname to IP and checks BOTH the hostname AND resolved IPs.
+ */
+async function isBlockedUrl(urlString: string): Promise<boolean> {
   try {
     const url = new URL(urlString)
     const hostname = url.hostname.toLowerCase()
@@ -61,6 +100,32 @@ function isBlockedUrl(urlString: string): boolean {
     // Check against blocked patterns
     if (BLOCKED_HOSTNAME_PATTERNS.some((pattern) => pattern.test(hostname))) {
       return true
+    }
+
+    // DNS rebinding defense: resolve hostname and check resolved IPs
+    // This prevents attacks where DNS returns a safe IP initially,
+    // then a private IP on subsequent lookups
+    try {
+      const addresses = await dns.resolve4(hostname)
+      for (const ip of addresses) {
+        if (isPrivateIP(ip)) {
+          return true
+        }
+      }
+    } catch {
+      // DNS resolution failed - could be IPv6 only, let it through
+      // but check IPv6 as well
+      try {
+        const addresses = await dns.resolve6(hostname)
+        for (const ip of addresses) {
+          if (isPrivateIP(ip)) {
+            return true
+          }
+        }
+      } catch {
+        // No DNS records at all - block to be safe
+        return true
+      }
     }
 
     return false
@@ -105,8 +170,8 @@ export async function POST(request: Request) {
 
     const { url } = result.data
 
-    // SSRF protection - block internal/dangerous URLs
-    if (isBlockedUrl(url)) {
+    // SSRF protection - block internal/dangerous URLs (with DNS rebinding defense)
+    if (await isBlockedUrl(url)) {
       return NextResponse.json(
         { error: "URL not allowed" },
         { status: 400 }

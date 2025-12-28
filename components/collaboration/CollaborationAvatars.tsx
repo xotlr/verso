@@ -15,11 +15,21 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import type { RemoteUser } from '@/types/collaboration';
 import { Users } from 'lucide-react';
 
+/**
+ * Minimal user type for collaboration avatars.
+ * Works with both legacy RemoteUser and Yjs RemoteYjsUser types.
+ */
+export interface CollaboratorUser {
+  id: string;
+  name: string;
+  color: string;
+  image?: string | null;
+}
+
 export interface CollaborationAvatarsProps {
-  remoteUsers: RemoteUser[];
+  remoteUsers: CollaboratorUser[];
   isConnected: boolean;
   className?: string;
   maxAvatars?: number;
@@ -71,9 +81,7 @@ export function CollaborationAvatars({
               <TooltipContent>
                 <div className="text-xs">
                   <div className="font-semibold">{user.name}</div>
-                  <div className="text-muted-foreground">
-                    {user.editorType === 'prosemirror' ? 'Modern' : 'Classic'} Editor
-                  </div>
+                  <div className="text-muted-foreground">Editing</div>
                 </div>
               </TooltipContent>
             </Tooltip>
