@@ -1,14 +1,35 @@
 // Shotlist types for production planning
 
 export const SHOT_TYPES = [
+  // Wide shots
   'EXTREME_WIDE',
   'WIDE',
+  'ESTABLISHING',
+  'AERIAL',
+  // Medium shots
   'FULL',
   'MEDIUM_WIDE',
   'MEDIUM',
   'MEDIUM_CLOSE',
+  // Close shots
   'CLOSE_UP',
   'EXTREME_CLOSE',
+  'EXTREME_CLOSE_UP',
+  'INSERT',
+  // Multi-person shots
+  'TWO_SHOT',
+  'THREE_SHOT',
+  'GROUP_SHOT',
+  // Special shots
+  'OVER_SHOULDER',
+  'POV',
+  'ANGLE_ON',
+  'TRACKING',
+  'MOVING',
+  // Angle-based shots
+  'LOW_ANGLE',
+  'HIGH_ANGLE',
+  'DUTCH_ANGLE',
 ] as const;
 
 export const CAMERA_ANGLES = [
@@ -73,14 +94,99 @@ export interface SceneWithShots {
 
 // Label mappings for display
 export const SHOT_TYPE_LABELS: Record<ShotType, string> = {
+  // Wide shots
   EXTREME_WIDE: 'Extreme Wide',
   WIDE: 'Wide',
+  ESTABLISHING: 'Establishing',
+  AERIAL: 'Aerial',
+  // Medium shots
   FULL: 'Full Shot',
   MEDIUM_WIDE: 'Medium Wide',
   MEDIUM: 'Medium',
   MEDIUM_CLOSE: 'Medium Close-Up',
+  // Close shots
   CLOSE_UP: 'Close-Up',
   EXTREME_CLOSE: 'Extreme Close-Up',
+  EXTREME_CLOSE_UP: 'Extreme Close-Up',
+  INSERT: 'Insert',
+  // Multi-person shots
+  TWO_SHOT: 'Two-Shot',
+  THREE_SHOT: 'Three-Shot',
+  GROUP_SHOT: 'Group Shot',
+  // Special shots
+  OVER_SHOULDER: 'Over-the-Shoulder',
+  POV: 'POV',
+  ANGLE_ON: 'Angle On',
+  TRACKING: 'Tracking',
+  MOVING: 'Moving',
+  // Angle-based shots
+  LOW_ANGLE: 'Low Angle',
+  HIGH_ANGLE: 'High Angle',
+  DUTCH_ANGLE: 'Dutch Angle',
+};
+
+export const SHOT_TYPE_ABBREVIATIONS: Record<ShotType, string> = {
+  // Wide shots
+  EXTREME_WIDE: 'EWS',
+  WIDE: 'WS',
+  ESTABLISHING: 'EST',
+  AERIAL: 'AER',
+  // Medium shots
+  FULL: 'FS',
+  MEDIUM_WIDE: 'MWS',
+  MEDIUM: 'MS',
+  MEDIUM_CLOSE: 'MCU',
+  // Close shots
+  CLOSE_UP: 'CU',
+  EXTREME_CLOSE: 'ECU',
+  EXTREME_CLOSE_UP: 'ECU',
+  INSERT: 'INS',
+  // Multi-person shots
+  TWO_SHOT: '2S',
+  THREE_SHOT: '3S',
+  GROUP_SHOT: 'GRP',
+  // Special shots
+  OVER_SHOULDER: 'OTS',
+  POV: 'POV',
+  ANGLE_ON: 'ANG',
+  TRACKING: 'TRK',
+  MOVING: 'MOV',
+  // Angle-based shots
+  LOW_ANGLE: 'LA',
+  HIGH_ANGLE: 'HA',
+  DUTCH_ANGLE: 'DA',
+};
+
+export const SHOT_TYPE_COLORS: Record<ShotType, string> = {
+  // Wide shots - blue tones
+  EXTREME_WIDE: 'bg-blue-500/20 text-blue-700 dark:text-blue-300',
+  WIDE: 'bg-blue-400/20 text-blue-600 dark:text-blue-300',
+  ESTABLISHING: 'bg-blue-600/20 text-blue-700 dark:text-blue-300',
+  AERIAL: 'bg-sky-500/20 text-sky-700 dark:text-sky-300',
+  // Medium shots - green tones
+  FULL: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300',
+  MEDIUM_WIDE: 'bg-green-400/20 text-green-700 dark:text-green-300',
+  MEDIUM: 'bg-green-500/20 text-green-700 dark:text-green-300',
+  MEDIUM_CLOSE: 'bg-teal-500/20 text-teal-700 dark:text-teal-300',
+  // Close shots - orange/red tones
+  CLOSE_UP: 'bg-orange-500/20 text-orange-700 dark:text-orange-300',
+  EXTREME_CLOSE: 'bg-red-500/20 text-red-700 dark:text-red-300',
+  EXTREME_CLOSE_UP: 'bg-red-500/20 text-red-700 dark:text-red-300',
+  INSERT: 'bg-amber-500/20 text-amber-700 dark:text-amber-300',
+  // Multi-person shots - purple tones
+  TWO_SHOT: 'bg-purple-500/20 text-purple-700 dark:text-purple-300',
+  THREE_SHOT: 'bg-violet-500/20 text-violet-700 dark:text-violet-300',
+  GROUP_SHOT: 'bg-fuchsia-500/20 text-fuchsia-700 dark:text-fuchsia-300',
+  // Special shots - pink/rose tones
+  OVER_SHOULDER: 'bg-pink-500/20 text-pink-700 dark:text-pink-300',
+  POV: 'bg-rose-500/20 text-rose-700 dark:text-rose-300',
+  ANGLE_ON: 'bg-pink-400/20 text-pink-700 dark:text-pink-300',
+  TRACKING: 'bg-indigo-500/20 text-indigo-700 dark:text-indigo-300',
+  MOVING: 'bg-indigo-400/20 text-indigo-700 dark:text-indigo-300',
+  // Angle-based shots - slate/gray tones
+  LOW_ANGLE: 'bg-slate-500/20 text-slate-700 dark:text-slate-300',
+  HIGH_ANGLE: 'bg-zinc-500/20 text-zinc-700 dark:text-zinc-300',
+  DUTCH_ANGLE: 'bg-stone-500/20 text-stone-700 dark:text-stone-300',
 };
 
 export const CAMERA_ANGLE_LABELS: Record<CameraAngle, string> = {

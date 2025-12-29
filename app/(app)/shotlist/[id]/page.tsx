@@ -51,7 +51,6 @@ export default function ShotlistPage() {
           setShots(shotsData.shots || []);
         }
       } catch (err) {
-        console.error("Error loading shotlist data:", err);
         setError(err instanceof Error ? err.message : "Failed to load data");
       } finally {
         setLoading(false);

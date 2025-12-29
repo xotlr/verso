@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import { Shot, SHOT_STATUS_COLORS, ShotStatus } from "@/types/shotlist";
 import { ShotEditor } from "./shot-editor";
 import { Button } from "@/components/ui/button";
@@ -32,8 +33,8 @@ export function SceneShotsList({ screenplayId, sceneId }: SceneShotsListProps) {
         );
         setShots(sceneShots);
       }
-    } catch (error) {
-      console.error("Error fetching shots:", error);
+    } catch {
+      toast.error("Failed to load shots");
     } finally {
       setLoading(false);
     }
@@ -54,46 +55,48 @@ export function SceneShotsList({ screenplayId, sceneId }: SceneShotsListProps) {
   };
 
   const handleSaveShot = async (shotData: Partial<Shot>) => {
-    try {
-      if (editingShot) {
-        // Update existing shot
-        const response = await fetch(
-          `/api/screenplays/${screenplayId}/shots/${editingShot.id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(shotData),
-          }
-        );
-        if (response.ok) {
-          const updatedShot = await response.json();
-          setShots((prev) =>
-            prev.map((s) => (s.id === updatedShot.id ? updatedShot : s))
-          );
+    if (editingShot) {
+      // Update existing shot
+      const response = await fetch(
+        `/api/screenplays/${screenplayId}/shots/${editingShot.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(shotData),
         }
-      } else {
-        // Create new shot
-        const response = await fetch(
-          `/api/screenplays/${screenplayId}/shots`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ...shotData,
-              sceneId,
-            }),
-          }
-        );
-        if (response.ok) {
-          const newShot = await response.json();
-          setShots((prev) => [...prev, newShot]);
-        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to update shot");
       }
-      setEditorOpen(false);
-      setEditingShot(null);
-    } catch (error) {
-      console.error("Error saving shot:", error);
+      const updatedShot = await response.json();
+      setShots((prev) =>
+        prev.map((s) => (s.id === updatedShot.id ? updatedShot : s))
+      );
+      toast.success("Shot updated");
+    } else {
+      // Create new shot
+      const response = await fetch(
+        `/api/screenplays/${screenplayId}/shots`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...shotData,
+            sceneId,
+          }),
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to create shot");
+      }
+      const newShot = await response.json();
+      setShots((prev) => [...prev, newShot]);
+      toast.success("Shot added");
     }
+    setEditorOpen(false);
+    setEditingShot(null);
   };
 
   if (loading) {

@@ -220,8 +220,17 @@
   gap: 0; /* WASM handles all spacing via page break decorations */
   /* No min-height - content dictates height for proper scrolling */
   background: hsl(var(--background));
-  /* Centering via left: 50% + translateX(-50%) in inline styles for proper mobile scaling */
+  /* Centering handled by transform in ProseMirrorEditor.tsx */
   /* Zoom is instant - scroll adjusts simultaneously so content stays locked to page */
+}
+
+/* Mobile: Add horizontal padding to match useResponsiveScale calculation */
+@media (max-width: 767px) {
+  .pm-editor-scroll-area [data-radix-scroll-area-viewport] {
+    /* 16px padding on each side = 32px total, matching useResponsiveScale */
+    padding-left: 16px;
+    padding-right: 16px;
+  }
 }
 
 /* Each page - container for ProseMirror content */
@@ -1225,11 +1234,6 @@
 @media (max-width: 767px) {
   /* Bottom padding handled by layout.tsx pb-14 - don't duplicate here */
 
-  /* Adjust page scaling origin for centered mobile pages */
-  .pm-editor-pages {
-    transform-origin: top center;
-  }
-
   /* Better touch scrolling */
   .pm-editor-scroll-area {
     -webkit-overflow-scrolling: touch;
@@ -1253,11 +1257,12 @@
  */
 
 /* Container for all page frames - positioned behind content */
+/* Parent container handles centering and scaling */
 .pm-page-frames-container {
   position: absolute;
   top: 0;
-  left: 50%;
-  transform-origin: top center;
+  left: 0;
+  right: 0;
   pointer-events: none;
   z-index: 0;
 }
@@ -1306,15 +1311,14 @@
 
 /* Dark mode handled by CSS variables (--card-foreground) */
 
-/* Container for page gap overlays - uses CSS transform for smooth zoom transitions */
+/* Container for page gap overlays - parent handles centering and scaling */
 .pm-page-gaps-container {
   position: absolute;
-  left: 50%;
+  left: 0;
+  right: 0;
   top: 0;
   pointer-events: none;
   z-index: 1;
-  /* Smooth zoom transitions - matches .pm-editor-pages */
-  transition: transform 150ms ease-out;
 }
 
 /* Gap overlay between pages - positioned within the transformed container */

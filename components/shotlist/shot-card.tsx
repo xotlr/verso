@@ -2,7 +2,8 @@
 
 import {
   Shot,
-  SHOT_TYPE_LABELS,
+  SHOT_TYPE_ABBREVIATIONS,
+  SHOT_TYPE_COLORS,
   CAMERA_ANGLE_LABELS,
   CAMERA_MOVEMENT_LABELS,
   SHOT_STATUS_LABELS,
@@ -26,7 +27,6 @@ import {
   Pencil,
   Copy,
   Trash2,
-  Camera,
   Move,
   Clock,
 } from "lucide-react";
@@ -93,12 +93,15 @@ export function ShotCard({
 
           {/* Shot type */}
           {shot.shotType && (
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase tracking-wide">
-              <Camera className="h-3 w-3" />
-              <span>
-                {SHOT_TYPE_LABELS[shot.shotType as ShotType] || shot.shotType}
-              </span>
-            </div>
+            <Badge
+              variant="secondary"
+              className={cn(
+                "text-[9px] font-bold uppercase tracking-wider",
+                SHOT_TYPE_COLORS[shot.shotType as ShotType]
+              )}
+            >
+              {SHOT_TYPE_ABBREVIATIONS[shot.shotType as ShotType] || shot.shotType}
+            </Badge>
           )}
 
           {/* Camera angle */}

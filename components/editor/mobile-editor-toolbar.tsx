@@ -523,7 +523,7 @@ export function MobileEditorToolbar({
           {/* Zoom */}
           <div className="space-y-2">
             <p className="text-sm font-medium text-muted-foreground">
-              Zoom: {zoom}%
+              Zoom: {Math.round(zoom * 100)}%
             </p>
             <div className="flex items-center gap-2">
               <Button

@@ -88,9 +88,7 @@ export const PageFrameRenderer = memo(function PageFrameRenderer({
       data-page-style={pageStyle}
       style={{
         height: `${totalHeight}px`,
-        width: `${PAGE_WIDTH_PX}px`,
-        transform: `translateX(-50%) scale(var(--editor-zoom, ${scale}))`,
-        transformOrigin: 'top center',
+        // No transform needed - parent container handles centering and scaling
       }}
     >
       {visibleFrames.map((frame) => (
@@ -137,9 +135,7 @@ export const PageGapRenderer = memo(function PageGapRenderer({
       className="pm-page-gaps-container"
       style={{
         height: `${totalHeight}px`,
-        width: `${PAGE_WIDTH_PX}px`,
-        transform: `translateX(-50%) scale(var(--editor-zoom, ${scale}))`,
-        transformOrigin: 'top center',
+        // No transform needed - parent container handles centering and scaling
       }}
     >
       {visibleGapFrames.map((frame) => {

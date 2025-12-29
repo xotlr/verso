@@ -24,6 +24,8 @@ const createShotSchema = z.object({
   audio: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   status: z.enum(SHOT_STATUSES).optional().default("planned"),
+  thumbnailUrl: z.string().url().nullable().optional(),
+  thumbnailType: z.enum(["upload", "url"]).nullable().optional(),
 });
 
 // GET /api/screenplays/[id]/shots - List all shots for screenplay
@@ -138,6 +140,8 @@ export async function POST(
           audio: data.audio ?? null,
           notes: data.notes ?? null,
           status: data.status,
+          thumbnailUrl: data.thumbnailUrl ?? null,
+          thumbnailType: data.thumbnailType ?? null,
         },
       });
     });

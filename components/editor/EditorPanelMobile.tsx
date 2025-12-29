@@ -116,11 +116,11 @@ export function EditorPanelMobile({
 
   return (
     <Drawer open={mobileOpen} onOpenChange={handleOpenChange} modal={false}>
-      <DrawerContent className="max-h-[70vh] flex flex-col">
+      <DrawerContent className="max-h-[70vh] flex flex-col overflow-hidden pb-16">
         <VisuallyHidden.Root>
           <DrawerTitle>Editor Panel</DrawerTitle>
         </VisuallyHidden.Root>
-        <div className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 pt-2">
           {activePanel === 'scenes' && (
             <ScenesPanel
               scenes={scenes}

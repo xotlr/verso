@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
 import { SceneWithShots, Shot } from "@/types/shotlist";
 import { ShotCard } from "./shot-card";
 import { ShotEditor } from "./shot-editor";
@@ -11,6 +12,16 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   ChevronDown,
   ChevronRight,
@@ -38,6 +49,7 @@ export function Shotlist({
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingShot, setEditingShot] = useState<Shot | null>(null);
   const [addingToScene, setAddingToScene] = useState<string | null>(null);
+  const [deletingShot, setDeletingShot] = useState<Shot | null>(null);
 
   const toggleScene = useCallback((sceneId: string) => {
     setExpandedScenes((prev) => {
@@ -65,77 +77,87 @@ export function Shotlist({
 
   const handleSaveShot = useCallback(
     async (shotData: Partial<Shot>) => {
-      try {
-        if (editingShot) {
-          // Update existing shot
-          const response = await fetch(
-            `/api/screenplays/${screenplayId}/shots/${editingShot.id}`,
-            {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(shotData),
-            }
-          );
+      if (editingShot) {
+        // Update existing shot
+        const response = await fetch(
+          `/api/screenplays/${screenplayId}/shots/${editingShot.id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(shotData),
+          }
+        );
 
-          if (!response.ok) throw new Error("Failed to update shot");
-
-          const updatedShot = await response.json();
-          const allShots = scenesWithShots.flatMap((s) => s.shots);
-          const newShots = allShots.map((s) =>
-            s.id === updatedShot.id ? updatedShot : s
-          );
-          onShotsChange(newShots);
-        } else if (addingToScene) {
-          // Create new shot
-          const response = await fetch(
-            `/api/screenplays/${screenplayId}/shots`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                ...shotData,
-                sceneId: addingToScene,
-              }),
-            }
-          );
-
-          if (!response.ok) throw new Error("Failed to create shot");
-
-          const newShot = await response.json();
-          const allShots = scenesWithShots.flatMap((s) => s.shots);
-          onShotsChange([...allShots, newShot]);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to update shot");
         }
 
-        setEditorOpen(false);
-        setEditingShot(null);
-        setAddingToScene(null);
-      } catch (error) {
-        console.error("Error saving shot:", error);
+        const updatedShot = await response.json();
+        const allShots = scenesWithShots.flatMap((s) => s.shots);
+        const newShots = allShots.map((s) =>
+          s.id === updatedShot.id ? updatedShot : s
+        );
+        onShotsChange(newShots);
+        toast.success("Shot updated");
+      } else if (addingToScene) {
+        // Create new shot
+        const response = await fetch(
+          `/api/screenplays/${screenplayId}/shots`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...shotData,
+              sceneId: addingToScene,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to create shot");
+        }
+
+        const newShot = await response.json();
+        const allShots = scenesWithShots.flatMap((s) => s.shots);
+        onShotsChange([...allShots, newShot]);
+        toast.success("Shot added");
       }
+
+      setEditorOpen(false);
+      setEditingShot(null);
+      setAddingToScene(null);
     },
     [screenplayId, editingShot, addingToScene, scenesWithShots, onShotsChange]
   );
 
-  const handleDeleteShot = useCallback(
-    async (shotId: string) => {
-      try {
-        const response = await fetch(
-          `/api/screenplays/${screenplayId}/shots/${shotId}`,
-          {
-            method: "DELETE",
-          }
-        );
+  const confirmDeleteShot = useCallback(async () => {
+    if (!deletingShot) return;
 
-        if (!response.ok) throw new Error("Failed to delete shot");
+    try {
+      const response = await fetch(
+        `/api/screenplays/${screenplayId}/shots/${deletingShot.id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
-        const allShots = scenesWithShots.flatMap((s) => s.shots);
-        onShotsChange(allShots.filter((s) => s.id !== shotId));
-      } catch (error) {
-        console.error("Error deleting shot:", error);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to delete shot");
       }
-    },
-    [screenplayId, scenesWithShots, onShotsChange]
-  );
+
+      const allShots = scenesWithShots.flatMap((s) => s.shots);
+      onShotsChange(allShots.filter((s) => s.id !== deletingShot.id));
+      toast.success("Shot deleted");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete shot";
+      toast.error(message);
+    } finally {
+      setDeletingShot(null);
+    }
+  }, [screenplayId, scenesWithShots, onShotsChange, deletingShot]);
 
   const handleDuplicateShot = useCallback(
     async (shot: Shot) => {
@@ -162,13 +184,18 @@ export function Shotlist({
           }
         );
 
-        if (!response.ok) throw new Error("Failed to duplicate shot");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to duplicate shot");
+        }
 
         const newShot = await response.json();
         const allShots = scenesWithShots.flatMap((s) => s.shots);
         onShotsChange([...allShots, newShot]);
+        toast.success("Shot duplicated");
       } catch (error) {
-        console.error("Error duplicating shot:", error);
+        const message = error instanceof Error ? error.message : "Failed to duplicate shot";
+        toast.error(message);
       }
     },
     [screenplayId, scenesWithShots, onShotsChange]
@@ -255,7 +282,7 @@ export function Shotlist({
                             key={shot.id}
                             shot={shot}
                             onEdit={() => handleEditShot(shot)}
-                            onDelete={() => handleDeleteShot(shot.id)}
+                            onDelete={() => setDeletingShot(shot)}
                             onDuplicate={() => handleDuplicateShot(shot)}
                           />
                         ))
@@ -276,6 +303,24 @@ export function Shotlist({
         shot={editingShot}
         onSave={handleSaveShot}
       />
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!deletingShot} onOpenChange={(open) => !open && setDeletingShot(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete shot?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete shot #{deletingShot?.shotNumber}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteShot} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

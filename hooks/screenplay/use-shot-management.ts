@@ -107,7 +107,10 @@ export function useShotManagement({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(shotData),
         });
-        if (!response.ok) throw new Error("Failed to update shot");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to update shot");
+        }
         const updatedShot = await response.json();
         setShots(prev => prev.map(s => s.id === updatedShot.id ? updatedShot : s));
         toast.success("Shot updated");
@@ -118,15 +121,18 @@ export function useShotManagement({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...shotData, sceneId: addingToScene }),
         });
-        if (!response.ok) throw new Error("Failed to create shot");
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to create shot");
+        }
         const newShot = await response.json();
         setShots(prev => [...prev, newShot]);
         toast.success("Shot added");
       }
       closeShotEditor();
     } catch (error) {
-      console.error("Error saving shot:", error);
-      toast.error("Failed to save shot");
+      const message = error instanceof Error ? error.message : "Failed to save shot";
+      toast.error(message);
     }
   }, [screenplayId, editingShot, addingToScene, closeShotEditor]);
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import {
   Shot,
   SHOT_TYPES,
@@ -36,7 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Minus, Plus, Upload, Link2, X, ImageIcon } from "lucide-react";
+import { Minus, Plus, Upload, Link2, X, ImageIcon, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from "next/image";
 
@@ -44,7 +45,7 @@ interface ShotEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   shot: Shot | null;
-  onSave: (shot: Partial<Shot>) => void;
+  onSave: (shot: Partial<Shot>) => Promise<void>;
 }
 
 const NONE_VALUE = "__none__";
@@ -69,6 +70,7 @@ export function ShotEditor({
   const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [thumbnailType, setThumbnailType] = useState<'upload' | 'url' | null>(null);
   const [imageInputMode, setImageInputMode] = useState<'upload' | 'url'>('upload');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Reset form when shot changes
   useEffect(() => {
@@ -106,24 +108,32 @@ export function ShotEditor({
     }
   }, [shot, open]);
 
-  const handleSave = () => {
-    if (!description.trim()) return;
+  const handleSave = async () => {
+    if (!description.trim() || isSaving) return;
 
-    onSave({
-      description: description.trim(),
-      shotType: shotType === NONE_VALUE ? null : (shotType as ShotType),
-      cameraAngle: cameraAngle === NONE_VALUE ? null : (cameraAngle as CameraAngle),
-      movement: movement === NONE_VALUE ? null : (movement as CameraMovement),
-      duration: duration,
-      lens: lens.trim() || null,
-      equipment: equipment.trim() || null,
-      lighting: lighting.trim() || null,
-      audio: audio.trim() || null,
-      notes: notes.trim() || null,
-      thumbnailUrl: thumbnailUrl.trim() || null,
-      thumbnailType: thumbnailUrl.trim() ? thumbnailType : null,
-      status,
-    });
+    setIsSaving(true);
+    try {
+      await onSave({
+        description: description.trim(),
+        shotType: shotType === NONE_VALUE ? null : (shotType as ShotType),
+        cameraAngle: cameraAngle === NONE_VALUE ? null : (cameraAngle as CameraAngle),
+        movement: movement === NONE_VALUE ? null : (movement as CameraMovement),
+        duration: duration,
+        lens: lens.trim() || null,
+        equipment: equipment.trim() || null,
+        lighting: lighting.trim() || null,
+        audio: audio.trim() || null,
+        notes: notes.trim() || null,
+        thumbnailUrl: thumbnailUrl.trim() || null,
+        thumbnailType: thumbnailUrl.trim() ? thumbnailType : null,
+        status,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save shot";
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleClearImage = () => {
@@ -442,10 +452,11 @@ export function ShotEditor({
         </ScrollArea>
 
         <DialogFooter className="mt-6">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!description.trim()}>
+          <Button onClick={handleSave} disabled={!description.trim() || isSaving}>
+            {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {shot ? "Save Changes" : "Add Shot"}
           </Button>
         </DialogFooter>

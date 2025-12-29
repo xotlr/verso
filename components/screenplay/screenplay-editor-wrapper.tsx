@@ -19,6 +19,7 @@ import { useShotManagement, useScreenplayPersistence } from "@/hooks/screenplay"
 import type { SceneInfo, CharacterInfo } from "@/hooks/editor/use-prosemirror-editor";
 import type { EditorView } from "prosemirror-view";
 import type { DetectedShot, Shot } from "@/types/shotlist";
+import { SHOT_TYPES } from "@/types/shotlist";
 
 // Lazy-load heavy dialog components to reduce initial bundle size
 const VersionHistorySidebar = dynamic(
@@ -359,9 +360,9 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         />
 
       {/* Main content area - editor */}
-      <div className="flex-1 relative h-full">
+      <div className="flex-1 relative h-full isolate">
         {/* Collaboration Avatars - floating in top right (Yjs awareness) */}
-        <div className="fixed top-4 right-4 z-50">
+        <div className="fixed top-4 right-4 z-30">
           <CollaborationAvatars
             remoteUsers={yjsCollaboration.remoteUsers}
             isConnected={yjsCollaboration.isConnected}
@@ -471,7 +472,9 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           description: pendingDetectedShot.subject || pendingDetectedShot.lineContent,
           shotNumber: 0,
           status: 'planned' as const,
-          shotType: (pendingDetectedShot.shotType as Shot['shotType']) || null,
+          shotType: SHOT_TYPES.includes(pendingDetectedShot.shotType as typeof SHOT_TYPES[number])
+            ? (pendingDetectedShot.shotType as Shot['shotType'])
+            : null,
           cameraAngle: null,
           movement: null,
           duration: null,

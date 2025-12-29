@@ -25,6 +25,8 @@ const updateShotSchema = z.object({
   audio: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
   status: z.enum(SHOT_STATUSES).optional(),
+  thumbnailUrl: z.string().url().nullable().optional(),
+  thumbnailType: z.enum(["upload", "url"]).nullable().optional(),
 });
 
 // GET /api/screenplays/[id]/shots/[shotId] - Get a single shot
@@ -137,6 +139,8 @@ export async function PUT(
         ...(data.audio !== undefined && { audio: data.audio }),
         ...(data.notes !== undefined && { notes: data.notes }),
         ...(data.status !== undefined && { status: data.status }),
+        ...(data.thumbnailUrl !== undefined && { thumbnailUrl: data.thumbnailUrl }),
+        ...(data.thumbnailType !== undefined && { thumbnailType: data.thumbnailType }),
       },
     });
 

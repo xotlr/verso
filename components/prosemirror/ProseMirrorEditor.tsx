@@ -29,6 +29,7 @@ import { applyLayoutCSS, applyLayoutMetadataCSS, DEFAULT_FEATURE_FILM_CONFIG, ty
 import { Button } from '@/components/ui/button';
 import { MobileEditorToolbar } from '@/components/editor/mobile-editor-toolbar';
 import { MobileSceneCharacterSheet } from '@/components/editor/MobileSceneCharacterSheet';
+import { ZoomIndicator } from './ZoomIndicator';
 import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
 import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plugins/keymap';
 import { updateTypewriterScrollSettings } from '@/lib/prosemirror/plugins';
@@ -527,58 +528,66 @@ export function ProseMirrorEditor({
           viewMode === 'continuous' && 'pm-continuous-mode'
         )}
       >
-        {/* Page frames layer (discrete mode only) - rendered behind content */}
-        {isDiscreteMode && isReady && (
-          <PageFrameRenderer
-            frames={pageFrames}
-            scale={scale}
-            discreteMode={isDiscreteMode}
-            pageStyle={pageStyle}
-            showPageNumbers={settings.interface.showPageNumbers}
-            scrollContainerRef={scrollContainerRef}
-          />
-        )}
-
-        {/* Gap overlays between pages (discrete mode only) */}
-        {isDiscreteMode && isReady && (
-          <PageGapRenderer
-            frames={pageFrames}
-            scale={scale}
-            discreteMode={isDiscreteMode}
-            scrollContainerRef={scrollContainerRef}
-          />
-        )}
-
-        <EditorContextMenu view={view} onFindReplace={onToggleFindReplace}>
-          <div
-            className={cn(
-              'pm-editor-pages',
-              isDiscreteMode && 'pm-content-layer'
+        {/* Centered container for frames + content */}
+        {/* Uses left: 50% + negative margin to center the SCALED content */}
+        <div
+          className="relative"
+          style={{
+            width: `${PAGE_WIDTH_PX}px`,
+            // Center the scaled element: left 50% - half of visual width
+            left: '50%',
+            marginLeft: `${-(PAGE_WIDTH_PX * scale) / 2}px`,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+            // In discrete mode, set min-height to match total page frames height
+            minHeight: isDiscreteMode && discreteTotalHeight > 0
+              ? `${discreteTotalHeight}px`
+              : undefined,
+          }}
+        >
+            {/* Page frames layer (discrete mode only) - positioned within this container */}
+            {isDiscreteMode && isReady && (
+              <PageFrameRenderer
+                frames={pageFrames}
+                scale={1}
+                discreteMode={isDiscreteMode}
+                pageStyle={pageStyle}
+                showPageNumbers={settings.interface.showPageNumbers}
+                scrollContainerRef={scrollContainerRef}
+              />
             )}
-            style={{
-              transform: `translateX(-50%) scale(var(--editor-zoom, ${scale}))`,
-              transformOrigin: 'top center',
-              position: 'relative',
-              left: '50%',
-              width: `${PAGE_WIDTH_PX}px`,
-              // In discrete mode, set min-height to match total page frames height
-              minHeight: isDiscreteMode && discreteTotalHeight > 0
-                ? `${discreteTotalHeight}px`
-                : undefined,
-            }}
-          >
-            {/* ProseMirror mounts here */}
-            <div
-              ref={containerRef}
-              className={cn(
-                'pm-editor-page',
-                !isReady && 'opacity-0',
-                'transition-opacity duration-200'
-              )}
-              data-page-style={pageStyle}
-            />
-          </div>
-        </EditorContextMenu>
+
+            {/* Gap overlays between pages (discrete mode only) */}
+            {isDiscreteMode && isReady && (
+              <PageGapRenderer
+                frames={pageFrames}
+                scale={1}
+                discreteMode={isDiscreteMode}
+                scrollContainerRef={scrollContainerRef}
+              />
+            )}
+
+            {/* Content layer */}
+            <EditorContextMenu view={view} onFindReplace={onToggleFindReplace}>
+              <div
+                className={cn(
+                  'pm-editor-pages',
+                  isDiscreteMode && 'pm-content-layer'
+                )}
+              >
+                {/* ProseMirror mounts here */}
+                <div
+                  ref={containerRef}
+                  className={cn(
+                    'pm-editor-page',
+                    !isReady && 'opacity-0',
+                    'transition-opacity duration-200'
+                  )}
+                  data-page-style={pageStyle}
+                />
+              </div>
+            </EditorContextMenu>
+        </div>
       </EditorScrollArea>
 
       {/* Element type toolbar (expandable indicator) */}
@@ -660,6 +669,17 @@ export function ProseMirrorEditor({
           characters={characters}
           view={view}
           currentSceneId={currentSceneId}
+        />
+      )}
+
+      {/* Mobile zoom indicator - Procreate-style slider */}
+      {isMobile && (
+        <ZoomIndicator
+          zoom={scale}
+          fitToWidthScale={fitToWidthScale}
+          onZoomChange={setZoom}
+          onResetZoom={resetZoom}
+          className="bottom-20 right-4"
         />
       )}
 

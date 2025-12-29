@@ -25,7 +25,7 @@ interface PanelContainerProps {
  */
 export function PanelContainer({ children, className }: PanelContainerProps) {
   return (
-    <div className={cn('flex flex-col overflow-hidden bg-sidebar rounded-xl', className)}>
+    <div className={cn('flex flex-col overflow-hidden', className)}>
       {children}
     </div>
   );
