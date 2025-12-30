@@ -1229,6 +1229,26 @@
 }
 
 /* ============================================
+   Reading Mode
+   ============================================ */
+
+/* Reading mode - hide cursor when not focused */
+.pm-reading-mode .ProseMirror {
+  cursor: default;
+}
+
+/* Reading mode - subtle visual indicator */
+.pm-reading-mode .pm-editor-page {
+  /* Slight sepia tint for reading comfort */
+  filter: sepia(0.03);
+}
+
+/* Reading mode - disable text selection highlight (optional) */
+.pm-reading-mode .ProseMirror::selection {
+  background: hsl(var(--primary) / 0.1);
+}
+
+/* ============================================
    Mobile Editor Adjustments
    ============================================ */
 @media (max-width: 767px) {

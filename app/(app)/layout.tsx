@@ -10,6 +10,7 @@ import { EditorHeader } from "@/components/editor/editor-header";
 import { BottomNav } from "@/components/bottom-nav";
 import { EditorBottomNav } from "@/components/editor/editor-bottom-nav";
 import { EditorPanelProvider } from "@/components/editor/EditorPanelContext";
+import { EditorSceneProvider } from "@/contexts/editor-scene-context";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { cn } from "@/lib/utils";
 import { ProductivityProvider } from "@/contexts/productivity-context";
@@ -86,14 +87,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <ProductivityProvider>
-      <SidebarProvider>
-        {/* Sidebar - slides out in focus mode */}
-        <div className={cn(
-          "transition-all duration-500 ease-out",
-          focusMode && "opacity-0 -translate-x-full pointer-events-none"
-        )}>
-          <AppSidebar />
-        </div>
+      <EditorSceneProvider>
+        <SidebarProvider>
+          {/* Sidebar - slides out in focus mode */}
+          <div className={cn(
+            "transition-all duration-500 ease-out",
+            focusMode && "opacity-0 -translate-x-full pointer-events-none"
+          )}>
+            <AppSidebar />
+          </div>
 
         <SidebarInset className={cn(
           "flex flex-col h-screen transition-all duration-500 ease-out overflow-x-hidden",
@@ -162,7 +164,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
         {/* PWA Install Prompt */}
         <InstallPrompt />
-      </SidebarProvider>
+        </SidebarProvider>
+      </EditorSceneProvider>
     </ProductivityProvider>
   );
 }

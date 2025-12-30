@@ -8,99 +8,19 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { STRIPE_PLANS } from '@/lib/stripe-constants';
 
 interface BillingSectionProps {
   currentPlan: string;
 }
 
-interface Plan {
-  name: string;
-  key: string;
-  description: string;
-  monthlyPrice: number;
-  yearlyPrice: number;
-  yearlyDiscount?: string;
-  perUser?: boolean;
-  features: string[];
-  highlighted?: boolean;
-  priceIdMonthly: string | undefined;
-  priceIdYearly: string | undefined;
-}
-
-const plans: Plan[] = [
-  {
-    name: 'Free',
-    key: 'FREE',
-    description: 'Perfect for getting started',
-    monthlyPrice: 0,
-    yearlyPrice: 0,
-    features: [
-      'Unlimited screenplays & pages',
-      '1 project',
-      'Industry-standard formatting',
-      'PDF export',
-      'Dark mode',
-    ],
-    priceIdMonthly: undefined,
-    priceIdYearly: undefined,
-  },
-  {
-    name: 'Plus',
-    key: 'PLUS',
-    description: 'For serious screenwriters',
-    monthlyPrice: 12.99,
-    yearlyPrice: 99.99,
-    yearlyDiscount: 'Save $56',
-    features: [
-      'Unlimited projects',
-      'All export formats (PDF, FDX, Fountain)',
-      'Index cards & beat board',
-      'Character analytics',
-      'Cloud sync',
-      'Priority support',
-    ],
-    highlighted: true,
-    priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
-    priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PLUS_YEARLY_PRICE_ID,
-  },
-  {
-    name: 'Pro',
-    key: 'PRO',
-    description: 'For writing teams',
-    monthlyPrice: 29.99,
-    yearlyPrice: 249.99,
-    yearlyDiscount: 'Save $110',
-    features: [
-      'Everything in Plus',
-      'Real-time collaboration',
-      'Up to 5 team members',
-      'Version history',
-      'Comments & notes',
-      'Team workspace',
-    ],
-    priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID,
-    priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID,
-  },
-  {
-    name: 'Max',
-    key: 'MAX',
-    description: 'For production & studios',
-    monthlyPrice: 99.99,
-    yearlyPrice: 899.99,
-    yearlyDiscount: 'Save $300',
-    perUser: true,
-    features: [
-      'Everything in Pro',
-      'Unlimited team members',
-      'Production tools',
-      'Schedules & budgets',
-      'Admin controls',
-      'Custom branding',
-    ],
-    priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_MAX_MONTHLY_PRICE_ID,
-    priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_MAX_YEARLY_PRICE_ID,
-  },
-];
+// Build plans array from constants
+const plans = Object.entries(STRIPE_PLANS).map(([key, plan]) => ({
+  ...plan,
+  key: key.toUpperCase(),
+  priceIdMonthly: plan.monthlyPriceId,
+  priceIdYearly: plan.yearlyPriceId,
+}));
 
 export function BillingSection({ currentPlan }: BillingSectionProps) {
   const [isYearly, setIsYearly] = useState(false);
@@ -187,26 +107,26 @@ export function BillingSection({ currentPlan }: BillingSectionProps) {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Billing Toggle */}
-        <div className="flex items-center justify-center gap-3">
-          <span className={cn("text-sm", !isYearly ? "font-medium" : "text-muted-foreground")}>
+        <div className="flex items-center justify-center gap-4">
+          <span className={cn(!isYearly ? "font-medium" : "text-muted-foreground")}>
             Monthly
           </span>
           <Switch
             checked={isYearly}
             onCheckedChange={setIsYearly}
           />
-          <span className={cn("text-sm", isYearly ? "font-medium" : "text-muted-foreground")}>
+          <span className={cn(isYearly ? "font-medium" : "text-muted-foreground")}>
             Yearly
           </span>
           {isYearly && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="ml-2">
               Save up to 30%
             </Badge>
           )}
         </div>
 
         {/* Plan Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
           {plans.map((plan) => (
             <PlanCard
               key={plan.key}
@@ -220,8 +140,8 @@ export function BillingSection({ currentPlan }: BillingSectionProps) {
           ))}
         </div>
 
-        <p className="text-xs text-center text-muted-foreground">
-          All plans include a 14-day free trial. No credit card required to start.
+        <p className="text-muted-foreground text-center">
+          No credit card for free tier. 14-day trial on paid plans.
         </p>
       </CardContent>
     </Card>
@@ -229,7 +149,7 @@ export function BillingSection({ currentPlan }: BillingSectionProps) {
 }
 
 interface PlanCardProps {
-  plan: Plan;
+  plan: typeof plans[number];
   isYearly: boolean;
   currentPlan: string;
   loadingPlan: string | null;
@@ -242,79 +162,83 @@ function PlanCard({ plan, isYearly, currentPlan, loadingPlan, onCheckout, onMana
   const isDowngrade = plan.key === 'FREE' ||
     (plan.key === 'PLUS' && (currentPlan === 'PRO' || currentPlan === 'MAX')) ||
     (plan.key === 'PRO' && currentPlan === 'MAX');
+  const isHighlighted = 'highlighted' in plan && plan.highlighted;
+  const perUser = 'perUser' in plan && plan.perUser;
+  const yearlyDiscount = 'yearlyDiscount' in plan ? plan.yearlyDiscount : undefined;
 
   return (
     <div
       className={cn(
-        "relative p-4 rounded-xl border transition-all",
+        "relative p-6 rounded-2xl border transition-all",
         isCurrentPlan
-          ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-          : plan.highlighted
-            ? "border-primary/50 bg-primary/[0.02]"
-            : "border-border hover:border-border/80"
+          ? "border-primary bg-primary/5 shadow-xl ring-2 ring-primary/20 scale-[1.02]"
+          : isHighlighted
+            ? "border-primary bg-primary/5 shadow-xl ring-2 ring-primary/20 scale-[1.02]"
+            : "bg-card hover:shadow-md"
       )}
     >
       {isCurrentPlan && (
-        <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px]">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium shadow-lg">
           Current Plan
-        </Badge>
+        </div>
       )}
-      {!isCurrentPlan && plan.highlighted && (
-        <Badge variant="secondary" className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px]">
+      {!isCurrentPlan && isHighlighted && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium shadow-lg">
           Most Popular
-        </Badge>
+        </div>
       )}
 
-      <div className="mb-3">
-        <h3 className="font-semibold">{plan.name}</h3>
-        <p className="text-xs text-muted-foreground">{plan.description}</p>
+      <div className="mb-6">
+        <h2 className="text-2xl font-medium">{plan.name}</h2>
+        <p className="text-muted-foreground/80 mt-1 text-sm">{plan.description}</p>
       </div>
 
-      <div className="mb-3">
-        <div className="flex items-baseline gap-0.5">
-          <span className="text-2xl font-semibold">
+      <div className="mb-6">
+        <div className="flex items-baseline gap-1">
+          <span className="text-4xl font-medium">
             ${isYearly ? plan.yearlyPrice : plan.monthlyPrice}
           </span>
-          <span className="text-xs text-muted-foreground">
-            /{isYearly ? 'yr' : 'mo'}
-            {plan.perUser && '/user'}
+          <span className="text-muted-foreground/60 text-sm">
+            /{isYearly ? 'year' : 'month'}
+            {perUser && '/user'}
           </span>
         </div>
-        {isYearly && plan.yearlyDiscount && (
-          <Badge variant="secondary" className="mt-1 text-[10px]">
-            {plan.yearlyDiscount}
+        {isYearly && yearlyDiscount && (
+          <Badge variant="secondary" className="mt-2">
+            {yearlyDiscount}
           </Badge>
         )}
       </div>
 
-      <ul className="space-y-1.5 mb-4">
-        {plan.features.slice(0, 4).map((feature, i) => (
-          <li key={i} className="flex items-start gap-2 text-xs">
-            <Check className="h-3 w-3 text-primary flex-shrink-0 mt-0.5" />
-            <span className="text-muted-foreground">{feature}</span>
+      <ul className="space-y-3 mb-8">
+        {plan.features.map((feature, i) => (
+          <li key={i} className="flex items-start gap-3">
+            <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+            <span className="text-sm font-light">{feature}</span>
           </li>
         ))}
-        {plan.features.length > 4 && (
-          <li className="text-xs text-muted-foreground pl-5">
-            +{plan.features.length - 4} more
+        {plan.limitations.map((limitation, i) => (
+          <li key={i} className="flex items-start gap-3 text-muted-foreground/60">
+            <span className="h-4 w-4 flex items-center justify-center flex-shrink-0">
+              -
+            </span>
+            <span className="text-sm font-light">{limitation}</span>
           </li>
-        )}
+        ))}
       </ul>
 
       {isCurrentPlan ? (
         <Button
           variant="outline"
-          size="sm"
           className="w-full"
           disabled
         >
-          <Check className="h-3.5 w-3.5 mr-1.5" />
+          <Check className="h-4 w-4 mr-2" />
           Active
         </Button>
       ) : plan.key === 'FREE' ? (
         <Button
-          variant="ghost"
-          size="sm"
+          variant="outline"
           className="w-full"
           onClick={onManageBilling}
           disabled={currentPlan === 'FREE'}
@@ -323,8 +247,7 @@ function PlanCard({ plan, isYearly, currentPlan, loadingPlan, onCheckout, onMana
         </Button>
       ) : (
         <Button
-          variant={plan.highlighted && !isDowngrade ? "default" : "outline"}
-          size="sm"
+          variant={isHighlighted && !isDowngrade ? "default" : "outline"}
           className="w-full"
           onClick={() =>
             onCheckout(
@@ -336,14 +259,14 @@ function PlanCard({ plan, isYearly, currentPlan, loadingPlan, onCheckout, onMana
         >
           {loadingPlan === plan.key ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               Processing...
             </>
           ) : isDowngrade ? (
             'Downgrade'
           ) : (
             <>
-              <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+              <Sparkles className="h-4 w-4 mr-2" />
               Upgrade
             </>
           )}

@@ -36,6 +36,7 @@ import { updateTypewriterScrollSettings } from '@/lib/prosemirror/plugins';
 import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
 import { useSettings } from '@/contexts/settings-context';
 import { useDebugMetrics } from '@/components/analytics/debug-metrics-context';
+import { BeginnerTips } from '@/components/editor/BeginnerTips';
 import '@/styles/editor/prosemirror.css';
 
 export type ViewMode = 'discrete' | 'continuous';
@@ -181,7 +182,7 @@ export function ProseMirrorEditor({
   awareness,
   yjsUserInfo,
 }: ProseMirrorEditorProps) {
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
   // Read scroll mode directly from settings
   // In timelapse mode, always use discrete to show page frames
   const viewMode = timelapseMode ? 'discrete' : (settings.editor.scrollMode ?? defaultViewMode);
@@ -193,6 +194,12 @@ export function ProseMirrorEditor({
   const showSceneNumbers = settings.editor.showSceneNumbers ?? true;
   // Scene number position: left, right, or both (industry standard)
   const sceneNumberPosition = settings.editor.sceneNumberPosition ?? 'both';
+  // Reading mode - read-only with minimal UI
+  const isReadingMode = settings.editor.readingMode ?? false;
+  // Effective editable state: prop AND not reading mode
+  const effectiveEditable = editable && !isReadingMode;
+  // Show beginner tips for new screenwriters
+  const showBeginnerTips = settings.editor.showBeginnerTips ?? false;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_currentSpread, setCurrentSpread] = useState(0);
   const [isInFocusMode, setIsInFocusMode] = useState(false);
@@ -225,6 +232,16 @@ export function ProseMirrorEditor({
     window.dispatchEvent(new CustomEvent('focus-mode-toggle'));
   }, []);
 
+  // Toggle reading mode (read-only with minimal UI)
+  const toggleReadingMode = useCallback(() => {
+    updateSettings({
+      editor: {
+        ...settings.editor,
+        readingMode: !isReadingMode,
+      },
+    });
+  }, [updateSettings, settings.editor, isReadingMode]);
+
   // Listen for focus mode changes to hide view switcher
   useEffect(() => {
     const handleFocusModeChange = () => {
@@ -233,6 +250,15 @@ export function ProseMirrorEditor({
     window.addEventListener('focus-mode-toggle', handleFocusModeChange);
     return () => window.removeEventListener('focus-mode-toggle', handleFocusModeChange);
   }, []);
+
+  // Listen for reading mode toggle events
+  useEffect(() => {
+    const handleReadingModeToggle = () => {
+      toggleReadingMode();
+    };
+    window.addEventListener('reading-mode-toggle', handleReadingModeToggle);
+    return () => window.removeEventListener('reading-mode-toggle', handleReadingModeToggle);
+  }, [toggleReadingMode]);
 
   // Apply layout CSS from WASM config on mount
   // This sets initial CSS variables from the config
@@ -262,7 +288,7 @@ export function ProseMirrorEditor({
     initialContent: content,
     onUpdate: onContentChange,
     onScenesChange,
-    editable,
+    editable: effectiveEditable,
     showSceneNumbers,
     sceneNumberPosition,
     timelapseMode,
@@ -460,11 +486,22 @@ export function ProseMirrorEditor({
         'pm-editor-wrapper',
         viewMode === 'discrete' && 'pm-discrete-mode',
         isInFocusMode && 'pm-focus-mode',
+        isReadingMode && 'pm-reading-mode',
         className
       )}
     >
-      {/* Desktop toolbars - conditional based on layout setting, hidden in read-only mode */}
-      {isReady && !isMobile && editable && (
+      {/* Focus/Reading mode buttons - always visible on desktop */}
+      {isReady && !isMobile && toolbarLayout !== 'maelle' && (
+        <FocusButton
+          onToggleFocusMode={toggleFocusMode}
+          isInFocusMode={isInFocusMode}
+          onToggleReadingMode={toggleReadingMode}
+          isInReadingMode={isReadingMode}
+        />
+      )}
+
+      {/* Desktop toolbars - conditional based on layout setting, hidden in read-only/reading mode */}
+      {isReady && !isMobile && effectiveEditable && (
         toolbarLayout === 'maelle' ? (
           // Maelle: Unified floating header (Google Docs style)
           <EditorUnifiedToolbar
@@ -487,23 +524,17 @@ export function ProseMirrorEditor({
           />
         ) : (
           // Verso: Separate floating toolbars (Procreate style)
-          <>
-            <FocusButton
-              onToggleFocusMode={toggleFocusMode}
-              isInFocusMode={isInFocusMode}
-            />
-            <LeftToolbar
-              zoom={scale}
-              fitToWidthScale={fitToWidthScale}
-              onZoomChange={setZoom}
-              onResetZoom={resetZoom}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              onUndo={handleUndo}
-              onRedo={handleRedo}
-              isInFocusMode={isInFocusMode}
-            />
-          </>
+          <LeftToolbar
+            zoom={scale}
+            fitToWidthScale={fitToWidthScale}
+            onZoomChange={setZoom}
+            onResetZoom={resetZoom}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            isInFocusMode={isInFocusMode}
+          />
         )
       )}
 
@@ -519,6 +550,7 @@ export function ProseMirrorEditor({
           <X className="h-4 w-4" />
         </Button>
       )}
+
 
       {/* Editor container with page styling */}
       <EditorScrollArea
@@ -609,8 +641,8 @@ export function ProseMirrorEditor({
         />
       )}
 
-      {/* Floating toolbar on selection - hidden in read-only mode */}
-      {isReady && editable && <FloatingToolbar view={view} scrollbarWidth={EDITOR_SCROLLBAR_WIDTH} />}
+      {/* Floating toolbar on selection - hidden in read-only/reading mode */}
+      {isReady && effectiveEditable && <FloatingToolbar view={view} scrollbarWidth={EDITOR_SCROLLBAR_WIDTH} />}
 
       {/* Autocomplete dropdown */}
       {isReady && autocompleteState && (
@@ -622,7 +654,7 @@ export function ProseMirrorEditor({
       )}
 
       {/* Mobile editor toolbar - disabled, using EditorBottomNav instead */}
-      {false && isMobile && isReady && editable && (
+      {false && isMobile && isReady && effectiveEditable && (
         <MobileEditorToolbar
           onUndo={handleUndo}
           onRedo={handleRedo}
@@ -681,6 +713,11 @@ export function ProseMirrorEditor({
           onResetZoom={resetZoom}
           className="bottom-20 right-4"
         />
+      )}
+
+      {/* Beginner tips - contextual writing guidance */}
+      {showBeginnerTips && isReady && !isMobile && effectiveEditable && (
+        <BeginnerTips currentElementType={currentElementType} />
       )}
 
     </div>

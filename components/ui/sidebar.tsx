@@ -28,10 +28,14 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 const SIDEBAR_WIDTH = "3.5rem" // Icon-only width
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 
+type SidebarMode = 'library' | 'editor'
+
 type SidebarContextProps = {
   isMobile: boolean
   openMobile: boolean
   setOpenMobile: (open: boolean) => void
+  mode: SidebarMode
+  setMode: (mode: SidebarMode) => void
 }
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null)
@@ -44,16 +48,21 @@ function useSidebar() {
   return context
 }
 
+interface SidebarProviderProps extends React.ComponentProps<"div"> {
+  defaultMode?: SidebarMode
+}
+
 const SidebarProvider = React.forwardRef<
   HTMLDivElement,
-  React.ComponentProps<"div">
->(({ className, style, children, ...props }, ref) => {
+  SidebarProviderProps
+>(({ className, style, children, defaultMode = 'library', ...props }, ref) => {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
+  const [mode, setMode] = React.useState<SidebarMode>(defaultMode)
 
   const contextValue = React.useMemo<SidebarContextProps>(
-    () => ({ isMobile, openMobile, setOpenMobile }),
-    [isMobile, openMobile, setOpenMobile]
+    () => ({ isMobile, openMobile, setOpenMobile, mode, setMode }),
+    [isMobile, openMobile, setOpenMobile, mode, setMode]
   )
 
   return (
@@ -70,6 +79,7 @@ const SidebarProvider = React.forwardRef<
             "group/sidebar-wrapper flex min-h-svh w-full",
             className
           )}
+          data-sidebar-mode={mode}
           ref={ref}
           {...props}
         >
@@ -543,3 +553,5 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
+export type { SidebarMode }

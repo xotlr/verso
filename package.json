@@ -23,7 +23,8 @@
     "db:studio": "prisma studio",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "echo 'skipping husky'"
+    "prepare": "echo 'skipping husky'",
+    "postinstall": "cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/pdf.worker.min.mjs 2>/dev/null || true"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

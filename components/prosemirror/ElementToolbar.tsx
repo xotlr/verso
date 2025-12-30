@@ -61,8 +61,8 @@ const SHORT_LABELS: Record<ElementType, string> = {
   ending: 'End',
 };
 
-// Auto-hide timeout in milliseconds
-const AUTO_HIDE_DELAY = 3000;
+// Auto-hide timeout in milliseconds (longer delay for better UX)
+const AUTO_HIDE_DELAY = 8000;
 
 /**
  * Element type toolbar - classic style with contextual visibility.

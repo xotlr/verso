@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Maximize2, Minimize2 } from 'lucide-react';
+import { Maximize2, Minimize2, BookOpen, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -14,23 +14,27 @@ import {
 interface FocusButtonProps {
   onToggleFocusMode: () => void;
   isInFocusMode?: boolean;
+  onToggleReadingMode?: () => void;
+  isInReadingMode?: boolean;
   className?: string;
 }
 
 /**
- * Standalone floating focus mode button.
+ * Standalone floating focus mode button with optional reading mode toggle.
  * Positioned on the left side of the editor, aligned with LeftToolbar buttons.
  */
 export function FocusButton({
   onToggleFocusMode,
   isInFocusMode = false,
+  onToggleReadingMode,
+  isInReadingMode = false,
   className,
 }: FocusButtonProps) {
   return (
     <TooltipProvider delayDuration={300}>
       <motion.div
         className={cn(
-          'fixed z-40 transition-[left] duration-500 ease-out',
+          'fixed z-40 transition-[left] duration-500 ease-out flex flex-col gap-1',
           className
         )}
         style={{
@@ -47,6 +51,7 @@ export function FocusButton({
           damping: 30,
         }}
       >
+        {/* Focus mode button */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -69,6 +74,34 @@ export function FocusButton({
             {isInFocusMode ? 'Exit focus mode' : 'Focus mode'}
           </TooltipContent>
         </Tooltip>
+
+        {/* Reading mode button */}
+        {onToggleReadingMode && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onToggleReadingMode}
+                className={cn(
+                  'flex items-center justify-center rounded-lg transition-all duration-150',
+                  'size-8',
+                  isInReadingMode
+                    ? 'text-primary bg-primary/10'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                )}
+              >
+                {isInReadingMode ? (
+                  <Pencil className="h-4 w-4" />
+                ) : (
+                  <BookOpen className="h-4 w-4" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {isInReadingMode ? 'Edit mode' : 'Reading mode'}
+            </TooltipContent>
+          </Tooltip>
+        )}
       </motion.div>
     </TooltipProvider>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Undo2, Film } from 'lucide-react';
 import { usePanelVirtualization } from '@/hooks/use-panel-virtualization';
@@ -514,10 +515,27 @@ export function ScenesPanel({
                     })}
                   </div>
                 ) : (
-                  // Non-virtualized rendering for small lists
-                  <div className="space-y-0.5">
-                    {allItems.map((item) => renderFlatItem(item))}
-                  </div>
+                  // Non-virtualized rendering for small lists with smooth animations
+                  <AnimatePresence initial={false} mode="popLayout">
+                    <div className="space-y-0.5">
+                      {allItems.map((item) => (
+                        <motion.div
+                          key={item.id}
+                          layout
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{
+                            opacity: { duration: 0.15 },
+                            height: { duration: 0.2 },
+                            layout: { duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }
+                          }}
+                        >
+                          {renderFlatItem(item)}
+                        </motion.div>
+                      ))}
+                    </div>
+                  </AnimatePresence>
                 )}
               </SortableContext>
               {renderDragOverlay()}

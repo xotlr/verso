@@ -133,7 +133,9 @@ class PDFParser implements ScreenplayParser {
       }
 
       const pdfjsLib = await import('pdfjs-dist');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      // Use locally bundled worker instead of CDN to avoid network issues
+      // Worker file is copied from node_modules during postinstall
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
       onProgress?.({
         stage: 'detecting',

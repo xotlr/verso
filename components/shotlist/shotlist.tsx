@@ -2,7 +2,9 @@
 
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
-import { SceneWithShots, Shot } from "@/types/shotlist";
+import { SceneWithShots, Shot, DetectedShot } from "@/types/shotlist";
+import { getShotDisplayName, type DetectedShotType } from "@/lib/screenplay/patterns";
+import { Badge } from "@/components/ui/badge";
 import { ShotCard } from "./shot-card";
 import { ShotEditor } from "./shot-editor";
 import { Button } from "@/components/ui/button";
@@ -27,12 +29,15 @@ import {
   ChevronRight,
   Plus,
   Clapperboard,
+  Camera,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ShotlistProps {
   screenplayId: string;
   scenesWithShots: SceneWithShots[];
+  detectedShots?: DetectedShot[];
   onShotsChange: (shots: Shot[]) => void;
   onSceneClick: (sceneId: string) => void;
 }
@@ -40,6 +45,7 @@ interface ShotlistProps {
 export function Shotlist({
   screenplayId,
   scenesWithShots,
+  detectedShots = [],
   onShotsChange,
   onSceneClick,
 }: ShotlistProps) {
@@ -201,6 +207,54 @@ export function Shotlist({
     [screenplayId, scenesWithShots, onShotsChange]
   );
 
+  // Get detected shots for a specific scene
+  const getDetectedShotsForScene = useCallback((sceneId: string) => {
+    return detectedShots.filter(s => s.sceneId === sceneId);
+  }, [detectedShots]);
+
+  // Check if a detected shot is already saved (by comparing content)
+  const isAlreadySaved = useCallback((detected: DetectedShot, savedShots: Shot[]) => {
+    return savedShots.some(saved =>
+      saved.description?.toLowerCase().includes(detected.lineContent.toLowerCase().slice(0, 30)) ||
+      detected.lineContent.toLowerCase().includes(saved.description?.toLowerCase() || '')
+    );
+  }, []);
+
+  // Add a detected shot to the database
+  const handleAddDetectedShot = useCallback(
+    async (detected: DetectedShot) => {
+      try {
+        const response = await fetch(
+          `/api/screenplays/${screenplayId}/shots`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sceneId: detected.sceneId,
+              description: detected.subject || detected.lineContent,
+              shotType: detected.shotType,
+              status: 'planned',
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to add shot');
+        }
+
+        const newShot = await response.json();
+        const allShots = scenesWithShots.flatMap((s) => s.shots);
+        onShotsChange([...allShots, newShot]);
+        toast.success('Shot added from script');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to add shot';
+        toast.error(message);
+      }
+    },
+    [screenplayId, scenesWithShots, onShotsChange]
+  );
+
   return (
     <div className="flex flex-col h-full">
       {/* Scene list */}
@@ -262,12 +316,12 @@ export function Shotlist({
 
                   {/* Shots */}
                   <CollapsibleContent>
-                    <div className="p-4 space-y-3">
-                      {scene.shots.length === 0 ? (
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {scene.shots.length === 0 && getDetectedShotsForScene(scene.sceneId).length === 0 ? (
                         <button
                           onClick={() => handleAddShot(scene.sceneId)}
                           className={cn(
-                            "w-full py-8 border-2 border-dashed rounded-lg",
+                            "col-span-full py-8 border-2 border-dashed rounded-lg",
                             "text-muted-foreground hover:text-foreground",
                             "hover:border-primary/50 transition-colors",
                             "flex flex-col items-center gap-2"
@@ -277,15 +331,79 @@ export function Shotlist({
                           <span className="text-sm">Add first shot</span>
                         </button>
                       ) : (
-                        scene.shots.map((shot) => (
-                          <ShotCard
-                            key={shot.id}
-                            shot={shot}
-                            onEdit={() => handleEditShot(shot)}
-                            onDelete={() => setDeletingShot(shot)}
-                            onDuplicate={() => handleDuplicateShot(shot)}
-                          />
-                        ))
+                        <>
+                          {/* Saved shots */}
+                          {scene.shots.map((shot) => (
+                            <ShotCard
+                              key={shot.id}
+                              shot={shot}
+                              onEdit={() => handleEditShot(shot)}
+                              onDelete={() => setDeletingShot(shot)}
+                              onDuplicate={() => handleDuplicateShot(shot)}
+                            />
+                          ))}
+
+                          {/* Detected shots (suggestions) */}
+                          {getDetectedShotsForScene(scene.sceneId).filter(
+                            detected => !isAlreadySaved(detected, scene.shots)
+                          ).length > 0 && (
+                            <div className="col-span-full mt-4 pt-4 border-t border-dashed border-border/50">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Sparkles className="h-4 w-4 text-amber-500" />
+                                <span className="text-sm font-medium text-muted-foreground">
+                                  Detected from script
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                                {getDetectedShotsForScene(scene.sceneId)
+                                  .filter(detected => !isAlreadySaved(detected, scene.shots))
+                                  .map((detected) => (
+                                    <div
+                                      key={detected.id}
+                                      className={cn(
+                                        'flex items-start gap-3 p-3 rounded-lg',
+                                        'border border-dashed border-amber-500/30',
+                                        'bg-amber-500/5 hover:bg-amber-500/10',
+                                        'transition-colors group'
+                                      )}
+                                    >
+                                      {/* Shot type icon */}
+                                      <div className="w-8 h-8 rounded-md bg-amber-500/20 flex items-center justify-center shrink-0">
+                                        <Camera className="h-4 w-4 text-amber-600" />
+                                      </div>
+
+                                      {/* Shot content */}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm break-words line-clamp-2">
+                                          {detected.subject || detected.lineContent}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs px-2 py-0 border-amber-500/30 text-amber-600"
+                                          >
+                                            {getShotDisplayName(detected.shotType as DetectedShotType)}
+                                          </Badge>
+                                        </div>
+                                      </div>
+
+                                      {/* Add button */}
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity h-8 gap-1 border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/50"
+                                        onClick={() => handleAddDetectedShot(detected)}
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                        Add
+                                      </Button>
+                                    </div>
+                                  ))
+                                }
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </CollapsibleContent>

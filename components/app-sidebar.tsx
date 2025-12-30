@@ -3,28 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
 import { useMounted } from '@/hooks/use-mobile';
 import {
   Settings,
   Plus,
-  LayoutGrid,
-  Rows3,
-  PenTool,
-  LogOut,
-  Waypoints,
-  Sparkles,
-  CreditCard,
   FolderOpen,
   Film,
-  User,
   Keyboard,
   BookOpen,
   LayoutTemplate,
   HelpCircle,
+  PenTool,
   Clapperboard,
-  Mail,
-  Users,
+  Rows3,
+  Waypoints,
+  LayoutGrid,
 } from "lucide-react";
 import { TbHome, TbHomeFilled } from 'react-icons/tb';
 import { PiFilmScript, PiFilmScriptFill } from 'react-icons/pi';
@@ -33,11 +26,9 @@ import { Logo } from "@/components/logo";
 
 import { cn } from '@/lib/utils';
 import "@/styles/sidebar-animations.css";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -54,16 +45,13 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { NavMenuItem } from "@/components/nav-menu-item";
 import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts";
 import { FormattingGuideDialog } from "@/components/formatting-guide-dialog";
 import { TemplateSelector } from "@/components/template-selector";
 import { NewProjectDialog } from "@/components/project/new-project-dialog";
-import { PendingInvitesDialog } from "@/components/pending-invites-dialog";
-import { UpgradeDialog } from "@/components/upgrade-dialog";
-import { usePendingInvites } from "@/hooks/use-pending-invites";
-import { Badge } from "@/components/ui/badge";
 
 interface AppSidebarProps {
   screenplayId?: string;
@@ -101,10 +89,8 @@ async function fetchScreenplayData(screenplayId: string): Promise<{ title: strin
 export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: propScreenplayTitle }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session } = useSession();
   const mounted = useMounted();
-
-  const user = session?.user;
+  const { setMode } = useSidebar();
 
   // Detect screenplay ID from URL if not provided as prop
   const urlScreenplayId = extractScreenplayId(pathname);
@@ -112,6 +98,14 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   // Only show screenplay tools when actually ON a screenplay page
   // (not based on localStorage - that's only for "Continue Writing" on Home)
   const screenplayId = propScreenplayId || urlScreenplayId;
+
+  // Determine if we're in editor mode (on a screenplay page)
+  const isEditorMode = !!screenplayId;
+
+  // Update sidebar mode based on route
+  useEffect(() => {
+    setMode(isEditorMode ? 'editor' : 'library');
+  }, [isEditorMode, setMode]);
 
   // Save screenplay ID to localStorage when detected from URL (for "Continue Writing" feature)
   useEffect(() => {
@@ -137,11 +131,6 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   const [formattingGuideOpen, setFormattingGuideOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
-  const [invitesOpen, setInvitesOpen] = useState(false);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-
-  // Pending invites
-  const { count: inviteCount } = usePendingInvites();
 
 
   // Main navigation items with filled/outline icon pairs
@@ -251,200 +240,133 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
 
       {/* Main Content */}
       <SidebarContent>
-        {/* Main Navigation */}
-        <SidebarGroup className="pt-2">
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {mainNavItems.map((item, index) => (
-                <NavMenuItem
-                  key={item.url}
-                  title={item.title}
-                  url={item.url}
-                  icon={item.icon}
-                  activeIcon={item.activeIcon}
-                  pathname={pathname}
-                  index={index}
-                  notification={item.notification}
-                />
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Editor Mode: Only show editor-relevant tools */}
+        {mounted && isEditorMode && screenplayId ? (
+          <>
+            {/* Editor Tools */}
+            <SidebarGroup className="pt-2">
+              <SidebarGroupLabel>Editor</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {screenplayNavItems.map((item, index) => (
+                    <NavMenuItem
+                      key={item.url}
+                      title={item.title}
+                      url={item.url}
+                      icon={item.icon}
+                      pathname={pathname}
+                      index={index}
+                    />
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
 
-        {/* Current Screenplay Navigation - only shows on screenplay pages */}
-        {/* Wrapped in mounted guard to prevent hydration mismatch */}
-        {mounted && screenplayId && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="font-semibold">
-              <PenTool className="h-4 w-4 text-primary" />
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
+            {/* Resources */}
+            <SidebarGroup>
               <SidebarMenu>
-                {screenplayNavItems.map((item, index) => (
-                  <NavMenuItem
-                    key={item.url}
-                    title={item.title}
-                    url={item.url}
-                    icon={item.icon}
-                    pathname={pathname}
-                    index={index}
-                  />
-                ))}
+                <SidebarMenuItem>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <SidebarMenuButton tooltip="Resources">
+                        <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                      </SidebarMenuButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="right" align="start" className="w-48">
+                      <DropdownMenuLabel>Resources</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setFormattingGuideOpen(true)}>
+                        <BookOpen className="mr-2 h-4 w-4" />
+                        Formatting Guide
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
+                        <Keyboard className="mr-2 h-4 w-4" />
+                        Keyboard Shortcuts
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </SidebarMenuItem>
               </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+            </SidebarGroup>
+          </>
+        ) : (
+          <>
+            {/* Library Mode: Main Navigation */}
+            <SidebarGroup className="pt-2">
+              <SidebarGroupLabel>Menu</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {mainNavItems.map((item, index) => (
+                    <NavMenuItem
+                      key={item.url}
+                      title={item.title}
+                      url={item.url}
+                      icon={item.icon}
+                      activeIcon={item.activeIcon}
+                      pathname={pathname}
+                      index={index}
+                      notification={item.notification}
+                    />
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
 
-        {/* Resources Section - Always show as dropdown menu */}
-        <SidebarGroup>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton tooltip="Resources">
-                    <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                  </SidebarMenuButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="right" align="start" className="w-48">
-                  <DropdownMenuLabel>Resources</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setTemplateSelectorOpen(true)}>
-                    <LayoutTemplate className="mr-2 h-4 w-4" />
-                    Templates
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFormattingGuideOpen(true)}>
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    Formatting Guide
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
-                    <Keyboard className="mr-2 h-4 w-4" />
-                    Keyboard Shortcuts
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/help" className="flex items-center cursor-pointer">
-                      <HelpCircle className="mr-2 h-4 w-4" />
-                      Help & Feedback
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
+            {/* Resources Section */}
+            <SidebarGroup>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <SidebarMenuButton tooltip="Resources">
+                        <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                      </SidebarMenuButton>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent side="right" align="start" className="w-48">
+                      <DropdownMenuLabel>Resources</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setTemplateSelectorOpen(true)}>
+                        <LayoutTemplate className="mr-2 h-4 w-4" />
+                        Templates
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setFormattingGuideOpen(true)}>
+                        <BookOpen className="mr-2 h-4 w-4" />
+                        Formatting Guide
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
+                        <Keyboard className="mr-2 h-4 w-4" />
+                        Keyboard Shortcuts
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link href="/help" className="flex items-center cursor-pointer">
+                          <HelpCircle className="mr-2 h-4 w-4" />
+                          Help & Feedback
+                        </Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
 
-      {/* Footer */}
+      {/* Footer - Settings */}
       <SidebarFooter className="px-2 py-2">
         <SidebarMenu className="px-0">
-          {/* User Account */}
-          {user && (
-            <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton
-                    size="md"
-                    tooltip={user.name || "Account"}
-                    className={cn(
-                      "sidebar-user-button",
-                      "bg-muted/50 border border-border/50 rounded-lg",
-                      "hover:bg-primary/10 hover:border-primary/40",
-                      "data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                      "p-0 justify-center"
-                    )}
-                  >
-                    <div className="relative sidebar-avatar-animated">
-                      <Avatar className="h-8 w-8 rounded-md">
-                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="object-cover rounded-md" />
-                        <AvatarFallback className="bg-muted text-muted-foreground font-medium rounded-md">
-                          {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      {inviteCount > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground sidebar-notification-badge">
-                          {inviteCount > 9 ? '9+' : inviteCount}
-                        </span>
-                      )}
-                    </div>
-                  </SidebarMenuButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                  side="top"
-                  align="end"
-                  sideOffset={4}
-                >
-                  <DropdownMenuLabel className="px-3 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={user.image || undefined} alt={user.name || "User"} className="object-cover" />
-                        <AvatarFallback className="bg-muted text-muted-foreground font-medium">
-                          {user.name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-semibold text-sm">{user.name || "User"}</p>
-                        <p className="text-xs text-muted-foreground">{user.email}</p>
-                      </div>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem asChild>
-                      <Link href={`/profile/${session?.user?.id}`} className="cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
-                        View Profile
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/connections" className="cursor-pointer">
-                        <Users className="mr-2 h-4 w-4" />
-                        Connections
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setInvitesOpen(true)} className="cursor-pointer">
-                      <Mail className="mr-2 h-4 w-4" />
-                      Invitations
-                      {inviteCount > 0 && (
-                        <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-xs">
-                          {inviteCount}
-                        </Badge>
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setUpgradeOpen(true)} className="cursor-pointer">
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Upgrade to Pro
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem asChild>
-                      <Link href="/settings" className="cursor-pointer">
-                        <Settings className="mr-2 h-4 w-4" />
-                        Settings
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/settings?tab=billing" className="cursor-pointer">
-                        <CreditCard className="mr-2 h-4 w-4" />
-                        Billing
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => signOut({ callbackUrl: "/" })}
-                    className="cursor-pointer text-destructive focus:text-destructive"
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          )}
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              tooltip="Settings"
+              isActive={pathname === '/settings' || pathname.startsWith('/settings?')}
+            >
+              <Link href="/settings">
+                <Settings className="h-4 w-4" />
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
 
@@ -469,14 +391,6 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
           setNewProjectOpen(false);
           router.push(`/project/${project.id}`);
         }}
-      />
-      <PendingInvitesDialog
-        open={invitesOpen}
-        onOpenChange={setInvitesOpen}
-      />
-      <UpgradeDialog
-        open={upgradeOpen}
-        onOpenChange={setUpgradeOpen}
       />
     </Sidebar>
   );

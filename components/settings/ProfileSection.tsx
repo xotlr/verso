@@ -22,6 +22,13 @@ export interface UserProfile {
   isPublic: boolean;
 }
 
+// Tier-based badge colors
+const PLAN_BADGE_STYLES: Record<string, string> = {
+  PLUS: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20',
+  PRO: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20',
+  MAX: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20',
+};
+
 interface ProfileSectionProps {
   profile: UserProfile;
   setProfile: React.Dispatch<React.SetStateAction<UserProfile>>;
@@ -37,6 +44,7 @@ interface ProfileSectionProps {
   usernameError: string | null;
   onUsernameChange: (value: string) => void;
   onSaveProfile: () => Promise<void>;
+  currentPlan?: string;
 }
 
 export function ProfileSection({
@@ -49,6 +57,7 @@ export function ProfileSection({
   usernameError,
   onUsernameChange,
   onSaveProfile,
+  currentPlan,
 }: ProfileSectionProps) {
   if (isLoadingProfile) {
     return (
@@ -101,6 +110,17 @@ export function ProfileSection({
               </div>
             )}
           </div>
+          {/* Plan Badge */}
+          {currentPlan && currentPlan !== 'FREE' && PLAN_BADGE_STYLES[currentPlan] && (
+            <div className="mb-4">
+              <span className={cn(
+                "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+                PLAN_BADGE_STYLES[currentPlan]
+              )}>
+                {currentPlan}
+              </span>
+            </div>
+          )}
         </div>
         <Card className="rounded-t-xl w-full">
           <CardContent className="pt-0 px-4 sm:px-6 pb-4 sm:pb-6 mt-8">

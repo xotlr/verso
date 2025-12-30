@@ -6,9 +6,56 @@ import { Node } from 'prosemirror-model';
 export const smartClickPluginKey = new PluginKey('smartClick');
 
 /**
+ * Known placeholder patterns that should be selected entirely on click.
+ * These are default/template text that users typically want to replace completely.
+ */
+const PLACEHOLDER_PATTERNS = [
+  // Scene heading placeholders
+  /^INT\.\s*(LOCATION|YOUR LOCATION|SCENE LOCATION)\s*-\s*(DAY|NIGHT|TIME)$/i,
+  /^EXT\.\s*(LOCATION|YOUR LOCATION|SCENE LOCATION)\s*-\s*(DAY|NIGHT|TIME)$/i,
+  /^INT\.\/EXT\.\s*(LOCATION|YOUR LOCATION|SCENE LOCATION)\s*-\s*(DAY|NIGHT|TIME)$/i,
+  /^I\/E\.\s*(LOCATION|YOUR LOCATION|SCENE LOCATION)\s*-\s*(DAY|NIGHT|TIME)$/i,
+  // Character placeholders
+  /^CHARACTER(\s+NAME)?$/i,
+  /^YOUR CHARACTER$/i,
+  /^NAME$/i,
+  // Transition placeholders
+  /^CUT TO:$/i,
+  /^FADE TO:$/i,
+  /^DISSOLVE TO:$/i,
+  // Shot placeholders
+  /^SHOT$/i,
+  /^WIDE SHOT$/i,
+  /^CLOSE-?UP$/i,
+  // Super/Chyron placeholders
+  /^SUPER:$/i,
+  /^CHYRON:$/i,
+  // Other placeholders
+  /^THE END$/i,
+  /^FLASHBACK$/i,
+  /^MONTAGE$/i,
+  /^INTERCUT$/i,
+  // Generic placeholder patterns
+  /^(UNTITLED|TITLE)$/i,
+  /^Written by\.{3}$/i,
+];
+
+/**
+ * Check if text content matches a known placeholder pattern.
+ */
+function isPlaceholderText(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+
+  return PLACEHOLDER_PATTERNS.some(pattern => pattern.test(trimmed));
+}
+
+/**
  * Plugin that moves cursor to nearest editable line when clicking anywhere in the document.
  * This provides word-processor-like behavior where clicking margins or decorations
  * intelligently places the cursor in the nearest editable content.
+ *
+ * Also handles one-click selection of placeholder text for easy replacement.
  */
 export function createSmartClickPlugin() {
   return new Plugin({
@@ -26,7 +73,23 @@ export function createSmartClickPlugin() {
         const isTextblock = $pos.parent.isTextblock;
 
         if (isTextblock) {
-          // Already in editable content, use default behavior
+          // Check if the block contains placeholder text that should be fully selected
+          const parentNode = $pos.parent;
+          const textContent = parentNode.textContent;
+
+          if (isPlaceholderText(textContent)) {
+            // Select the entire placeholder text for easy replacement
+            const start = $pos.before() + 1; // Start of text content
+            const end = start + parentNode.content.size;
+
+            const tr = state.tr.setSelection(
+              TextSelection.create(doc, start, end)
+            );
+            view.dispatch(tr);
+            return true; // Prevent default cursor placement
+          }
+
+          // Normal text, use default behavior
           return false;
         }
 

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { Download, Upload, RotateCcw, Palette, Type, Layout, Keyboard, LogOut } from 'lucide-react';
+import { Download, Upload, RotateCcw, Palette, Type, Keyboard, LogOut } from 'lucide-react';
 import { useSettings } from '@/contexts/settings-context';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,7 +13,6 @@ import { cn } from '@/lib/utils';
 import { ProfileSection, UserProfile } from './ProfileSection';
 import { AppearanceSection } from './AppearanceSection';
 import { EditorSection } from './EditorSection';
-import { LayoutSection } from './LayoutSection';
 import { KeyboardSection } from './KeyboardSection';
 import { BillingSection } from './BillingSection';
 
@@ -26,7 +25,6 @@ interface SettingsContentProps {
 const NAV_ITEMS = [
   { value: 'appearance', icon: Palette, label: 'Appearance' },
   { value: 'editor', icon: Type, label: 'Editor' },
-  { value: 'layout', icon: Layout, label: 'Layout' },
   { value: 'shortcuts', icon: Keyboard, label: 'Shortcuts' },
 ] as const;
 
@@ -38,7 +36,6 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
     settings,
     updateVisualSettings,
     updateEditorSettings,
-    updateLayoutSettings,
     setThemePreset,
     resetSettings,
     exportSettings,
@@ -217,6 +214,7 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
         usernameError={usernameError}
         onUsernameChange={handleUsernameChange}
         onSaveProfile={handleSaveProfile}
+        currentPlan={currentPlan}
       />
 
       {/* Settings Navigation & Content */}
@@ -267,14 +265,6 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
             <EditorSection
               settings={settings.editor}
               updateEditorSettings={updateEditorSettings}
-            />
-          </TabsContent>
-
-          {/* Layout Settings */}
-          <TabsContent value="layout" className="m-0">
-            <LayoutSection
-              settings={settings.layout}
-              updateLayoutSettings={updateLayoutSettings}
             />
           </TabsContent>
 
@@ -335,6 +325,5 @@ export { type UserProfile } from './ProfileSection';
 export { ProfileSection } from './ProfileSection';
 export { AppearanceSection } from './AppearanceSection';
 export { EditorSection } from './EditorSection';
-export { LayoutSection } from './LayoutSection';
 export { KeyboardSection } from './KeyboardSection';
 export { BillingSection } from './BillingSection';

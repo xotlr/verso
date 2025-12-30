@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { PageLayout } from "@/components/layouts/page-layout";
 import { Shotlist } from "@/components/shotlist/shotlist";
-import { parseScreenplayText } from "@/lib/screenplay/utils";
-import { Shot, SceneWithShots } from "@/types/shotlist";
-import { Scene } from "@/types/screenplay";
+import { deserializeFromStorage } from "@/lib/prosemirror/serialization";
+import { extractScenes, extractDetectedShotsFromDocument } from "@/hooks/editor/document-extractors";
+import type { SceneInfo } from "@/hooks/editor/use-prosemirror-editor";
+import { Shot, SceneWithShots, DetectedShot } from "@/types/shotlist";
 import { Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layouts/page-header";
 
@@ -18,8 +19,9 @@ export default function ShotlistPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [documentTitle, setDocumentTitle] = useState("Untitled Screenplay");
-  const [scenes, setScenes] = useState<Scene[]>([]);
+  const [scenes, setScenes] = useState<SceneInfo[]>([]);
   const [shots, setShots] = useState<Shot[]>([]);
+  const [detectedShots, setDetectedShots] = useState<DetectedShot[]>([]);
 
   // Fetch screenplay and shots data
   useEffect(() => {
@@ -41,9 +43,14 @@ export default function ShotlistPage() {
         const screenplay = await screenplayRes.json();
         setDocumentTitle(screenplay.title || "Untitled Screenplay");
 
-        // Parse scenes from screenplay content
-        const parsed = parseScreenplayText(screenplay.content || "");
-        setScenes(parsed.scenes || []);
+        // Parse scenes from ProseMirror content
+        const doc = deserializeFromStorage(screenplay.content);
+        const parsedScenes = extractScenes(doc);
+        setScenes(parsedScenes);
+
+        // Detect shots from document
+        const detected = extractDetectedShotsFromDocument(doc, parsedScenes);
+        setDetectedShots(detected);
 
         // Load shots
         if (shotsRes.ok) {
@@ -78,10 +85,10 @@ export default function ShotlistPage() {
   }, [router, id]);
 
   // Group shots by scene
-  const scenesWithShots: SceneWithShots[] = scenes.map((scene) => ({
+  const scenesWithShots: SceneWithShots[] = scenes.map((scene, index) => ({
     sceneId: scene.id,
-    sceneHeading: scene.heading,
-    sceneNumber: scene.number,
+    sceneHeading: `${scene.type}. ${scene.location}${scene.timeOfDay ? ` - ${scene.timeOfDay}` : ''}`,
+    sceneNumber: scene.sceneNumber ? parseInt(scene.sceneNumber, 10) || (index + 1) : (index + 1),
     shots: shots.filter((shot) => shot.sceneId === scene.id),
   }));
 
@@ -129,6 +136,7 @@ export default function ShotlistPage() {
       <Shotlist
         screenplayId={id}
         scenesWithShots={scenesWithShots}
+        detectedShots={detectedShots}
         onShotsChange={handleShotsChange}
         onSceneClick={handleSceneClick}
       />

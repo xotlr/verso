@@ -114,6 +114,30 @@ export function EditorSection({ settings, updateEditorSettings }: EditorSectionP
           </div>
         </CardContent>
       </Card>
+
+      {/* Learning Card */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base">Learning Mode</CardTitle>
+          <CardDescription>Helpful features for screenwriting beginners</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between py-0.5">
+            <div>
+              <label className="text-sm font-medium">Show Writing Tips</label>
+              <p className="text-xs text-muted-foreground">
+                Display contextual tips for each screenplay element
+              </p>
+            </div>
+            <Checkbox
+              checked={settings.showBeginnerTips ?? false}
+              onCheckedChange={(checked) => updateEditorSettings({
+                showBeginnerTips: checked as boolean
+              })}
+            />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

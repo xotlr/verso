@@ -7,6 +7,7 @@ import { EditableTitle } from "@/components/editable-title";
 import { SeriesBreadcrumb } from "@/components/series/series-breadcrumb";
 import { Search, ChevronLeft, Share2, History, Play } from "lucide-react";
 import { NotificationBell } from "@/components/notifications";
+import { UserAvatarMenu } from "@/components/user-avatar-menu";
 import { Logo } from "@/components/logo";
 import { MobileHeaderMenu } from "@/components/mobile-header-menu";
 import { HeaderIconButton } from "@/components/header-icon-button";
@@ -294,6 +295,7 @@ export function AppHeader({ className }: AppHeaderProps) {
           />
           <ThemeToggle />
           <NotificationBell />
+          <UserAvatarMenu />
         </div>
       </header>
     </TooltipProvider>

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Check, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+import { STRIPE_PLANS } from "@/lib/stripe-constants"
 
 export default function PricingPage() {
   const { data: session } = useSession()
@@ -51,83 +52,28 @@ export default function PricingPage() {
     }
   }
 
+  // Build plans array from constants
   const plans = [
     {
-      name: "Free",
-      description: "Write unlimited pages",
-      monthlyPrice: 0,
-      yearlyPrice: 0,
-      features: [
-        "Unlimited screenplays",
-        "1 project",
-        "Auto-formatting",
-        "PDF export",
-        "Index cards + beat board",
-      ],
-      limitations: [
-        "No FDX/Fountain export",
-        "No collaboration",
-      ],
-      cta: "Start Free",
+      ...STRIPE_PLANS.free,
       ctaHref: "/signup",
-      priceIdMonthly: undefined,
-      priceIdYearly: undefined,
+      priceIdMonthly: STRIPE_PLANS.free.monthlyPriceId,
+      priceIdYearly: STRIPE_PLANS.free.yearlyPriceId,
     },
     {
-      name: "Plus",
-      description: "Multiple projects, all exports",
-      monthlyPrice: 12.99,
-      yearlyPrice: 99.99,
-      yearlyDiscount: "Save $56",
-      features: [
-        "Unlimited projects",
-        "FDX + Fountain export",
-        "Character analytics",
-        "Cloud sync",
-        "Priority support",
-      ],
-      limitations: [],
-      cta: "Try Plus",
-      highlighted: true,
-      priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_PLUS_MONTHLY_PRICE_ID,
-      priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PLUS_YEARLY_PRICE_ID,
+      ...STRIPE_PLANS.plus,
+      priceIdMonthly: STRIPE_PLANS.plus.monthlyPriceId,
+      priceIdYearly: STRIPE_PLANS.plus.yearlyPriceId,
     },
     {
-      name: "Pro",
-      description: "Write with your team",
-      monthlyPrice: 29.99,
-      yearlyPrice: 249.99,
-      yearlyDiscount: "Save $110",
-      features: [
-        "Everything in Plus",
-        "Real-time collaboration",
-        "Up to 5 writers",
-        "Version history",
-        "Comments + notes",
-      ],
-      limitations: [],
-      cta: "Try Pro",
-      priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID,
-      priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID,
+      ...STRIPE_PLANS.pro,
+      priceIdMonthly: STRIPE_PLANS.pro.monthlyPriceId,
+      priceIdYearly: STRIPE_PLANS.pro.yearlyPriceId,
     },
     {
-      name: "Max",
-      description: "Production-ready",
-      monthlyPrice: 99.99,
-      yearlyPrice: 899.99,
-      yearlyDiscount: "Save $300",
-      perUser: true,
-      features: [
-        "Everything in Pro",
-        "Unlimited team",
-        "Shotlists + production tools",
-        "Admin controls",
-        "Custom branding",
-      ],
-      limitations: [],
-      cta: "Contact Sales",
-      priceIdMonthly: process.env.NEXT_PUBLIC_STRIPE_MAX_MONTHLY_PRICE_ID,
-      priceIdYearly: process.env.NEXT_PUBLIC_STRIPE_MAX_YEARLY_PRICE_ID,
+      ...STRIPE_PLANS.max,
+      priceIdMonthly: STRIPE_PLANS.max.monthlyPriceId,
+      priceIdYearly: STRIPE_PLANS.max.yearlyPriceId,
     },
   ]
 
@@ -164,95 +110,101 @@ export default function PricingPage() {
 
         {/* Pricing Cards */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
-          {plans.map((plan) => (
-            <div
-              key={plan.name}
-              className={`relative p-6 rounded-2xl border transition-all ${
-                plan.highlighted
-                  ? "border-primary bg-primary/5 shadow-xl ring-2 ring-primary/20 scale-[1.02]"
-                  : "bg-card hover:shadow-md"
-              }`}
-            >
-              {plan.highlighted && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium shadow-lg">
-                  Most Popular
-                </div>
-              )}
+          {plans.map((plan) => {
+            const isHighlighted = 'highlighted' in plan && plan.highlighted
+            const perUser = 'perUser' in plan && plan.perUser
+            const yearlyDiscount = 'yearlyDiscount' in plan ? plan.yearlyDiscount : undefined
 
-              <div className="mb-6">
-                <h2 className="text-2xl font-medium">{plan.name}</h2>
-                <p className="text-muted-foreground/80 mt-1 text-sm">{plan.description}</p>
-              </div>
+            return (
+              <div
+                key={plan.name}
+                className={`relative p-6 rounded-2xl border transition-all ${
+                  isHighlighted
+                    ? "border-primary bg-primary/5 shadow-xl ring-2 ring-primary/20 scale-[1.02]"
+                    : "bg-card hover:shadow-md"
+                }`}
+              >
+                {isHighlighted && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-medium shadow-lg">
+                    Most Popular
+                  </div>
+                )}
 
-              <div className="mb-6">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-medium">
-                    ${isYearly ? plan.yearlyPrice : plan.monthlyPrice}
-                  </span>
-                  <span className="text-muted-foreground/60 text-sm">
-                    /{isYearly ? "year" : "month"}
-                    {plan.perUser && "/user"}
-                  </span>
+                <div className="mb-6">
+                  <h2 className="text-2xl font-medium">{plan.name}</h2>
+                  <p className="text-muted-foreground/80 mt-1 text-sm">{plan.description}</p>
                 </div>
-                {isYearly && plan.yearlyDiscount && (
-                  <Badge variant="secondary" className="mt-2">
-                    {plan.yearlyDiscount}
-                  </Badge>
+
+                <div className="mb-6">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-medium">
+                      ${isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                    </span>
+                    <span className="text-muted-foreground/60 text-sm">
+                      /{isYearly ? "year" : "month"}
+                      {perUser && "/user"}
+                    </span>
+                  </div>
+                  {isYearly && yearlyDiscount && (
+                    <Badge variant="secondary" className="mt-2">
+                      {yearlyDiscount}
+                    </Badge>
+                  )}
+                </div>
+
+                <ul className="space-y-3 mb-8">
+                  {plan.features.map((feature, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                      <span className="text-sm font-light">{feature}</span>
+                    </li>
+                  ))}
+                  {plan.limitations.map((limitation, i) => (
+                    <li key={i} className="flex items-start gap-3 text-muted-foreground/60">
+                      <span className="h-4 w-4 flex items-center justify-center flex-shrink-0">
+                        -
+                      </span>
+                      <span className="text-sm font-light">{limitation}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {plan.name === "Free" ? (
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    asChild
+                    disabled={!!session}
+                  >
+                    <Link href="/signup">
+                      {session ? "Current Plan" : plan.cta}
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full"
+                    variant={isHighlighted ? "default" : "outline"}
+                    onClick={() =>
+                      handleCheckout(
+                        plan.name.toUpperCase(),
+                        isYearly ? plan.priceIdYearly : plan.priceIdMonthly
+                      )
+                    }
+                    disabled={loadingPlan === plan.name.toUpperCase()}
+                  >
+                    {loadingPlan === plan.name.toUpperCase() ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      plan.cta
+                    )}
+                  </Button>
                 )}
               </div>
-
-              <ul className="space-y-3 mb-8">
-                {plan.features.map((feature, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                    <span className="text-sm font-light">{feature}</span>
-                  </li>
-                ))}
-                {plan.limitations.map((limitation, i) => (
-                  <li key={i} className="flex items-start gap-3 text-muted-foreground/60">
-                    <span className="h-4 w-4 flex items-center justify-center flex-shrink-0">
-                      -
-                    </span>
-                    <span className="text-sm font-light">{limitation}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {plan.name === "Free" ? (
-                <Button
-                  className="w-full"
-                  variant="outline"
-                  asChild
-                  disabled={!!session}
-                >
-                  <Link href="/signup">
-                    {session ? "Current Plan" : plan.cta}
-                  </Link>
-                </Button>
-              ) : (
-                <Button
-                  className="w-full"
-                  variant={plan.highlighted ? "default" : "outline"}
-                  onClick={() =>
-                    handleCheckout(
-                      plan.name.toUpperCase(),
-                      isYearly ? plan.priceIdYearly : plan.priceIdMonthly
-                    )
-                  }
-                  disabled={loadingPlan === plan.name.toUpperCase()}
-                >
-                  {loadingPlan === plan.name.toUpperCase() ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    plan.cta
-                  )}
-                </Button>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* FAQ or Additional Info */}

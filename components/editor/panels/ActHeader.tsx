@@ -65,8 +65,8 @@ export function ActHeader({
     <div
       className={cn(
         'w-full flex items-center justify-between',
-        'px-2.5 py-2 rounded-lg',
-        'text-xs font-medium',
+        'px-2 py-1 rounded-md',
+        'text-[11px] font-medium',
         'hover:bg-accent/50',
         'transition-colors',
         'group/act'
@@ -75,12 +75,12 @@ export function ActHeader({
       <div className="flex items-center gap-1.5 flex-1 min-w-0">
         <button onClick={onToggle} className="shrink-0">
           {isExpanded ? (
-            <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+            <ChevronUp className="h-3 w-3 text-muted-foreground" />
           ) : (
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
           )}
         </button>
-        <Clapperboard className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        <Clapperboard className="h-3 w-3 text-muted-foreground shrink-0" />
 
         {isEditing ? (
           <input

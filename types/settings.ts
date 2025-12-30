@@ -122,6 +122,8 @@ export interface EditorSettings {
   showSceneNumbers: boolean; // Show scene numbers next to scene headings
   sceneNumberPosition: SceneNumberPosition; // Position: left, right, or both margins
   yjsCollaboration: boolean; // Enable Yjs CRDT real-time collaboration
+  readingMode: boolean; // Reading mode - read-only with minimal UI
+  showBeginnerTips: boolean; // Show contextual tips for screenwriting beginners
 }
 
 export interface InterfaceSettings {
@@ -274,6 +276,8 @@ export const defaultSettings: AppSettings = {
     showSceneNumbers: true, // Show scene numbers next to scene headings
     sceneNumberPosition: 'both', // Industry standard: both margins for shooting scripts
     yjsCollaboration: false, // Yjs CRDT collaboration disabled by default
+    readingMode: false, // Reading mode - read-only with minimal UI
+    showBeginnerTips: false, // Beginner tips disabled by default
   },
   interface: {
     showStatsBar: true,

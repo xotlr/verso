@@ -20,6 +20,7 @@ import type { SceneInfo, CharacterInfo } from "@/hooks/editor/use-prosemirror-ed
 import type { EditorView } from "prosemirror-view";
 import type { DetectedShot, Shot } from "@/types/shotlist";
 import { SHOT_TYPES } from "@/types/shotlist";
+import { useEditorScenesOptional } from "@/contexts/editor-scene-context";
 
 // Lazy-load heavy dialog components to reduce initial bundle size
 const VersionHistorySidebar = dynamic(
@@ -66,6 +67,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
 
   const router = useRouter();
   const { data: session } = useSession();
+  const editorSceneContext = useEditorScenesOptional();
 
   // Core persistence hook (handles save, version, timelapse, offline sync)
   const persistence = useScreenplayPersistence({
@@ -171,6 +173,16 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
       },
     }));
   }, [yjsEnabled, yjsCollaboration.isConnected, yjsCollaboration.isSynced, yjsCollaboration.isPersistenceSynced]);
+
+  // Sync editor scene data to EditorSceneContext for sidebar consumption
+  useEffect(() => {
+    if (editorSceneContext) {
+      editorSceneContext.setScenes(sceneInfos);
+      editorSceneContext.setCurrentSceneId(currentSceneId);
+      editorSceneContext.setEditorView(editorView);
+      editorSceneContext.setScreenplayId(screenplayId);
+    }
+  }, [editorSceneContext, sceneInfos, currentSceneId, editorView, screenplayId]);
 
   // Destructure stable refs from persistence (do this once to avoid re-render loops)
   // The persistence object changes every render, but these callbacks are stable
