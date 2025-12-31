@@ -71,25 +71,23 @@ const nextConfig: NextConfig = {
       config.plugins.push(
         new WebpackObfuscator(
           {
-            // Medium preset - balance between protection and performance
+            // Low-memory preset for Vercel standard containers
             compact: true,
-            controlFlowFlattening: false, // Keep false for performance
-            deadCodeInjection: true,
-            deadCodeInjectionThreshold: 0.2,
+            controlFlowFlattening: false,
+            deadCodeInjection: false, // Disabled - major memory hog
             debugProtection: false,
             disableConsoleOutput: true,
             identifierNamesGenerator: "hexadecimal",
             renameGlobals: false, // Required for Next.js compatibility
             rotateStringArray: true,
-            selfDefending: false, // Can break in prod environments
+            selfDefending: false,
             shuffleStringArray: true,
             simplify: true,
-            splitStrings: true,
-            splitStringsChunkLength: 10,
+            splitStrings: false, // Disabled - reduces memory
             stringArray: true,
-            stringArrayEncoding: ["base64"],
-            stringArrayThreshold: 0.75,
-            transformObjectKeys: true,
+            stringArrayEncoding: ["none"], // Changed from base64 - less memory
+            stringArrayThreshold: 0.4, // Reduced from 0.75
+            transformObjectKeys: false, // Disabled - reduces memory
           },
           [
             // Exclude framework code from obfuscation
