@@ -360,6 +360,20 @@ function __wbg_finalize_init(instance, module) {
 // ============================================================================
 
 /**
+ * Verify integrity of a binary using SHA-384
+ */
+async function verifyIntegrity(buffer, expectedHash) {
+  if (!expectedHash) return true; // Skip if no hash provided
+
+  const hashBuffer = await crypto.subtle.digest('SHA-384', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashBase64 = btoa(String.fromCharCode(...hashArray));
+  const computedHash = `sha384-${hashBase64}`;
+
+  return computedHash === expectedHash;
+}
+
+/**
  * Initialize the WASM module by fetching the binary directly
  */
 async function initWasm() {
@@ -374,22 +388,53 @@ async function initWasm() {
 
   initPromise = (async () => {
     try {
-      // Fetch the WASM binary directly
-      const wasmBinaryUrl = new URL('/wasm/verso_pagination_engine_bg.wasm', origin);
-      console.log('[PaginationWorker] Fetching WASM from:', wasmBinaryUrl.href);
+      // Fetch integrity hashes - required in production builds
+      let expectedWasmHash = null;
+      let integrityFileExists = false;
 
+      try {
+        const integrityResponse = await fetch(new URL('/integrity.json', origin));
+        if (integrityResponse.ok) {
+          integrityFileExists = true;
+          const integrity = await integrityResponse.json();
+          expectedWasmHash = integrity.wasm;
+
+          // If integrity.json exists but has no wasm hash, that's an error
+          if (!expectedWasmHash || !expectedWasmHash.startsWith('sha384-')) {
+            throw new Error('Invalid integrity.json: missing or malformed wasm hash');
+          }
+        }
+      } catch (fetchError) {
+        // If fetch itself failed (not 404), propagate the error
+        if (fetchError.message?.includes('Invalid integrity')) {
+          throw fetchError;
+        }
+        // 404 or network error - integrity.json doesn't exist (dev mode)
+      }
+
+      // Fetch the WASM binary
+      const wasmBinaryUrl = new URL('/wasm/verso_pagination_engine_bg.wasm', origin);
       const response = await fetch(wasmBinaryUrl);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch WASM: ${response.status} ${response.statusText}`);
       }
 
+      // Get WASM as ArrayBuffer for integrity check
+      const wasmBuffer = await response.clone().arrayBuffer();
+
+      // Verify integrity - REQUIRED if integrity.json exists (production)
+      if (integrityFileExists) {
+        const isValid = await verifyIntegrity(wasmBuffer, expectedWasmHash);
+        if (!isValid) {
+          throw new Error('WASM integrity check failed: binary may have been tampered with');
+        }
+      }
+
       const imports = __wbg_get_imports();
-      const { instance, module } = await __wbg_load(response, imports);
+      const { instance, module } = await __wbg_load(new Response(wasmBuffer), imports);
 
       __wbg_finalize_init(instance, module);
-
-      console.log(`[PaginationWorker] WASM loaded, version: ${version()}`);
     } catch (error) {
       console.error('[PaginationWorker] Failed to load WASM:', error);
       throw error;

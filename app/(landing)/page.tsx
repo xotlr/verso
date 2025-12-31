@@ -1,7 +1,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Check, ArrowRight } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { Aurora } from "@/components/aurora"
 import { BlurOverlay } from "@/components/ui/blur-overlay"
 import { RotatingText } from "@/components/landing/rotating-text"
@@ -12,6 +11,7 @@ import { FeaturesEnhancedSection } from "@/components/landing/features-enhanced-
 import { HowItWorksSection } from "@/components/landing/how-it-works-section"
 import { ComparisonSection } from "@/components/landing/comparison-section"
 import { FAQSection } from "@/components/landing/faq-section"
+import { PricingCard } from "@/components/pricing"
 
 export default function LandingPage() {
   return (
@@ -192,62 +192,3 @@ export default function LandingPage() {
   )
 }
 
-function PricingCard({
-  name,
-  price,
-  period,
-  description,
-  features,
-  cta,
-  ctaHref,
-  highlighted,
-}: {
-  name: string
-  price: string
-  period?: string
-  description: string
-  features: string[]
-  cta: string
-  ctaHref: string
-  highlighted?: boolean
-}) {
-  return (
-    <div
-      className={`relative p-4 sm:p-6 rounded-xl border transition-all duration-300 ${
-        highlighted
-          ? "border-primary bg-primary text-primary-foreground shadow-lg lg:scale-[1.02] hover:shadow-xl"
-          : "bg-card hover:border-border/80 hover:shadow-lg hover:-translate-y-1"
-      }`}
-    >
-      {highlighted && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary text-primary-foreground shadow-md px-4 py-1.5 text-xs font-medium uppercase tracking-wide whitespace-nowrap pointer-events-none">
-          Most Popular
-        </div>
-      )}
-      <h3 className="text-base sm:text-lg font-medium">{name}</h3>
-      <div className="mt-1 sm:mt-2 mb-2 sm:mb-4">
-        <span className="text-2xl sm:text-4xl font-medium">{price}</span>
-        {period && <span className={`text-xs sm:text-sm ${highlighted ? "text-primary-foreground/60" : "text-muted-foreground/60"}`}>{period}</span>}
-      </div>
-      <p className={`text-xs sm:text-sm mb-3 sm:mb-6 line-clamp-2 sm:line-clamp-none ${highlighted ? "text-primary-foreground/80" : "text-muted-foreground/80"}`}>{description}</p>
-      <ul className="space-y-2 sm:space-y-3 mb-3 sm:mb-6">
-        {features.map((feature, i) => (
-          <li key={i} className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm font-normal">
-            <Check className={`h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 ${highlighted ? "text-primary-foreground" : "text-primary"}`} />
-            <span className="line-clamp-1 sm:line-clamp-none">{feature}</span>
-          </li>
-        ))}
-      </ul>
-      <Button
-        className={`w-full h-9 sm:h-11 text-xs sm:text-sm group rounded-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${highlighted ? "bg-primary-foreground text-primary hover:bg-primary-foreground/90" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
-        variant="ghost"
-        asChild
-      >
-        <Link href={ctaHref} className="flex items-center justify-center gap-1 sm:gap-2">
-          {cta}
-          <ArrowRight className="h-3 w-3 sm:h-4 sm:w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-        </Link>
-      </Button>
-    </div>
-  )
-}

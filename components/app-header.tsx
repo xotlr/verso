@@ -5,7 +5,9 @@ import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { EditableTitle } from "@/components/editable-title";
 import { SeriesBreadcrumb } from "@/components/series/series-breadcrumb";
-import { Search, ChevronLeft, Share2, History, Play } from "lucide-react";
+import { Search, ChevronLeft, History } from "lucide-react";
+import { IoShareOutline, IoShare } from "react-icons/io5";
+import { BsRewindBtn, BsRewindBtnFill } from "react-icons/bs";
 import { NotificationBell } from "@/components/notifications";
 import { UserAvatarMenu } from "@/components/user-avatar-menu";
 import { Logo } from "@/components/logo";
@@ -237,7 +239,8 @@ export function AppHeader({ className }: AppHeaderProps) {
           {isScreenplayPage && (
             <>
               <HeaderIconButton
-                icon={<Share2 className="h-4 w-4" />}
+                icon={<IoShareOutline className="h-4 w-4" />}
+                activeIcon={<IoShare className="h-4 w-4" />}
                 tooltip="Share"
                 onClick={() => window.dispatchEvent(new CustomEvent('editor-open-share'))}
               />
@@ -247,7 +250,8 @@ export function AppHeader({ className }: AppHeaderProps) {
                 onClick={() => window.dispatchEvent(new CustomEvent('editor-open-version-history'))}
               />
               <HeaderIconButton
-                icon={<Play className="h-4 w-4" />}
+                icon={<BsRewindBtn className="h-4 w-4" />}
+                activeIcon={<BsRewindBtnFill className="h-4 w-4" />}
                 tooltip="Timelapse"
                 onClick={() => window.dispatchEvent(new CustomEvent('editor-open-timelapse'))}
               />
@@ -270,7 +274,8 @@ export function AppHeader({ className }: AppHeaderProps) {
           {isScreenplayPage && (
             <>
               <HeaderIconButton
-                icon={<Share2 className="h-4 w-4" />}
+                icon={<IoShareOutline className="h-4 w-4" />}
+                activeIcon={<IoShare className="h-4 w-4" />}
                 tooltip="Share"
                 onClick={() => window.dispatchEvent(new CustomEvent('editor-open-share'))}
               />
@@ -280,7 +285,8 @@ export function AppHeader({ className }: AppHeaderProps) {
                 onClick={() => window.dispatchEvent(new CustomEvent('editor-open-version-history'))}
               />
               <HeaderIconButton
-                icon={<Play className="h-4 w-4" />}
+                icon={<BsRewindBtn className="h-4 w-4" />}
+                activeIcon={<BsRewindBtnFill className="h-4 w-4" />}
                 tooltip="View Timelapse"
                 onClick={() => window.dispatchEvent(new CustomEvent('editor-open-timelapse'))}
               />

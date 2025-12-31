@@ -56,6 +56,8 @@ export interface SceneInfo {
   position: number;
   /** True if timeOfDay was inferred from keywords in the location, not explicitly stated */
   autoDetectedTimeOfDay?: boolean;
+  /** Characters appearing in this scene (extracted from character cues) */
+  characters?: string[];
 }
 
 /**

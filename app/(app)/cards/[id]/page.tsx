@@ -7,8 +7,9 @@ import { PageLayout } from "@/components/layouts/page-layout";
 import { PageHeader } from "@/components/layouts/page-header";
 import { Scene, Location } from "@/types/screenplay";
 import { deserializeFromStorage } from "@/lib/prosemirror/serialization";
-import { extractScenes } from "@/hooks/editor/document-extractors";
+import { extractScenes, extractCharacters } from "@/hooks/editor/document-extractors";
 import type { SceneInfo } from "@/hooks/editor/types";
+import { normalizeTimeOfDay } from "@/lib/prosemirror/utils/time-detection";
 import { Loader2 } from "lucide-react";
 
 // Default colors for cards
@@ -27,10 +28,10 @@ function convertToScene(info: SceneInfo, index: number): Scene {
     color: '#888888',
   };
 
-  // Build heading string
-  const heading = `${locationType}. ${info.location || 'UNKNOWN'}${info.timeOfDay ? ` - ${info.timeOfDay}` : ''}`;
+  // Build heading string - use location only, time shown separately
+  const heading = `${locationType}. ${info.location || 'UNKNOWN'}`;
 
-  // Normalize timeOfDay to expected values
+  // Normalize timeOfDay using the proper function from time-detection
   const normalizedTime = normalizeTimeOfDay(info.timeOfDay);
 
   return {
@@ -40,18 +41,8 @@ function convertToScene(info: SceneInfo, index: number): Scene {
     location,
     timeOfDay: normalizedTime,
     elements: [],
-    characters: [],
+    characters: info.characters || [],
   };
-}
-
-function normalizeTimeOfDay(time: string | undefined): 'DAY' | 'NIGHT' | 'DAWN' | 'DUSK' | 'CONTINUOUS' {
-  if (!time) return 'DAY';
-  const upper = time.toUpperCase();
-  if (upper.includes('NIGHT')) return 'NIGHT';
-  if (upper.includes('DAWN') || upper.includes('MORNING')) return 'DAWN';
-  if (upper.includes('DUSK') || upper.includes('EVENING') || upper.includes('SUNSET')) return 'DUSK';
-  if (upper.includes('CONTINUOUS') || upper.includes('CONT')) return 'CONTINUOUS';
-  return 'DAY';
 }
 
 // Local storage key for cards persistence
@@ -65,6 +56,7 @@ export default function CardsPage() {
   const id = params.id as string;
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [cards, setCards] = useState<IndexCard[]>([]);
+  const [characterRankings, setCharacterRankings] = useState<Map<string, number>>(new Map());
   const [title, setTitle] = useState("Loading...");
   const [isLoading, setIsLoading] = useState(true);
 
@@ -82,6 +74,15 @@ export default function CardsPage() {
         if (data.content) {
           const doc = deserializeFromStorage(data.content);
           const sceneInfos = extractScenes(doc);
+
+          // Extract characters and create rankings (by dialogue count)
+          const characters = extractCharacters(doc);
+          const rankings = new Map<string, number>();
+          characters.forEach((char, index) => {
+            // Lower rank = more dialogue (index 0 = most dialogue)
+            rankings.set(char.name, index);
+          });
+          setCharacterRankings(rankings);
 
           // Convert to Scene format
           const parsedScenes = sceneInfos.map((info, index) => convertToScene(info, index));
@@ -198,6 +199,7 @@ export default function CardsPage() {
       <IndexCards
         scenes={scenes}
         cards={cards}
+        characterRankings={characterRankings}
         onCardsChange={handleCardsChange}
         onScenesReorder={handleScenesReorder}
         onSceneClick={handleSceneClick}

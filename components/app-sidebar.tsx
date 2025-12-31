@@ -13,15 +13,14 @@ import {
   BookOpen,
   LayoutTemplate,
   HelpCircle,
-  PenTool,
-  Clapperboard,
-  Rows3,
-  Waypoints,
-  LayoutGrid,
 } from "lucide-react";
 import { TbHome, TbHomeFilled } from 'react-icons/tb';
 import { PiFilmScript, PiFilmScriptFill } from 'react-icons/pi';
 import { RiFolder6Line, RiFolder6Fill, RiStackLine, RiStackFill } from 'react-icons/ri';
+import { BiEdit, BiSolidEdit } from 'react-icons/bi';
+import { BsCameraReels, BsCameraReelsFill, BsGrid3X3Gap, BsGrid3X3GapFill } from 'react-icons/bs';
+import { PiNeedleFill } from 'react-icons/pi';
+import { TbNeedleThread } from 'react-icons/tb';
 import { Logo } from "@/components/logo";
 
 import { cn } from '@/lib/utils';
@@ -60,7 +59,7 @@ interface AppSidebarProps {
 
 // Extract screenplay ID from pathname (e.g., /screenplay/123 -> 123)
 function extractScreenplayId(pathname: string): string | null {
-  const screenplayRoutes = ['/screenplay/', '/board/', '/graph/', '/cards/', '/visualization/', '/shotlist/'];
+  const screenplayRoutes = ['/screenplay/', '/tapestry/', '/cards/', '/visualization/', '/shotlist/'];
   for (const route of screenplayRoutes) {
     if (pathname.startsWith(route)) {
       const id = pathname.slice(route.length).split('/')[0];
@@ -173,27 +172,26 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
     {
       title: "Editor",
       url: `/screenplay/${screenplayId}`,
-      icon: PenTool,
+      icon: BiEdit,
+      activeIcon: BiSolidEdit,
     },
     {
       title: "Shotlist",
       url: `/shotlist/${screenplayId}`,
-      icon: Clapperboard,
+      icon: BsCameraReels,
+      activeIcon: BsCameraReelsFill,
     },
     {
-      title: "Beat Board",
-      url: `/board/${screenplayId}`,
-      icon: Rows3,
-    },
-    {
-      title: "Story Graph",
-      url: `/graph/${screenplayId}`,
-      icon: Waypoints,
+      title: "Tapestry",
+      url: `/tapestry/${screenplayId}`,
+      icon: PiNeedleFill,
+      activeIcon: TbNeedleThread,
     },
     {
       title: "Index Cards",
       url: `/cards/${screenplayId}`,
-      icon: LayoutGrid,
+      icon: BsGrid3X3Gap,
+      activeIcon: BsGrid3X3GapFill,
     },
   ] : [];
 
@@ -254,6 +252,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                       title={item.title}
                       url={item.url}
                       icon={item.icon}
+                      activeIcon={item.activeIcon}
                       pathname={pathname}
                       index={index}
                     />
@@ -363,7 +362,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
               isActive={pathname === '/settings' || pathname.startsWith('/settings?')}
             >
               <Link href="/settings">
-                <Settings className="h-4 w-4" />
+                <Settings className="h-4 w-4 text-muted-foreground" />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

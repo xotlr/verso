@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { EditableTitle } from "@/components/editable-title";
-import { ArrowLeft, Share2, Play, History } from "lucide-react";
+import { ArrowLeft, Play, History } from "lucide-react";
+import { IoShareOutline } from "react-icons/io5";
 import { cn } from "@/lib/utils";
 
 interface EditorHeaderProps {
@@ -170,7 +171,7 @@ export function EditorHeader({ className }: EditorHeaderProps) {
           onClick={handleShare}
           title="Share"
         >
-          <Share2 className="h-4 w-4" />
+          <IoShareOutline className="h-4 w-4" />
         </Button>
       </div>
     </header>

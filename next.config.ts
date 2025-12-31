@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
+import type { Configuration } from "webpack";
 import withSerwistInit from "@serwist/next";
 import bundleAnalyzer from "@next/bundle-analyzer";
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const WebpackObfuscator = require("webpack-obfuscator");
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -9,12 +13,16 @@ const withBundleAnalyzer = bundleAnalyzer({
 const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",
   swDest: "public/sw.js",
-  disable: process.env.NODE_ENV === "development",
+  // Disable in dev or when using webpack mode (DISABLE_PWA=true for obfuscated builds)
+  disable: process.env.NODE_ENV === "development" || process.env.DISABLE_PWA === "true",
 });
 
 const nextConfig: NextConfig = {
   // Next.js 16: Turbopack is default. Empty config acknowledges plugins' webpack additions.
   turbopack: {},
+
+  // Explicitly disable source maps in production (defense in depth with post-build removal)
+  productionBrowserSourceMaps: false,
 
   // Fix workspace root detection (multiple lockfiles issue)
   outputFileTracingRoot: __dirname,
@@ -55,6 +63,48 @@ const nextConfig: NextConfig = {
 
   // WebAssembly is loaded dynamically from /public/wasm/ via fetch
   // No webpack/turbopack config needed - WASM served as static assets
+
+  // Production obfuscation (webpack mode only, use `next build --webpack`)
+  webpack: (config: Configuration, { isServer, dev }: { isServer: boolean; dev: boolean }) => {
+    if (!isServer && !dev) {
+      config.plugins = config.plugins || [];
+      config.plugins.push(
+        new WebpackObfuscator(
+          {
+            // Medium preset - balance between protection and performance
+            compact: true,
+            controlFlowFlattening: false, // Keep false for performance
+            deadCodeInjection: true,
+            deadCodeInjectionThreshold: 0.2,
+            debugProtection: false,
+            disableConsoleOutput: true,
+            identifierNamesGenerator: "hexadecimal",
+            renameGlobals: false, // Required for Next.js compatibility
+            rotateStringArray: true,
+            selfDefending: false, // Can break in prod environments
+            shuffleStringArray: true,
+            simplify: true,
+            splitStrings: true,
+            splitStringsChunkLength: 10,
+            stringArray: true,
+            stringArrayEncoding: ["base64"],
+            stringArrayThreshold: 0.75,
+            transformObjectKeys: true,
+          },
+          [
+            // Exclude framework code from obfuscation
+            "**/node_modules/**",
+            "**/_next/static/chunks/polyfills*.js",
+            "**/_next/static/chunks/framework*.js",
+            "**/_next/static/chunks/webpack*.js",
+            "**/sw.js",
+            "**/sw.ts",
+          ]
+        )
+      );
+    }
+    return config;
+  },
 };
 
 export default withBundleAnalyzer(withSerwist(nextConfig));

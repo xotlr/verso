@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -24,27 +24,69 @@ import { Scene } from '@/types/screenplay';
 import { cn } from '@/lib/utils';
 import {
   GripVertical,
-  Edit2,
   Film,
-  Users,
+  Sun,
+  Moon,
+  Sunrise,
+  Sunset,
+  CloudSun,
   Clock,
-  MapPin,
+  Filter,
+  Users,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  normalizeTimeOfDay,
+  TIME_OF_DAY_LABELS,
+  TIME_OF_DAY_ORDER,
+  type TimeOfDay,
+} from '@/lib/prosemirror/utils/time-detection';
 
-// Card status colors - using opacity pattern for consistency with home page
-const STATUS_COLORS: Record<string, { bg: string; border: string; text: string; dot: string; label: string }> = {
-  draft: { bg: 'bg-gray-500/10', border: 'border-gray-500/30', text: 'text-gray-600 dark:text-gray-400', dot: 'bg-gray-500', label: 'Draft' },
-  outline: { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-600 dark:text-blue-400', dot: 'bg-blue-500', label: 'Outline' },
-  writing: { bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', text: 'text-yellow-600 dark:text-yellow-400', dot: 'bg-yellow-500', label: 'Writing' },
-  revision: { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-600 dark:text-orange-400', dot: 'bg-orange-500', label: 'Revision' },
-  complete: { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-600 dark:text-green-400', dot: 'bg-green-500', label: 'Complete' },
+// Status configuration - background tint makes status instantly visible
+const STATUS_CONFIG: Record<string, {
+  bg: string;
+  bgHover: string;
+  accent: string;
+  label: string;
+}> = {
+  draft: {
+    bg: 'bg-zinc-500/5 dark:bg-zinc-400/5',
+    bgHover: 'hover:bg-zinc-500/12 dark:hover:bg-zinc-400/12',
+    accent: 'bg-zinc-500',
+    label: 'Draft',
+  },
+  outline: {
+    bg: 'bg-blue-500/8 dark:bg-blue-400/8',
+    bgHover: 'hover:bg-blue-500/15 dark:hover:bg-blue-400/15',
+    accent: 'bg-blue-500',
+    label: 'Outline',
+  },
+  writing: {
+    bg: 'bg-amber-500/8 dark:bg-amber-400/8',
+    bgHover: 'hover:bg-amber-500/15 dark:hover:bg-amber-400/15',
+    accent: 'bg-amber-500',
+    label: 'Writing',
+  },
+  revision: {
+    bg: 'bg-orange-500/8 dark:bg-orange-400/8',
+    bgHover: 'hover:bg-orange-500/15 dark:hover:bg-orange-400/15',
+    accent: 'bg-orange-500',
+    label: 'Revision',
+  },
+  complete: {
+    bg: 'bg-emerald-500/8 dark:bg-emerald-400/8',
+    bgHover: 'hover:bg-emerald-500/15 dark:hover:bg-emerald-400/15',
+    accent: 'bg-emerald-500',
+    label: 'Done',
+  },
 };
+
+const STATUSES = ['draft', 'outline', 'writing', 'revision', 'complete'] as const;
 
 export interface IndexCard {
   sceneId: string;
   color: string;
-  status: keyof typeof STATUS_COLORS;
+  status: keyof typeof STATUS_CONFIG;
   summary: string;
   notes?: string;
 }
@@ -52,25 +94,48 @@ export interface IndexCard {
 export interface IndexCardsProps {
   scenes: Scene[];
   cards: IndexCard[];
+  characterRankings?: Map<string, number>;
   onCardsChange: (cards: IndexCard[]) => void;
   onScenesReorder: (scenes: Scene[]) => void;
   onSceneClick?: (sceneId: string) => void;
   onSceneEdit?: (scene: Scene) => void;
 }
 
+// Time of day icon with better coverage
+function TimeIcon({ time, className }: { time?: string; className?: string }) {
+  const normalized = normalizeTimeOfDay(time);
+  const iconClass = cn('h-3 w-3', className);
+
+  switch (normalized) {
+    case 'NIGHT':
+      return <Moon className={iconClass} />;
+    case 'DAWN':
+      return <Sunrise className={iconClass} />;
+    case 'MORNING':
+      return <CloudSun className={iconClass} />;
+    case 'AFTERNOON':
+      return <Sun className={iconClass} />;
+    case 'DUSK':
+    case 'EVENING':
+      return <Sunset className={iconClass} />;
+    case 'CONTINUOUS':
+      return <Clock className={iconClass} />;
+    default:
+      return <Sun className={iconClass} />;
+  }
+}
+
 // Sortable Card Component
 function SortableCard({
   scene,
   card,
-  onEdit,
-  onClick,
+  characterRankings,
   onStatusChange,
 }: {
   scene: Scene;
   card?: IndexCard;
-  onEdit?: () => void;
-  onClick?: () => void;
-  onStatusChange?: (status: keyof typeof STATUS_COLORS) => void;
+  characterRankings?: Map<string, number>;
+  onStatusChange?: (status: keyof typeof STATUS_CONFIG) => void;
 }) {
   const {
     attributes,
@@ -81,132 +146,96 @@ function SortableCard({
     isDragging,
   } = useSortable({ id: scene.id });
 
-  const [showStatusMenu, setShowStatusMenu] = useState(false);
-
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
   const status = card?.status || 'draft';
-  const statusStyle = STATUS_COLORS[status];
+  const statusStyle = STATUS_CONFIG[status];
+  const normalizedTime = normalizeTimeOfDay(scene.timeOfDay);
+
+  // Cycle through statuses on click
+  const cycleStatus = () => {
+    const currentIndex = STATUSES.indexOf(status as typeof STATUSES[number]);
+    const nextIndex = (currentIndex + 1) % STATUSES.length;
+    onStatusChange?.(STATUSES[nextIndex]);
+  };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
+      onClick={cycleStatus}
       className={cn(
-        'group relative w-[220px] h-[160px] rounded-lg border overflow-hidden',
-        'bg-card transition-all duration-300 ease-out',
-        'hover:border-border hover:shadow-md hover:-translate-y-1',
-        statusStyle.border,
+        'group relative rounded-md overflow-hidden cursor-pointer',
+        'bg-muted/50 border border-border/30',
+        'transition-all duration-100 ease-out',
+        'hover:bg-muted/70 hover:border-border/50',
+        'active:scale-[0.96] active:brightness-90',
         isDragging && 'opacity-50 scale-105 shadow-xl z-50'
       )}
     >
-      {/* Color stripe */}
-      <div
-        className="absolute top-0 left-0 right-0 h-2"
-        style={{ backgroundColor: card?.color || '#888888' }}
-      />
+      {/* Status accent bar */}
+      <div className={cn('h-0.5', statusStyle.accent)} />
 
-      {/* Drag handle */}
-      <button
-        {...attributes}
-        {...listeners}
-        className="absolute top-3 left-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
+      {/* Card content */}
+      <div className="p-2">
+        {/* Header row */}
+        <div className="flex items-center gap-1 mb-1">
+          {/* Drag handle */}
+          <button
+            {...attributes}
+            {...listeners}
+            onClick={(e) => e.stopPropagation()}
+            className="cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground transition-colors"
+          >
+            <GripVertical className="h-2.5 w-2.5" />
+          </button>
 
-      {/* Scene number badge */}
-      <div className="absolute top-3 right-2 flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
-        <Film className="h-2.5 w-2.5" />
-        {scene.number}
-      </div>
+          {/* Scene number */}
+          <span className="text-[9px] font-bold text-muted-foreground/70 tabular-nums">
+            {scene.number}
+          </span>
 
-      {/* Content */}
-      <button
-        onClick={onClick}
-        className="w-full h-full pt-6 px-3 pb-2 text-left"
-      >
-        <div className="space-y-1.5">
-          {/* Heading */}
-          <h4 className="font-medium text-xs text-foreground line-clamp-2 leading-tight">
-            {scene.heading}
-          </h4>
-
-          {/* Summary */}
-          {(card?.summary || scene.synopsis) && (
-            <p className="text-[10px] text-muted-foreground line-clamp-2">
-              {card?.summary || scene.synopsis}
-            </p>
-          )}
-
-          {/* Meta info */}
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-            <span className="inline-flex items-center gap-0.5">
-              <MapPin className="h-2.5 w-2.5" />
-              {scene.location?.type}
+          {/* Time of day */}
+          <div className="flex items-center gap-0.5 text-[8px] text-muted-foreground/60 ml-auto">
+            <TimeIcon time={scene.timeOfDay} className="h-2.5 w-2.5" />
+            <span className="uppercase tracking-wide">
+              {TIME_OF_DAY_LABELS[normalizedTime]}
             </span>
-            <span className="inline-flex items-center gap-0.5">
-              <Clock className="h-2.5 w-2.5" />
-              {scene.timeOfDay}
-            </span>
-            {scene.characters.length > 0 && (
-              <span className="inline-flex items-center gap-0.5">
-                <Users className="h-2.5 w-2.5" />
-                {scene.characters.length}
-              </span>
-            )}
           </div>
         </div>
-      </button>
 
-      {/* Status badge (clickable) */}
-      <div className="absolute bottom-2 left-2">
-        <button
-          onClick={() => setShowStatusMenu(!showStatusMenu)}
-          className={cn(
-            'flex items-center gap-1.5 text-[9px] px-2 py-1 rounded-md border font-medium uppercase tracking-wide',
-            statusStyle.bg,
-            statusStyle.border,
-            statusStyle.text,
-            'hover:shadow-sm transition-all duration-200'
-          )}
-        >
-          <div className={cn('w-1.5 h-1.5 rounded-full', statusStyle.dot)} />
+        {/* Scene heading */}
+        <h4 className="text-[10px] font-medium text-foreground line-clamp-2 leading-snug">
+          {scene.heading}
+        </h4>
+
+        {/* Characters - sorted by popularity (most dialogue first) */}
+        {scene.characters.length > 0 && (() => {
+          const sorted = [...scene.characters].sort((a, b) => {
+            const rankA = characterRankings?.get(a) ?? Infinity;
+            const rankB = characterRankings?.get(b) ?? Infinity;
+            return rankA - rankB;
+          });
+          return (
+            <div className="flex items-center gap-1 mt-1 text-[8px] text-muted-foreground/60">
+              <Users className="h-2 w-2 shrink-0" />
+              <span className="truncate">
+                {sorted.slice(0, 3).join(', ')}
+                {sorted.length > 3 && ` +${sorted.length - 3}`}
+              </span>
+            </div>
+          );
+        })()}
+
+        {/* Status indicator */}
+        <div className="flex items-center gap-1 mt-1 text-[7px] font-medium uppercase tracking-wide text-muted-foreground/60">
+          <div className={cn('w-1 h-1 rounded-full', statusStyle.accent)} />
           {statusStyle.label}
-        </button>
-
-        {/* Status dropdown */}
-        {showStatusMenu && (
-          <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-md shadow-lg p-1 z-50">
-            {Object.entries(STATUS_COLORS).map(([key, value]) => (
-              <button
-                key={key}
-                onClick={() => {
-                  onStatusChange?.(key as keyof typeof STATUS_COLORS);
-                  setShowStatusMenu(false);
-                }}
-                className={cn(
-                  'w-full text-left px-2 py-1 text-xs rounded',
-                  status === key ? 'bg-accent' : 'hover:bg-accent'
-                )}
-              >
-                {value.label}
-              </button>
-            ))}
-          </div>
-        )}
+        </div>
       </div>
-
-      {/* Edit button */}
-      <button
-        onClick={onEdit}
-        className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-background/50"
-      >
-        <Edit2 className="h-3 w-3" />
-      </button>
     </div>
   );
 }
@@ -214,28 +243,20 @@ function SortableCard({
 // Card display (for drag overlay)
 function CardDisplay({ scene, card }: { scene: Scene; card?: IndexCard }) {
   const status = card?.status || 'draft';
-  const statusStyle = STATUS_COLORS[status];
+  const statusStyle = STATUS_CONFIG[status];
 
   return (
     <div
-      className={cn(
-        'w-[220px] h-[160px] rounded-lg border overflow-hidden shadow-2xl',
-        'bg-card',
-        statusStyle.border
-      )}
+      className="rounded-md overflow-hidden shadow-2xl bg-muted border border-border"
+      style={{ width: 140 }}
     >
-      <div
-        className="h-2"
-        style={{ backgroundColor: card?.color || '#888888' }}
-      />
-      <div className="p-3">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
-            <Film className="h-2.5 w-2.5" />
-            {scene.number}
-          </div>
+      <div className={cn('h-0.5', statusStyle.accent)} />
+      <div className="p-2">
+        <div className="flex items-center gap-1 text-[9px] font-bold text-muted-foreground mb-1">
+          <Film className="h-2.5 w-2.5" />
+          <span>{scene.number}</span>
         </div>
-        <h4 className="font-bold text-xs line-clamp-2 uppercase">{scene.heading}</h4>
+        <h4 className="text-[10px] font-medium line-clamp-2">{scene.heading}</h4>
       </div>
     </div>
   );
@@ -245,12 +266,12 @@ function CardDisplay({ scene, card }: { scene: Scene; card?: IndexCard }) {
 export function IndexCards({
   scenes,
   cards,
+  characterRankings,
   onCardsChange,
   onScenesReorder,
-  onSceneClick,
-  onSceneEdit,
 }: IndexCardsProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [timeFilter, setTimeFilter] = useState<TimeOfDay | 'ALL'>('ALL');
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -262,6 +283,33 @@ export function IndexCards({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  const getCard = (sceneId: string) => cards.find(c => c.sceneId === sceneId);
+
+  // Get available times from scenes
+  const availableTimes = useMemo(() => {
+    const times = new Set<TimeOfDay>();
+    scenes.forEach(scene => {
+      times.add(normalizeTimeOfDay(scene.timeOfDay));
+    });
+    return Array.from(times).sort((a, b) => TIME_OF_DAY_ORDER[a] - TIME_OF_DAY_ORDER[b]);
+  }, [scenes]);
+
+  // Filter scenes by time
+  const filteredScenes = useMemo(() => {
+    if (timeFilter === 'ALL') return scenes;
+    return scenes.filter(s => normalizeTimeOfDay(s.timeOfDay) === timeFilter);
+  }, [scenes, timeFilter]);
+
+  // Count scenes by time
+  const timeCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: scenes.length };
+    scenes.forEach(scene => {
+      const time = normalizeTimeOfDay(scene.timeOfDay);
+      counts[time] = (counts[time] || 0) + 1;
+    });
+    return counts;
+  }, [scenes]);
 
   const activeScene = scenes.find(s => s.id === activeId);
   const activeCard = cards.find(c => c.sceneId === activeId);
@@ -288,7 +336,7 @@ export function IndexCards({
     }
   };
 
-  const handleStatusChange = (sceneId: string, status: keyof typeof STATUS_COLORS) => {
+  const handleStatusChange = (sceneId: string, status: keyof typeof STATUS_CONFIG) => {
     const existingCard = cards.find(c => c.sceneId === sceneId);
     if (existingCard) {
       onCardsChange(
@@ -307,63 +355,138 @@ export function IndexCards({
     }
   };
 
-  const getCard = (sceneId: string) => cards.find(c => c.sceneId === sceneId);
+  // Count scenes by status
+  const statusCounts = STATUSES.reduce((acc, status) => {
+    acc[status] = scenes.filter(s => (getCard(s.id)?.status || 'draft') === status).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
     <div className="h-full flex flex-col">
-      {/* Cards Grid */}
       <ScrollArea className="flex-1">
-      <div className="p-6 space-y-4">
-        {/* Status legend */}
-        <div className="hidden sm:flex items-center gap-3 justify-end">
-          {Object.entries(STATUS_COLORS).map(([key, value]) => (
-            <div key={key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <div className={cn('w-2 h-2 rounded-full', value.dot)} />
-              <span>{value.label}</span>
-            </div>
-          ))}
-        </div>
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={scenes.map(s => s.id)}
-            strategy={rectSortingStrategy}
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-              {scenes.map(scene => (
-                <SortableCard
-                  key={scene.id}
-                  scene={scene}
-                  card={getCard(scene.id)}
-                  onEdit={() => onSceneEdit?.(scene)}
-                  onClick={() => onSceneClick?.(scene.id)}
-                  onStatusChange={(status) => handleStatusChange(scene.id, status)}
-                />
+        <div className="p-3 space-y-3">
+          {/* Time filter chips */}
+          {availableTimes.length > 1 && (
+            <div className="flex items-center gap-1 flex-wrap">
+              <Filter className="h-3 w-3 text-muted-foreground/50 mr-1" />
+              <button
+                onClick={() => setTimeFilter('ALL')}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1 rounded-full text-[10px] transition-all',
+                  timeFilter === 'ALL'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                )}
+              >
+                All
+                <span className="opacity-60">({timeCounts.ALL})</span>
+              </button>
+              {availableTimes.map(time => (
+                <button
+                  key={time}
+                  onClick={() => setTimeFilter(time)}
+                  className={cn(
+                    'flex items-center gap-1 px-2 py-1 rounded-full text-[10px] transition-all',
+                    timeFilter === time
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  )}
+                >
+                  <TimeIcon time={time} className="h-2.5 w-2.5" />
+                  {TIME_OF_DAY_LABELS[time]}
+                  <span className="opacity-60">({timeCounts[time] || 0})</span>
+                </button>
               ))}
             </div>
-          </SortableContext>
+          )}
 
-          <DragOverlay>
-            {activeScene ? (
-              <CardDisplay scene={activeScene} card={activeCard} />
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+          {/* Status progress bar */}
+          <div className="flex items-center gap-0.5 h-1.5 bg-muted/30 rounded-full overflow-hidden">
+            {STATUSES.map((status) => {
+              const config = STATUS_CONFIG[status];
+              const count = statusCounts[status];
+              const percentage = scenes.length > 0 ? (count / scenes.length) * 100 : 0;
 
-        {scenes.length === 0 && (
-          <div className="flex items-center justify-center h-64 bg-card rounded-lg border border-border/60">
-            <div className="text-center p-8">
-              <Film className="h-10 w-10 mx-auto mb-4 text-muted-foreground" />
-              <p className="font-semibold text-foreground">No scenes yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Write some scenes in the editor to see them here</p>
-            </div>
+              if (count === 0) return null;
+
+              return (
+                <div
+                  key={status}
+                  className={cn('h-full transition-all duration-500', config.accent)}
+                  style={{ width: `${percentage}%` }}
+                  title={`${config.label}: ${count}`}
+                />
+              );
+            })}
           </div>
-        )}
-      </div>
+
+          {/* Status legend - compact */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9px] text-muted-foreground/70">
+            {STATUSES.map((status) => {
+              const config = STATUS_CONFIG[status];
+              const count = statusCounts[status];
+              if (count === 0) return null;
+              return (
+                <div key={status} className="flex items-center gap-1">
+                  <div className={cn('w-1.5 h-1.5 rounded-full', config.accent)} />
+                  <span>{config.label}</span>
+                  <span className="opacity-60">{count}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Cards grid - tight bento style */}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={filteredScenes.map(s => s.id)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-px">
+                {filteredScenes.map(scene => (
+                  <SortableCard
+                    key={scene.id}
+                    scene={scene}
+                    card={getCard(scene.id)}
+                    characterRankings={characterRankings}
+                    onStatusChange={(status) => handleStatusChange(scene.id, status)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+
+            <DragOverlay>
+              {activeScene ? (
+                <CardDisplay scene={activeScene} card={activeCard} />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+
+          {filteredScenes.length === 0 && scenes.length > 0 && (
+            <div className="flex items-center justify-center h-32 bg-muted/20 rounded-xl">
+              <p className="text-sm text-muted-foreground">
+                No {TIME_OF_DAY_LABELS[timeFilter as TimeOfDay]} scenes
+              </p>
+            </div>
+          )}
+
+          {scenes.length === 0 && (
+            <div className="flex items-center justify-center h-48 bg-muted/20 rounded-xl">
+              <div className="text-center p-6">
+                <Film className="h-8 w-8 mx-auto mb-3 text-muted-foreground/40" />
+                <p className="font-medium text-foreground text-sm">No scenes yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Write scenes in the editor to see them here
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </ScrollArea>
     </div>
   );

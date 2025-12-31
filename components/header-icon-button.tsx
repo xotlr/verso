@@ -11,6 +11,8 @@ import {
 interface HeaderIconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /** Icon element to display */
   icon: React.ReactNode;
+  /** Icon to show when pressed (optional) */
+  activeIcon?: React.ReactNode;
   /** Tooltip text */
   tooltip?: string;
   /** Whether the button is in an active state */
@@ -24,7 +26,7 @@ interface HeaderIconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEle
  * Provides consistent hover states and optional tooltips.
  */
 export const HeaderIconButton = React.forwardRef<HTMLButtonElement, HeaderIconButtonProps>(
-  ({ icon, tooltip, isActive = false, tooltipSide = 'bottom', className, ...props }, ref) => {
+  ({ icon, activeIcon, tooltip, isActive = false, tooltipSide = 'bottom', className, ...props }, ref) => {
     const button = (
       <button
         ref={ref}
@@ -42,11 +44,20 @@ export const HeaderIconButton = React.forwardRef<HTMLButtonElement, HeaderIconBu
           // Icon color
           '[&_svg]:text-muted-foreground [&_svg]:hover:text-foreground',
           isActive && '[&_svg]:text-primary-foreground',
+          // Toggle icons on active (pressed) state
+          activeIcon && '[&_.icon-default]:active:hidden [&_.icon-active]:hidden [&_.icon-active]:active:block',
           className
         )}
         {...props}
       >
-        {icon}
+        {activeIcon ? (
+          <>
+            <span className="icon-default">{icon}</span>
+            <span className="icon-active">{activeIcon}</span>
+          </>
+        ) : (
+          icon
+        )}
       </button>
     );
 

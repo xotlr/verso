@@ -52,7 +52,7 @@ export type Scene = {
   number: number;
   heading: string;
   location: Location;
-  timeOfDay: 'DAY' | 'NIGHT' | 'DAWN' | 'DUSK' | 'CONTINUOUS';
+  timeOfDay: 'DAY' | 'NIGHT' | 'DAWN' | 'MORNING' | 'AFTERNOON' | 'DUSK' | 'EVENING' | 'CONTINUOUS';
   elements: SceneElement[];
   characters: string[];
   duration?: number;

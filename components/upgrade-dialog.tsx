@@ -10,50 +10,22 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { STRIPE_PLANS } from "@/lib/stripe-constants";
-import {
-  Sparkles,
-  Crown,
-  Zap,
-  Check,
-  Loader2,
-} from "lucide-react";
+import { PricingCard } from "@/components/pricing";
 
 interface UpgradeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const plans = [
-  {
-    id: "plus" as const,
-    name: STRIPE_PLANS.plus.name,
-    description: STRIPE_PLANS.plus.description,
-    icon: Sparkles,
-    features: STRIPE_PLANS.plus.features,
-    popular: true,
-  },
-  {
-    id: "pro" as const,
-    name: STRIPE_PLANS.pro.name,
-    description: STRIPE_PLANS.pro.description,
-    icon: Crown,
-    features: STRIPE_PLANS.pro.features,
-    popular: false,
-  },
-  {
-    id: "max" as const,
-    name: STRIPE_PLANS.max.name,
-    description: STRIPE_PLANS.max.description,
-    icon: Zap,
-    features: STRIPE_PLANS.max.features,
-    popular: false,
-  },
+const paidPlans = [
+  { key: "PLUS" as const, ...STRIPE_PLANS.plus },
+  { key: "PRO" as const, ...STRIPE_PLANS.pro },
+  { key: "MAX" as const, ...STRIPE_PLANS.max },
 ];
 
 export function UpgradeDialog({ open, onOpenChange }: UpgradeDialogProps) {
@@ -61,24 +33,25 @@ export function UpgradeDialog({ open, onOpenChange }: UpgradeDialogProps) {
   const [isYearly, setIsYearly] = useState(true);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
-  const handleUpgrade = async (planId: "plus" | "pro" | "max") => {
+  const handleUpgrade = async (planKey: string) => {
     if (!session?.user) {
       toast.error("Please sign in to upgrade");
       return;
     }
 
-    setLoadingPlan(planId);
+    const plan = paidPlans.find(p => p.key === planKey);
+    if (!plan) return;
+
+    const priceId = isYearly ? plan.yearlyPriceId : plan.monthlyPriceId;
+
+    if (!priceId) {
+      toast.error("Plan not available yet");
+      return;
+    }
+
+    setLoadingPlan(planKey);
 
     try {
-      const plan = STRIPE_PLANS[planId];
-      const priceId = isYearly ? plan.yearlyPriceId : plan.monthlyPriceId;
-
-      if (!priceId) {
-        toast.error("Plan not available yet");
-        setLoadingPlan(null);
-        return;
-      }
-
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,18 +71,8 @@ export function UpgradeDialog({ open, onOpenChange }: UpgradeDialogProps) {
     }
   };
 
-  const getPrice = (planId: "plus" | "pro" | "max") => {
-    const plan = STRIPE_PLANS[planId];
-    return isYearly ? plan.yearlyPrice : plan.monthlyPrice;
-  };
-
-  const getMonthlyEquivalent = (planId: "plus" | "pro" | "max") => {
-    const plan = STRIPE_PLANS[planId];
-    return isYearly ? (plan.yearlyPrice / 12).toFixed(2) : plan.monthlyPrice.toFixed(2);
-  };
-
-  const getSavings = (planId: "plus" | "pro" | "max") => {
-    const plan = STRIPE_PLANS[planId];
+  const getSavings = () => {
+    const plan = STRIPE_PLANS.pro;
     const yearlyMonthly = plan.yearlyPrice / 12;
     const savings = ((plan.monthlyPrice - yearlyMonthly) / plan.monthlyPrice) * 100;
     return Math.round(savings);
@@ -152,95 +115,34 @@ export function UpgradeDialog({ open, onOpenChange }: UpgradeDialogProps) {
           </Label>
           {isYearly && (
             <Badge variant="secondary" className="ml-1 text-xs">
-              Save up to {getSavings("pro")}%
+              Save up to {getSavings()}%
             </Badge>
           )}
         </div>
 
         {/* Plans Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-6 pb-6">
-          {plans.map((plan) => {
-            const Icon = plan.icon;
-            const isLoading = loadingPlan === plan.id;
+          {paidPlans.map((plan) => {
+            const isHighlighted = 'highlighted' in plan && plan.highlighted;
+            const perUser = 'perUser' in plan && plan.perUser;
+            const price = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
+            const period = isYearly
+              ? `/year${perUser ? '/user' : ''}`
+              : `/month${perUser ? '/user' : ''}`;
 
             return (
-              <div
-                key={plan.id}
-                className={cn(
-                  "relative flex flex-col rounded-xl border p-5 transition-all",
-                  plan.popular
-                    ? "border-primary bg-primary/5 shadow-md ring-2 ring-primary/20 scale-[1.02]"
-                    : "border-border hover:border-primary/50 hover:shadow-md"
-                )}
-              >
-                {plan.popular && (
-                  <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 bg-primary text-primary-foreground">
-                    Most Popular
-                  </Badge>
-                )}
-
-                {/* Plan Header */}
-                <div className="flex items-center gap-2 mb-2">
-                  <div
-                    className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-lg",
-                      plan.popular
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium">{plan.name}</h3>
-                    <p className="text-xs text-muted-foreground/80">
-                      {plan.description}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Pricing */}
-                <div className="mt-3 mb-4">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-medium">
-                      ${getMonthlyEquivalent(plan.id)}
-                    </span>
-                    <span className="text-muted-foreground/60 text-sm">/mo</span>
-                  </div>
-                  {isYearly && (
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">
-                      ${getPrice(plan.id)} billed yearly
-                    </p>
-                  )}
-                </div>
-
-                {/* Features */}
-                <ul className="space-y-2 flex-1 mb-4">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2 text-sm font-light">
-                      <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {/* CTA Button */}
-                <Button
-                  className="w-full"
-                  variant={plan.popular ? "default" : "outline"}
-                  onClick={() => handleUpgrade(plan.id)}
-                  disabled={isLoading || loadingPlan !== null}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    `Get ${plan.name}`
-                  )}
-                </Button>
-              </div>
+              <PricingCard
+                key={plan.key}
+                name={plan.name}
+                price={`$${price}`}
+                period={period}
+                description={plan.description}
+                features={[...plan.features]}
+                cta={plan.cta}
+                highlighted={isHighlighted}
+                isLoading={loadingPlan === plan.key}
+                onClick={() => handleUpgrade(plan.key)}
+              />
             );
           })}
         </div>

@@ -1,0 +1,302 @@
+/* Tapestry Canvas Styles */
+
+/* Import handwritten font for labels and notes */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&display=swap');
+
+/* ============================================================================
+   Handwritten Text Styling
+   ============================================================================ */
+
+.handwritten {
+  font-family: 'Caveat', cursive;
+}
+
+.handwritten-label {
+  font-family: 'Caveat', cursive;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Connection labels with handwritten style */
+.connection-label-handwritten {
+  font-family: 'Caveat', cursive;
+  font-size: 13px;
+  fill: hsl(var(--foreground) / 0.8);
+  pointer-events: none;
+}
+
+/* ============================================================================
+   Polaroid-Style Character Nodes
+   ============================================================================ */
+
+.polaroid-node {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.polaroid-node:hover {
+  transform: scale(1.02);
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.2));
+}
+
+.polaroid-node.selected {
+  filter: drop-shadow(0 0 12px hsl(var(--primary) / 0.6));
+}
+
+/* Polaroid frame styling */
+.polaroid-frame {
+  fill: white;
+  stroke: hsl(var(--border));
+  stroke-width: 1;
+}
+
+/* Portrait area */
+.polaroid-portrait {
+  fill: hsl(var(--muted));
+}
+
+/* Character name in polaroid */
+.polaroid-name {
+  font-family: 'Caveat', cursive;
+  font-size: 16px;
+  font-weight: 600;
+  fill: hsl(var(--foreground));
+  text-anchor: middle;
+}
+
+/* Stats text in polaroid */
+.polaroid-stats {
+  font-family: 'Caveat', cursive;
+  font-size: 12px;
+  fill: hsl(var(--muted-foreground));
+  text-anchor: middle;
+}
+
+/* Pin indicator */
+.node-pinned-indicator {
+  fill: hsl(var(--primary));
+  opacity: 0.8;
+}
+
+/* ============================================================================
+   Note Node Styling (index card / sticky note style)
+   ============================================================================ */
+
+.note-node {
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.note-node .note-content {
+  font-family: 'Caveat', cursive;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+/* Tape effect for pinned notes */
+.tape-strip {
+  fill: rgba(255, 235, 180, 0.7);
+  stroke: rgba(200, 180, 120, 0.5);
+  stroke-width: 0.5;
+}
+
+/* ============================================================================
+   Edge/Connection Styling
+   ============================================================================ */
+
+/* Connection path styling - 30% opacity by default for new bundled mode */
+.connection-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  opacity: 0.3;
+  transition: opacity 0.2s ease, stroke-width 0.15s ease, stroke 0.2s ease, filter 0.2s ease;
+  pointer-events: stroke;
+}
+
+/* Legacy connection styling for non-bundled mode */
+.connection .connection-path {
+  opacity: 0.12;
+}
+
+.connection-path:hover {
+  opacity: 1;
+  filter: drop-shadow(0 0 6px var(--connection-accent-color, currentColor));
+}
+
+/* Highlighted edge state */
+.connection-path.highlighted {
+  opacity: 1;
+  filter: drop-shadow(0 0 4px var(--connection-accent-color, currentColor));
+}
+
+/* Pulse animation for highlighted edges on hover */
+@keyframes edge-pulse {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 4px var(--connection-accent-color, currentColor));
+  }
+  50% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 8px var(--connection-accent-color, currentColor));
+  }
+}
+
+.connection-path.highlighted:hover {
+  animation: edge-pulse 1.5s ease-in-out infinite;
+}
+
+/* Edge bundle group styling */
+.edge-bundle {
+  transition: opacity 0.2s ease;
+}
+
+.bundled-edge {
+  transition: opacity 0.2s ease;
+}
+
+/* Connection label styling */
+.connection-label {
+  font-size: 9px;
+  fill: hsl(var(--muted-foreground));
+  pointer-events: none;
+}
+
+/* Node styling */
+.tapestry-node {
+  transition: transform 0.1s ease;
+}
+
+.tapestry-node:hover .node-bg {
+  filter: brightness(1.03);
+}
+
+/* Simple selection highlight - no animation */
+.tapestry-node.selected .node-bg {
+  stroke-width: 2;
+  filter: drop-shadow(0 0 6px hsl(var(--primary) / 0.5));
+}
+
+/* Pin styling - subtle by default */
+.node-pin {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.node-pin:hover {
+  transform: scale(1.4);
+  opacity: 1;
+}
+
+.node-pin.connected {
+  opacity: 1;
+}
+
+/* Group container styling */
+.tapestry-group {
+  transition: opacity 0.15s ease;
+}
+
+.tapestry-group:hover {
+  opacity: 1 !important;
+}
+
+/* Empty state animation */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tapestry-empty-state {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* ============================================================================
+   Scene Node Hover Effects
+   ============================================================================ */
+
+/* Primary border on scene hover */
+.tapestry-node.scene-node:hover .node-bg {
+  stroke: hsl(var(--primary));
+  stroke-width: 2;
+  filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.4));
+}
+
+/* Scene highlighted when connected character is hovered */
+.tapestry-node.scene-highlighted .node-bg {
+  stroke: hsl(var(--primary));
+  stroke-width: 2;
+  filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.4));
+}
+
+/* ============================================================================
+   Entity Sidebar Styles
+   ============================================================================ */
+
+.sidebar-entity {
+  transition: all 0.2s ease;
+}
+
+.sidebar-entity:hover {
+  transform: translateX(4px);
+}
+
+.sidebar-entity.active {
+  box-shadow: 0 0 12px 2px var(--entity-color, hsl(var(--primary)));
+}
+
+.sidebar-entity.dimmed {
+  opacity: 0.3;
+}
+
+/* ============================================================================
+   Minimap Styles
+   ============================================================================ */
+
+.tapestry-minimap {
+  backdrop-filter: blur(8px);
+  transition: opacity 0.2s ease;
+}
+
+.tapestry-minimap:hover {
+  opacity: 1 !important;
+}
+
+.minimap-viewport {
+  cursor: grab;
+}
+
+.minimap-viewport:active {
+  cursor: grabbing;
+}
+
+/* ============================================================================
+   Grid Background Enhancement
+   ============================================================================ */
+
+.tapestry-grid {
+  opacity: 0.1;
+}
+
+/* Touch-friendly tap targets */
+@media (pointer: coarse) {
+  .node-pin {
+    transform: scale(1.3);
+    opacity: 0.8;
+  }
+
+  .connection-path {
+    stroke-width: 4;
+    opacity: 0.6;
+  }
+
+  .sidebar-entity {
+    padding: 12px 8px;
+  }
+}

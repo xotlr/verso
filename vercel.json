@@ -2,5 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "bun install",
   "buildCommand": "bun run build",
-  "crons": []
+  "crons": [],
+  "rewrites": [
+    { "source": "/:path*.map", "destination": "/404" }
+  ],
+  "headers": [
+    {
+      "source": "/:path*.map",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex" }]
+    }
+  ]
 }

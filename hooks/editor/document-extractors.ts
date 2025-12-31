@@ -39,29 +39,109 @@ export function calculatePageCount(doc: ProseMirrorNode): number {
 }
 
 /**
+ * Known time of day patterns for extraction.
+ * Order matters - more specific patterns first.
+ */
+const TIME_PATTERNS = [
+  // Specific times
+  /\b(EARLY MORNING|LATE MORNING|MID-?MORNING)\b/i,
+  /\b(EARLY AFTERNOON|LATE AFTERNOON|MID-?AFTERNOON)\b/i,
+  /\b(EARLY EVENING|LATE EVENING)\b/i,
+  /\b(LATE NIGHT|DEAD OF NIGHT|MIDDLE OF THE NIGHT)\b/i,
+  /\b(HOURS BEFORE DAWN|CRACK OF DAWN|PRE-?DAWN)\b/i,
+  /\b(GOLDEN HOUR|MAGIC HOUR|BLUE HOUR)\b/i,
+  // Standard times
+  /\b(DAWN|SUNRISE|DAYBREAK|FIRST LIGHT|SUNUP)\b/i,
+  /\b(MORNING)\b/i,
+  /\b(NOON|MIDDAY)\b/i,
+  /\b(AFTERNOON)\b/i,
+  /\b(DUSK|SUNSET|TWILIGHT|SUNDOWN|NIGHTFALL)\b/i,
+  /\b(EVENING)\b/i,
+  /\b(NIGHT|MIDNIGHT)\b/i,
+  /\b(DAY)\b/i,
+  /\b(CONTINUOUS|CONT\.?'?D?)\b/i,
+];
+
+/**
  * Parse scene heading text to extract type, location, and time of day.
  * Used as fallback when node attributes are not set (e.g., from imports or tests).
+ *
+ * Handles complex headings like:
+ * - "INT. ROOT CELLAR - SOOTBRUCK - OPENING IMAGE - NIGHT (FLASHBACK - 1 YEAR AGO)"
+ * - "EXT. THORNFIELD KEEP - SIEGE COMMAND - DAY 4 - EARLY MORNING"
  */
 function parseSceneHeadingText(text: string): { type: string; location: string; timeOfDay?: string } {
-  // Match patterns like "INT. COFFEE SHOP - DAY" or "EXT. BEACH - NIGHT"
-  const match = text.match(/^(INT|EXT|INT\/EXT|I\/E)\.?\s+(.+?)(?:\s+-\s+(.+))?$/i);
-  if (match) {
-    return {
-      type: match[1].toUpperCase(),
-      location: match[2].trim(),
-      timeOfDay: match[3]?.trim(),
-    };
+  // Match INT/EXT prefix
+  const prefixMatch = text.match(/^(INT|EXT|INT\/EXT|I\/E)\.?\s+/i);
+  if (!prefixMatch) {
+    return { type: 'INT', location: text || 'UNKNOWN' };
   }
-  // No match - return the whole text as location
-  return { type: 'INT', location: text || 'UNKNOWN' };
+
+  const type = prefixMatch[1].toUpperCase();
+  let remainder = text.slice(prefixMatch[0].length);
+
+  // Remove parenthetical content (flashbacks, etc.) for time detection
+  const withoutParens = remainder.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+
+  // Try to find a time pattern in the text
+  let detectedTime: string | undefined;
+  for (const pattern of TIME_PATTERNS) {
+    const timeMatch = withoutParens.match(pattern);
+    if (timeMatch) {
+      detectedTime = timeMatch[1].toUpperCase();
+      break;
+    }
+  }
+
+  // Extract location - everything before the time segment
+  // Split by " - " and find where the time starts
+  const segments = remainder.split(/\s+-\s+/);
+  let locationSegments: string[] = [];
+
+  for (const segment of segments) {
+    // Check if this segment contains a time pattern or day number like "DAY 4"
+    const isTimeSegment = TIME_PATTERNS.some(p => p.test(segment)) ||
+                          /^DAY\s*\d+/i.test(segment) ||
+                          /^\d+$/.test(segment.trim());
+
+    if (isTimeSegment) {
+      break;
+    }
+
+    // Remove parenthetical from segment for location
+    const cleanSegment = segment.replace(/\s*\([^)]*\)\s*/g, '').trim();
+    if (cleanSegment) {
+      locationSegments.push(cleanSegment);
+    }
+  }
+
+  const location = locationSegments.join(' - ') || 'UNKNOWN';
+
+  return {
+    type,
+    location,
+    timeOfDay: detectedTime,
+  };
 }
 
 /**
  * Extract scene information from document.
  * Also runs time-of-day detection to mark auto-detected times.
+ * Includes characters appearing in each scene.
  */
 export function extractScenes(doc: ProseMirrorNode): SceneInfo[] {
-  const scenes: SceneInfo[] = [];
+  // First pass: collect all scene positions and character positions
+  const sceneData: Array<{
+    id: string;
+    type: string;
+    location: string;
+    timeOfDay: string;
+    sceneNumber: string | null;
+    position: number;
+    autoDetectedTimeOfDay: boolean;
+  }> = [];
+  const characterPositions: Array<{ name: string; position: number }> = [];
+
   let sceneIndex = 0;
   let previousTimeOfDay: TimeOfDay | undefined;
 
@@ -75,14 +155,17 @@ export function extractScenes(doc: ProseMirrorNode): SceneInfo[] {
         .toLowerCase();
       const id = node.attrs.id || `scene-${sceneIndex}-${offset}-${contentHash || 'empty'}`;
 
-      // Parse text content as fallback when attrs are not set (e.g., from imports or tests)
+      // Always parse text content to extract time properly from complex headings
       const textContent = node.textContent;
-      const parsed = (!node.attrs.location && textContent) ? parseSceneHeadingText(textContent) : null;
+      const parsed = textContent ? parseSceneHeadingText(textContent) : null;
 
       // Use attrs if available, otherwise fall back to parsed values
       const type = node.attrs.type || parsed?.type || 'INT';
       const location = node.attrs.location || parsed?.location || '';
-      const explicitTime = node.attrs.timeOfDay || parsed?.timeOfDay;
+
+      // For time: prefer parsed time from text (handles complex headings better),
+      // fall back to attrs, then to detection
+      const explicitTime = parsed?.timeOfDay || node.attrs.timeOfDay;
 
       // Run time detection to check if time was auto-detected from keywords
       const detection = detectTimeOfDay(location, explicitTime, previousTimeOfDay);
@@ -90,7 +173,7 @@ export function extractScenes(doc: ProseMirrorNode): SceneInfo[] {
       // Update previous time for next scene (for CONTINUOUS inheritance)
       previousTimeOfDay = detection.timeOfDay;
 
-      scenes.push({
+      sceneData.push({
         id,
         type,
         location,
@@ -99,7 +182,31 @@ export function extractScenes(doc: ProseMirrorNode): SceneInfo[] {
         position: offset,
         autoDetectedTimeOfDay: detection.autoDetected,
       });
+    } else if (node.type.name === 'character') {
+      // Strip extensions like (V.O.), (O.S.), (CONT'D) to get clean name
+      const name = node.textContent.replace(/\s*\([^)]+\)\s*$/, '').trim();
+      if (name) {
+        characterPositions.push({ name, position: offset });
+      }
     }
+  });
+
+  // Second pass: assign characters to scenes based on position
+  const scenes: SceneInfo[] = sceneData.map((scene, index) => {
+    const nextScenePosition = sceneData[index + 1]?.position ?? Infinity;
+
+    // Find all unique characters between this scene and the next
+    const sceneCharacters = new Set<string>();
+    for (const char of characterPositions) {
+      if (char.position > scene.position && char.position < nextScenePosition) {
+        sceneCharacters.add(char.name);
+      }
+    }
+
+    return {
+      ...scene,
+      characters: Array.from(sceneCharacters),
+    };
   });
 
   return scenes;
