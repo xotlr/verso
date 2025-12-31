@@ -22,6 +22,7 @@ import {
   DEFAULT_CHARACTER_HEIGHT,
   DEFAULT_GROUP_WIDTH,
   DEFAULT_GROUP_HEIGHT,
+  GRID_MAJOR_SPACING,
   NODE_TYPE_COLORS,
   NOTE_COLORS,
   CONNECTION_COLORS,
@@ -34,6 +35,7 @@ import { TapestryToolbar } from './tapestry-toolbar';
 import { NoteEditorDialog } from './note-editor-dialog';
 import { createDefaultFilters, type TapestryFilters } from './filter-panel';
 import { ContextMenu, type ContextMenuItem } from './context-menu';
+import { Input } from '@/components/ui/input';
 import { sanitizeForD3Text } from '@/lib/utils';
 import { Scene, Location } from '@/types/screenplay';
 import type { IndexCard } from '@/components/index-cards';
@@ -171,6 +173,20 @@ export function Tapestry({
 
   // Toggle for showing all connection lines (off by default)
   const [showAllLines, setShowAllLines] = useState(false);
+
+  // Clipboard for copy/paste operations
+  const [clipboard, setClipboard] = useState<TapestryNode[]>([]);
+
+  // Connection label editing state
+  const [editingConnection, setEditingConnection] = useState<{
+    id: string;
+    x: number;
+    y: number;
+    label: string;
+  } | null>(null);
+
+  // Reset trigger to force layout regeneration
+  const [resetTrigger, setResetTrigger] = useState(0);
 
   // Marquee selection state
   const [isMarqueeSelecting, setIsMarqueeSelecting] = useState(false);
@@ -361,17 +377,20 @@ export function Tapestry({
     const indexCards = loadIndexCards(screenplayId);
     const cardsBySceneId = new Map(indexCards.map(c => [c.sceneId, c]));
 
+    // When resetTrigger changes, ignore existing positions (fresh layout)
+    const forceNewLayout = resetTrigger > 0;
+
     setState(prev => {
-      // Get existing linked nodes by type
-      const existingSceneNodes = new Map(
+      // Get existing linked nodes by type (empty maps if forcing new layout)
+      const existingSceneNodes = forceNewLayout ? new Map() : new Map(
         prev.nodes.filter(n => n.sceneId).map(n => [n.sceneId, n])
       );
-      const existingCharacterNodes = new Map(
+      const existingCharacterNodes = forceNewLayout ? new Map() : new Map(
         prev.nodes.filter(n => n.characterId).map(n => [n.characterId, n])
       );
 
       const updatedNodes: TapestryNode[] = [];
-      const newGroups: TapestryGroup[] = [...prev.groups];
+      const newGroups: TapestryGroup[] = forceNewLayout ? [] : [...prev.groups];
 
       // ============================================================================
       // BIPARTITE LAYOUT: Characters LEFT, Scenes RIGHT (in act lanes)
@@ -593,7 +612,7 @@ export function Tapestry({
       localStorage.setItem(storageKey, JSON.stringify(newState));
       return newState;
     });
-  }, [scenes, characters, locations, screenplayId]);
+  }, [scenes, characters, locations, screenplayId, resetTrigger]);
 
   // Save state to localStorage
   const saveState = useCallback((newState: TapestryState) => {
@@ -755,32 +774,6 @@ export function Tapestry({
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
-
-  // Keyboard shortcuts for undo/redo
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle if tapestry container is focused or no specific element is focused
-      const activeEl = document.activeElement;
-      const isInputFocused = activeEl instanceof HTMLInputElement ||
-                             activeEl instanceof HTMLTextAreaElement ||
-                             activeEl?.getAttribute('contenteditable') === 'true';
-      if (isInputFocused) return;
-
-      // Undo: Cmd/Ctrl + Z
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        undo();
-      }
-      // Redo: Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y
-      if ((e.metaKey || e.ctrlKey) && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
-        e.preventDefault();
-        redo();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo]);
 
   // D3 rendering
   useEffect(() => {
@@ -1506,43 +1499,78 @@ export function Tapestry({
           .attr('fill', 'none')
           .attr('opacity', isHighlightedConn ? 0.3 : 0.08);
 
-        // Main connection path - monochromatic
+        // Main connection path - thread/string texture effect
         const mainPath = connGroup.append('path')
           .attr('id', pathId)
           .attr('class', `connection-path ${isHighlightedConn ? 'highlighted' : ''}`)
           .attr('d', pathD)
           .attr('stroke', isHighlightedConn ? highlightColor : mutedColor)
-          .attr('stroke-width', isHighlightedConn ? 1.5 : 1)
+          .attr('stroke-width', isHighlightedConn ? 2 : 1.5)
           .attr('stroke-linecap', 'round')
+          .attr('stroke-dasharray', isHighlightedConn ? 'none' : '8 4') // Thread texture when not highlighted
           .attr('fill', 'none')
           .style('--connection-accent-color', highlightColor)
           .attr('marker-end', conn.directed ? 'url(#arrow)' : null);
 
-        // Hover: switch to primary color
+        // Hover: switch to primary color and solid line
         mainPath
           .on('mouseenter', function() {
-            d3.select(this).attr('stroke', highlightColor);
+            d3.select(this)
+              .attr('stroke', highlightColor)
+              .attr('stroke-width', 2)
+              .attr('stroke-dasharray', 'none');
             if (this.parentNode) d3.select(this.parentNode as Element).attr('opacity', 1);
           })
           .on('mouseleave', function() {
-            d3.select(this).attr('stroke', isHighlightedConn ? highlightColor : mutedColor);
+            d3.select(this)
+              .attr('stroke', isHighlightedConn ? highlightColor : mutedColor)
+              .attr('stroke-width', isHighlightedConn ? 2 : 1.5)
+              .attr('stroke-dasharray', isHighlightedConn ? 'none' : '8 4');
             if (this.parentNode) d3.select(this.parentNode as Element).attr('opacity', connOpacity);
           });
 
+        // Clickable area for label editing (always present for double-click)
+        const midX = (sourceX + targetX) / 2;
+        const midY = (sourceY + targetY) / 2;
+
+        // Invisible hit area for double-click to edit
+        connGroup.append('rect')
+          .attr('class', 'connection-label-hitarea')
+          .attr('x', midX - 50)
+          .attr('y', midY - 15)
+          .attr('width', 100)
+          .attr('height', 30)
+          .attr('fill', 'transparent')
+          .attr('cursor', 'pointer')
+          .on('dblclick', (event: MouseEvent) => {
+            event.stopPropagation();
+            // Get screen coordinates for the popover
+            const svgRect = svgRef.current?.getBoundingClientRect();
+            if (svgRect) {
+              const screenX = midX * transformRef.current.k + transformRef.current.x + svgRect.left;
+              const screenY = midY * transformRef.current.k + transformRef.current.y + svgRect.top;
+              setEditingConnection({
+                id: conn.id,
+                x: screenX,
+                y: screenY,
+                label: conn.label || '',
+              });
+            }
+          });
+
         // Connection label on path (handwritten style)
-        if (conn.label) {
-          connGroup.append('text')
-            .attr('class', 'connection-label-handwritten')
-            .attr('dy', -8)
-            .attr('font-family', "'Caveat', cursive")
-            .attr('font-size', '13px')
-            .attr('fill', 'hsl(var(--foreground) / 0.7)')
-            .append('textPath')
-            .attr('href', `#${pathId}`)
-            .attr('startOffset', '50%')
-            .attr('text-anchor', 'middle')
-            .text(conn.label);
-        }
+        connGroup.append('text')
+          .attr('class', 'connection-label-handwritten')
+          .attr('dy', -8)
+          .attr('font-family', "'Caveat', cursive")
+          .attr('font-size', '13px')
+          .attr('fill', conn.label ? 'hsl(var(--foreground) / 0.7)' : 'hsl(var(--muted-foreground) / 0.4)')
+          .style('pointer-events', 'none')
+          .append('textPath')
+          .attr('href', `#${pathId}`)
+          .attr('startOffset', '50%')
+          .attr('text-anchor', 'middle')
+          .text(conn.label || '···');
       });
     }
 
@@ -1759,21 +1787,30 @@ export function Tapestry({
           .attr('fill', 'hsl(var(--muted-foreground))')
           .text(dialogueText);
 
-        // Pin indicator if pinned
+        // Thumbtack pin indicator if pinned (polaroid character nodes)
         if (node.pinned) {
-          nodeGroup.append('circle')
-            .attr('class', 'node-pinned-indicator')
-            .attr('cx', polaroidWidth - 12)
-            .attr('cy', 12)
+          const pinGroup = nodeGroup.append('g')
+            .attr('class', 'node-thumbtack')
+            .attr('transform', `translate(${polaroidWidth / 2}, -4)`);
+
+          // Thumbtack head (circular)
+          pinGroup.append('circle')
             .attr('r', 6)
-            .attr('fill', 'hsl(var(--primary))');
-          nodeGroup.append('text')
-            .attr('x', polaroidWidth - 12)
-            .attr('y', 16)
-            .attr('text-anchor', 'middle')
-            .attr('font-size', '8px')
-            .attr('fill', 'white')
-            .text('📌');
+            .attr('fill', 'hsl(var(--destructive))')
+            .attr('stroke', 'hsl(var(--background))')
+            .attr('stroke-width', 1.5);
+
+          // Thumbtack point (triangle pointing down)
+          pinGroup.append('path')
+            .attr('d', 'M-2.5,5 L2.5,5 L0,11 Z')
+            .attr('fill', 'hsl(var(--muted-foreground))');
+
+          // Highlight dot on head
+          pinGroup.append('circle')
+            .attr('cx', -1.5)
+            .attr('cy', -1.5)
+            .attr('r', 1.5)
+            .attr('fill', 'hsl(var(--destructive-foreground) / 0.5)');
         }
 
         // Connection pins (compact for smaller polaroid)
@@ -1941,6 +1978,32 @@ export function Tapestry({
             .attr('fill', 'hsl(var(--muted-foreground))')
             .text(locationName);
         }
+      }
+
+      // Thumbtack pin indicator if pinned (standard nodes)
+      if (node.pinned) {
+        const pinGroup = nodeGroup.append('g')
+          .attr('class', 'node-thumbtack')
+          .attr('transform', `translate(${nodeWidth / 2}, -4)`);
+
+        // Thumbtack head (circular)
+        pinGroup.append('circle')
+          .attr('r', 7)
+          .attr('fill', 'hsl(var(--destructive))')
+          .attr('stroke', 'hsl(var(--background))')
+          .attr('stroke-width', 1.5);
+
+        // Thumbtack point (triangle pointing down)
+        pinGroup.append('path')
+          .attr('d', 'M-3,6 L3,6 L0,14 Z')
+          .attr('fill', 'hsl(var(--muted-foreground))');
+
+        // Highlight dot on head
+        pinGroup.append('circle')
+          .attr('cx', -2)
+          .attr('cy', -2)
+          .attr('r', 2)
+          .attr('fill', 'hsl(var(--destructive-foreground) / 0.5)');
       }
 
       // Larger pins for thread-like connections (6px radius) - non-character nodes
@@ -2619,6 +2682,21 @@ export function Tapestry({
     setShowAllLines(prev => !prev);
   }, []);
 
+  // Save connection label
+  const handleSaveConnectionLabel = useCallback((connectionId: string, label: string) => {
+    setState(prev => {
+      const newState = {
+        ...prev,
+        connections: prev.connections.map(c =>
+          c.id === connectionId ? { ...c, label: label.trim() || undefined } : c
+        ),
+      };
+      saveState(newState);
+      return newState;
+    });
+    setEditingConnection(null);
+  }, [saveState]);
+
   // Start connecting (uses first selected node)
   const handleStartConnect = useCallback(() => {
     if (selectedNodes.size > 0) {
@@ -2643,6 +2721,61 @@ export function Tapestry({
     });
     setSelectedNodes(new Set());
   }, [selectedNodes, saveState]);
+
+  // Copy selected nodes to clipboard
+  const handleCopyNodes = useCallback(() => {
+    const nodesToCopy = state.nodes.filter(n => selectedNodes.has(n.id));
+    if (nodesToCopy.length > 0) {
+      setClipboard(nodesToCopy);
+    }
+  }, [state.nodes, selectedNodes]);
+
+  // Paste nodes from clipboard
+  const handlePasteNodes = useCallback(() => {
+    if (clipboard.length === 0) return;
+
+    // Calculate bounding box of copied nodes
+    const minX = Math.min(...clipboard.map(n => n.x));
+    const minY = Math.min(...clipboard.map(n => n.y));
+
+    // Paste at viewport center with relative positioning preserved
+    const centerX = (dimensions.width / 2 - transformRef.current.x) / transformRef.current.k;
+    const centerY = (dimensions.height / 2 - transformRef.current.y) / transformRef.current.k;
+
+    const newNodes = clipboard.map(node => createNode({
+      ...node,
+      x: centerX + (node.x - minX),
+      y: centerY + (node.y - minY),
+      groupId: undefined, // Don't preserve group membership
+    }));
+
+    setState(prev => {
+      const newState = { ...prev, nodes: [...prev.nodes, ...newNodes] };
+      saveState(newState);
+      return newState;
+    });
+    setSelectedNodes(new Set(newNodes.map(n => n.id)));
+  }, [clipboard, dimensions, saveState]);
+
+  // Duplicate selected nodes
+  const handleDuplicateSelected = useCallback(() => {
+    const nodesToDupe = state.nodes.filter(n => selectedNodes.has(n.id));
+    if (nodesToDupe.length === 0) return;
+
+    const newNodes = nodesToDupe.map(node => createNode({
+      ...node,
+      x: node.x + GRID_MAJOR_SPACING,
+      y: node.y + GRID_MAJOR_SPACING,
+      groupId: undefined, // Don't preserve group membership
+    }));
+
+    setState(prev => {
+      const newState = { ...prev, nodes: [...prev.nodes, ...newNodes] };
+      saveState(newState);
+      return newState;
+    });
+    setSelectedNodes(new Set(newNodes.map(n => n.id)));
+  }, [state.nodes, selectedNodes, saveState]);
 
   // Save edited node
   const handleSaveNote = useCallback((updatedNode: TapestryNode) => {
@@ -2703,12 +2836,81 @@ export function Tapestry({
   const handleResetLayout = useCallback(() => {
     const storageKey = getTapestryStorageKey(screenplayId);
     localStorage.removeItem(storageKey);
-    setState(createEmptyTapestry());
+
+    // Clear state first, then trigger regeneration
+    resetState(createEmptyTapestry());
+    setResetTrigger(prev => prev + 1);
+
+    // Reset zoom to default
     transformRef.current = d3.zoomIdentity;
     if (svgRef.current && zoomRef.current) {
       d3.select(svgRef.current).call(zoomRef.current.transform, d3.zoomIdentity);
     }
-  }, [screenplayId]);
+  }, [screenplayId, resetState]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if tapestry container is focused or no specific element is focused
+      const activeEl = document.activeElement;
+      const isInputFocused = activeEl instanceof HTMLInputElement ||
+                             activeEl instanceof HTMLTextAreaElement ||
+                             activeEl?.getAttribute('contenteditable') === 'true';
+      if (isInputFocused) return;
+
+      // Undo: Cmd/Ctrl + Z
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      // Redo: Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y
+      if ((e.metaKey || e.ctrlKey) && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      // Delete/Backspace - delete selected nodes
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodes.size > 0) {
+        e.preventDefault();
+        handleDeleteNote();
+        return;
+      }
+
+      // Escape - clear selection and cancel connecting mode
+      if (e.key === 'Escape') {
+        setSelectedNodes(new Set());
+        setIsConnecting(false);
+        setContextMenu(null);
+        return;
+      }
+
+      // Cmd/Ctrl+D - duplicate selected nodes
+      if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+        e.preventDefault();
+        handleDuplicateSelected();
+        return;
+      }
+
+      // Cmd/Ctrl+C - copy selected nodes to clipboard
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && selectedNodes.size > 0) {
+        e.preventDefault();
+        handleCopyNodes();
+        return;
+      }
+
+      // Cmd/Ctrl+V - paste nodes from clipboard
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
+        e.preventDefault();
+        handlePasteNodes();
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo, selectedNodes, handleDeleteNote, handleCopyNodes, handlePasteNodes, handleDuplicateSelected]);
 
   return (
     <div className="w-full h-full flex flex-col bg-background">
@@ -2950,6 +3152,39 @@ export function Tapestry({
           }
           onClose={() => setContextMenu(null)}
         />
+      )}
+
+      {/* Connection Label Editor */}
+      {editingConnection && (
+        <div
+          className="fixed z-50 pointer-events-auto"
+          style={{
+            left: editingConnection.x - 100,
+            top: editingConnection.y - 20,
+          }}
+        >
+          <div className="bg-popover border border-border rounded-xl shadow-lg p-2 pointer-events-auto">
+            <Input
+              autoFocus
+              defaultValue={editingConnection.label}
+              placeholder="Add label..."
+              className="h-8 w-48 text-sm bg-background border-border/50 rounded-lg font-['Caveat'] text-base"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSaveConnectionLabel(editingConnection.id, (e.target as HTMLInputElement).value);
+                } else if (e.key === 'Escape') {
+                  setEditingConnection(null);
+                }
+              }}
+              onBlur={(e) => {
+                handleSaveConnectionLabel(editingConnection.id, e.target.value);
+              }}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1 px-1">
+              Enter to save · Esc to cancel
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

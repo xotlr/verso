@@ -77,7 +77,13 @@
   text-anchor: middle;
 }
 
-/* Pin indicator */
+/* Thumbtack pin indicator for pinned nodes */
+.node-thumbtack {
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
+  pointer-events: none;
+}
+
+/* Legacy pin indicator (deprecated) */
 .node-pinned-indicator {
   fill: hsl(var(--primary));
   opacity: 0.8;
