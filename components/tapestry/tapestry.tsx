@@ -10,6 +10,7 @@ import {
   TapestryGroup,
   TapestryState,
   TapestryNodeType,
+  ConnectionType,
   createNode,
   createConnection,
   createGroup,
@@ -23,11 +24,13 @@ import {
   DEFAULT_GROUP_WIDTH,
   DEFAULT_GROUP_HEIGHT,
   GRID_MAJOR_SPACING,
+  GRID_MINOR_SPACING,
   NODE_TYPE_COLORS,
   NOTE_COLORS,
   CONNECTION_COLORS,
   STATUS_COLORS,
   TIME_ICONS,
+  CONNECTION_TYPE_LABELS,
 } from '@/types/tapestry';
 import { normalizeTimeOfDay } from '@/lib/prosemirror/utils/time-detection';
 import '@/styles/tapestry.css';
@@ -183,10 +186,14 @@ export function Tapestry({
     x: number;
     y: number;
     label: string;
+    type: ConnectionType;
   } | null>(null);
 
   // Reset trigger to force layout regeneration
   const [resetTrigger, setResetTrigger] = useState(0);
+
+  // Snap-to-grid toggle
+  const [snapToGrid, setSnapToGrid] = useState(false);
 
   // Marquee selection state
   const [isMarqueeSelecting, setIsMarqueeSelecting] = useState(false);
@@ -344,6 +351,12 @@ export function Tapestry({
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const transformRef = useRef<ZoomTransform>(zoomIdentity);
   const lastTapRef = useRef<{ nodeId: string; time: number } | null>(null);
+  const snapToGridRef = useRef(snapToGrid);
+
+  // Keep snap ref in sync with state
+  useEffect(() => {
+    snapToGridRef.current = snapToGrid;
+  }, [snapToGrid]);
 
   // Load state from localStorage with migration (doesn't push to history)
   useEffect(() => {
@@ -1554,6 +1567,7 @@ export function Tapestry({
                 x: screenX,
                 y: screenY,
                 label: conn.label || '',
+                type: conn.type,
               });
             }
           });
@@ -1665,6 +1679,13 @@ export function Tapestry({
           }
         }
 
+        // Apply snap-to-grid if enabled
+        const snapValue = (v: number) => snapToGridRef.current
+          ? Math.round(v / GRID_MINOR_SPACING) * GRID_MINOR_SPACING
+          : v;
+        const finalX = snapValue(d.x);
+        const finalY = snapValue(d.y);
+
         setState(prev => {
           const currentNode = prev.nodes.find(n => n.id === d.id);
           const oldGroupId = currentNode?.groupId;
@@ -1672,7 +1693,7 @@ export function Tapestry({
           const newState = {
             ...prev,
             nodes: prev.nodes.map(n => n.id === d.id
-              ? { ...n, x: d.x, y: d.y, groupId: newGroupId }
+              ? { ...n, x: finalX, y: finalY, groupId: newGroupId }
               : n
             ),
           };
@@ -2697,6 +2718,22 @@ export function Tapestry({
     setEditingConnection(null);
   }, [saveState]);
 
+  // Save connection type
+  const handleSaveConnectionType = useCallback((connectionId: string, type: ConnectionType) => {
+    setState(prev => {
+      const newState = {
+        ...prev,
+        connections: prev.connections.map(c =>
+          c.id === connectionId ? { ...c, type } : c
+        ),
+      };
+      saveState(newState);
+      return newState;
+    });
+    // Update the editing state to reflect the new type
+    setEditingConnection(prev => prev ? { ...prev, type } : null);
+  }, [saveState]);
+
   // Start connecting (uses first selected node)
   const handleStartConnect = useCallback(() => {
     if (selectedNodes.size > 0) {
@@ -2776,6 +2813,52 @@ export function Tapestry({
     });
     setSelectedNodes(new Set(newNodes.map(n => n.id)));
   }, [state.nodes, selectedNodes, saveState]);
+
+  // Snap value to grid
+  const snapToGridValue = useCallback((value: number) => {
+    if (!snapToGrid) return value;
+    return Math.round(value / GRID_MINOR_SPACING) * GRID_MINOR_SPACING;
+  }, [snapToGrid]);
+
+  // Nudge selected nodes by arrow keys
+  const handleNudgeSelected = useCallback((dx: number, dy: number) => {
+    if (selectedNodes.size === 0) return;
+
+    setState(prev => {
+      const newState = {
+        ...prev,
+        nodes: prev.nodes.map(n =>
+          selectedNodes.has(n.id)
+            ? { ...n, x: snapToGrid ? snapToGridValue(n.x + dx) : n.x + dx, y: snapToGrid ? snapToGridValue(n.y + dy) : n.y + dy }
+            : n
+        ),
+      };
+      saveState(newState);
+      return newState;
+    });
+  }, [selectedNodes, saveState, snapToGrid, snapToGridValue]);
+
+  // Cycle through node selection with Tab
+  const handleCycleSelection = useCallback((direction: 1 | -1) => {
+    if (state.nodes.length === 0) return;
+
+    // Sort nodes by position (top-left to bottom-right)
+    const sortedNodes = [...state.nodes].sort((a, b) => {
+      const rowA = Math.floor(a.y / 100);
+      const rowB = Math.floor(b.y / 100);
+      if (rowA !== rowB) return rowA - rowB;
+      return a.x - b.x;
+    });
+
+    const currentId = selectedNodes.size === 1 ? Array.from(selectedNodes)[0] : null;
+    const currentIndex = currentId ? sortedNodes.findIndex(n => n.id === currentId) : -1;
+
+    let nextIndex = currentIndex + direction;
+    if (nextIndex < 0) nextIndex = sortedNodes.length - 1;
+    if (nextIndex >= sortedNodes.length) nextIndex = 0;
+
+    setSelectedNodes(new Set([sortedNodes[nextIndex].id]));
+  }, [state.nodes, selectedNodes]);
 
   // Save edited node
   const handleSaveNote = useCallback((updatedNode: TapestryNode) => {
@@ -2906,11 +2989,28 @@ export function Tapestry({
         handlePasteNodes();
         return;
       }
+
+      // Arrow keys - nudge selected nodes (Shift for larger nudge)
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selectedNodes.size > 0) {
+        e.preventDefault();
+        const nudgeAmount = e.shiftKey ? GRID_MAJOR_SPACING : GRID_MINOR_SPACING;
+        const dx = e.key === 'ArrowRight' ? nudgeAmount : e.key === 'ArrowLeft' ? -nudgeAmount : 0;
+        const dy = e.key === 'ArrowDown' ? nudgeAmount : e.key === 'ArrowUp' ? -nudgeAmount : 0;
+        handleNudgeSelected(dx, dy);
+        return;
+      }
+
+      // Tab - cycle through nodes (Shift+Tab for reverse)
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        handleCycleSelection(e.shiftKey ? -1 : 1);
+        return;
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, selectedNodes, handleDeleteNote, handleCopyNodes, handlePasteNodes, handleDuplicateSelected]);
+  }, [undo, redo, selectedNodes, handleDeleteNote, handleCopyNodes, handlePasteNodes, handleDuplicateSelected, handleNudgeSelected, handleCycleSelection]);
 
   return (
     <div className="w-full h-full flex flex-col bg-background">
@@ -2929,6 +3029,8 @@ export function Tapestry({
           onFitView={handleFitView}
           onResetLayout={handleResetLayout}
           onToggleLines={handleToggleLines}
+          onToggleSnap={() => setSnapToGrid(prev => !prev)}
+          snapToGrid={snapToGrid}
           onUndo={undo}
           onRedo={redo}
           canUndo={canUndo}
@@ -3163,7 +3265,19 @@ export function Tapestry({
             top: editingConnection.y - 20,
           }}
         >
-          <div className="bg-popover border border-border rounded-xl shadow-lg p-2 pointer-events-auto">
+          <div className="bg-popover border border-border rounded-xl shadow-lg p-2 pointer-events-auto space-y-2">
+            {/* Connection Type Selector */}
+            <select
+              value={editingConnection.type}
+              onChange={(e) => handleSaveConnectionType(editingConnection.id, e.target.value as ConnectionType)}
+              className="h-8 w-full text-sm bg-background border border-border/50 rounded-lg px-2 focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {Object.entries(CONNECTION_TYPE_LABELS).map(([type, label]) => (
+                <option key={type} value={type}>{label}</option>
+              ))}
+            </select>
+
+            {/* Label Input */}
             <Input
               autoFocus
               defaultValue={editingConnection.label}
@@ -3180,7 +3294,7 @@ export function Tapestry({
                 handleSaveConnectionLabel(editingConnection.id, e.target.value);
               }}
             />
-            <p className="text-[10px] text-muted-foreground mt-1 px-1">
+            <p className="text-[10px] text-muted-foreground px-1">
               Enter to save · Esc to cancel
             </p>
           </div>

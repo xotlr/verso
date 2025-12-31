@@ -30,6 +30,7 @@ import {
   EyeOff,
   Undo2,
   Redo2,
+  Grid3x3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TapestryNodeType } from '@/types/tapestry';
@@ -46,11 +47,13 @@ interface TapestryToolbarProps {
   onFitView: () => void;
   onResetLayout: () => void;
   onToggleLines?: () => void;
+  onToggleSnap?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
   showAllLines?: boolean;
+  snapToGrid?: boolean;
   hasSelectedNode: boolean;
   isConnecting: boolean;
   filters: TapestryFilters;
@@ -123,6 +126,8 @@ export function TapestryToolbar({
   filters,
   onFiltersChange,
   availableCharacters,
+  onToggleSnap,
+  snapToGrid,
 }: TapestryToolbarProps) {
   return (
     <div className="absolute top-3 left-3 right-3 z-10 flex items-center gap-2 pointer-events-none">
@@ -195,6 +200,15 @@ export function TapestryToolbar({
             onClick={onToggleLines}
             active={showAllLines}
             title={showAllLines ? "Hide Lines" : "Show Lines"}
+          />
+        )}
+
+        {onToggleSnap && (
+          <IconButton
+            icon={Grid3x3}
+            onClick={onToggleSnap}
+            active={snapToGrid}
+            title={snapToGrid ? "Snap to Grid On" : "Snap to Grid Off"}
           />
         )}
 
