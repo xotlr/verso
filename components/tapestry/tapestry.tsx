@@ -802,18 +802,39 @@ export function Tapestry({
     // Clean grid background (matches app style)
     const defs = svg.append('defs');
 
-    // Subtle dot grid pattern
+    // Grid pattern - uses GRID_MINOR_SPACING for alignment with snap
     const pattern = defs.append('pattern')
       .attr('id', 'gridPattern')
       .attr('patternUnits', 'userSpaceOnUse')
-      .attr('width', 24)
-      .attr('height', 24);
+      .attr('width', GRID_MINOR_SPACING)
+      .attr('height', GRID_MINOR_SPACING);
 
-    pattern.append('circle')
-      .attr('cx', 12)
-      .attr('cy', 12)
-      .attr('r', 1)
-      .attr('fill', 'hsl(var(--muted-foreground) / 0.15)');
+    // When snap is on, show a line grid; otherwise subtle dots
+    if (snapToGrid) {
+      // Vertical line
+      pattern.append('line')
+        .attr('x1', 0)
+        .attr('y1', 0)
+        .attr('x2', 0)
+        .attr('y2', GRID_MINOR_SPACING)
+        .attr('stroke', 'hsl(var(--muted-foreground) / 0.15)')
+        .attr('stroke-width', 0.5);
+      // Horizontal line
+      pattern.append('line')
+        .attr('x1', 0)
+        .attr('y1', 0)
+        .attr('x2', GRID_MINOR_SPACING)
+        .attr('y2', 0)
+        .attr('stroke', 'hsl(var(--muted-foreground) / 0.15)')
+        .attr('stroke-width', 0.5);
+    } else {
+      // Subtle dot when snap is off
+      pattern.append('circle')
+        .attr('cx', GRID_MINOR_SPACING / 2)
+        .attr('cy', GRID_MINOR_SPACING / 2)
+        .attr('r', 0.5)
+        .attr('fill', 'hsl(var(--muted-foreground) / 0.1)');
+    }
 
     // Arrow marker for directed connections
     defs.append('marker')
@@ -2472,7 +2493,7 @@ export function Tapestry({
       svg.on('contextmenu', null);
       svg.selectAll('*').remove();
     };
-  }, [state.nodes, state.connections, state.groups, dimensions, isConnecting, connectingFrom, selectedNodes, saveState, onSceneClick, nodeMatchesFilters, layout, edgeBundles, highlightedEdges, hasAnyHighlight, showAllLines, highlightedConnections, highlightedNodeIds]);
+  }, [state.nodes, state.connections, state.groups, dimensions, isConnecting, connectingFrom, selectedNodes, saveState, onSceneClick, nodeMatchesFilters, layout, edgeBundles, highlightedEdges, hasAnyHighlight, showAllLines, highlightedConnections, highlightedNodeIds, snapToGrid]);
 
   // Add new node of specified type
   const handleAddNode = useCallback((type: TapestryNodeType) => {
