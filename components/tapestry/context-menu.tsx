@@ -70,7 +70,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   return (
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-[160px] bg-popover border border-border rounded-lg shadow-lg py-1 animate-in fade-in-0 zoom-in-95"
+      className="fixed z-50 min-w-[160px] bg-popover border border-border rounded-2xl shadow-md p-1 animate-in fade-in-0 zoom-in-95"
       style={{ left: x, top: y }}
     >
       {items.map((item, index) => {
@@ -78,7 +78,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
           return (
             <div
               key={`sep-${index}`}
-              className="h-px bg-border my-1 mx-2"
+              className="-mx-1 my-1 h-px bg-border"
             />
           );
         }
@@ -87,12 +87,12 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
           <button
             key={item.label}
             className={cn(
-              'w-full px-3 py-1.5 text-left text-sm flex items-center gap-2 transition-colors',
+              'w-full px-2 py-1.5 text-left text-sm flex items-center gap-2 rounded-xl transition-colors outline-none',
               item.disabled
                 ? 'text-muted-foreground cursor-not-allowed'
                 : item.destructive
-                  ? 'text-destructive hover:bg-destructive/10'
-                  : 'text-popover-foreground hover:bg-accent'
+                  ? 'text-destructive hover:bg-destructive/10 focus:bg-destructive/10'
+                  : 'text-popover-foreground hover:bg-accent focus:bg-accent focus:text-accent-foreground'
             )}
             onClick={() => {
               if (!item.disabled) {

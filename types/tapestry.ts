@@ -153,6 +153,8 @@ export interface TapestryGroup {
   width: number;
   height: number;
   collapsed?: boolean;
+  /** Animation progress: 0 = fully expanded, 1 = fully collapsed. Undefined when not animating. */
+  collapseProgress?: number;
 }
 
 // ============================================================================
@@ -212,8 +214,8 @@ export const NOTE_COLORS = [
 export const DEFAULT_STRING_COLOR = '#6366f1'; // Indigo - works well in both themes
 export const DEFAULT_NOTE_WIDTH = 260;
 export const DEFAULT_NOTE_HEIGHT = 140;
-export const DEFAULT_CHARACTER_WIDTH = 120;  // Polaroid card width
-export const DEFAULT_CHARACTER_HEIGHT = 160; // Polaroid card height
+export const DEFAULT_CHARACTER_WIDTH = 90;   // Polaroid card width (compact)
+export const DEFAULT_CHARACTER_HEIGHT = 120; // Polaroid card height (compact)
 export const DEFAULT_GROUP_WIDTH = 400;
 export const DEFAULT_GROUP_HEIGHT = 300;
 export const PIN_RADIUS = 6;

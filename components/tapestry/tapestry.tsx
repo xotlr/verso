@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useTapestryHistory } from '@/hooks/tapestry/use-tapestry-history';
 import * as d3 from 'd3';
 import { ZoomBehavior, ZoomTransform, zoomIdentity } from 'd3-zoom';
 import {
@@ -97,6 +98,25 @@ function getNodeDimensions(node: TapestryNode): { width: number; height: number 
   };
 }
 
+// Check if a node intersects with marquee selection rectangle
+function isNodeInMarquee(
+  node: TapestryNode,
+  start: { x: number; y: number } | null,
+  end: { x: number; y: number } | null
+): boolean {
+  if (!start || !end) return false;
+
+  const dims = getNodeDimensions(node);
+  const minX = Math.min(start.x, end.x);
+  const maxX = Math.max(start.x, end.x);
+  const minY = Math.min(start.y, end.y);
+  const maxY = Math.max(start.y, end.y);
+
+  // AABB intersection check
+  return node.x < maxX && node.x + dims.width > minX &&
+         node.y < maxY && node.y + dims.height > minY;
+}
+
 interface TapestryProps {
   screenplayId: string;
   screenplayTitle: string;
@@ -117,11 +137,20 @@ export function Tapestry({
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const [state, setState] = useState<TapestryState>(createEmptyTapestry);
+  // Use history hook for undo/redo support
+  const {
+    state,
+    setState,
+    undo,
+    redo,
+    resetState,
+    canUndo,
+    canRedo,
+  } = useTapestryHistory(createEmptyTapestry());
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
-  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [editingNode, setEditingNode] = useState<TapestryNode | null>(null);
   const [filters, setFilters] = useState<TapestryFilters>(createDefaultFilters);
   const [contextMenu, setContextMenu] = useState<{
@@ -140,23 +169,50 @@ export function Tapestry({
   // Character profile panel state
   const [profileCharacter, setProfileCharacter] = useState<TapestryNode | null>(null);
 
-  // Hover state for highlighting connections
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-
   // Toggle for showing all connection lines (off by default)
   const [showAllLines, setShowAllLines] = useState(false);
 
-  // Calculate highlighted connections and nodes based on hover
+  // Marquee selection state
+  const [isMarqueeSelecting, setIsMarqueeSelecting] = useState(false);
+  const [marqueeStart, setMarqueeStart] = useState<{ x: number; y: number } | null>(null);
+  const [marqueeEnd, setMarqueeEnd] = useState<{ x: number; y: number } | null>(null);
+  const marqueeRef = useRef<{ start: { x: number; y: number } | null; end: { x: number; y: number } | null }>({ start: null, end: null });
+
+  // Spring physics system for paper stack effect
+  interface CardPhysicsState {
+    x: number; y: number; rot: number;      // Current position
+    vx: number; vy: number; vrot: number;   // Velocity
+    tx: number; ty: number; trot: number;   // Target (rest position)
+  }
+
+  interface GroupPhysicsState {
+    cards: CardPhysicsState[];
+    isDragging: boolean;
+    dragVelocity: { x: number; y: number };
+  }
+
+  const physicsRef = useRef<Map<string, GroupPhysicsState>>(new Map());
+  const animationFrameRef = useRef<number | null>(null);
+
+  // Spring physics constants
+  const SPRING_CONFIG = {
+    stiffness: 180,      // Spring force (higher = snappier)
+    damping: 12,         // Friction (higher = less oscillation)
+    mass: 1,             // Card mass
+    precision: 0.01,     // Stop threshold for velocity
+  };
+
+  // Calculate highlighted connections and nodes based on selection (persistent until clicked again)
   const { highlightedConnections, highlightedNodeIds } = useMemo(() => {
-    if (!hoveredNodeId) {
+    if (selectedNodes.size === 0) {
       return { highlightedConnections: new Set<string>(), highlightedNodeIds: new Set<string>() };
     }
 
     const connIds = new Set<string>();
-    const nodeIds = new Set<string>([hoveredNodeId]);
+    const nodeIds = new Set<string>(selectedNodes);
 
     state.connections.forEach(conn => {
-      if (conn.sourceId === hoveredNodeId || conn.targetId === hoveredNodeId) {
+      if (selectedNodes.has(conn.sourceId) || selectedNodes.has(conn.targetId)) {
         connIds.add(conn.id);
         nodeIds.add(conn.sourceId);
         nodeIds.add(conn.targetId);
@@ -164,25 +220,25 @@ export function Tapestry({
     });
 
     return { highlightedConnections: connIds, highlightedNodeIds: nodeIds };
-  }, [hoveredNodeId, state.connections]);
+  }, [selectedNodes, state.connections]);
 
   // Get available characters for filter panel
   const availableCharacters = characters.map(c => c.name);
 
-  // Compute layout using new engine
+  // Always compute layout for minimap (but bundled edges are optional)
   const layout = useMemo<LayoutResult | null>(() => {
-    if (!useNewLayout || state.nodes.length === 0) return null;
+    if (state.nodes.length === 0) return null;
     return computeLayout({
       nodes: state.nodes,
       connections: state.connections,
     });
-  }, [useNewLayout, state.nodes, state.connections]);
+  }, [state.nodes, state.connections]);
 
-  // Create edge bundles for hierarchical bundling
+  // Create edge bundles for hierarchical bundling (only when new layout mode is enabled)
   const edgeBundles = useMemo<EdgeBundle[]>(() => {
-    if (!layout) return [];
+    if (!useNewLayout || !layout) return [];
     return createEdgeBundles(layout, state.connections);
-  }, [layout, state.connections]);
+  }, [useNewLayout, layout, state.connections]);
 
   // Get highlighted edges based on current highlight state
   const highlightedEdges = useMemo(() => {
@@ -273,7 +329,7 @@ export function Tapestry({
   const transformRef = useRef<ZoomTransform>(zoomIdentity);
   const lastTapRef = useRef<{ nodeId: string; time: number } | null>(null);
 
-  // Load state from localStorage with migration
+  // Load state from localStorage with migration (doesn't push to history)
   useEffect(() => {
     const storageKey = getTapestryStorageKey(screenplayId);
     const saved = localStorage.getItem(storageKey);
@@ -282,7 +338,7 @@ export function Tapestry({
         const parsed = JSON.parse(saved);
         // Migrate legacy data if needed
         const migrated = migrateTapestryState(parsed);
-        setState(migrated);
+        resetState(migrated); // Use resetState to avoid pushing to history
         transformRef.current = d3.zoomIdentity
           .translate(migrated.panX, migrated.panY)
           .scale(migrated.zoom);
@@ -295,7 +351,7 @@ export function Tapestry({
         // Invalid data, start fresh
       }
     }
-  }, [screenplayId]);
+  }, [screenplayId, resetState]);
 
   // Auto-sync scenes, characters, and locations with enriched data
   useEffect(() => {
@@ -545,6 +601,147 @@ export function Tapestry({
     localStorage.setItem(storageKey, JSON.stringify(newState));
   }, [screenplayId]);
 
+  // Physics update loop - runs via requestAnimationFrame for smooth spring animation
+  const updatePhysics = useCallback(() => {
+    const dt = 1 / 60; // Fixed timestep (60fps)
+    let needsUpdate = false;
+
+    physicsRef.current.forEach((groupState, groupId) => {
+      const groupEl = d3.select(`[data-group-id="${groupId}"]`);
+      if (groupEl.empty()) return;
+
+      const numCards = groupState.cards.length;
+
+      groupState.cards.forEach((card, i) => {
+        // Top card (last in array) stays stable - it follows the group directly
+        if (i === numCards - 1) return;
+
+        // Calculate depth - cards further back have more inertia
+        const depth = numCards - 1 - i;
+
+        // Apply drag velocity as dynamic target offset
+        const dragOffset = groupState.isDragging ? {
+          x: -groupState.dragVelocity.x * depth * 2.0,
+          y: -groupState.dragVelocity.y * depth * 2.0,
+          rot: (groupState.dragVelocity.x * 0.8 - groupState.dragVelocity.y * 0.3) * depth,
+        } : { x: 0, y: 0, rot: 0 };
+
+        const targetX = card.tx + dragOffset.x;
+        const targetY = card.ty + dragOffset.y;
+        const targetRot = card.trot + dragOffset.rot;
+
+        // Spring physics: F = -k(x - target) - b*velocity
+        const fx = -SPRING_CONFIG.stiffness * (card.x - targetX) - SPRING_CONFIG.damping * card.vx;
+        const fy = -SPRING_CONFIG.stiffness * (card.y - targetY) - SPRING_CONFIG.damping * card.vy;
+        const frot = -SPRING_CONFIG.stiffness * (card.rot - targetRot) - SPRING_CONFIG.damping * card.vrot;
+
+        // Update velocity: v += (F/m) * dt
+        card.vx += (fx / SPRING_CONFIG.mass) * dt;
+        card.vy += (fy / SPRING_CONFIG.mass) * dt;
+        card.vrot += (frot / SPRING_CONFIG.mass) * dt;
+
+        // Update position: x += v * dt
+        card.x += card.vx * dt;
+        card.y += card.vy * dt;
+        card.rot += card.vrot * dt;
+
+        // Check if still moving significantly
+        const isMoving = Math.abs(card.vx) > SPRING_CONFIG.precision ||
+                        Math.abs(card.vy) > SPRING_CONFIG.precision ||
+                        Math.abs(card.vrot) > SPRING_CONFIG.precision * 10;
+
+        if (isMoving) {
+          needsUpdate = true;
+        }
+
+        // Update DOM - find card by index in DOM order
+        const cardEls = groupEl.selectAll('.stacked-card');
+        const cardEl = d3.select(cardEls.nodes()[i] as Element);
+        if (!cardEl.empty()) {
+          cardEl.attr('transform',
+            `translate(${card.x}, ${card.y}) rotate(${card.rot}, ${DEFAULT_NOTE_WIDTH / 2}, ${DEFAULT_NOTE_HEIGHT / 2})`
+          );
+        }
+      });
+
+      // Decay drag velocity when not dragging (creates drift effect)
+      if (!groupState.isDragging) {
+        groupState.dragVelocity.x *= 0.92;
+        groupState.dragVelocity.y *= 0.92;
+        if (Math.abs(groupState.dragVelocity.x) > 0.05 || Math.abs(groupState.dragVelocity.y) > 0.05) {
+          needsUpdate = true;
+        }
+      }
+    });
+
+    // Continue loop if physics still active
+    if (needsUpdate) {
+      animationFrameRef.current = requestAnimationFrame(updatePhysics);
+    } else {
+      animationFrameRef.current = null;
+    }
+  }, []);
+
+  // Start the physics loop if not already running
+  const startPhysicsLoop = useCallback(() => {
+    if (animationFrameRef.current === null) {
+      animationFrameRef.current = requestAnimationFrame(updatePhysics);
+    }
+  }, [updatePhysics]);
+
+  // Easing function for smooth collapse/expand
+  const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+  // Animate collapse/expand transition
+  const animateCollapse = useCallback((groupId: string, toCollapsed: boolean) => {
+    const duration = 350; // ms
+    const startTime = performance.now();
+    const startProgress = toCollapsed ? 0 : 1;
+    const endProgress = toCollapsed ? 1 : 0;
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = easeOutCubic(t);
+      const progress = startProgress + (endProgress - startProgress) * eased;
+
+      // Update group's collapseProgress during animation
+      setState(prev => ({
+        ...prev,
+        groups: prev.groups.map(g =>
+          g.id === groupId ? { ...g, collapseProgress: progress } : g
+        ),
+      }));
+
+      if (t < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        // Animation complete - set final collapsed state and clear progress
+        setState(prev => {
+          const newState = {
+            ...prev,
+            groups: prev.groups.map(g =>
+              g.id === groupId ? { ...g, collapsed: toCollapsed, collapseProgress: undefined } : g
+            ),
+          };
+          saveState(newState);
+          return newState;
+        });
+      }
+    };
+
+    requestAnimationFrame(animate);
+  }, [setState, saveState]);
+
+  // Cleanup physics loop on unmount
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
+
   // Update dimensions on resize
   useEffect(() => {
     const updateDimensions = () => {
@@ -558,6 +755,32 @@ export function Tapestry({
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if tapestry container is focused or no specific element is focused
+      const activeEl = document.activeElement;
+      const isInputFocused = activeEl instanceof HTMLInputElement ||
+                             activeEl instanceof HTMLTextAreaElement ||
+                             activeEl?.getAttribute('contenteditable') === 'true';
+      if (isInputFocused) return;
+
+      // Undo: Cmd/Ctrl + Z
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      // Redo: Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y
+      if ((e.metaKey || e.ctrlKey) && ((e.key === 'z' && e.shiftKey) || e.key === 'y')) {
+        e.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
 
   // D3 rendering
   useEffect(() => {
@@ -615,14 +838,24 @@ export function Tapestry({
     const container = svg.append('g').attr('class', 'tapestry-container');
 
     // Setup zoom with touch gesture support
+    // Right-click drag for panning, scroll wheel for zoom
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.25, 4])
       .touchable(() => true)
       .filter((event) => {
+        // Allow touch events
         if (event.type === 'touchstart' || event.type === 'touchmove' || event.type === 'touchend') {
           return true;
         }
-        return !event.button;
+        // Allow scroll wheel for zooming
+        if (event.type === 'wheel') {
+          return true;
+        }
+        // Allow right-click drag for panning (button 2)
+        if (event.type === 'mousedown' || event.type === 'mousemove' || event.type === 'mouseup') {
+          return event.button === 2;
+        }
+        return false;
       })
       .on('zoom', (event) => {
         // Only update D3 transform during zoom (no React state update)
@@ -651,15 +884,24 @@ export function Tapestry({
     // Create drag behavior for groups (moves child nodes too)
     const groupDrag = d3.drag<SVGGElement, TapestryGroup>()
       .touchable(() => true)
+      .clickDistance(5)
       .container(function() {
         return container.node() as SVGGElement;
       })
-      .subject(function(event, d) {
+      .subject(function(_, d) {
         return { x: d.x, y: d.y };
       })
       .on('start', function(event, d) {
         event.sourceEvent?.stopPropagation();
-        d3.select(this).raise().attr('opacity', 0.9);
+        d3.select(this).raise().attr('opacity', 0.9).classed('dragging', true);
+
+        // Initialize spring physics for collapsed groups
+        const physics = physicsRef.current.get(d.id);
+        if (physics) {
+          physics.isDragging = true;
+          physics.dragVelocity = { x: 0, y: 0 };
+          startPhysicsLoop();
+        }
       })
       .on('drag', function(event, d) {
         const dx = event.x - d.x;
@@ -667,6 +909,13 @@ export function Tapestry({
         d.x = event.x;
         d.y = event.y;
         d3.select(this).attr('transform', `translate(${d.x}, ${d.y})`);
+
+        // Update physics drag velocity (spring physics loop handles card transforms)
+        const physics = physicsRef.current.get(d.id);
+        if (physics) {
+          physics.dragVelocity.x = physics.dragVelocity.x * 0.7 + dx * 0.3;
+          physics.dragVelocity.y = physics.dragVelocity.y * 0.7 + dy * 0.3;
+        }
 
         // Move child nodes visually during drag
         state.nodes.filter(n => n.groupId === d.id).forEach(node => {
@@ -676,9 +925,64 @@ export function Tapestry({
           nodesGroup.select(`[data-node-id="${node.id}"]`)
             .attr('transform', `translate(${node.x}, ${node.y})`);
         });
+
+        // Update connection paths for nodes in this group (especially for collapsed groups)
+        const childNodeIds = new Set(
+          state.nodes.filter(n => n.groupId === d.id).map(n => n.id)
+        );
+
+        state.connections.forEach(conn => {
+          // Skip if neither end is in this group
+          if (!childNodeIds.has(conn.sourceId) && !childNodeIds.has(conn.targetId)) return;
+
+          const sourceNode = state.nodes.find(n => n.id === conn.sourceId);
+          const targetNode = state.nodes.find(n => n.id === conn.targetId);
+          if (!sourceNode || !targetNode) return;
+
+          // Calculate endpoints (redirect to group center if in collapsed group)
+          const collapsedStackWidth = DEFAULT_NOTE_WIDTH + 30;
+          const collapsedStackHeight = DEFAULT_NOTE_HEIGHT + 30;
+
+          let sourceX: number, sourceY: number, targetX: number, targetY: number;
+
+          // Source endpoint
+          const sourceGroup = sourceNode.groupId ? state.groups.find(g => g.id === sourceNode.groupId) : null;
+          if (sourceGroup?.collapsed) {
+            sourceX = sourceGroup.x + collapsedStackWidth;
+            sourceY = sourceGroup.y + collapsedStackHeight / 2;
+          } else {
+            sourceX = sourceNode.x + (sourceNode.width || DEFAULT_NOTE_WIDTH);
+            sourceY = sourceNode.y + (sourceNode.height || DEFAULT_NOTE_HEIGHT) / 2;
+          }
+
+          // Target endpoint
+          const targetGroup = targetNode.groupId ? state.groups.find(g => g.id === targetNode.groupId) : null;
+          if (targetGroup?.collapsed) {
+            targetX = targetGroup.x;
+            targetY = targetGroup.y + collapsedStackHeight / 2;
+          } else {
+            targetX = targetNode.x;
+            targetY = targetNode.y + (targetNode.height || DEFAULT_NOTE_HEIGHT) / 2;
+          }
+
+          // Generate curved path
+          const midX = (sourceX + targetX) / 2;
+          const pathD = `M ${sourceX} ${sourceY} C ${midX} ${sourceY}, ${midX} ${targetY}, ${targetX} ${targetY}`;
+
+          // Update the path element
+          connectionsGroup.selectAll(`[data-conn-id="${conn.id}"] path`).attr('d', pathD);
+        });
       })
-      .on('end', function(event, d) {
-        d3.select(this).attr('opacity', 1);
+      .on('end', function(_, d) {
+        d3.select(this).attr('opacity', 1).classed('dragging', false);
+
+        // Stop dragging but keep physics running for drift/settle effect
+        const physics = physicsRef.current.get(d.id);
+        if (physics) {
+          physics.isDragging = false;
+          startPhysicsLoop(); // Continue for settle animation
+        }
+
         setState(prev => {
           // Calculate delta from original position
           const originalGroup = prev.groups.find(g => g.id === d.id);
@@ -703,6 +1007,9 @@ export function Tapestry({
 
     state.groups.forEach(group => {
       const isCollapsed = group.collapsed || false;
+      const isAnimating = group.collapseProgress !== undefined;
+      // Progress: 0 = fully expanded, 1 = fully collapsed
+      const progress = group.collapseProgress ?? (isCollapsed ? 1 : 0);
 
       // Dynamic resize: calculate bounds from child nodes
       const childNodes = state.nodes.filter(n => n.groupId === group.id);
@@ -723,8 +1030,31 @@ export function Tapestry({
         group.y = minY - groupHeaderHeight - 10;
       }
 
-      const displayHeight = isCollapsed ? groupHeaderHeight + 30 : dynamicHeight;
-      const displayWidth = dynamicWidth;
+      // Collapsed mode: card stack matching node size, Expanded: full container
+      const stackCardWidth = DEFAULT_NOTE_WIDTH;
+      const stackCardHeight = DEFAULT_NOTE_HEIGHT;
+      const maxStackCards = Math.min(childNodes.length, 5);
+
+      // Scattered offsets for messy stack look (seeded by group id for more randomness)
+      const seed = group.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+      const pseudoRandom = (n: number) => ((seed * (n + 1) * 9301 + 49297) % 233280) / 233280;
+      const scatterOffsets = [
+        { x: 10, y: 10, rot: 0 }, // Top card - stable position
+        { x: 10 + (pseudoRandom(1) * 16 - 8), y: 10 + (pseudoRandom(2) * 12 - 4), rot: pseudoRandom(3) * 12 - 6 },
+        { x: 10 + (pseudoRandom(4) * 18 - 9), y: 10 + (pseudoRandom(5) * 14 - 5), rot: pseudoRandom(6) * 14 - 7 },
+        { x: 10 + (pseudoRandom(7) * 20 - 10), y: 10 + (pseudoRandom(8) * 16 - 6), rot: pseudoRandom(9) * 16 - 8 },
+        { x: 10 + (pseudoRandom(10) * 22 - 11), y: 10 + (pseudoRandom(11) * 18 - 7), rot: pseudoRandom(12) * 18 - 9 },
+      ];
+
+      const collapsedWidth = stackCardWidth + 30;
+      const collapsedHeight = stackCardHeight + 30;
+
+      // Linear interpolation helper
+      const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+      // Interpolate dimensions during animation: progress 0 = expanded, 1 = collapsed
+      const displayWidth = lerp(dynamicWidth, collapsedWidth, progress);
+      const displayHeight = lerp(dynamicHeight, collapsedHeight, progress);
 
       const groupG = groupsGroup.append('g')
         .datum(group)
@@ -734,105 +1064,219 @@ export function Tapestry({
         .attr('cursor', 'grab')
         .call(groupDrag);
 
-      // Group background - monochromatic with dashed border and soft shadow
+      const childCount = childNodes.length;
+
+      // Initialize spring physics state for collapsed/animating groups
+      if (isCollapsed || isAnimating) {
+        const cardPhysicsStates: CardPhysicsState[] = [];
+        for (let cardIdx = 0; cardIdx < maxStackCards; cardIdx++) {
+          const scatter = scatterOffsets[maxStackCards - 1 - cardIdx] || { x: 10, y: 10, rot: 0 };
+          cardPhysicsStates.push({
+            x: scatter.x, y: scatter.y, rot: scatter.rot,
+            vx: 0, vy: 0, vrot: 0,
+            tx: scatter.x, ty: scatter.y, trot: scatter.rot,
+          });
+        }
+        physicsRef.current.set(group.id, {
+          cards: cardPhysicsStates,
+          isDragging: false,
+          dragVelocity: { x: 0, y: 0 },
+        });
+      }
+
+      // ============================================================================
+      // UNIFIED RENDERING: Container, Cards, and Controls
+      // progress: 0 = fully expanded, 1 = fully collapsed
+      // ============================================================================
+
+      // Container background - transitions from dashed (expanded) to solid (collapsed)
+      const dashArray = progress < 0.5 ? '8,4' : 'none';
+      const containerFill = progress > 0.7 ? 'transparent' : `hsl(var(--muted) / ${lerp(0.2, 0, progress)})`;
+
       groupG.append('rect')
         .attr('class', 'group-body')
         .attr('width', displayWidth)
         .attr('height', displayHeight)
         .attr('rx', 12)
-        .attr('fill', 'hsl(var(--muted) / 0.2)')
-        .attr('stroke', 'hsl(var(--border))')
+        .attr('fill', containerFill)
+        .attr('stroke', progress > 0.8 ? 'transparent' : 'hsl(var(--border))')
         .attr('stroke-width', 1)
-        .attr('stroke-dasharray', isCollapsed ? 'none' : '8,4')
-        .attr('filter', 'url(#soft-shadow)');
+        .attr('stroke-dasharray', dashArray)
+        .attr('filter', progress > 0.8 ? 'none' : 'url(#soft-shadow)');
 
-      // Header bar - accent color (subtle)
-      groupG.append('rect')
-        .attr('class', 'group-header')
-        .attr('width', displayWidth)
-        .attr('height', groupHeaderHeight)
-        .attr('rx', 12)
-        .attr('ry', 12)
-        .attr('fill', `${group.color}15`);
+      // Header bar - fades out as we collapse (only visible when mostly expanded)
+      const headerOpacity = Math.max(0, 1 - progress * 2);
+      if (headerOpacity > 0) {
+        groupG.append('rect')
+          .attr('class', 'group-header')
+          .attr('width', displayWidth)
+          .attr('height', groupHeaderHeight)
+          .attr('fill', 'hsl(var(--muted) / 0.4)')
+          .attr('opacity', headerOpacity);
 
-      // Square off bottom of header
-      groupG.append('rect')
-        .attr('y', 12)
-        .attr('width', displayWidth)
-        .attr('height', groupHeaderHeight - 12)
-        .attr('fill', `${group.color}15`);
-
-      // Header divider (only when expanded)
-      if (!isCollapsed) {
         groupG.append('line')
           .attr('x1', 0)
           .attr('y1', groupHeaderHeight)
           .attr('x2', displayWidth)
           .attr('y2', groupHeaderHeight)
           .attr('stroke', 'hsl(var(--border))')
-          .attr('stroke-width', 1);
+          .attr('stroke-width', 1)
+          .attr('opacity', headerOpacity);
+
+        // Toggle arrow (expanded state: ▼)
+        groupG.append('text')
+          .attr('class', 'collapse-toggle')
+          .attr('x', 14)
+          .attr('y', groupHeaderHeight / 2 + 5)
+          .attr('font-size', '10px')
+          .attr('fill', 'hsl(var(--muted-foreground))')
+          .attr('pointer-events', 'none')
+          .attr('opacity', headerOpacity)
+          .text('▼');
+
+        // Title text in header
+        groupG.append('text')
+          .attr('x', 30)
+          .attr('y', groupHeaderHeight / 2 + 5)
+          .attr('font-size', '12px')
+          .attr('font-weight', '500')
+          .attr('fill', 'hsl(var(--foreground))')
+          .attr('opacity', headerOpacity)
+          .text(sanitizeForD3Text(group.title, 25));
       }
 
-      // Collapse/expand toggle
-      groupG.append('text')
-        .attr('class', 'collapse-toggle')
-        .attr('x', 14)
-        .attr('y', groupHeaderHeight / 2 + 5)
-        .attr('font-size', '10px')
-        .attr('fill', 'hsl(var(--muted-foreground))')
-        .attr('cursor', 'pointer')
-        .text(isCollapsed ? '▶' : '▼')
-        .on('click', (event) => {
-          event.stopPropagation();
-          setState(prev => {
-            const newState = {
-              ...prev,
-              groups: prev.groups.map(g =>
-                g.id === group.id ? { ...g, collapsed: !g.collapsed } : g
-              ),
-            };
-            saveState(newState);
-            return newState;
-          });
-        });
+      // ============================================================================
+      // RENDER CHILD NODES AS CARDS AT INTERPOLATED POSITIONS
+      // When collapsed or animating, render cards that transition between positions
+      // ============================================================================
 
-      // Title text
-      groupG.append('text')
-        .attr('x', 30)
-        .attr('y', groupHeaderHeight / 2 + 5)
-        .attr('font-size', '12px')
-        .attr('font-weight', '500')
-        .attr('fill', 'hsl(var(--foreground))')
-        .text(sanitizeForD3Text(group.title, 25));
+      if (isAnimating || isCollapsed) {
+        const cardsToRender = Math.min(childNodes.length, maxStackCards);
 
-      // Node count badge and stacked cards preview when collapsed
-      if (isCollapsed) {
-        const childCount = childNodes.length;
-        if (childCount > 0) {
-          // Count badge
-          groupG.append('text')
-            .attr('x', displayWidth - 40)
-            .attr('y', groupHeaderHeight / 2 + 4)
-            .attr('font-size', '10px')
-            .attr('fill', 'hsl(var(--muted-foreground))')
-            .text(`${childCount} items`);
+        // Render cards back to front (so front card is on top)
+        for (let i = cardsToRender - 1; i >= 0; i--) {
+          const node = childNodes[i];
+          const nodeWidth = node.width || DEFAULT_NOTE_WIDTH;
+          const nodeHeight = node.height || DEFAULT_NOTE_HEIGHT;
 
-          // Stacked card previews (show up to 3 mini cards peeking below header)
-          const previewNodes = childNodes.slice(0, 3);
-          previewNodes.forEach((node, i) => {
-            const offset = i * 4;
-            const cardWidth = Math.min(60, displayWidth - 30);
-            groupG.append('rect')
-              .attr('x', 10 + offset)
-              .attr('y', groupHeaderHeight + 2 + i * 3)
-              .attr('width', cardWidth)
-              .attr('height', 18)
-              .attr('rx', 4)
-              .attr('fill', 'hsl(var(--card))')
-              .attr('stroke', 'hsl(var(--border))')
-              .attr('stroke-width', 0.5)
-              .attr('opacity', 0.8 - i * 0.2);
-          });
+          // Expanded position (relative to group origin)
+          const expandedX = node.x - group.x;
+          const expandedY = node.y - group.y;
+          const expandedRot = 0;
+
+          // Collapsed position (in stack)
+          const stackPos = scatterOffsets[i] || { x: 10 + i * 4, y: 10 + i * 4, rot: i * 3 };
+
+          // Interpolated position, size, and rotation
+          const cardX = lerp(expandedX, stackPos.x, progress);
+          const cardY = lerp(expandedY, stackPos.y, progress);
+          const cardRot = lerp(expandedRot, stackPos.rot, progress);
+          const cardWidth = lerp(nodeWidth, stackCardWidth, progress);
+          const cardHeight = lerp(nodeHeight, stackCardHeight, progress);
+
+          const cardG = groupG.append('g')
+            .attr('class', 'stacked-card')
+            .attr('data-base-x', stackPos.x)
+            .attr('data-base-y', stackPos.y)
+            .attr('data-base-rot', stackPos.rot)
+            .attr('transform', `translate(${cardX}, ${cardY}) rotate(${cardRot}, ${cardWidth / 2}, ${cardHeight / 2})`);
+
+          // Card background
+          cardG.append('rect')
+            .attr('width', cardWidth)
+            .attr('height', cardHeight)
+            .attr('rx', 8)
+            .attr('fill', i === 0 ? 'hsl(var(--card))' : 'hsl(var(--muted))')
+            .attr('stroke', 'hsl(var(--border))')
+            .attr('stroke-width', 1)
+            .attr('filter', 'url(#soft-shadow)');
+
+          // Node content (fades out as we collapse, except for top card summary)
+          const contentOpacity = Math.max(0, 1 - progress * 1.5);
+          if (contentOpacity > 0 && i < 3) {
+            // Show simplified node header/title during transition
+            cardG.append('text')
+              .attr('x', 12)
+              .attr('y', 20)
+              .attr('font-size', '11px')
+              .attr('font-weight', '500')
+              .attr('fill', 'hsl(var(--foreground))')
+              .attr('opacity', contentOpacity)
+              .text(sanitizeForD3Text(node.title || node.content?.slice(0, 20) || '...', 25));
+          }
+
+          // Top card controls (expand toggle, count) - fade in as we collapse
+          if (i === 0) {
+            const controlsOpacity = Math.max(0, (progress - 0.5) * 2);
+            if (controlsOpacity > 0) {
+              // Expand toggle
+              const toggleG = cardG.append('g')
+                .attr('class', 'collapse-toggle')
+                .attr('cursor', 'pointer')
+                .attr('opacity', controlsOpacity)
+                .style('pointer-events', 'all')
+                .on('click', (event) => {
+                  event.stopPropagation();
+                  animateCollapse(group.id, false);
+                });
+
+              toggleG.append('rect')
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('width', 80)
+                .attr('height', 32)
+                .attr('fill', 'transparent');
+
+              toggleG.append('text')
+                .attr('x', 12)
+                .attr('y', 21)
+                .attr('font-size', '10px')
+                .attr('fill', 'hsl(var(--muted-foreground))')
+                .text('▶');
+
+              // Group title on top card
+              cardG.append('text')
+                .attr('x', 28)
+                .attr('y', 21)
+                .attr('font-size', '12px')
+                .attr('font-weight', '500')
+                .attr('fill', 'hsl(var(--foreground))')
+                .attr('opacity', controlsOpacity)
+                .text(sanitizeForD3Text(group.title, 20));
+
+              // Item count badge
+              cardG.append('text')
+                .attr('x', stackCardWidth - 12)
+                .attr('y', 21)
+                .attr('font-size', '10px')
+                .attr('text-anchor', 'end')
+                .attr('fill', 'hsl(var(--muted-foreground))')
+                .attr('opacity', controlsOpacity)
+                .text(`${childCount}`);
+
+              // Preview content (only when fully collapsed)
+              if (progress > 0.9) {
+                if (childNodes.length > 0) {
+                  const firstNode = childNodes[0];
+                  cardG.append('text')
+                    .attr('x', 12)
+                    .attr('y', 55)
+                    .attr('font-size', '13px')
+                    .attr('fill', 'hsl(var(--foreground) / 0.8)')
+                    .text(sanitizeForD3Text(firstNode.title || firstNode.content?.slice(0, 25) || '...', 22));
+
+                  if (childNodes.length > 1) {
+                    cardG.append('text')
+                      .attr('x', 12)
+                      .attr('y', 75)
+                      .attr('font-size', '11px')
+                      .attr('fill', 'hsl(var(--muted-foreground))')
+                      .text(`+${childNodes.length - 1} more items`);
+                  }
+                }
+              }
+            }
+          }
         }
       }
 
@@ -851,38 +1295,6 @@ export function Tapestry({
           });
         }
       });
-
-      // Delete button (top right corner)
-      const deleteG = groupG.append('g')
-        .attr('transform', `translate(${displayWidth - 24}, ${groupHeaderHeight / 2})`)
-        .attr('cursor', 'pointer')
-        .attr('opacity', 0.4)
-        .on('mouseenter', function() { d3.select(this).attr('opacity', 1); })
-        .on('mouseleave', function() { d3.select(this).attr('opacity', 0.4); })
-        .on('click', (event) => {
-          event.stopPropagation();
-          setState(prev => {
-            const newState = {
-              ...prev,
-              groups: prev.groups.filter(g => g.id !== group.id),
-              nodes: prev.nodes.map(n => n.groupId === group.id ? { ...n, groupId: undefined } : n),
-            };
-            saveState(newState);
-            return newState;
-          });
-        });
-
-      deleteG.append('circle')
-        .attr('r', 10)
-        .attr('fill', 'hsl(var(--destructive) / 0.15)');
-
-      deleteG.append('text')
-        .attr('text-anchor', 'middle')
-        .attr('dy', 4)
-        .attr('font-size', '14px')
-        .attr('font-weight', '500')
-        .attr('fill', 'hsl(var(--destructive))')
-        .text('×');
 
       // Right-click context menu for groups
       groupG.on('contextmenu', (event) => {
@@ -908,64 +1320,79 @@ export function Tapestry({
           .attr('data-entity-id', bundle.sourceEntityId);
 
         bundle.edges.forEach(edge => {
+          // Check if source/target are in collapsed groups
+          const sourceNode = state.nodes.find(n => n.id === bundle.sourceEntityId);
+          const targetNode = state.nodes.find(n => n.id === edge.targetNodeId);
+
+          const sourceGroup = sourceNode?.groupId ? state.groups.find(g => g.id === sourceNode.groupId) : null;
+          const targetGroup = targetNode?.groupId ? state.groups.find(g => g.id === targetNode.groupId) : null;
+          const sourceInCollapsed = sourceGroup?.collapsed;
+          const targetInCollapsed = targetGroup?.collapsed;
+
+          // Skip if both ends are in collapsed groups
+          if (sourceInCollapsed && targetInCollapsed) return;
+
           // Generate bundled path
           const pathD = generateBundledEdgePath(bundle, edge, layout);
 
-          // Calculate opacity based on highlight state
-          const edgeOpacity = getEdgeOpacity(edge.connectionId, highlightedEdges, hasAnyHighlight);
+          // Check highlight from BOTH node selection and sidebar
+          const isHighlightedByNodeSelection = highlightedConnections.has(edge.connectionId);
+          const isHighlightedBySidebar = highlightedEdges.has(edge.connectionId);
+          const isHighlighted = isHighlightedByNodeSelection || isHighlightedBySidebar;
+          const hasAnyHighlightActive = hasAnyHighlight || selectedNodes.size > 0;
+
+          // Calculate opacity based on highlight state - hide if either end is in collapsed group
+          const isPartiallyCollapsed = sourceInCollapsed || targetInCollapsed;
+          const edgeOpacity = isPartiallyCollapsed ? 0.3 : (isHighlighted ? 1 : (hasAnyHighlightActive ? 0.1 : EDGE_OPACITY.default));
 
           // Check if edge should be filtered out
-          const sourceNode = state.nodes.find(n => n.id === bundle.sourceEntityId);
-          const targetNode = state.nodes.find(n => n.id === edge.targetNodeId);
           const sourceMatches = sourceNode ? nodeMatchesFilters(sourceNode) : true;
           const targetMatches = targetNode ? nodeMatchesFilters(targetNode) : true;
           const connectionVisible = sourceMatches && targetMatches;
 
           const pathId = `bundled-path-${edge.connectionId}`;
-          const isHighlighted = highlightedEdges.has(edge.connectionId);
 
           const edgeGroup = bundleGroup.append('g')
             .attr('class', 'bundled-edge')
             .attr('cursor', 'pointer')
             .attr('opacity', connectionVisible ? edgeOpacity : 0.05);
 
+          // Monochromatic color scheme
+          const lineColor = 'hsl(var(--muted-foreground))';
+          const highlightColor = 'hsl(var(--primary))';
+
           // Background path for depth
           edgeGroup.append('path')
             .attr('d', pathD)
-            .attr('stroke', bundle.color)
-            .attr('stroke-width', edge.thickness + 3)
+            .attr('stroke', lineColor)
+            .attr('stroke-width', Math.max(1, edge.thickness * 0.5) + 1)
             .attr('stroke-linecap', 'round')
             .attr('fill', 'none')
             .attr('opacity', 0.1);
 
-          // Main path with character color and dialogue-based thickness
+          // Main path - monochromatic
           const mainPath = edgeGroup.append('path')
             .attr('id', pathId)
             .attr('class', `connection-path ${isHighlighted ? 'highlighted' : ''}`)
             .attr('d', pathD)
-            .attr('stroke', bundle.color)
-            .attr('stroke-width', edge.thickness)
+            .attr('stroke', isHighlighted ? highlightColor : lineColor)
+            .attr('stroke-width', Math.max(1, edge.thickness * 0.5))
             .attr('stroke-linecap', 'round')
             .attr('fill', 'none')
-            .style('--connection-accent-color', bundle.color);
+            .style('--connection-accent-color', highlightColor);
 
-          // Add glow effect when highlighted
-          if (isHighlighted) {
-            mainPath.attr('filter', `drop-shadow(0 0 4px ${bundle.color})`);
-          }
-
-          // Hover interactions
+          // Hover interactions (only when no node/sidebar is highlighting)
           edgeGroup
             .on('mouseenter', function() {
-              if (!hasAnyHighlight) {
+              if (!hasAnyHighlightActive) {
                 d3.select(this).attr('opacity', 1);
-                mainPath.attr('filter', `drop-shadow(0 0 4px ${bundle.color})`);
+                mainPath.attr('stroke', highlightColor);
               }
             })
             .on('mouseleave', function() {
-              if (!hasAnyHighlight) {
+              if (!hasAnyHighlightActive) {
                 d3.select(this).attr('opacity', EDGE_OPACITY.default);
-                mainPath.attr('filter', null);
+                mainPath.attr('stroke', lineColor);
               }
             })
             .on('click', () => {
@@ -990,6 +1417,15 @@ export function Tapestry({
         const targetNode = state.nodes.find(n => n.id === conn.targetId);
         if (!sourceNode || !targetNode) return;
 
+        // Check if nodes are in collapsed groups - skip connections to hidden nodes
+        const sourceGroup = sourceNode.groupId ? state.groups.find(g => g.id === sourceNode.groupId) : null;
+        const targetGroup = targetNode.groupId ? state.groups.find(g => g.id === targetNode.groupId) : null;
+        const sourceInCollapsed = sourceGroup?.collapsed;
+        const targetInCollapsed = targetGroup?.collapsed;
+
+        // Skip if both ends are in collapsed groups, or redirect to group position
+        if (sourceInCollapsed && targetInCollapsed) return;
+
         // Check if both endpoints match the filter
         const sourceMatches = nodeMatchesFilters(sourceNode);
         const targetMatches = nodeMatchesFilters(targetNode);
@@ -999,20 +1435,38 @@ export function Tapestry({
         const sourceDims = getNodeDimensions(sourceNode);
         const targetDims = getNodeDimensions(targetNode);
 
-        // Connection points at pins (right edge of source, left edge of target)
-        const sourceX = sourceNode.x + sourceDims.width;
-        const sourceY = sourceNode.y + sourceDims.height / 2;
-        const targetX = targetNode.x;
-        const targetY = targetNode.y + targetDims.height / 2;
+        // If a node is in collapsed group, redirect connection to the group
+        const collapsedStackWidth = DEFAULT_NOTE_WIDTH + 30;
+        const collapsedStackHeight = DEFAULT_NOTE_HEIGHT + 30;
+
+        let sourceX: number, sourceY: number, targetX: number, targetY: number;
+
+        if (sourceInCollapsed && sourceGroup) {
+          // Redirect to collapsed group
+          sourceX = sourceGroup.x + collapsedStackWidth;
+          sourceY = sourceGroup.y + collapsedStackHeight / 2;
+        } else {
+          sourceX = sourceNode.x + sourceDims.width;
+          sourceY = sourceNode.y + sourceDims.height / 2;
+        }
+
+        if (targetInCollapsed && targetGroup) {
+          // Redirect to collapsed group
+          targetX = targetGroup.x;
+          targetY = targetGroup.y + collapsedStackHeight / 2;
+        } else {
+          targetX = targetNode.x;
+          targetY = targetNode.y + targetDims.height / 2;
+        }
 
         // Taut thread curve - smooth bezier
         const dx = Math.abs(targetX - sourceX);
         const controlOffset = Math.max(40, dx * 0.3);
         const pathD = `M ${sourceX} ${sourceY} C ${sourceX + controlOffset} ${sourceY}, ${targetX - controlOffset} ${targetY}, ${targetX} ${targetY}`;
 
-        // Monochromatic by default, accent color when highlighted
+        // Monochromatic color scheme
         const mutedColor = 'hsl(var(--muted-foreground))';
-        const accentColor = CONNECTION_COLORS[conn.type] || conn.color || CONNECTION_COLORS.custom;
+        const highlightColor = 'hsl(var(--primary))';
 
         // Determine visibility: show if showAllLines is on, or if this connection is highlighted
         const isHighlightedConn = highlightedConnections.has(conn.id);
@@ -1042,36 +1496,36 @@ export function Tapestry({
             });
           });
 
-        // Background path (thicker, for visual depth)
+        // Background path (subtle, for visual depth)
         const pathId = `path-${conn.id}`;
         connGroup.append('path')
           .attr('d', pathD)
-          .attr('stroke', isHighlightedConn ? accentColor : mutedColor)
-          .attr('stroke-width', isHighlightedConn ? 6 : 5)
+          .attr('stroke', mutedColor)
+          .attr('stroke-width', isHighlightedConn ? 3 : 2)
           .attr('stroke-linecap', 'round')
           .attr('fill', 'none')
           .attr('opacity', isHighlightedConn ? 0.3 : 0.08);
 
-        // Main connection path
+        // Main connection path - monochromatic
         const mainPath = connGroup.append('path')
           .attr('id', pathId)
           .attr('class', `connection-path ${isHighlightedConn ? 'highlighted' : ''}`)
           .attr('d', pathD)
-          .attr('stroke', isHighlightedConn ? accentColor : mutedColor)
-          .attr('stroke-width', isHighlightedConn ? 3 : 2)
+          .attr('stroke', isHighlightedConn ? highlightColor : mutedColor)
+          .attr('stroke-width', isHighlightedConn ? 1.5 : 1)
           .attr('stroke-linecap', 'round')
           .attr('fill', 'none')
-          .style('--connection-accent-color', accentColor)
+          .style('--connection-accent-color', highlightColor)
           .attr('marker-end', conn.directed ? 'url(#arrow)' : null);
 
-        // Hover: switch to accent color
+        // Hover: switch to primary color
         mainPath
           .on('mouseenter', function() {
-            d3.select(this).attr('stroke', accentColor);
+            d3.select(this).attr('stroke', highlightColor);
             if (this.parentNode) d3.select(this.parentNode as Element).attr('opacity', 1);
           })
           .on('mouseleave', function() {
-            d3.select(this).attr('stroke', isHighlightedConn ? accentColor : mutedColor);
+            d3.select(this).attr('stroke', isHighlightedConn ? highlightColor : mutedColor);
             if (this.parentNode) d3.select(this.parentNode as Element).attr('opacity', connOpacity);
           });
 
@@ -1096,8 +1550,10 @@ export function Tapestry({
     const nodesGroup = container.append('g').attr('class', 'nodes');
 
     // Create drag behavior with touch support
+    // clickDistance(5) ensures clicks register even with slight mouse movement
     const drag = d3.drag<SVGGElement, TapestryNode>()
       .touchable(() => true)
+      .clickDistance(5)
       .container(function() {
         return container.node() as SVGGElement;
       })
@@ -1203,10 +1659,10 @@ export function Tapestry({
 
     // Render each node
     state.nodes.forEach(node => {
-      // Skip nodes in collapsed groups
+      // Skip nodes in collapsed groups OR groups that are animating collapse/expand
       if (node.groupId) {
         const parentGroup = state.groups.find(g => g.id === node.groupId);
-        if (parentGroup?.collapsed) return;
+        if (parentGroup?.collapsed || parentGroup?.collapseProgress !== undefined) return;
       }
 
       const nodeWidth = node.width || DEFAULT_NOTE_WIDTH;
@@ -1214,36 +1670,30 @@ export function Tapestry({
       const nodeType = node.type || 'note';
       const matchesFilter = nodeMatchesFilters(node);
 
-      // Slight rotation for organic feel (±2 degrees, seeded by node id)
-      const rotationSeed = node.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-      const rotation = ((rotationSeed % 100) / 100 - 0.5) * 4;
 
-      // Monochromatic header - accent on selection/hover
-      const accentColor = nodeType === 'scene' ? NODE_TYPE_COLORS.scene : (node.color || NODE_TYPE_COLORS[nodeType]);
+      // Monochromatic styling - uses primary color for selection/hover
       const mutedHeaderColor = 'hsl(var(--muted))';
-      const isSelected = selectedNode === node.id;
+      const isSelected = selectedNodes.has(node.id);
 
-      // Determine if this node is highlighted from hover
+      // Determine if this node is highlighted from selection
       const isNodeHighlighted = highlightedNodeIds.has(node.id);
-      const hasActiveHover = hoveredNodeId !== null;
+      const hasActiveSelection = selectedNodes.size > 0;
 
       const nodeGroup = nodesGroup.append('g')
         .datum(node)
-        .attr('class', `node ${nodeType === 'character' ? 'polaroid-node' : ''} ${isSelected ? 'selected' : ''} ${isNodeHighlighted ? 'highlighted' : ''}`)
+        .attr('class', `node tapestry-node ${nodeType}-node ${nodeType === 'character' ? 'polaroid-node' : ''} ${isSelected ? 'selected' : ''} ${isNodeHighlighted ? 'highlighted' : ''}`)
         .attr('data-node-id', node.id)
-        .attr('transform', `translate(${node.x}, ${node.y}) rotate(${rotation}, ${nodeWidth/2}, ${nodeHeight/2})`)
+        .attr('transform', `translate(${node.x}, ${node.y})`)
         .attr('cursor', 'grab')
-        .attr('opacity', matchesFilter ? (hasActiveHover && !isNodeHighlighted ? 0.3 : 1) : 0.2)
-        .call(drag)
-        .on('mouseenter', () => setHoveredNodeId(node.id))
-        .on('mouseleave', () => setHoveredNodeId(null));
+        .attr('opacity', matchesFilter ? (hasActiveSelection && !isNodeHighlighted ? 0.3 : 1) : 0.2)
+        .call(drag);
 
       // ========== POLAROID STYLE FOR CHARACTER NODES ==========
       if (nodeType === 'character') {
         const polaroidWidth = DEFAULT_CHARACTER_WIDTH;
         const polaroidHeight = DEFAULT_CHARACTER_HEIGHT;
-        const portraitHeight = polaroidHeight - 60; // Space for name and stats
-        const borderPadding = 8;
+        const portraitHeight = polaroidHeight - 45; // Space for name and stats (scaled)
+        const borderPadding = 6;
 
         // Get initials for avatar
         const initials = node.title
@@ -1260,11 +1710,11 @@ export function Tapestry({
           .attr('height', polaroidHeight)
           .attr('rx', 6)
           .attr('fill', 'hsl(var(--card))')
-          .attr('stroke', isSelected ? accentColor : 'hsl(var(--border))')
+          .attr('stroke', isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))')
           .attr('stroke-width', isSelected ? 2 : 1)
           .attr('filter', 'url(#node-shadow)');
 
-        // Portrait area (colored background with initials)
+        // Portrait area (themed background with initials)
         nodeGroup.append('rect')
           .attr('class', 'polaroid-portrait')
           .attr('x', borderPadding)
@@ -1272,16 +1722,16 @@ export function Tapestry({
           .attr('width', polaroidWidth - borderPadding * 2)
           .attr('height', portraitHeight)
           .attr('rx', 2)
-          .attr('fill', node.color || NODE_TYPE_COLORS.character);
+          .attr('fill', 'hsl(var(--muted))');
 
         // Initials in portrait
         nodeGroup.append('text')
           .attr('x', polaroidWidth / 2)
-          .attr('y', borderPadding + portraitHeight / 2 + 12)
+          .attr('y', borderPadding + portraitHeight / 2 + 8)
           .attr('text-anchor', 'middle')
-          .attr('font-size', '32px')
+          .attr('font-size', '24px')
           .attr('font-weight', '700')
-          .attr('fill', 'white')
+          .attr('fill', 'hsl(var(--muted-foreground))')
           .attr('opacity', 0.9)
           .text(initials);
 
@@ -1289,23 +1739,23 @@ export function Tapestry({
         nodeGroup.append('text')
           .attr('class', 'polaroid-name node-title')
           .attr('x', polaroidWidth / 2)
-          .attr('y', portraitHeight + borderPadding + 24)
+          .attr('y', portraitHeight + borderPadding + 18)
           .attr('text-anchor', 'middle')
           .attr('font-family', "'Caveat', cursive")
-          .attr('font-size', '16px')
+          .attr('font-size', '14px')
           .attr('font-weight', '600')
           .attr('fill', 'hsl(var(--foreground))')
-          .text(sanitizeForD3Text(node.title || 'Untitled', 14));
+          .text(sanitizeForD3Text(node.title || 'Untitled', 12));
 
         // Stats line (dialogue count)
         const dialogueText = `${node.dialogueCount || 0} lines`;
         nodeGroup.append('text')
           .attr('class', 'polaroid-stats')
           .attr('x', polaroidWidth / 2)
-          .attr('y', portraitHeight + borderPadding + 42)
+          .attr('y', portraitHeight + borderPadding + 30)
           .attr('text-anchor', 'middle')
           .attr('font-family', "'Caveat', cursive")
-          .attr('font-size', '12px')
+          .attr('font-size', '10px')
           .attr('fill', 'hsl(var(--muted-foreground))')
           .text(dialogueText);
 
@@ -1326,41 +1776,26 @@ export function Tapestry({
             .text('📌');
         }
 
-        // Connection pins (smaller for polaroid)
+        // Connection pins (compact for smaller polaroid)
         nodeGroup.append('circle')
           .attr('class', 'node-pin')
           .attr('cx', 0)
           .attr('cy', polaroidHeight / 2)
-          .attr('r', 5)
-          .attr('fill', accentColor)
-          .attr('stroke', 'white')
-          .attr('stroke-width', 2);
+          .attr('r', 4)
+          .attr('fill', 'hsl(var(--primary))')
+          .attr('stroke', 'hsl(var(--background))')
+          .attr('stroke-width', 1.5);
 
         nodeGroup.append('circle')
           .attr('class', 'node-pin')
           .attr('cx', polaroidWidth)
           .attr('cy', polaroidHeight / 2)
-          .attr('r', 5)
-          .attr('fill', accentColor)
-          .attr('stroke', 'white')
-          .attr('stroke-width', 2);
+          .attr('r', 4)
+          .attr('fill', 'hsl(var(--primary))')
+          .attr('stroke', 'hsl(var(--background))')
+          .attr('stroke-width', 1.5);
 
-        // Hover effect
-        nodeGroup
-          .on('mouseenter', function() {
-            if (selectedNode !== node.id) {
-              d3.select(this).select('.polaroid-frame')
-                .attr('stroke', accentColor)
-                .attr('stroke-width', 2);
-            }
-          })
-          .on('mouseleave', function() {
-            if (selectedNode !== node.id) {
-              d3.select(this).select('.polaroid-frame')
-                .attr('stroke', 'hsl(var(--border))')
-                .attr('stroke-width', 1);
-            }
-          });
+        // Hover handled by CSS via .polaroid-node class
 
       } else {
         // ========== STANDARD NODE RENDERING ==========
@@ -1373,18 +1808,18 @@ export function Tapestry({
           .attr('height', nodeHeight)
           .attr('rx', 8)
           .attr('fill', 'hsl(var(--card))')
-          .attr('stroke', isSelected ? accentColor : 'hsl(var(--border))')
+          .attr('stroke', isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))')
           .attr('stroke-width', isSelected ? 2 : 1)
           .attr('filter', 'url(#node-shadow)');
 
-      // Header bar - monochromatic by default, accent when selected
+      // Header bar - monochromatic by default, primary when selected
       nodeGroup.append('rect')
         .attr('class', 'node-header')
         .attr('width', nodeWidth)
         .attr('height', headerHeight)
         .attr('rx', 8)
         .attr('ry', 8)
-        .attr('fill', isSelected ? accentColor : mutedHeaderColor);
+        .attr('fill', isSelected ? 'hsl(var(--primary))' : mutedHeaderColor);
 
       // Square off bottom corners of header
       nodeGroup.append('rect')
@@ -1392,7 +1827,7 @@ export function Tapestry({
         .attr('y', 8)
         .attr('width', nodeWidth)
         .attr('height', headerHeight - 8)
-        .attr('fill', isSelected ? accentColor : mutedHeaderColor);
+        .attr('fill', isSelected ? 'hsl(var(--primary))' : mutedHeaderColor);
 
       // Type icon in header
       nodeGroup.append('text')
@@ -1418,17 +1853,17 @@ export function Tapestry({
       // Hover behavior for monochromatic nodes
       nodeGroup
         .on('mouseenter', function() {
-          if (selectedNode !== node.id) {
-            d3.select(this).select('.node-header').attr('fill', accentColor);
-            d3.select(this).select('.node-header-bottom').attr('fill', accentColor);
+          if (!selectedNodes.has(node.id)) {
+            d3.select(this).select('.node-header').attr('fill', 'hsl(var(--primary))');
+            d3.select(this).select('.node-header-bottom').attr('fill', 'hsl(var(--primary))');
             d3.select(this).select('.node-type-icon').attr('fill', 'white');
             d3.select(this).select('.node-title').attr('fill', 'white');
             d3.select(this).select('.time-icon').attr('fill', 'white');
-            d3.select(this).select('.node-bg').attr('stroke', accentColor);
+            d3.select(this).select('.node-bg').attr('stroke', 'hsl(var(--primary))');
           }
         })
         .on('mouseleave', function() {
-          if (selectedNode !== node.id) {
+          if (!selectedNodes.has(node.id)) {
             d3.select(this).select('.node-header').attr('fill', mutedHeaderColor);
             d3.select(this).select('.node-header-bottom').attr('fill', mutedHeaderColor);
             d3.select(this).select('.node-type-icon').attr('fill', 'hsl(var(--muted-foreground))');
@@ -1515,7 +1950,7 @@ export function Tapestry({
         .attr('cx', 0)
         .attr('cy', nodeHeight / 2)
         .attr('r', 6)
-        .attr('fill', accentColor)
+        .attr('fill', 'hsl(var(--primary))')
         .attr('stroke', 'hsl(var(--background))')
         .attr('stroke-width', 2);
 
@@ -1525,7 +1960,7 @@ export function Tapestry({
         .attr('cx', nodeWidth)
         .attr('cy', nodeHeight / 2)
         .attr('r', 6)
-        .attr('fill', accentColor)
+        .attr('fill', 'hsl(var(--primary))')
         .attr('stroke', 'hsl(var(--background))')
         .attr('stroke-width', 2);
       } // End else (standard node rendering)
@@ -1566,12 +2001,33 @@ export function Tapestry({
           setIsConnecting(false);
           setConnectingFrom(null);
         } else {
-          setSelectedNode(node.id);
-          // Open profile panel for character nodes
-          if (node.type === 'character') {
-            setProfileCharacter(node);
-          } else if (node.sceneId && onSceneClick) {
-            onSceneClick(node.sceneId);
+          // Shift+click adds to selection, regular click replaces selection
+          if (event.shiftKey) {
+            // Toggle this node in selection
+            setSelectedNodes(prev => {
+              const newSet = new Set(prev);
+              if (newSet.has(node.id)) {
+                newSet.delete(node.id);
+              } else {
+                newSet.add(node.id);
+              }
+              return newSet;
+            });
+            // Don't change profile panel on shift+click
+          } else {
+            // Regular click - toggle single selection
+            if (selectedNodes.has(node.id) && selectedNodes.size === 1) {
+              setSelectedNodes(new Set());
+              setProfileCharacter(null);
+            } else {
+              setSelectedNodes(new Set([node.id]));
+              // Open profile panel for character nodes
+              if (node.type === 'character') {
+                setProfileCharacter(node);
+              } else {
+                setProfileCharacter(null);
+              }
+            }
           }
         }
       });
@@ -1590,12 +2046,20 @@ export function Tapestry({
       nodeGroup.on('contextmenu', (event) => {
         event.preventDefault();
         event.stopPropagation();
+
+        // Preserve multi-selection if clicked node is part of it
+        const isPartOfSelection = selectedNodes.has(node.id) && selectedNodes.size > 1;
+
         setContextMenu({
           x: event.clientX,
           y: event.clientY,
           nodeId: node.id,
         });
-        setSelectedNode(node.id);
+
+        // Only change selection if clicked node wasn't already part of multi-selection
+        if (!isPartOfSelection) {
+          setSelectedNodes(new Set([node.id]));
+        }
       });
     });
 
@@ -1604,6 +2068,11 @@ export function Tapestry({
 
     state.groups.forEach(group => {
       const isCollapsed = group.collapsed || false;
+      const isAnimating = group.collapseProgress !== undefined;
+
+      // Skip overlay for collapsed or animating groups - the card has its own controls
+      if (isCollapsed || isAnimating) return;
+
       const childNodes = state.nodes.filter(n => n.groupId === group.id);
 
       // Calculate group position from child nodes
@@ -1625,12 +2094,12 @@ export function Tapestry({
         .attr('data-group-id', group.id)
         .attr('transform', `translate(${groupX}, ${groupY})`);
 
-      // Drag handle covering the header - slightly visible for affordance
+      // Drag handle covering the header - fully transparent
       const dragHandle = controlsG.append('rect')
         .attr('class', 'group-drag-handle')
         .attr('width', displayWidth)
         .attr('height', 32)
-        .attr('fill', 'rgba(255,255,255,0.01)')
+        .attr('fill', 'transparent')
         .attr('stroke', 'none')
         .attr('cursor', 'grab')
         .style('pointer-events', 'all');
@@ -1641,11 +2110,12 @@ export function Tapestry({
 
       const groupDragBehavior = d3.drag<SVGRectElement, unknown>()
         .container(function() { return container.node() as SVGGElement; })
+        .clickDistance(5)
         .on('start', function(event) {
           event.sourceEvent?.stopPropagation();
           d3.select(this).attr('cursor', 'grabbing');
           const groupEl = groupsGroup.select(`[data-group-id="${group.id}"]`);
-          groupEl.raise().attr('opacity', 0.85);
+          groupEl.raise().attr('opacity', 0.85).classed('dragging', true);
           // Store starting position
           dragStartX = groupX;
           dragStartY = groupY;
@@ -1737,7 +2207,7 @@ export function Tapestry({
         .on('end', function() {
           d3.select(this).attr('cursor', 'grab');
           const groupEl = groupsGroup.select(`[data-group-id="${group.id}"]`);
-          groupEl.attr('opacity', 1);
+          groupEl.attr('opacity', 1).classed('dragging', false);
 
           // Calculate how much the group moved from original state positions
           const childNodes = state.nodes.filter(n => n.groupId === group.id);
@@ -1771,7 +2241,7 @@ export function Tapestry({
 
       dragHandle.call(groupDragBehavior);
 
-      // Collapse toggle (on top, clickable)
+      // Collapse toggle overlay
       controlsG.append('text')
         .attr('class', 'collapse-toggle-overlay')
         .attr('x', 14)
@@ -1780,40 +2250,32 @@ export function Tapestry({
         .attr('fill', 'hsl(var(--muted-foreground))')
         .attr('cursor', 'pointer')
         .attr('pointer-events', 'all')
-        .text(isCollapsed ? '▶' : '▼')
+        .text('▼')
         .on('click', (event) => {
           event.stopPropagation();
-          setState(prev => {
-            const newState = {
-              ...prev,
-              groups: prev.groups.map(g =>
-                g.id === group.id ? { ...g, collapsed: !g.collapsed } : g
-              ),
-            };
-            saveState(newState);
-            return newState;
-          });
+          // Animate collapse (expanded -> collapsed)
+          animateCollapse(group.id, true);
         });
 
       // Delete button overlay
       const deleteG = controlsG.append('g')
         .attr('transform', `translate(${displayWidth - 24}, ${32 / 2})`)
-        .attr('cursor', 'pointer')
-        .attr('opacity', 0.4)
-        .on('mouseenter', function() { d3.select(this).attr('opacity', 1); })
-        .on('mouseleave', function() { d3.select(this).attr('opacity', 0.4); })
-        .on('click', (event) => {
-          event.stopPropagation();
-          setState(prev => {
-            const newState = {
-              ...prev,
-              groups: prev.groups.filter(g => g.id !== group.id),
-              nodes: prev.nodes.map(n => n.groupId === group.id ? { ...n, groupId: undefined } : n),
-            };
-            saveState(newState);
-            return newState;
+          .attr('cursor', 'pointer')
+          .attr('opacity', 0.4)
+          .on('mouseenter', function() { d3.select(this).attr('opacity', 1); })
+          .on('mouseleave', function() { d3.select(this).attr('opacity', 0.4); })
+          .on('click', (event) => {
+            event.stopPropagation();
+            setState(prev => {
+              const newState = {
+                ...prev,
+                groups: prev.groups.filter(g => g.id !== group.id),
+                nodes: prev.nodes.map(n => n.groupId === group.id ? { ...n, groupId: undefined } : n),
+              };
+              saveState(newState);
+              return newState;
+            });
           });
-        });
 
       deleteG.append('circle')
         .attr('r', 10)
@@ -1828,22 +2290,105 @@ export function Tapestry({
         .text('×');
     });
 
-    // Click on canvas
-    svg.on('click', () => {
-      if (isConnecting) {
-        setIsConnecting(false);
-        setConnectingFrom(null);
+    // Marquee selection handlers
+    svg.on('mousedown', (event) => {
+      // Only left button, and only if not clicking on a node/group element
+      if (event.button !== 0) return;
+      const target = event.target as SVGElement;
+      // Check if we're clicking on the canvas background (not a node)
+      if (target.tagName === 'rect' && !target.closest('.tapestry-node') && !target.closest('.tapestry-group')) {
+        event.preventDefault();
+        const [mx, my] = d3.pointer(event, container.node());
+        marqueeRef.current = { start: { x: mx, y: my }, end: { x: mx, y: my } };
+        setIsMarqueeSelecting(true);
+        setMarqueeStart({ x: mx, y: my });
+        setMarqueeEnd({ x: mx, y: my });
       }
-      setSelectedNode(null);
+    });
+
+    svg.on('mousemove', (event) => {
+      if (!marqueeRef.current.start) return;
+      const [mx, my] = d3.pointer(event, container.node());
+      marqueeRef.current.end = { x: mx, y: my };
+      setMarqueeEnd({ x: mx, y: my });
+
+      // Update marquee rectangle
+      const start = marqueeRef.current.start;
+      const end = marqueeRef.current.end;
+      const x = Math.min(start.x, end.x);
+      const y = Math.min(start.y, end.y);
+      const w = Math.abs(end.x - start.x);
+      const h = Math.abs(end.y - start.y);
+
+      let marqueeRect = container.select<SVGRectElement>('.marquee-rect');
+      if (marqueeRect.empty()) {
+        marqueeRect = container.append('rect')
+          .attr('class', 'marquee-rect')
+          .attr('fill', 'hsl(var(--primary) / 0.1)')
+          .attr('stroke', 'hsl(var(--primary))')
+          .attr('stroke-width', 1)
+          .attr('stroke-dasharray', '4,4')
+          .attr('pointer-events', 'none');
+      }
+      marqueeRect
+        .attr('x', x)
+        .attr('y', y)
+        .attr('width', w)
+        .attr('height', h);
+    });
+
+    svg.on('mouseup', (event) => {
+      if (!marqueeRef.current.start) return;
+
+      const start = marqueeRef.current.start;
+      const end = marqueeRef.current.end;
+
+      // If marquee is too small, treat as click (clear selection)
+      const w = Math.abs((end?.x ?? start.x) - start.x);
+      const h = Math.abs((end?.y ?? start.y) - start.y);
+
+      if (w < 5 && h < 5) {
+        // Treat as simple click - clear selection
+        if (isConnecting) {
+          setIsConnecting(false);
+          setConnectingFrom(null);
+        }
+        setSelectedNodes(new Set());
+        setContextMenu(null);
+      } else {
+        // Select all nodes within marquee bounds
+        const selected = new Set<string>();
+        state.nodes.forEach(node => {
+          if (isNodeInMarquee(node, start, end)) {
+            selected.add(node.id);
+          }
+        });
+        setSelectedNodes(selected);
+      }
+
+      // Clear marquee state
+      marqueeRef.current = { start: null, end: null };
+      setIsMarqueeSelecting(false);
+      setMarqueeStart(null);
+      setMarqueeEnd(null);
+      container.select('.marquee-rect').remove();
+    });
+
+    // Right-click on canvas - prevent default to allow panning
+    svg.on('contextmenu', (event) => {
+      event.preventDefault();
       setContextMenu(null);
     });
 
     return () => {
       svg.on('.zoom', null);
-      svg.on('click', null);
+      svg.on('mousedown', null);
+      svg.on('mousemove', null);
+      svg.on('mouseup', null);
+      svg.on('contextmenu', null);
       svg.selectAll('*').remove();
     };
-  }, [state.nodes, state.connections, state.groups, dimensions, isConnecting, connectingFrom, selectedNode, saveState, onSceneClick, nodeMatchesFilters, layout, edgeBundles, highlightedEdges, hasAnyHighlight, showAllLines, hoveredNodeId, highlightedConnections, highlightedNodeIds]);
+  }, [state.nodes, state.connections, state.groups, dimensions, isConnecting, connectingFrom, selectedNodes, saveState, onSceneClick, nodeMatchesFilters, layout, edgeBundles, highlightedEdges, hasAnyHighlight, showAllLines, highlightedConnections, highlightedNodeIds]);
 
   // Add new node of specified type
   const handleAddNode = useCallback((type: TapestryNodeType) => {
@@ -1874,7 +2419,7 @@ export function Tapestry({
       saveState(newState);
       return newState;
     });
-    setSelectedNode(newNode.id);
+    setSelectedNodes(new Set([newNode.id]));
   }, [dimensions, saveState]);
 
   // Add new group
@@ -1897,6 +2442,42 @@ export function Tapestry({
       return newState;
     });
   }, [dimensions, saveState]);
+
+  // Group selected nodes together
+  const handleGroupSelected = useCallback(() => {
+    if (selectedNodes.size < 2) return;
+
+    // Get the selected nodes
+    const nodesToGroup = state.nodes.filter(n => selectedNodes.has(n.id));
+    if (nodesToGroup.length < 2) return;
+
+    // Calculate bounding box of selected nodes
+    const minX = Math.min(...nodesToGroup.map(n => n.x));
+    const minY = Math.min(...nodesToGroup.map(n => n.y));
+
+    // Create a new group at the bounding box position
+    const newGroup = createGroup({
+      x: minX - 20,
+      y: minY - 42,
+      title: 'New Group',
+    });
+
+    // Assign selected nodes to the new group
+    setState(prev => {
+      const newState = {
+        ...prev,
+        groups: [...prev.groups, newGroup],
+        nodes: prev.nodes.map(n =>
+          selectedNodes.has(n.id) ? { ...n, groupId: newGroup.id } : n
+        ),
+      };
+      saveState(newState);
+      return newState;
+    });
+
+    // Clear selection after grouping
+    setSelectedNodes(new Set());
+  }, [selectedNodes, state.nodes, saveState]);
 
   // Auto-cluster nodes using D3 force simulation
   const handleAutoCluster = useCallback(() => {
@@ -2038,29 +2619,30 @@ export function Tapestry({
     setShowAllLines(prev => !prev);
   }, []);
 
-  // Start connecting
+  // Start connecting (uses first selected node)
   const handleStartConnect = useCallback(() => {
-    if (selectedNode) {
+    if (selectedNodes.size > 0) {
+      const firstSelected = Array.from(selectedNodes)[0];
       setIsConnecting(true);
-      setConnectingFrom(selectedNode);
+      setConnectingFrom(firstSelected);
     }
-  }, [selectedNode]);
+  }, [selectedNodes]);
 
-  // Delete selected node
+  // Delete selected nodes
   const handleDeleteNote = useCallback(() => {
-    if (!selectedNode) return;
+    if (selectedNodes.size === 0) return;
 
     setState(prev => {
       const newState = {
         ...prev,
-        nodes: prev.nodes.filter(n => n.id !== selectedNode),
-        connections: prev.connections.filter(c => c.sourceId !== selectedNode && c.targetId !== selectedNode),
+        nodes: prev.nodes.filter(n => !selectedNodes.has(n.id)),
+        connections: prev.connections.filter(c => !selectedNodes.has(c.sourceId) && !selectedNodes.has(c.targetId)),
       };
       saveState(newState);
       return newState;
     });
-    setSelectedNode(null);
-  }, [selectedNode, saveState]);
+    setSelectedNodes(new Set());
+  }, [selectedNodes, saveState]);
 
   // Save edited node
   const handleSaveNote = useCallback((updatedNode: TapestryNode) => {
@@ -2085,7 +2667,7 @@ export function Tapestry({
       saveState(newState);
       return newState;
     });
-    setSelectedNode(null);
+    setSelectedNodes(new Set());
     setEditingNode(null);
   }, [saveState]);
 
@@ -2144,11 +2726,13 @@ export function Tapestry({
           onZoomOut={handleZoomOut}
           onFitView={handleFitView}
           onResetLayout={handleResetLayout}
-          onAutoCluster={handleAutoCluster}
-          onBarycenterSort={handleBarycenterSort}
           onToggleLines={handleToggleLines}
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
           showAllLines={showAllLines}
-          hasSelectedNode={!!selectedNode}
+          hasSelectedNode={selectedNodes.size > 0}
           isConnecting={isConnecting}
           filters={filters}
           onFiltersChange={setFilters}
@@ -2220,6 +2804,21 @@ export function Tapestry({
             Click another node to connect, or click canvas to cancel
           </div>
         )}
+
+        {/* Character Profile Panel - inside container for proper clipping */}
+        {profileCharacter && (
+          <CharacterProfilePanel
+            character={profileCharacter}
+            connections={state.connections}
+            allNodes={state.nodes}
+            onClose={() => setProfileCharacter(null)}
+            onUpdate={(updated) => {
+              handleSaveNote(updated);
+              setProfileCharacter(updated);
+            }}
+            onNavigateToScene={onSceneClick}
+          />
+        )}
       </div>
 
       {/* Node Editor Dialog */}
@@ -2231,21 +2830,6 @@ export function Tapestry({
         onDelete={handleDeleteNoteFromDialog}
       />
 
-      {/* Character Profile Panel */}
-      {profileCharacter && (
-        <CharacterProfilePanel
-          character={profileCharacter}
-          connections={state.connections}
-          allNodes={state.nodes}
-          onClose={() => setProfileCharacter(null)}
-          onUpdate={(updated) => {
-            handleSaveNote(updated);
-            setProfileCharacter(updated);
-          }}
-          onNavigateToScene={onSceneClick}
-        />
-      )}
-
       {/* Context Menu */}
       {contextMenu && (
         <ContextMenu
@@ -2254,6 +2838,18 @@ export function Tapestry({
           items={
             contextMenu.nodeId
               ? [
+                  // Group Selected option (only when multiple nodes selected)
+                  ...(selectedNodes.size >= 2
+                    ? [
+                        {
+                          label: `Group Selected (${selectedNodes.size})`,
+                          action: () => {
+                            handleGroupSelected();
+                          },
+                        },
+                        { label: '', action: () => {}, separator: true },
+                      ]
+                    : []),
                   {
                     label: 'Edit',
                     action: () => {
@@ -2265,7 +2861,7 @@ export function Tapestry({
                     label: 'Connect',
                     action: () => {
                       if (contextMenu.nodeId) {
-                        setSelectedNode(contextMenu.nodeId);
+                        setSelectedNodes(new Set([contextMenu.nodeId]));
                         setIsConnecting(true);
                         setConnectingFrom(contextMenu.nodeId);
                       }
@@ -2288,7 +2884,7 @@ export function Tapestry({
                           saveState(newState);
                           return newState;
                         });
-                        setSelectedNode(null);
+                        setSelectedNodes(new Set());
                       }
                     },
                     destructive: true,
@@ -2322,16 +2918,10 @@ export function Tapestry({
                         ? 'Expand'
                         : 'Collapse',
                       action: () => {
-                        setState(prev => {
-                          const newState = {
-                            ...prev,
-                            groups: prev.groups.map(g =>
-                              g.id === contextMenu.groupId ? { ...g, collapsed: !g.collapsed } : g
-                            ),
-                          };
-                          saveState(newState);
-                          return newState;
-                        });
+                        if (contextMenu.groupId) {
+                          const grp = state.groups.find(g => g.id === contextMenu.groupId);
+                          animateCollapse(contextMenu.groupId, !grp?.collapsed);
+                        }
                       },
                     },
                     { label: '', action: () => {}, separator: true },

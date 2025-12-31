@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Filter, Search, X } from 'lucide-react';
 import { TapestryNodeType, NODE_TYPE_COLORS } from '@/types/tapestry';
 import { cn } from '@/lib/utils';
+import { toolbarStyles, getToolbarButtonClasses } from '@/components/editor/toolbar-styles';
 
 export interface TapestryFilters {
   types: TapestryNodeType[];
@@ -71,17 +72,17 @@ export function FilterPanel({
     <div className="flex items-center gap-1">
       {/* Search input */}
       <div className="relative">
-        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
         <Input
           value={filters.search}
           onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
           placeholder="Search..."
-          className="h-8 w-32 pl-7 pr-7 text-sm"
+          className="h-8 w-36 pl-8 pr-8 text-xs bg-sidebar border-border/50 rounded-lg"
         />
         {filters.search && (
           <button
             onClick={() => onFiltersChange({ ...filters, search: '' })}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -91,23 +92,21 @@ export function FilterPanel({
       {/* Filter popover */}
       <Popover open={isOpen} onOpenChange={setIsOpen}>
         <PopoverTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             className={cn(
-              'h-8 w-8 p-0 relative',
-              activeFilterCount > 0 && 'text-primary'
+              getToolbarButtonClasses(activeFilterCount > 0, false),
+              'relative'
             )}
           >
-            <Filter className="h-4 w-4" />
+            <Filter className="h-5 w-5" />
             {activeFilterCount > 0 && (
-              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center">
+              <span className={cn(toolbarStyles.badge.base, toolbarStyles.badge.size, toolbarStyles.badge.style)}>
                 {activeFilterCount}
               </span>
             )}
-          </Button>
+          </button>
         </PopoverTrigger>
-        <PopoverContent className="w-64 p-3" align="start">
+        <PopoverContent className="w-64 p-3 rounded-2xl" align="start">
           <div className="space-y-4">
             {/* Node types */}
             <div className="space-y-2">

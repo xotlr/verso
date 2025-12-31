@@ -30,27 +30,32 @@
    ============================================================================ */
 
 .polaroid-node {
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
-  transition: transform 0.2s ease, filter 0.2s ease;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  transition: filter 0.15s ease;
 }
 
 .polaroid-node:hover {
-  transform: scale(1.02);
-  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.2));
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
 }
 
 .polaroid-node.selected {
-  filter: drop-shadow(0 0 12px hsl(var(--primary) / 0.6));
+  filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.5));
 }
 
-/* Polaroid frame styling */
+/* Polaroid frame styling - theme aware */
 .polaroid-frame {
-  fill: white;
+  fill: hsl(var(--card));
   stroke: hsl(var(--border));
   stroke-width: 1;
+  transition: stroke 0.15s ease, stroke-width 0.15s ease;
 }
 
-/* Portrait area */
+.polaroid-node:hover .polaroid-frame {
+  stroke: hsl(var(--primary));
+  stroke-width: 2;
+}
+
+/* Portrait area - theme aware */
 .polaroid-portrait {
   fill: hsl(var(--muted));
 }
@@ -103,46 +108,28 @@
    Edge/Connection Styling
    ============================================================================ */
 
-/* Connection path styling - 30% opacity by default for new bundled mode */
+/* Connection path styling - subtle by default */
 .connection-path {
   stroke-linecap: round;
   stroke-linejoin: round;
   fill: none;
-  opacity: 0.3;
-  transition: opacity 0.2s ease, stroke-width 0.15s ease, stroke 0.2s ease, filter 0.2s ease;
+  opacity: 0.15;
+  transition: opacity 0.2s ease, stroke-width 0.15s ease, stroke 0.2s ease;
   pointer-events: stroke;
 }
 
 /* Legacy connection styling for non-bundled mode */
 .connection .connection-path {
-  opacity: 0.12;
+  opacity: 0.08;
 }
 
 .connection-path:hover {
-  opacity: 1;
-  filter: drop-shadow(0 0 6px var(--connection-accent-color, currentColor));
+  opacity: 0.6;
 }
 
 /* Highlighted edge state */
 .connection-path.highlighted {
-  opacity: 1;
-  filter: drop-shadow(0 0 4px var(--connection-accent-color, currentColor));
-}
-
-/* Pulse animation for highlighted edges on hover */
-@keyframes edge-pulse {
-  0%, 100% {
-    opacity: 1;
-    filter: drop-shadow(0 0 4px var(--connection-accent-color, currentColor));
-  }
-  50% {
-    opacity: 0.8;
-    filter: drop-shadow(0 0 8px var(--connection-accent-color, currentColor));
-  }
-}
-
-.connection-path.highlighted:hover {
-  animation: edge-pulse 1.5s ease-in-out infinite;
+  opacity: 0.5;
 }
 
 /* Edge bundle group styling */
@@ -164,6 +151,23 @@
 /* Node styling */
 .tapestry-node {
   transition: transform 0.1s ease;
+}
+
+/* Node background - smooth stroke transitions */
+.node-bg {
+  transition: stroke 0.15s ease, stroke-width 0.15s ease, filter 0.15s ease;
+}
+
+/* Node header elements - smooth fill transitions */
+.node-header,
+.node-header-bottom {
+  transition: fill 0.15s ease;
+}
+
+.node-type-icon,
+.node-title,
+.time-icon {
+  transition: fill 0.15s ease;
 }
 
 .tapestry-node:hover .node-bg {
@@ -194,11 +198,45 @@
 
 /* Group container styling */
 .tapestry-group {
-  transition: opacity 0.15s ease;
+  transition: opacity 0.2s ease;
+}
+
+/* Dragging state - immediate response */
+.tapestry-group.dragging {
+  transition: none !important;
+}
+
+/* Stacked cards - no CSS transition, spring physics handles all transforms */
+.stacked-card {
+  transition: opacity 0.2s ease;
 }
 
 .tapestry-group:hover {
   opacity: 1 !important;
+}
+
+/* Group body - smooth transitions for collapse/expand feel */
+.group-body {
+  transition: all 0.3s ease;
+}
+
+/* Group header - subtle hover effect */
+.group-header {
+  transition: fill 0.15s ease;
+}
+
+/* Collapse toggle arrow */
+.collapse-toggle {
+  transform-origin: center center;
+}
+
+/* Fanned card preview - subtle shadow and scale on group hover */
+.fanned-card {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.tapestry-group:hover .fanned-card {
+  transform: translateY(-1px);
 }
 
 /* Empty state animation */
@@ -218,21 +256,25 @@
 }
 
 /* ============================================================================
-   Scene Node Hover Effects
+   Standard Node Hover Effects (scene, location, item, note)
    ============================================================================ */
 
-/* Primary border on scene hover */
-.tapestry-node.scene-node:hover .node-bg {
+/* Primary border on hover for all standard node types */
+.tapestry-node.scene-node:hover .node-bg,
+.tapestry-node.location-node:hover .node-bg,
+.tapestry-node.item-node:hover .node-bg,
+.tapestry-node.note-node:hover .node-bg {
   stroke: hsl(var(--primary));
   stroke-width: 2;
-  filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.4));
 }
 
-/* Scene highlighted when connected character is hovered */
-.tapestry-node.scene-highlighted .node-bg {
+/* Node highlighted when connected character is hovered */
+.tapestry-node.scene-highlighted .node-bg,
+.tapestry-node.location-highlighted .node-bg,
+.tapestry-node.item-highlighted .node-bg,
+.tapestry-node.note-highlighted .node-bg {
   stroke: hsl(var(--primary));
   stroke-width: 2;
-  filter: drop-shadow(0 0 8px hsl(var(--primary) / 0.4));
 }
 
 /* ============================================================================
@@ -292,8 +334,8 @@
   }
 
   .connection-path {
-    stroke-width: 4;
-    opacity: 0.6;
+    stroke-width: 2;
+    opacity: 0.3;
   }
 
   .sidebar-entity {
