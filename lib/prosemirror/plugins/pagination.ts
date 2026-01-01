@@ -733,7 +733,8 @@ export function createPaginationPlugin(): Plugin {
           return {
             ...prevState,
             pageBreaks: mappedBreaks,
-            wasmResult: null,
+            // Keep wasmResult for height quantization - only page breaks are stale
+            // Clearing this caused visual "breathing" as elements lost their heights
             source: 'stale',
           };
         }
