@@ -73,10 +73,10 @@ export function createSmartClickPlugin() {
         const isTextblock = $pos.parent.isTextblock;
 
         if (isTextblock) {
-          // Check if the block contains placeholder text that should be fully selected
           const parentNode = $pos.parent;
           const textContent = parentNode.textContent;
 
+          // Check if the block contains placeholder text that should be fully selected
           if (isPlaceholderText(textContent)) {
             // Select the entire placeholder text for easy replacement
             const start = $pos.before() + 1; // Start of text content

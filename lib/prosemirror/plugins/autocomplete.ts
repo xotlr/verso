@@ -1,5 +1,6 @@
 import { Plugin, PluginKey, EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
+import { canMakeDualDialogue } from '../commands/dual-dialogue';
 
 export const autocompletePluginKey = new PluginKey('autocomplete');
 
@@ -170,7 +171,8 @@ function getSuggestions(
   context: AutocompleteContext,
   query: string,
   characters: string[] = [],
-  locations: string[] = []
+  locations: string[] = [],
+  state?: EditorState
 ): AutocompleteSuggestion[] {
   const lowerQuery = query.toLowerCase();
 
@@ -195,15 +197,41 @@ function getSuggestions(
           category: 'location' as const,
         }));
 
-    case 'character':
-      return characters
-        .filter((char) => char.toLowerCase().startsWith(lowerQuery))
-        .slice(0, 5)
-        .map((char) => ({
-          label: char,
-          value: char,
-          category: 'character' as const,
-        }));
+    case 'character': {
+      const suggestions: AutocompleteSuggestion[] = [];
+
+      // Only check dual dialogue when user types ^ (avoids O(n) traversal on every keystroke)
+      if (state && query.includes('^')) {
+        // Only do the expensive check when user has actually typed ^
+        if (canMakeDualDialogue(state)) {
+          const charName = query.replace(/\s*\^\s*$/, '').trim();
+          if (charName) {
+            suggestions.push({
+              label: `${charName.toUpperCase()} ^`,
+              value: `${charName.toUpperCase()} ^`,
+              category: 'character' as const,
+              description: 'Dual dialogue with previous',
+            });
+          }
+        }
+      }
+
+      // Add regular character suggestions (skip if query is just ^)
+      if (!query.endsWith('^')) {
+        suggestions.push(
+          ...characters
+            .filter((char) => char.toLowerCase().startsWith(lowerQuery))
+            .slice(0, 5)
+            .map((char) => ({
+              label: char,
+              value: char,
+              category: 'character' as const,
+            }))
+        );
+      }
+
+      return suggestions;
+    }
 
     case 'transition':
       return TRANSITIONS.filter((s) =>
@@ -263,7 +291,7 @@ export function createAutocompletePlugin(options: AutocompletePluginOptions = {}
         }
 
         // Get suggestions
-        const suggestions = getSuggestions(context, query, characters, locations);
+        const suggestions = getSuggestions(context, query, characters, locations, newState);
 
         // No suggestions
         if (suggestions.length === 0) {

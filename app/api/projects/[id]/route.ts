@@ -78,7 +78,12 @@ export async function GET(request: Request, { params }: RouteParams) {
           select: {
             id: true,
             title: true,
+            logline: true,
             synopsis: true,
+            wordCount: true,
+            genre: true,
+            isFavorite: true,
+            type: true,
             createdAt: true,
             updatedAt: true,
           },

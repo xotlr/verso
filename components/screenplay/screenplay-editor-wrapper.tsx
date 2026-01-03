@@ -55,6 +55,10 @@ const ShotEditor = dynamic(
   () => import("@/components/shotlist/shot-editor").then(m => ({ default: m.ShotEditor })),
   { ssr: false }
 );
+const ExportDialog = dynamic(
+  () => import("@/components/export-dialog").then(m => ({ default: m.ExportDialog })),
+  { ssr: false }
+);
 
 interface ScreenplayEditorWrapperProps {
   projectId: string; // Actually screenplayId - keeping prop name for compatibility
@@ -84,6 +88,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   const [sceneWorkspaceScene, setSceneWorkspaceScene] = useState<Scene | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [compareTwoVersions, setCompareTwoVersions] = useState<{from: ScreenplayVersion, to: ScreenplayVersion} | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [sceneInfos, setSceneInfos] = useState<SceneInfo[]>([]);
@@ -279,6 +284,16 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
 
     window.addEventListener('editor-open-share', handleOpenShare);
     return () => window.removeEventListener('editor-open-share', handleOpenShare);
+  }, []);
+
+  // Listen for export dialog open events from command palette
+  useEffect(() => {
+    const handleOpenExport = () => {
+      setIsExportDialogOpen(true);
+    };
+
+    window.addEventListener('editor-open-export', handleOpenExport);
+    return () => window.removeEventListener('editor-open-export', handleOpenExport);
   }, []);
 
   // Listen for timelapse open events from header
@@ -501,6 +516,16 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           updatedAt: new Date(),
         } : null)}
         onSave={handleSaveShot}
+      />
+      <ExportDialog
+        isOpen={isExportDialogOpen}
+        onClose={() => setIsExportDialogOpen(false)}
+        title={persistence.screenplayTitle}
+        author={session?.user?.name || ''}
+        content={persistence.screenplayText}
+        scenes={persistence.scenes}
+        sceneNumbering={{ enabled: false, startNumber: 1, side: 'both' }}
+        revisionColor="white"
       />
       </div>
   );

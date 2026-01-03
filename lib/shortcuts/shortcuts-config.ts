@@ -27,6 +27,7 @@ export type ShortcutId =
   | 'setFlashback'
   | 'setMontage'
   | 'setIntercut'
+  | 'setDualDialogue'
   // Element cycling
   | 'cycleElementNext'
   | 'cycleElementPrev'
@@ -96,6 +97,7 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, ShortcutDefinition> = {
   setFlashback: shortcut('setFlashback', ['Mod', 'Shift', 'F'], 'Flashback', 'elements'),
   setMontage: shortcut('setMontage', ['Mod', 'Shift', 'M'], 'Montage', 'elements'),
   setIntercut: shortcut('setIntercut', ['Mod', 'Shift', 'I'], 'Intercut', 'elements'),
+  setDualDialogue: shortcut('setDualDialogue', ['Mod', 'Shift', 'D'], 'Dual dialogue', 'elements'),
 
   // Element cycling - these are core to the editor flow and not editable
   cycleElementNext: shortcut('cycleElementNext', ['Tab'], 'Cycle through element types', 'elements', false),

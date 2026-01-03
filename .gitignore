@@ -57,5 +57,5 @@ ARCHITECTURE.md
 # Rust build artifacts
 verso-engine/target/
 
-# Dev test screenplay (private IP)
-public/docs/LYRA.md
+# Personal screenplays (keep out of repo)
+/private/

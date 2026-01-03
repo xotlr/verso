@@ -59,10 +59,10 @@ export function AppearanceSection({
             onSelect={setThemePreset}
           />
 
-          {/* Writer Themes */}
+          {/* Premium Themes */}
           <ThemeGroup
-            label="Writer"
-            presets={['typewriter', 'screenplay-classic', 'sepia', 'midnight', 'studio', 'belle-epoque', 'faerun']}
+            label="Premium"
+            presets={['mission-control', 'cyberpunk', 'typewriter', 'screenplay-classic', 'sepia', 'midnight', 'studio', 'belle-epoque', 'faerun']}
             currentPreset={settings.themePreset}
             onSelect={setThemePreset}
           />
@@ -92,6 +92,11 @@ export function AppearanceSection({
                   <SelectItem value="geist">Geist</SelectItem>
                   <SelectItem value="ibm-plex">IBM Plex Sans</SelectItem>
                   <SelectItem value="plus-jakarta">Plus Jakarta Sans</SelectItem>
+                  <SelectItem value="space-grotesk">Space Grotesk</SelectItem>
+                  <SelectItem value="dot-gothic">DotGothic16</SelectItem>
+                  <SelectItem value="audiowide">Audiowide</SelectItem>
+                  <SelectItem value="oxanium">Oxanium</SelectItem>
+                  <SelectItem value="chakra-petch">Chakra Petch</SelectItem>
                 </SelectContent>
               </Select>
             </div>

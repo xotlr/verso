@@ -132,6 +132,7 @@ export function plainTextToProseMirror(text: string): ProseMirrorNode {
 
     // Create title_page node if we found any cover page data
     if (coverPage.title || coverPage.author || coverPage.logline) {
+      const draftText = `Draft\n${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
       content.push({
         type: 'title_page',
         content: [
@@ -146,6 +147,12 @@ export function plainTextToProseMirror(text: string): ProseMirrorNode {
           {
             type: 'title_page_logline',
             content: coverPage.logline ? [{ type: 'text', text: coverPage.logline }] : undefined,
+          },
+          { type: 'title_page_contact' },
+          { type: 'title_page_copyright' },
+          {
+            type: 'title_page_draft',
+            content: [{ type: 'text', text: draftText }],
           },
         ],
       });
@@ -404,6 +411,7 @@ export function serializeForStorage(doc: ProseMirrorNode): string {
 /**
  * Deserialize content from database to ProseMirror document.
  * Handles both JSON and plain text formats.
+ * Normalizes document to ensure minimum structure (all 6 title page fields).
  */
 export function deserializeFromStorage(content: string | null | undefined): ProseMirrorNode {
   if (!content || !content.trim()) {
@@ -415,14 +423,109 @@ export function deserializeFromStorage(content: string | null | undefined): Pros
   if (isProseMirrorContent(content)) {
     try {
       const parsed = JSON.parse(content) as SerializedScreenplay;
-      return screenplaySchema.nodeFromJSON(parsed.content);
+      // Normalize JSON BEFORE passing to schema (schema now requires all 6 title page fields)
+      const normalizedJson = normalizeDocumentJson(parsed.content);
+      return screenplaySchema.nodeFromJSON(normalizedJson);
     } catch (error) {
       console.error('Failed to parse ProseMirror JSON, falling back to plain text:', error);
     }
   }
 
-  // Treat as plain text and convert
+  // Treat as plain text and convert (normalization happens inside)
   return plainTextToProseMirror(content);
+}
+
+/**
+ * Check if a title page field node is empty (no content or empty text).
+ */
+function isFieldEmpty(field: ProseMirrorJSON): boolean {
+  if (!field.content) return true;
+  if (field.content.length === 0) return true;
+  // Check if all text content is empty
+  return field.content.every((child: ProseMirrorJSON) => !child.text?.trim());
+}
+
+/**
+ * Normalize document JSON to ensure minimum required structure:
+ * - Title page with all 6 fields
+ * - At least one content block after title page
+ * - Draft field auto-populated with current date if empty
+ *
+ * Works on raw JSON before schema validation to handle legacy documents.
+ */
+function normalizeDocumentJson(json: ProseMirrorJSON): ProseMirrorJSON {
+  const content = json.content || [];
+
+  // Check for title page
+  const firstNode = content[0];
+  const hasTitlePage = firstNode?.type === 'title_page';
+
+  if (!hasTitlePage) {
+    // Insert title page at beginning with auto-populated draft
+    const draftText = `Draft\n${formatDraftDate()}`;
+    content.unshift({
+      type: 'title_page',
+      content: [
+        { type: 'title_page_title' },
+        { type: 'title_page_author' },
+        { type: 'title_page_logline' },
+        { type: 'title_page_contact' },
+        { type: 'title_page_copyright' },
+        {
+          type: 'title_page_draft',
+          content: [{ type: 'text', text: draftText }],
+        },
+      ],
+    });
+  } else {
+    // Title page exists - ensure all 6 fields are present
+    const titlePageContent = firstNode.content || [];
+    const requiredFields = [
+      'title_page_title',
+      'title_page_author',
+      'title_page_logline',
+      'title_page_contact',
+      'title_page_copyright',
+      'title_page_draft',
+    ];
+
+    const existingFields = new Set(titlePageContent.map((n: ProseMirrorJSON) => n.type));
+    const missingFields = requiredFields.filter((f) => !existingFields.has(f));
+
+    if (missingFields.length > 0) {
+      // Add missing fields at the end
+      for (const fieldType of missingFields) {
+        if (fieldType === 'title_page_draft') {
+          // Auto-populate draft with current date
+          const draftText = `Draft\n${formatDraftDate()}`;
+          titlePageContent.push({
+            type: fieldType,
+            content: [{ type: 'text', text: draftText }],
+          });
+        } else {
+          titlePageContent.push({ type: fieldType });
+        }
+      }
+      firstNode.content = titlePageContent;
+    }
+
+    // Check if draft field exists but is empty - populate with current date
+    const draftField = titlePageContent.find((n: ProseMirrorJSON) => n.type === 'title_page_draft');
+    if (draftField && isFieldEmpty(draftField)) {
+      const draftText = `Draft\n${formatDraftDate()}`;
+      draftField.content = [{ type: 'text', text: draftText }];
+    }
+  }
+
+  // Check for content after title page
+  const contentStartIndex = content[0]?.type === 'title_page' ? 1 : 0;
+  if (content.length <= contentStartIndex) {
+    // No content block - add action as starter
+    content.push({ type: 'action' });
+  }
+
+  json.content = content;
+  return json;
 }
 
 /**
@@ -436,35 +539,42 @@ export function createEmptyDocument(): ProseMirrorNode {
 }
 
 /**
+ * Format current date for draft field (e.g., "January 2026")
+ */
+function formatDraftDate(): string {
+  return new Date().toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+/**
  * Create a document with title page and scene heading starter.
- * Uses empty nodes - CSS placeholders show ghost text.
+ * Draft field is auto-populated with current date.
  */
 export function createStarterDocument(): ProseMirrorNode {
+  const draftText = `Draft\n${formatDraftDate()}`;
+
   return screenplaySchema.nodeFromJSON({
     type: 'doc',
     content: [
       {
         type: 'title_page',
         content: [
-          { type: 'title_page_title' },    // Empty - CSS shows "UNTITLED"
-          { type: 'title_page_author' },   // Empty - CSS shows "Written by..."
-          { type: 'title_page_logline' },  // Empty - CSS shows "Logline (optional)"
+          { type: 'title_page_title' },     // Empty - placeholder shows "Title"
+          { type: 'title_page_author' },    // Empty - placeholder shows "Written by"
+          { type: 'title_page_logline' },   // Empty - placeholder shows "Logline"
+          { type: 'title_page_contact' },   // Empty - placeholder shows "Contact"
+          { type: 'title_page_copyright' }, // Empty - hidden by default
+          {
+            type: 'title_page_draft',
+            content: [{ type: 'text', text: draftText }],
+          },
         ],
       },
       {
-        type: 'scene_heading',
-        attrs: {
-          id: 'scene-1',
-          type: 'INT',
-          location: '',
-          timeOfDay: 'DAY',
-          sceneNumber: null,
-        },
-        // Empty - CSS placeholder shows "INT./EXT. LOCATION - TIME"
-      },
-      {
         type: 'action',
-        // Empty - CSS placeholder shows "Describe what happens..."
+        // Empty - CSS placeholder shows hint text
       },
     ],
   });

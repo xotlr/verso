@@ -180,6 +180,22 @@ function createSceneNumberDecorations(
         });
         decorations.push(rightWidget);
       }
+
+      // For empty scene headings, add a content anchor widget
+      // This provides a text node for the cursor to anchor to,
+      // ensuring the caret renders in the content area, not the gutter
+      if (node.content.size === 0) {
+        const anchorWidget = Decoration.widget(offset + 1, () => {
+          const span = document.createElement('span');
+          span.className = 'pm-content-anchor';
+          span.textContent = '\u200B'; // Zero-width space
+          return span;
+        }, {
+          side: 0,  // Position at content location (between left and right numbers)
+          key: `content-anchor-${offset}`
+        });
+        decorations.push(anchorWidget);
+      }
     }
   });
 

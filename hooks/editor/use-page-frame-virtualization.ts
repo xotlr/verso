@@ -11,7 +11,7 @@ export interface UsePageFrameVirtualizationOptions {
   scale: number;
   /** Reference to scroll container element */
   scrollContainerRef: React.RefObject<HTMLElement | null>;
-  /** Buffer pages above/below viewport (default: 3) */
+  /** Buffer pages above/below viewport (default: 5) */
   bufferPages?: number;
   /** Minimum frames to enable virtualization (default: 10) */
   minFramesForVirtualization?: number;
@@ -35,7 +35,7 @@ export interface UsePageFrameVirtualizationReturn {
  * This dramatically improves performance for 300+ page scripts.
  *
  * Key calculations:
- * - Scroll position is divided by scale to get document coordinates
+ * - Scroll container scrolls through scaled content, so scrollTop / scale = document position
  * - Each page occupies PAGE_HEIGHT_PX + PAGE_GAP_PX vertical space
  * - Buffer pages ensure smooth scrolling without visible pop-in
  */
@@ -43,50 +43,91 @@ export function usePageFrameVirtualization({
   totalFrames,
   scale,
   scrollContainerRef,
-  bufferPages = 3,
+  bufferPages = 5, // Increased buffer for safety margin
   minFramesForVirtualization = 10,
 }: UsePageFrameVirtualizationOptions): UsePageFrameVirtualizationReturn {
-  // Use Infinity as initial endIndex - will be clamped to totalFrames when returned
+  // Track scroll container availability for reactive updates
+  const [hasScrollContainer, setHasScrollContainer] = useState(false);
   const [visibleRange, setVisibleRange] = useState({ startIndex: 0, endIndex: Infinity });
   const rafIdRef = useRef<number | null>(null);
+  const prevTotalFramesRef = useRef(totalFrames);
 
-  // Total height of all pages (unscaled)
+  // Total height of all pages (unscaled) - N pages with N-1 gaps between them
   const pageWithGap = PAGE_HEIGHT_PX + PAGE_GAP_PX;
   const totalHeight = totalFrames > 0
     ? totalFrames * PAGE_HEIGHT_PX + (totalFrames - 1) * PAGE_GAP_PX
     : PAGE_HEIGHT_PX;
 
-  // Check if scroll container is available
-  const scrollContainer = scrollContainerRef.current;
-
   // Only virtualize when: enough frames AND scroll container is ready
-  const canVirtualize = totalFrames >= minFramesForVirtualization && scrollContainer !== null;
+  const canVirtualize = totalFrames >= minFramesForVirtualization && hasScrollContainer;
+
+  /**
+   * Find which page contains a given Y position in document coordinates.
+   * Page i starts at position i * pageWithGap.
+   */
+  const getPageAtPosition = useCallback((yPosition: number): number => {
+    if (yPosition <= 0 || totalFrames === 0) return 0;
+    // Each page starts at pageIndex * pageWithGap
+    // So the page at position y is floor(y / pageWithGap)
+    const page = Math.floor(yPosition / pageWithGap);
+    // Clamp to valid range
+    return Math.min(Math.max(0, page), totalFrames - 1);
+  }, [pageWithGap, totalFrames]);
 
   const calculateVisibleRange = useCallback(() => {
     const container = scrollContainerRef.current;
-    if (!container) {
-      return { startIndex: 0, endIndex: totalFrames };
+    if (!container || totalFrames === 0) {
+      return { startIndex: 0, endIndex: Math.max(1, totalFrames) };
     }
 
     const scrollTop = container.scrollTop;
     const viewportHeight = container.clientHeight;
 
-    // Convert viewport scroll position to document coordinates
-    // The content is scaled, so we need to adjust
+    // Convert scroll position to document coordinates
+    // When content is scaled, scrollTop is in scaled space
+    // To get document position: scrollTop / scale
     const documentScrollTop = scrollTop / scale;
     const documentViewportHeight = viewportHeight / scale;
 
-    // Calculate which pages are visible
-    // Each page occupies pageWithGap pixels (except last page has no gap after it)
-    const firstVisiblePage = Math.floor(documentScrollTop / pageWithGap);
-    const lastVisiblePage = Math.ceil((documentScrollTop + documentViewportHeight) / pageWithGap);
+    // Calculate which pages are visible in document space
+    const firstVisiblePage = getPageAtPosition(documentScrollTop);
+    const lastVisiblePage = getPageAtPosition(documentScrollTop + documentViewportHeight);
 
-    // Apply buffer for smooth scrolling
+    // Apply generous buffer for smooth scrolling
     const startIndex = Math.max(0, firstVisiblePage - bufferPages);
     const endIndex = Math.min(totalFrames, lastVisiblePage + bufferPages + 1);
 
+    // Safety: ensure we always return a valid range
+    if (endIndex <= startIndex) {
+      return { startIndex: 0, endIndex: totalFrames };
+    }
+
     return { startIndex, endIndex };
-  }, [scrollContainerRef, scale, totalFrames, pageWithGap, bufferPages]);
+  }, [scrollContainerRef, scale, totalFrames, bufferPages, getPageAtPosition]);
+
+  // Check for scroll container availability
+  useEffect(() => {
+    const checkContainer = () => {
+      const hasContainer = scrollContainerRef.current !== null;
+      setHasScrollContainer(hasContainer);
+    };
+
+    // Check immediately
+    checkContainer();
+
+    // Also check after a short delay (handles late ref assignment)
+    const timeoutId = setTimeout(checkContainer, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [scrollContainerRef]);
+
+  // Force recalculate when totalFrames changes significantly
+  useEffect(() => {
+    if (canVirtualize && prevTotalFramesRef.current !== totalFrames) {
+      prevTotalFramesRef.current = totalFrames;
+      setVisibleRange(calculateVisibleRange());
+    }
+  }, [totalFrames, canVirtualize, calculateVisibleRange]);
 
   // Update visible range on scroll with RAF throttling
   useEffect(() => {
@@ -156,9 +197,13 @@ export function usePageFrameVirtualization({
     };
   }
 
+  // Clamp visible range to valid bounds
+  const clampedStartIndex = Math.max(0, Math.min(visibleRange.startIndex, totalFrames - 1));
+  const clampedEndIndex = Math.min(Math.max(visibleRange.endIndex, clampedStartIndex + 1), totalFrames);
+
   return {
-    startIndex: visibleRange.startIndex,
-    endIndex: Math.min(visibleRange.endIndex, totalFrames), // Clamp to actual frame count
+    startIndex: clampedStartIndex,
+    endIndex: clampedEndIndex,
     totalHeight,
     isVirtualized: true,
   };

@@ -13,6 +13,27 @@ interface TabArrowState {
 }
 
 /**
+ * Title page child node types - these should not be affected by element switching
+ */
+const TITLE_PAGE_CHILD_TYPES = new Set([
+  'title_page',
+  'title_page_title',
+  'title_page_author',
+  'title_page_logline',
+  'title_page_contact',
+  'title_page_copyright',
+  'title_page_draft',
+]);
+
+/**
+ * Check if the current selection is within a title page element.
+ */
+function isInTitlePage(state: { selection: { $head: { parent: { type: { name: string } } } } }): boolean {
+  const { $head } = state.selection;
+  return TITLE_PAGE_CHILD_TYPES.has($head.parent.type.name);
+}
+
+/**
  * Get the element type of the current selection's parent block.
  */
 function getCurrentElementType(state: { selection: { $head: { parent: { type: { name: string } } } } }): ElementType {
@@ -31,9 +52,16 @@ function isCurrentBlockEmpty(state: { selection: { $head: { parent: { textConten
 /**
  * Change the current block to a different element type.
  * Applies a flash animation for visual feedback.
+ *
+ * Note: Does not apply in title page fields - those cannot be converted to screenplay elements.
  */
 function setElementType(type: ElementType): Command {
   return (state, dispatch, view) => {
+    // Skip element switching in title page fields
+    if (isInTitlePage(state)) {
+      return false;
+    }
+
     const nodeType = screenplaySchema.nodes[type];
     if (!nodeType) return false;
 
@@ -72,8 +100,15 @@ function setElementType(type: ElementType): Command {
  *
  * With selection: Extract selected text into a new block with next element type.
  * Without selection: Change current block's type.
+ *
+ * Note: Does not apply in title page fields - those use default Tab behavior.
  */
 const handleTab: Command = (state, dispatch, view) => {
+  // Skip element switching in title page fields
+  if (isInTitlePage(state)) {
+    return false;
+  }
+
   const { from, to, $head } = state.selection;
   const currentType = getCurrentElementType(state);
   const nextType = getNextElementType(currentType);
@@ -238,8 +273,15 @@ function mergeAdjacentBlocks(view: EditorView): void {
  * Shift+Tab command: Cycle to previous element type.
  * After changing type, merges with adjacent blocks of the same type
  * to restore document structure when undoing Tab extractions.
+ *
+ * Note: Does not apply in title page fields - those use default Shift+Tab behavior.
  */
 const handleShiftTab: Command = (state, dispatch, view) => {
+  // Skip element switching in title page fields
+  if (isInTitlePage(state)) {
+    return false;
+  }
+
   const currentType = getCurrentElementType(state);
   const prevType = getPreviousElementType(currentType);
 
@@ -300,8 +342,15 @@ function getNextElementTypeForContext(currentType: ElementType): ElementType {
  * - After Parenthetical → Create Dialogue
  * - After empty element → Convert to Action
  * - Otherwise → Create same element type
+ *
+ * Note: Does not apply in title page fields - those use default Enter behavior (line break).
  */
 const handleEnter: Command = (state, dispatch) => {
+  // Skip element switching in title page fields - let default behavior handle line breaks
+  if (isInTitlePage(state)) {
+    return false;
+  }
+
   const { $head, from, to } = state.selection;
   const currentType = getCurrentElementType(state);
   const isEmpty = isCurrentBlockEmpty(state);
@@ -392,8 +441,15 @@ const handleEnter: Command = (state, dispatch) => {
  * Shift+Enter command: Always create a new action line.
  * Unlike Enter, this ignores context and always creates an action block.
  * Supports mid-line cursor and selection - carries text after to new action.
+ *
+ * Note: Does not apply in title page fields - those use default Shift+Enter behavior.
  */
 const handleShiftEnter: Command = (state, dispatch) => {
+  // Skip element switching in title page fields
+  if (isInTitlePage(state)) {
+    return false;
+  }
+
   const { $head, from, to } = state.selection;
 
   if (!dispatch) return true;

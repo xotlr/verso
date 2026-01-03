@@ -40,6 +40,11 @@ import {
   toggleUnderline,
 } from '@/lib/prosemirror/plugins/keymap';
 import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
+import {
+  canMakeDualDialogue,
+  wrapInDualDialogue,
+  getPreviousCharacterName,
+} from '@/lib/prosemirror/commands/dual-dialogue';
 import { ElementType, ELEMENT_DISPLAY_NAMES } from '@/lib/prosemirror';
 
 interface EditorContextMenuProps {
@@ -150,6 +155,18 @@ export function EditorContextMenu({ view, children, onFindReplace }: EditorConte
     }
   }, [view]);
 
+  // Dual dialogue
+  const handleDualDialogue = useCallback(() => {
+    if (view) {
+      wrapInDualDialogue(view.state, view.dispatch, view);
+      view.focus();
+    }
+  }, [view]);
+
+  // Check if dual dialogue is available and get previous character name
+  const canMakeDual = view ? canMakeDualDialogue(view.state) : false;
+  const previousCharacter = view && canMakeDual ? getPreviousCharacterName(view.state) : null;
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -250,6 +267,20 @@ export function EditorContextMenu({ view, children, onFindReplace }: EditorConte
             ))}
           </ContextMenuSubContent>
         </ContextMenuSub>
+
+        {/* Dual Dialogue option - shows when applicable */}
+        {canMakeDual && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={handleDualDialogue}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              {previousCharacter
+                ? `Make Dual Dialogue with ${previousCharacter}`
+                : 'Make Dual Dialogue'}
+              <ContextMenuShortcut>⌘⇧D</ContextMenuShortcut>
+            </ContextMenuItem>
+          </>
+        )}
 
         {onFindReplace && (
           <>

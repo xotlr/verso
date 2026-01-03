@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunces, Plus_Jakarta_Sans, Bodoni_Moda, Plaster, Montserrat } from "next/font/google";
+import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunces, Plus_Jakarta_Sans, Bodoni_Moda, Plaster, Montserrat, Space_Grotesk, Space_Mono, DotGothic16, Audiowide, Oxanium, Chakra_Petch } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SettingsProvider } from "@/contexts/settings-context";
@@ -71,6 +71,42 @@ const plaster = Plaster({
 const montserrat = Montserrat({
   weight: ['400', '500', '600', '700', '800', '900'],
   variable: "--font-montserrat",
+  subsets: ["latin"],
+});
+
+const spaceGrotesk = Space_Grotesk({
+  weight: ['400', '500', '600', '700'],
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+});
+
+const spaceMono = Space_Mono({
+  weight: ['400', '700'],
+  variable: "--font-space-mono",
+  subsets: ["latin"],
+});
+
+const dotGothic16 = DotGothic16({
+  weight: '400',
+  variable: "--font-dot-gothic",
+  subsets: ["latin"],
+});
+
+const audiowide = Audiowide({
+  weight: '400',
+  variable: "--font-audiowide",
+  subsets: ["latin"],
+});
+
+const oxanium = Oxanium({
+  weight: ['400', '500', '600', '700'],
+  variable: "--font-oxanium",
+  subsets: ["latin"],
+});
+
+const chakraPetch = Chakra_Petch({
+  weight: ['400', '500', '600', '700'],
+  variable: "--font-chakra-petch",
   subsets: ["latin"],
 });
 
@@ -146,7 +182,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable} ${bodoniModa.variable} ${plaster.variable} ${montserrat.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable} ${bodoniModa.variable} ${plaster.variable} ${montserrat.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${dotGothic16.variable} ${audiowide.variable} ${oxanium.variable} ${chakraPetch.variable}`}
     >
       <body className="antialiased overflow-hidden h-screen">
         <WebVitals />

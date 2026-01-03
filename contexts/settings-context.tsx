@@ -77,6 +77,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const root = document.documentElement;
     const isDark = root.classList.contains('dark');
     const colors = isDark ? settings.visual.darkColors : settings.visual.lightColors;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // Apply color variables (convert camelCase to kebab-case)
     Object.entries(colors).forEach(([key, value]) => {
@@ -84,13 +85,40 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       root.style.setProperty(cssVar, value);
     });
 
+    // Apply sidebar colors (derived from main theme colors)
+    root.style.setProperty('--sidebar-background', colors.background);
+    root.style.setProperty('--sidebar-foreground', colors.foreground);
+    root.style.setProperty('--sidebar-primary', colors.primary);
+    root.style.setProperty('--sidebar-primary-foreground', colors.primaryForeground);
+    root.style.setProperty('--sidebar-accent', colors.accent);
+    root.style.setProperty('--sidebar-accent-foreground', colors.accentForeground);
+    root.style.setProperty('--sidebar-border', colors.border);
+    root.style.setProperty('--sidebar-ring', colors.ring);
+
     // Apply other visual settings
     root.style.setProperty('--radius', `${settings.visual.borderRadius / 16}rem`);
     root.style.setProperty('--animation-speed', `${settings.visual.animationSpeed}s`);
     root.style.setProperty('--font-size', `${settings.visual.fontSize}px`);
 
-    // Apply editor-specific settings
-    root.style.setProperty('--pm-text-lightness', `${settings.editor.textContrast}%`);
+    // Apply display scale (zoom) for accessibility
+    const scale = settings.interface.displayScale ?? 1.0;
+    root.style.setProperty('--display-scale', String(scale));
+    root.style.fontSize = `${scale * 100}%`;
+
+    // Apply accessibility settings
+    if (settings.interface.reduceMotion) {
+      root.setAttribute('data-reduce-motion', 'true');
+    } else {
+      root.removeAttribute('data-reduce-motion');
+    }
+    if (settings.interface.highContrast) {
+      root.setAttribute('data-high-contrast', 'true');
+    } else {
+      root.removeAttribute('data-high-contrast');
+    }
+
+    // Apply editor-specific settings (textContrast is a number 15-35)
+    root.style.setProperty('--pm-text-lightness', String(settings.editor.textContrast));
 
     // Line height is fixed at 16px for proper pagination (matches wasm-inspired editor)
     // The density setting no longer affects screenplay line height
@@ -99,6 +127,63 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     // Apply font classes
     root.setAttribute('data-ui-font', settings.visual.uiFont);
     root.setAttribute('data-screenplay-font', settings.visual.screenplayFont);
+
+    // Apply app font override (affects entire UI)
+    const appFont = settings.interface.appFont;
+    if (appFont && appFont !== 'default') {
+      root.setAttribute('data-app-font', appFont);
+    } else {
+      root.removeAttribute('data-app-font');
+    }
+
+    // Apply editor font override (affects only screenplay editor)
+    const editorFont = settings.interface.editorFont;
+    if (editorFont && editorFont !== 'default') {
+      root.setAttribute('data-editor-font', editorFont);
+    } else {
+      root.removeAttribute('data-editor-font');
+    }
+
+    // Apply premium theme attributes
+    root.setAttribute('data-theme-preset', settings.visual.themePreset);
+
+    // Apply premium features if present
+    const premium = settings.visual.premium;
+    if (premium) {
+      // UI Chrome style
+      if (premium.uiChrome && premium.uiChrome !== 'default') {
+        root.setAttribute('data-ui-chrome', premium.uiChrome);
+      } else {
+        root.removeAttribute('data-ui-chrome');
+      }
+
+      // Ambient effect (respect reduced motion preference)
+      const shouldApplyAmbient = !prefersReducedMotion &&
+                                  !settings.interface.reduceMotion &&
+                                  premium.ambientEffect &&
+                                  premium.ambientEffect !== 'none';
+      if (shouldApplyAmbient) {
+        root.setAttribute('data-ambient-effect', premium.ambientEffect!);
+        root.style.setProperty('--ambient-intensity', String(premium.ambientIntensity ?? 0.03));
+      } else {
+        root.removeAttribute('data-ambient-effect');
+      }
+
+      // Pattern and chrome opacity variables
+      if (premium.patternOpacity !== undefined) {
+        root.style.setProperty('--pattern-opacity', String(premium.patternOpacity));
+      }
+      if (premium.patternColor) {
+        root.style.setProperty('--pattern-color', premium.patternColor);
+      }
+      if (premium.chromeOpacity !== undefined) {
+        root.style.setProperty('--chrome-opacity', String(premium.chromeOpacity));
+      }
+    } else {
+      // Clear premium attributes if no premium settings
+      root.removeAttribute('data-ui-chrome');
+      root.removeAttribute('data-ambient-effect');
+    }
   }, []);
 
   // Save settings to localStorage whenever they change
@@ -177,9 +262,18 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setThemePreset = useCallback((preset: ThemePreset) => {
     const presetSettings = themePresets[preset];
     if (presetSettings) {
-      updateVisualSettings(presetSettings);
+      // Reset to defaults first, then apply preset to ensure clean slate
+      setSettings((prev) => ({
+        ...prev,
+        visual: {
+          ...defaultSettings.visual,
+          ...presetSettings,
+          // Preserve user's font size preference
+          fontSize: prev.visual.fontSize,
+        },
+      }));
     }
-  }, [updateVisualSettings]);
+  }, []);
 
   const resetSettings = useCallback(() => {
     setSettings(defaultSettings);

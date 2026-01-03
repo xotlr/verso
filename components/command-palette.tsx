@@ -183,9 +183,11 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
       label: 'Export Screenplay',
       description: 'Download in various formats',
       icon: <Download className="h-4 w-4" />,
+      shortcut: '⌘E',
       category: 'actions',
       keywords: ['download', 'save', 'pdf', 'fdx', 'fountain'],
       action: () => {
+        window.dispatchEvent(new CustomEvent('editor-open-export'));
         onClose();
       },
     },

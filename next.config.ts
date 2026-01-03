@@ -35,6 +35,14 @@ const nextConfig: NextConfig = {
         hostname: 'akqcitwkiabfyyqukzus.supabase.co',
         pathname: '/storage/v1/object/public/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'avatars.githubusercontent.com',
+      },
     ],
     // Optimize image sizes for common breakpoints
     deviceSizes: [640, 750, 828, 1080, 1200],

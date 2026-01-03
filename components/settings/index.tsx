@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { Download, Upload, RotateCcw, Palette, Type, Keyboard, LogOut } from 'lucide-react';
+import { Download, Upload, RotateCcw, Palette, Type, Keyboard, LogOut, Accessibility } from 'lucide-react';
 import { useSettings } from '@/contexts/settings-context';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,6 +14,7 @@ import { ProfileSection, UserProfile } from './ProfileSection';
 import { AppearanceSection } from './AppearanceSection';
 import { EditorSection } from './EditorSection';
 import { KeyboardSection } from './KeyboardSection';
+import { AccessibilitySection } from './AccessibilitySection';
 import { BillingSection } from './BillingSection';
 
 interface SettingsContentProps {
@@ -25,6 +26,7 @@ interface SettingsContentProps {
 const NAV_ITEMS = [
   { value: 'appearance', icon: Palette, label: 'Appearance' },
   { value: 'editor', icon: Type, label: 'Editor' },
+  { value: 'accessibility', icon: Accessibility, label: 'Accessibility' },
   { value: 'shortcuts', icon: Keyboard, label: 'Shortcuts' },
 ] as const;
 
@@ -36,6 +38,7 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
     settings,
     updateVisualSettings,
     updateEditorSettings,
+    updateInterfaceSettings,
     setThemePreset,
     resetSettings,
     exportSettings,
@@ -268,6 +271,16 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
             />
           </TabsContent>
 
+          {/* Accessibility Settings */}
+          <TabsContent value="accessibility" className="m-0">
+            <AccessibilitySection
+              interfaceSettings={settings.interface}
+              editorSettings={settings.editor}
+              updateInterfaceSettings={updateInterfaceSettings}
+              updateEditorSettings={updateEditorSettings}
+            />
+          </TabsContent>
+
           {/* Shortcuts Settings */}
           <TabsContent value="shortcuts" className="m-0">
             <KeyboardSection />
@@ -325,5 +338,6 @@ export { type UserProfile } from './ProfileSection';
 export { ProfileSection } from './ProfileSection';
 export { AppearanceSection } from './AppearanceSection';
 export { EditorSection } from './EditorSection';
+export { AccessibilitySection } from './AccessibilitySection';
 export { KeyboardSection } from './KeyboardSection';
 export { BillingSection } from './BillingSection';

@@ -1,8 +1,9 @@
 import { InputRule, inputRules } from 'prosemirror-inputrules';
-import { NodeType } from 'prosemirror-model';
-import { Plugin } from 'prosemirror-state';
+import { NodeType, Fragment } from 'prosemirror-model';
+import { Plugin, TextSelection } from 'prosemirror-state';
 import { screenplaySchema } from '../schema';
 import { detectShot } from '@/lib/screenplay/patterns';
+import { canMakeDualDialogue, findDialogueBlockBefore, findCurrentDialogueBlock } from '../commands/dual-dialogue';
 
 /**
  * Input rule that converts to a specific node type when pattern matches.
@@ -458,6 +459,81 @@ const intercutRules = [
 ];
 
 /**
+ * Dual dialogue input rule (Fountain ^ syntax).
+ * When user types "CHARACTER ^" or "CHARACTER ^ " in a character block,
+ * and there's a previous dialogue block, wrap both into dual dialogue.
+ */
+const dualDialogueRule = new InputRule(
+  // Match ^ at end of character name (with optional trailing space)
+  /\s*\^\s*$/,
+  (state, match, start, end) => {
+    const { $head } = state.selection;
+
+    // Must be in a character block
+    if ($head.parent.type.name !== 'character') {
+      return null;
+    }
+
+    // Must be able to create dual dialogue
+    if (!canMakeDualDialogue(state)) {
+      return null;
+    }
+
+    // Find the dialogue blocks
+    const currentBlock = findCurrentDialogueBlock(state);
+    if (!currentBlock) return null;
+
+    const previousBlock = findDialogueBlockBefore(state.doc, currentBlock.startPos);
+    if (!previousBlock) return null;
+
+    const schema = screenplaySchema;
+    const dualDialogueType = schema.nodes.dual_dialogue;
+    const columnType = schema.nodes.dual_dialogue_column;
+
+    // Strip the ^ from the character name
+    const characterText = $head.parent.textContent.replace(/\s*\^\s*$/, '').trim();
+
+    // Create left column content (previous block's nodes)
+    const leftColumnContent = previousBlock.nodes.map((node) => {
+      if (node.type.name === 'character') {
+        return node.type.create({ ...node.attrs, isDual: true }, node.content, node.marks);
+      }
+      return node.copy(node.content);
+    });
+
+    // Create right column content (current character + empty dialogue)
+    const rightCharacter = schema.nodes.character.create(
+      { isDual: true },
+      characterText ? schema.text(characterText) : undefined
+    );
+    const rightDialogue = schema.nodes.dialogue.create();
+
+    const leftColumn = columnType.create(null, leftColumnContent);
+    const rightColumn = columnType.create(null, [rightCharacter, rightDialogue]);
+    const dualDialogue = dualDialogueType.create(null, [leftColumn, rightColumn]);
+
+    // Replace from previous block start to current block end with dual dialogue
+    let tr = state.tr.replaceWith(previousBlock.startPos, currentBlock.endPos, dualDialogue);
+
+    // Position cursor in the right column's dialogue
+    const dualDialoguePos = previousBlock.startPos;
+    const rightColumnPos = dualDialoguePos + 1 + leftColumn.nodeSize;
+
+    // Find dialogue in right column and position cursor there
+    const dialoguePos = rightColumnPos + 1 + rightCharacter.nodeSize;
+    try {
+      const $pos = tr.doc.resolve(dialoguePos + 1);
+      tr = tr.setSelection(TextSelection.near($pos));
+    } catch {
+      // Ignore position errors
+    }
+
+    tr.scrollIntoView();
+    return tr;
+  }
+);
+
+/**
  * All input rules for the screenplay editor.
  */
 export function createInputRulesPlugin(): Plugin {
@@ -469,6 +545,7 @@ export function createInputRulesPlugin(): Plugin {
       ...shotRules,
       smartShotRule,
       parentheticalRule,
+      dualDialogueRule,
       ...superRules,
       ...chyronRules,
       ...flashbackRules,

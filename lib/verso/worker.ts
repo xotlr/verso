@@ -44,13 +44,22 @@ class PaginationWorkerManager {
    */
   async initialize(): Promise<void> {
     if (this.initialized) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[PaginationWorker] Already initialized');
+      }
       return;
     }
 
     if (this.initializing && this.initPromise) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[PaginationWorker] Initialization in progress, waiting...');
+      }
       return this.initPromise;
     }
 
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[PaginationWorker] Starting initialization...');
+    }
     this.initializing = true;
 
     this.initPromise = new Promise((resolve, reject) => {
@@ -103,10 +112,16 @@ class PaginationWorkerManager {
             this.worker?.removeEventListener('message', initHandler);
 
             if (event.data.success) {
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[PaginationWorker] Initialization successful');
+              }
               this.initialized = true;
               this.initializing = false;
               resolve();
             } else {
+              if (process.env.NODE_ENV === 'development') {
+                console.error('[PaginationWorker] Initialization failed:', event.data.error);
+              }
               reject(new Error(event.data.error || 'Failed to initialize WASM'));
             }
           }

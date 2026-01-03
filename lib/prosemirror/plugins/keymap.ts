@@ -4,6 +4,7 @@ import { undo, redo } from 'prosemirror-history';
 import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { screenplaySchema } from '../schema';
 import { elementCommands } from './element-switching';
+import { wrapInDualDialogue } from '../commands/dual-dialogue';
 import {
   ShortcutId,
   DEFAULT_SHORTCUTS,
@@ -133,6 +134,7 @@ const SHORTCUT_COMMANDS: Partial<Record<ShortcutId, Command>> = {
   setFlashback: elementCommands.setFlashback,
   setMontage: elementCommands.setMontage,
   setIntercut: elementCommands.setIntercut,
+  setDualDialogue: wrapInDualDialogue,
   goToStart,
   goToEnd,
   prevScene: goToPreviousScene,

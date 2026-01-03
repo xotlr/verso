@@ -251,6 +251,18 @@ export function EditorSettingsPanel({
               </SettingsRow>
             )}
 
+            <SettingsRow
+              label="Placeholders"
+              description="Ghost text hints in empty elements"
+            >
+              <Switch
+                checked={settings.editor.showPlaceholders ?? true}
+                onCheckedChange={(checked) =>
+                  updateEditorSettings({ showPlaceholders: checked })
+                }
+              />
+            </SettingsRow>
+
             <div className="space-y-2 opacity-50 pointer-events-none">
               <div className="flex items-center gap-2">
                 <Label className="text-sm text-foreground">

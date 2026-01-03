@@ -17,6 +17,7 @@ import { createShotMarkersPlugin, ShotMarker } from './shot-markers';
 import { createPaginationChangeTracker } from './pagination-change-tracker';
 import { createYjsCollaborationPlugins, type YjsCollaborationPluginOptions } from './yjs-collaboration';
 import { createTypingMetricsPlugin, type TypingMetricsOptions } from './typing-metrics';
+import { createMinimumStructurePlugin } from './minimum-structure';
 
 export interface CreatePluginsOptions {
   // Enable input rules for auto-formatting
@@ -179,6 +180,9 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
     plugins.push(createTypingMetricsPlugin(opts.typingMetricsOptions || {}));
   }
 
+  // Minimum structure enforcement (title page + first content block always exist)
+  plugins.push(createMinimumStructurePlugin());
+
   return plugins;
 }
 
@@ -257,3 +261,6 @@ export {
   TYPING_METRICS_ENABLE_META,
 } from './typing-metrics';
 export type { TypingMetricsOptions, TypingMetricsState } from './typing-metrics';
+
+// Minimum structure plugin exports
+export { createMinimumStructurePlugin, minimumStructurePluginKey, updateDraftField } from './minimum-structure';

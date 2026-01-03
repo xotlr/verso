@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Plus } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
+import { useSession } from 'next-auth/react';
 import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
 import type { ImportResult } from '@/components/import-drop-zone/types';
 import { getImportQuipShort } from '@/lib/import-quips';
@@ -63,6 +64,7 @@ interface ProjectItem {
 
 export default function ProjectsPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'recent' | 'name'>('recent');
@@ -206,6 +208,8 @@ export default function ProjectsPage() {
           projectId={renameTarget.id}
           currentName={renameTarget.name}
           currentDescription={renameTarget.description}
+          currentBanner={renameTarget.banner}
+          userId={session?.user?.id || ''}
           onSuccess={loadProjects}
         />
       )}

@@ -1,0 +1,245 @@
+/**
+ * Premium Theme Ambient Effects
+ * Subtle atmospheric effects for immersive themes
+ * All effects respect prefers-reduced-motion
+ */
+
+/* ============================================
+   FILM GRAIN (Film Noir)
+   Subtle 35mm film noise overlay
+   ============================================ */
+@keyframes film-grain {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-2%, -4%); }
+  20% { transform: translate(-4%, 2%); }
+  30% { transform: translate(4%, -2%); }
+  40% { transform: translate(-2%, 4%); }
+  50% { transform: translate(2%, 2%); }
+  60% { transform: translate(4%, -4%); }
+  70% { transform: translate(-4%, 2%); }
+  80% { transform: translate(-2%, -2%); }
+  90% { transform: translate(2%, 4%); }
+}
+
+[data-ambient-effect="film-grain"]::after {
+  content: '';
+  position: fixed;
+  inset: -10%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: var(--ambient-intensity, 0.02);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 150px 150px;
+  animation: film-grain 8s steps(10) infinite;
+  mix-blend-mode: overlay;
+}
+
+/* ============================================
+   CRT FLICKER (Cyberpunk)
+   Subtle phosphor brightness oscillation
+   ============================================ */
+@keyframes crt-flicker {
+  0% { opacity: var(--ambient-intensity, 0.03); }
+  5% { opacity: calc(var(--ambient-intensity, 0.03) * 0.8); }
+  10% { opacity: var(--ambient-intensity, 0.03); }
+  15% { opacity: calc(var(--ambient-intensity, 0.03) * 0.9); }
+  20% { opacity: var(--ambient-intensity, 0.03); }
+  100% { opacity: var(--ambient-intensity, 0.03); }
+}
+
+[data-ambient-effect="crt-flicker"]::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    hsl(var(--foreground) / 0.01) 50%,
+    transparent 100%
+  );
+  animation: crt-flicker 0.15s infinite;
+}
+
+/* CRT scanlines enhancement */
+[data-ambient-effect="crt-flicker"]::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9997;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    hsl(0 0% 0% / 0.01) 2px,
+    hsl(0 0% 0% / 0.01) 4px
+  );
+  opacity: var(--ambient-intensity, 0.03);
+}
+
+/* ============================================
+   CANDLELIGHT (Manuscript)
+   Subtle warm brightness variation
+   ============================================ */
+@keyframes candlelight {
+  0%, 100% {
+    filter: brightness(1) saturate(1);
+  }
+  25% {
+    filter: brightness(1.01) saturate(1.02);
+  }
+  50% {
+    filter: brightness(0.995) saturate(0.99);
+  }
+  75% {
+    filter: brightness(1.005) saturate(1.01);
+  }
+}
+
+[data-ambient-effect="candlelight"] {
+  animation: candlelight 4s ease-in-out infinite;
+}
+
+/* Warm vignette for candlelit atmosphere */
+[data-ambient-effect="candlelight"]::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9996;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    hsl(25 50% 10% / calc(var(--ambient-intensity, 0.03) * 2)) 100%
+  );
+}
+
+/* ============================================
+   NEON GLOW (Cyberpunk)
+   Pulsing glow on accent elements
+   ============================================ */
+@keyframes neon-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px currentColor);
+  }
+  50% {
+    filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 12px currentColor);
+  }
+}
+
+@keyframes neon-flicker {
+  0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
+    opacity: 1;
+  }
+  20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
+    opacity: 0.8;
+  }
+}
+
+/* Apply neon glow to accent-colored elements */
+[data-ambient-effect="neon-glow"] [data-accent],
+[data-ambient-effect="neon-glow"] .text-accent,
+[data-ambient-effect="neon-glow"] .border-accent {
+  animation: neon-pulse 2s ease-in-out infinite;
+}
+
+/* Neon glow on primary buttons */
+[data-ambient-effect="neon-glow"] button[data-variant="default"],
+[data-ambient-effect="neon-glow"] .btn-primary {
+  position: relative;
+}
+
+[data-ambient-effect="neon-glow"] button[data-variant="default"]::before,
+[data-ambient-effect="neon-glow"] .btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.3),
+    hsl(var(--accent) / 0.3)
+  );
+  filter: blur(8px);
+  opacity: 0;
+  transition: opacity 200ms ease;
+  z-index: -1;
+}
+
+[data-ambient-effect="neon-glow"] button[data-variant="default"]:hover::before,
+[data-ambient-effect="neon-glow"] .btn-primary:hover::before {
+  opacity: var(--ambient-intensity, 0.3);
+  animation: neon-pulse 1.5s ease-in-out infinite;
+}
+
+/* Neon glow on focus rings */
+[data-ambient-effect="neon-glow"] *:focus-visible {
+  outline-color: hsl(var(--accent));
+  box-shadow:
+    0 0 4px hsl(var(--accent) / 0.5),
+    0 0 8px hsl(var(--accent) / 0.3);
+}
+
+/* ============================================
+   LED PULSE (Mission Control)
+   Status indicator style pulse
+   ============================================ */
+@keyframes led-pulse {
+  0%, 100% {
+    opacity: 0.7;
+    box-shadow: 0 0 4px currentColor;
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 8px currentColor, 0 0 12px currentColor;
+  }
+}
+
+[data-theme-preset="mission-control"] .status-indicator,
+[data-theme-preset="mission-control"] [data-status] {
+  animation: led-pulse 2s ease-in-out infinite;
+}
+
+/* ============================================
+   REDUCED MOTION
+   Disable all ambient animations
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  [data-ambient-effect]::after,
+  [data-ambient-effect]::before {
+    animation: none !important;
+  }
+
+  [data-ambient-effect="candlelight"] {
+    animation: none !important;
+    filter: none !important;
+  }
+
+  [data-ambient-effect="neon-glow"] [data-accent],
+  [data-ambient-effect="neon-glow"] .text-accent,
+  [data-ambient-effect="neon-glow"] button[data-variant="default"]::before {
+    animation: none !important;
+  }
+
+  [data-theme-preset="mission-control"] .status-indicator,
+  [data-theme-preset="mission-control"] [data-status] {
+    animation: none !important;
+  }
+}
+
+/* ============================================
+   HIGH CONTRAST MODE
+   Disable decorative effects for accessibility
+   ============================================ */
+@media (prefers-contrast: more) {
+  [data-ambient-effect]::after,
+  [data-ambient-effect]::before {
+    display: none !important;
+  }
+
+  [data-ambient-effect="candlelight"] {
+    filter: none !important;
+  }
+}

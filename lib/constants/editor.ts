@@ -21,9 +21,9 @@ export const PAGINATION_THROTTLE = {
   /** Element count threshold for "very large" document (~100+ pages) */
   VERY_LARGE_DOC_THRESHOLD: 500,
   /** Throttle interval for large docs (ms) */
-  LARGE_INTERVAL: 500,
-  /** Throttle interval for very large docs (ms) */
-  VERY_LARGE_INTERVAL: 1000,
+  LARGE_INTERVAL: 300,
+  /** Throttle interval for very large docs (ms) - reduced from 1000ms for better responsiveness */
+  VERY_LARGE_INTERVAL: 300,
 } as const;
 
 /** Responsive layout values */

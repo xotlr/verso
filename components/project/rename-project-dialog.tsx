@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ImageUpload } from '@/components/image-upload';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface RenameProjectDialogProps {
@@ -14,6 +17,8 @@ interface RenameProjectDialogProps {
   projectId: string;
   currentName: string;
   currentDescription?: string | null;
+  currentBanner?: string | null;
+  userId: string;
   onSuccess?: () => void;
 }
 
@@ -23,10 +28,13 @@ export function RenameProjectDialog({
   projectId,
   currentName,
   currentDescription,
+  currentBanner,
+  userId,
   onSuccess,
 }: RenameProjectDialogProps) {
   const [name, setName] = useState(currentName);
   const [description, setDescription] = useState(currentDescription || '');
+  const [banner, setBanner] = useState<string | undefined>(currentBanner || undefined);
   const [isLoading, setIsLoading] = useState(false);
 
   // Reset form when dialog opens with new values
@@ -34,8 +42,9 @@ export function RenameProjectDialog({
     if (open) {
       setName(currentName);
       setDescription(currentDescription || '');
+      setBanner(currentBanner || undefined);
     }
-  }, [open, currentName, currentDescription]);
+  }, [open, currentName, currentDescription, currentBanner]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +56,11 @@ export function RenameProjectDialog({
 
     const trimmedName = name.trim();
     const trimmedDescription = description.trim() || null;
-    const hasChanges = trimmedName !== currentName || trimmedDescription !== (currentDescription || null);
+    const newBanner = banner || null;
+    const hasChanges =
+      trimmedName !== currentName ||
+      trimmedDescription !== (currentDescription || null) ||
+      newBanner !== (currentBanner || null);
 
     if (!hasChanges) {
       onOpenChange(false);
@@ -65,6 +78,7 @@ export function RenameProjectDialog({
         body: JSON.stringify({
           name: trimmedName,
           description: trimmedDescription,
+          banner: newBanner,
         }),
       });
 
@@ -85,27 +99,40 @@ export function RenameProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
+      <DialogContent className="max-w-lg max-h-[90vh] p-0">
+        <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle>Edit Project</DialogTitle>
-          <DialogDescription>
-            Update your project name and description.
-          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
+
+        <ScrollArea className="max-h-[calc(90vh-140px)]">
+          <form id="edit-project-form" onSubmit={handleSubmit} className="px-6 space-y-6">
+            {/* Banner Upload */}
+            <div className="space-y-2">
+              <Label>Banner Image</Label>
+              <ImageUpload
+                value={banner}
+                onChange={setBanner}
+                bucket="banners"
+                userId={userId}
+                aspectRatio="banner"
+                placeholder="Drop a banner image or click to upload"
+              />
+            </div>
+
+            {/* Project Name */}
+            <div className="space-y-2">
               <Label htmlFor="name">Project Name</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter project name"
-                autoFocus
                 disabled={isLoading}
               />
             </div>
-            <div className="grid gap-2">
+
+            {/* Description */}
+            <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
@@ -114,23 +141,37 @@ export function RenameProjectDialog({
                 placeholder="Enter project description (optional)"
                 disabled={isLoading}
                 rows={3}
+                className="resize-none"
               />
             </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading || !name.trim()}>
-              {isLoading ? 'Saving...' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </form>
+          </form>
+        </ScrollArea>
+
+        <DialogFooter className="px-6 py-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="edit-project-form"
+            disabled={isLoading || !name.trim()}
+            className="gap-2"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -77,10 +77,11 @@
   /* Colors */
   --pm-page-bg: hsl(var(--background));  /* Use theme background, was 100% */
   --pm-page-bg-dark: hsl(0 0% 12%);
-  /* Text lightness now set by settings (range: 15-35%, default: 25%) */
-  --pm-text-color: hsl(0 0% var(--pm-text-lightness, 25%));
-  /* Dark mode uses inverted lightness (100 - lightness) for proper contrast */
-  --pm-text-color-dark: hsl(0 0% calc(100% - var(--pm-text-lightness, 25%) + 10%));
+  /* Text lightness set by settings (range: 15-35, default: 25) */
+  --pm-text-lightness: 25;
+  --pm-text-color: hsl(0 0% calc(var(--pm-text-lightness) * 1%));
+  /* Dark mode uses inverted lightness for proper contrast */
+  --pm-text-color-dark: hsl(0 0% calc((100 - var(--pm-text-lightness) + 10) * 1%));
 
   /* Element type colors */
   --pm-color-scene-heading: hsl(217 91% 55%);
@@ -144,30 +145,8 @@
 .pm-editor-scroll-container {
   width: 100%;
   height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scroll-behavior: smooth;
-
-  /* Custom scrollbar */
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--border)) transparent;
-}
-
-.pm-editor-scroll-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.pm-editor-scroll-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.pm-editor-scroll-container::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 4px;
-}
-
-.pm-editor-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.3);
+  /* NOTE: Do NOT add overflow here - Radix ScrollArea handles scrolling via its viewport */
+  /* Adding overflow-y: auto would create a duplicate native scrollbar */
 }
 
 /* Scroll area - simple scrollable div with centered content */
@@ -389,7 +368,7 @@
   text-align: right;
   /* Align with scene heading text (below padding-top) */
   top: var(--pm-space-scene-heading);
-  color: hsl(var(--foreground) / 0.4);  /* Softer, less intrusive */
+  color: hsl(var(--foreground) / 0.5);  /* Visible but not distracting */
   font-size: var(--pm-font-size);
   line-height: var(--pm-line-height);
   font-weight: 400;
@@ -407,7 +386,7 @@
   padding-left: 20px;  /* Space from content edge */
   /* Align with scene heading text (below padding-top) */
   top: var(--pm-space-scene-heading);
-  color: hsl(var(--foreground) / 0.4);  /* Softer, less intrusive */
+  color: hsl(var(--foreground) / 0.5);  /* Visible but not distracting */
   font-size: var(--pm-font-size);
   line-height: var(--pm-line-height);
   font-weight: 400;
@@ -422,6 +401,13 @@
   color: hsl(var(--foreground) / 0.7);
 }
 
+/* Content anchor for empty scene headings - provides cursor positioning */
+.pm-content-anchor {
+  font-size: inherit;
+  line-height: inherit;
+  /* Zero-width space takes no visual space but anchors the cursor */
+}
+
 /* Action - .ProseMirror prefix for higher specificity than reset */
 .ProseMirror .pm-action {
   /* Use padding-top from WASM config (space_before * line_height) */
@@ -431,6 +417,7 @@
   margin-left: 0;
   margin-right: 0;
   width: 576px; /* Full printable width */
+  position: relative; /* For absolute placeholder positioning */
 }
 
 /* Character - .ProseMirror prefix for higher specificity than reset */
@@ -442,6 +429,7 @@
   margin-left: 211px; /* 2.2in * 96 = 3.7in from page edge */
   margin-right: 0;
   width: 336px; /* 3.5in * 96 - matches Final Draft */
+  position: relative; /* For absolute placeholder positioning */
 
   text-transform: uppercase;
   font-weight: 400;
@@ -454,6 +442,7 @@
   margin-left: 96px; /* 1.0in * 96 = 2.5in from page edge (Final Draft) */
   margin-right: 0;
   width: 336px; /* 3.5in * 96 - matches Final Draft */
+  position: relative; /* For absolute placeholder positioning */
 }
 
 /* Parenthetical - .ProseMirror prefix for higher specificity than reset */
@@ -463,6 +452,7 @@
   margin-left: 154px; /* 1.6in * 96 = 3.1in from page edge */
   margin-right: 0;
   width: 240px; /* 2.5in * 96 = 240px */
+  position: relative; /* For absolute placeholder positioning */
 
   font-style: italic;
   color: var(--pm-color-parenthetical);
@@ -477,6 +467,7 @@
   margin-left: 384px; /* 4.0in * 96 = 5.5in from page edge */
   margin-right: 0;
   width: 192px; /* 2.0in * 96 - matches Final Draft */
+  position: relative; /* For absolute placeholder positioning */
 
   text-transform: uppercase;
   text-align: right;
@@ -512,10 +503,12 @@
 }
 
 /* Shot placeholder when empty */
-.pm-shot:empty::before {
-  content: 'SHOT';
-  color: hsl(var(--muted-foreground) / 0.3);
+.pm-shot:empty::before,
+.pm-shot:has(> br:only-child)::before {
+  content: 'Describe the shot...';
+  color: hsl(var(--muted-foreground) / 0.6);
   pointer-events: none;
+  position: absolute;
 }
 
 /* Super - on-screen text (centered, cyan) */
@@ -533,10 +526,12 @@
   font-weight: 500;
 }
 
-.pm-super:empty::before {
-  content: 'SUPER:';
-  color: hsl(var(--muted-foreground) / 0.3);
+.pm-super:empty::before,
+.pm-super:has(> br:only-child)::before {
+  content: 'Text on screen...';
+  color: hsl(var(--muted-foreground) / 0.6);
   pointer-events: none;
+  position: absolute;
 }
 
 /* Chyron - lower-third text (left-aligned, purple, underlined) */
@@ -555,10 +550,12 @@
   font-weight: 500;
 }
 
-.pm-chyron:empty::before {
-  content: 'CHYRON:';
-  color: hsl(var(--muted-foreground) / 0.3);
+.pm-chyron:empty::before,
+.pm-chyron:has(> br:only-child)::before {
+  content: 'Lower third text...';
+  color: hsl(var(--muted-foreground) / 0.6);
   pointer-events: none;
+  position: absolute;
 }
 
 /* Flashback - temporal marker (centered, amber, em-dash decorations) */
@@ -586,10 +583,12 @@
   color: hsl(35 90% 50%);
 }
 
-.pm-flashback:empty::before {
-  content: '— FLASHBACK —';
-  color: hsl(var(--muted-foreground) / 0.3);
+.pm-flashback:empty::before,
+.pm-flashback:has(> br:only-child)::before {
+  content: 'FLASHBACK TO:';
+  color: hsl(var(--muted-foreground) / 0.6);
   pointer-events: none;
+  position: absolute;
 }
 
 /* Montage - sequence container (full width, magenta, left border) */
@@ -609,10 +608,12 @@
   border-left: 4px solid hsl(320 70% 50%);
 }
 
-.pm-montage:empty::before {
-  content: 'MONTAGE';
-  color: hsl(var(--muted-foreground) / 0.3);
+.pm-montage:empty::before,
+.pm-montage:has(> br:only-child)::before {
+  content: 'MONTAGE:';
+  color: hsl(var(--muted-foreground) / 0.6);
   pointer-events: none;
+  position: absolute;
 }
 
 /* Intercut - parallel action (centered, green, double-line) */
@@ -634,10 +635,12 @@
   padding-bottom: 8px;
 }
 
-.pm-intercut:empty::before {
-  content: 'INTERCUT';
-  color: hsl(var(--muted-foreground) / 0.3);
+.pm-intercut:empty::before,
+.pm-intercut:has(> br:only-child)::before {
+  content: 'INTERCUT WITH:';
+  color: hsl(var(--muted-foreground) / 0.6);
   pointer-events: none;
+  position: absolute;
 }
 
 /* Dual Dialogue - .ProseMirror prefix for higher specificity than reset */
@@ -781,40 +784,54 @@
 }
 
 /* Ghost placeholders for empty screenplay elements */
-.pm-scene-heading:empty::before {
-  content: 'INT./EXT. LOCATION - TIME';
-  color: hsl(var(--muted-foreground) / 0.3);
+/* Match both truly empty AND elements with only BR (cursor placeholder) */
+/* Use position:absolute so cursor stays at start, not after placeholder text */
+.pm-scene-heading:empty::before,
+.pm-scene-heading:has(> br:only-child)::before {
+  content: 'INT. or EXT. LOCATION - TIME';
+  color: hsl(var(--muted-foreground) / 0.6);
   pointer-events: none;
+  position: absolute;
 }
 
-.pm-action:empty::before {
-  content: 'Describe what happens...';
-  color: hsl(var(--muted-foreground) / 0.3);
+.pm-action:empty::before,
+.pm-action:has(> br:only-child)::before {
+  content: 'Describe what we see...';
+  color: hsl(var(--muted-foreground) / 0.6);
   pointer-events: none;
+  position: absolute;
 }
 
-.pm-character:empty::before {
+.pm-character:empty::before,
+.pm-character:has(> br:only-child)::before {
   content: 'CHARACTER NAME';
-  color: hsl(var(--muted-foreground) / 0.3);
+  color: hsl(var(--muted-foreground) / 0.6);
   pointer-events: none;
+  position: absolute;
 }
 
-.pm-dialogue:empty::before {
-  content: 'Dialogue...';
-  color: hsl(var(--muted-foreground) / 0.3);
+.pm-dialogue:empty::before,
+.pm-dialogue:has(> br:only-child)::before {
+  content: 'What they say...';
+  color: hsl(var(--muted-foreground) / 0.6);
   pointer-events: none;
+  position: absolute;
 }
 
-.pm-parenthetical:empty::before {
-  content: '(wryly)';
-  color: hsl(var(--muted-foreground) / 0.3);
+.pm-parenthetical:empty::before,
+.pm-parenthetical:has(> br:only-child)::before {
+  content: '(how they say it)';
+  color: hsl(var(--muted-foreground) / 0.6);
   pointer-events: none;
+  position: absolute;
 }
 
-.pm-transition:empty::before {
-  content: 'CUT TO:';
-  color: hsl(var(--muted-foreground) / 0.3);
+.pm-transition:empty::before,
+.pm-transition:has(> br:only-child)::before {
+  content: 'CUT TO: or FADE OUT.';
+  color: hsl(var(--muted-foreground) / 0.6);
   pointer-events: none;
+  position: absolute;
 }
 
 /* ============================================
@@ -1551,21 +1568,25 @@
   line-height: 20px;
 }
 
-/* Empty state placeholders */
-.pm-title-page-title:empty::before {
-  content: 'UNTITLED';
+/* Empty state placeholders - simple inline hints */
+/* Match both truly empty elements AND elements with only a BR (cursor placeholder) */
+.pm-title-page-title:empty::before,
+.pm-title-page-title:has(> br:only-child)::before {
+  content: 'Title';
   color: hsl(var(--muted-foreground) / 0.4);
   pointer-events: none;
 }
 
-.pm-title-page-author:empty::before {
-  content: 'Written by...';
+.pm-title-page-author:empty::before,
+.pm-title-page-author:has(> br:only-child)::before {
+  content: 'Written by';
   color: hsl(var(--muted-foreground) / 0.4);
   pointer-events: none;
 }
 
-.pm-title-page-logline:empty::before {
-  content: 'Logline (optional)';
+.pm-title-page-logline:empty::before,
+.pm-title-page-logline:has(> br:only-child)::before {
+  content: 'Logline';
   color: hsl(var(--muted-foreground) / 0.4);
   pointer-events: none;
 }
@@ -1585,13 +1606,15 @@
   cursor: text;
 }
 
-.pm-title-page-contact:empty::before {
-  content: 'Contact info';
+.pm-title-page-contact:empty::before,
+.pm-title-page-contact:has(> br:only-child)::before {
+  content: 'Contact';
   color: hsl(var(--muted-foreground) / 0.4);
   pointer-events: none;
 }
 
-/* Copyright - positioned bottom right (industry standard) */
+/* Copyright - positioned bottom right */
+/* Hidden by default when empty (industry standard - copyright notices look amateur) */
 .pm-title-page-copyright {
   position: absolute;
   bottom: 96px; /* 1" bottom margin */
@@ -1606,13 +1629,14 @@
   cursor: text;
 }
 
-.pm-title-page-copyright:empty::before {
-  content: '© Copyright';
-  color: hsl(var(--muted-foreground) / 0.4);
-  pointer-events: none;
+/* Hide copyright when empty - only show when user explicitly adds content */
+.pm-title-page-copyright:empty,
+.pm-title-page-copyright:has(> br:only-child) {
+  display: none;
 }
 
 /* Draft info - positioned top right (WGA standard) */
+/* Note: Draft field is read-only - auto-generated from save date */
 .pm-title-page-draft {
   position: absolute;
   top: 96px; /* 1" top margin */
@@ -1624,14 +1648,12 @@
   text-align: right;
   min-height: 1.2em;
   outline: none;
-  cursor: text;
+  cursor: default; /* Read-only - not editable */
+  user-select: none; /* Prevent text selection */
+  opacity: 0.8; /* Subtle visual hint it's not editable */
 }
 
-.pm-title-page-draft:empty::before {
-  content: 'Draft';
-  color: hsl(var(--muted-foreground) / 0.4);
-  pointer-events: none;
-}
+/* Draft placeholder removed - field is auto-populated with current date on creation */
 
 /* In discrete mode, title page is the entire first page */
 .pm-discrete-mode .pm-title-page {
@@ -1656,4 +1678,30 @@
   .pm-page-gap-overlay {
     display: none;
   }
+}
+
+/* =============================================================================
+   Placeholder Visibility Toggle
+   When .hide-placeholders is on the wrapper, hide all ghost text hints
+   ============================================================================= */
+
+.hide-placeholders .pm-scene-heading:empty::before,
+.hide-placeholders .pm-action:empty::before,
+.hide-placeholders .pm-character:empty::before,
+.hide-placeholders .pm-dialogue:empty::before,
+.hide-placeholders .pm-parenthetical:empty::before,
+.hide-placeholders .pm-transition:empty::before,
+.hide-placeholders .pm-shot:empty::before,
+.hide-placeholders .pm-super:empty::before,
+.hide-placeholders .pm-chyron:empty::before,
+.hide-placeholders .pm-flashback:empty::before,
+.hide-placeholders .pm-montage:empty::before,
+.hide-placeholders .pm-intercut:empty::before,
+.hide-placeholders .pm-title-page-title:empty::before,
+.hide-placeholders .pm-title-page-author:empty::before,
+.hide-placeholders .pm-title-page-logline:empty::before,
+.hide-placeholders .pm-title-page-contact:empty::before,
+.hide-placeholders .pm-title-page-copyright:empty::before,
+.hide-placeholders .pm-title-page-draft:empty::before {
+  display: none;
 }

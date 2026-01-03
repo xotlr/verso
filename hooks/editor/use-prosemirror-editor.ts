@@ -13,6 +13,7 @@ import {
   screenplaySchema,
   ElementType,
   deserializeFromStorage,
+  serializeForStorage,
 } from '@/lib/prosemirror';
 
 import {
@@ -138,6 +139,23 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
 
   // Create the editor state and view
   useEffect(() => {
+    // Prevent circular recreation when content changes come from our own edits:
+    // 1. Typing modifies document → 2. onUpdate fires → 3. Parent updates state →
+    // 4. New content prop flows down → 5. This effect runs → would destroy view
+    // Fix: If view exists with same content, skip recreation
+    if (viewRef.current && isInitializedRef.current && initialContent !== null) {
+      try {
+        const currentSerialized = serializeForStorage(viewRef.current.state.doc);
+        if (currentSerialized === initialContent) {
+          // Content is already in sync - skip recreation
+          lastContentRef.current = initialContent;
+          return;
+        }
+      } catch {
+        // View might be in bad state, allow recreation
+      }
+    }
+
     if (!containerRef.current || isInitializedRef.current) return;
 
     const doc = deserializeFromStorage(initialContent);

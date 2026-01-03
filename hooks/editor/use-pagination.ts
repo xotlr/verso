@@ -89,13 +89,29 @@ export function usePagination(
   const lastRunTimeRef = useRef<number>(0); // Track last pagination run for throttling
   const isFirstRunRef = useRef(true); // Track if this is the first run
   const paginationCacheRef = useRef<PaginationCache | null>(null); // Cache for incremental pagination
+  const isMountedRef = useRef(true); // Track if component is mounted
+
+  // Track component mount state
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   /**
    * Run pagination on the current document
    */
   const runPaginationOnDoc = useCallback(async () => {
     if (!doc || !enabled) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Pagination] Skipped:', { doc: !!doc, enabled });
+      }
       return;
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Pagination] Running on doc with', doc.content.childCount, 'elements');
     }
 
     // Increment version for tracking (value used for debugging if needed)
@@ -107,14 +123,17 @@ export function usePagination(
     const startTime = performance.now();
 
     try {
+      // Guard against the doc changing during async operation
+      const currentDocSnapshot = doc;
+
       // Detect if document has a title page
-      const hasTitlePage = doc.firstChild?.type.name === 'title_page';
+      const hasTitlePage = currentDocSnapshot.firstChild?.type.name === 'title_page';
 
       // Serialize the document (serializeDocument skips title_page nodes)
-      const elements = serializeDocument(doc);
+      const elements = serializeDocument(currentDocSnapshot);
 
       // Create position map
-      positionMapRef.current = createPositionMap(doc);
+      positionMapRef.current = createPositionMap(currentDocSnapshot);
 
       // Get accumulated changes for incremental pagination (if editor state available)
       let changes: DocumentChange[] | undefined;
@@ -141,6 +160,22 @@ export function usePagination(
         paginationCacheRef.current = paginationResult.cache;
       }
 
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Pagination] SUCCESS:', {
+          pageCount: paginationResult.stats.page_count,
+          elementCount: elements.length,
+          durationMs: performance.now() - startTime,
+        });
+      }
+
+      // Guard against unmounted component
+      if (!isMountedRef.current) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Pagination] Skipping state update - component unmounted');
+        }
+        return;
+      }
+
       setResult(paginationResult);
       setTiming({ lastDurationMs: performance.now() - startTime });
 
@@ -150,13 +185,26 @@ export function usePagination(
       }
     } catch (err) {
       // Always set error - user should know pagination failed
-      setError(err instanceof Error ? err : new Error(String(err)));
-      console.error('[usePagination] Error:', err);
+      const error = err instanceof Error ? err : new Error(String(err));
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[Pagination] FAILED:', {
+          error: error.message,
+          stack: error.stack,
+          docChildCount: doc?.content.childCount,
+          durationMs: performance.now() - startTime,
+        });
+      }
       // Invalidate cache on error to force full recalculation next time
       paginationCacheRef.current = null;
+      // Guard against unmounted component
+      if (isMountedRef.current) {
+        setError(error);
+      }
     } finally {
       // Always clear pending - a newer request will set it again if needed
-      setIsPending(false);
+      if (isMountedRef.current) {
+        setIsPending(false);
+      }
     }
   }, [doc, config, enabled, editorState, onPaginationComplete]);
 
@@ -166,12 +214,27 @@ export function usePagination(
    * (like timelapse playback) instead of waiting for changes to stop.
    */
   useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Pagination] useEffect triggered:', {
+        enabled,
+        hasDoc: !!doc,
+        docChildCount: doc?.content.childCount,
+        isSameDoc: doc === lastDocRef.current,
+      });
+    }
+
     if (!enabled || !doc) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Pagination] Skipped - disabled or no doc');
+      }
       return;
     }
 
     // Skip if document hasn't changed
     if (doc === lastDocRef.current) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Pagination] Skipped - same doc reference');
+      }
       return;
     }
     lastDocRef.current = doc;
@@ -194,13 +257,26 @@ export function usePagination(
 
     // Run immediately if: first run OR enough time has passed
     if (isFirstRunRef.current || timeSinceLastRun >= throttleInterval) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Pagination] Running immediately:', {
+          isFirstRun: isFirstRunRef.current,
+          timeSinceLastRun,
+          throttleInterval,
+        });
+      }
       isFirstRunRef.current = false;
       lastRunTimeRef.current = now;
       runPaginationOnDoc();
     } else {
       // Schedule to run after remaining throttle time
       const remainingTime = throttleInterval - timeSinceLastRun;
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Pagination] Scheduled for', remainingTime, 'ms');
+      }
       debounceTimerRef.current = setTimeout(() => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Pagination] Running scheduled pagination');
+        }
         lastRunTimeRef.current = Date.now();
         runPaginationOnDoc();
       }, remainingTime);

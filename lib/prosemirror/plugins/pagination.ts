@@ -640,8 +640,23 @@ export function updatePaginationState(
   result: PaginationResult,
   positionMap?: PositionMap | null
 ): void {
-  const tr = createPaginationUpdateTransaction(view.state, result, positionMap);
-  view.dispatch(tr);
+  // Guard against destroyed views (can happen during typing tests or rapid unmounting)
+  if (!view.dom || !view.dom.parentNode) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[Pagination] Skipping update - EditorView appears destroyed');
+    }
+    return;
+  }
+
+  try {
+    const tr = createPaginationUpdateTransaction(view.state, result, positionMap);
+    view.dispatch(tr);
+  } catch (err) {
+    // Silently ignore dispatch errors for destroyed views
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[Pagination] Failed to dispatch update:', err);
+    }
+  }
 }
 
 /**

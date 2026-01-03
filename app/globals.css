@@ -1,3 +1,9 @@
+/* Premium Theme CSS - imports must be first */
+@import '../styles/theme-patterns.css';
+@import '../styles/theme-chrome.css';
+@import '../styles/theme-ui-chrome.css';
+@import '../styles/theme-ambient.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -201,6 +207,21 @@
   [data-ui-font="plus-jakarta"] {
     font-family: var(--font-plus-jakarta), system-ui, sans-serif;
   }
+  [data-ui-font="space-grotesk"] {
+    font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  }
+  [data-ui-font="dot-gothic"] {
+    font-family: var(--font-dot-gothic), monospace, system-ui;
+  }
+  [data-ui-font="audiowide"] {
+    font-family: var(--font-audiowide), system-ui, sans-serif;
+  }
+  [data-ui-font="oxanium"] {
+    font-family: var(--font-oxanium), system-ui, sans-serif;
+  }
+  [data-ui-font="chakra-petch"] {
+    font-family: var(--font-chakra-petch), system-ui, sans-serif;
+  }
 
   /* ===== HEADING & BODY FONTS ===== */
   /* Custom fonts for Matcha/Neovictorian themes */
@@ -226,6 +247,84 @@
   [data-screenplay-font="courier-final-draft"] .screenplay-text,
   [data-screenplay-font="courier-final-draft"] .font-screenplay {
     font-family: 'Courier Final Draft', 'Courier New', Courier, monospace;
+  }
+
+  /* ===== ACCESSIBILITY FONT OVERRIDES ===== */
+  /* OpenDyslexic font for dyslexia accessibility */
+  @font-face {
+    font-family: 'OpenDyslexic';
+    src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  @font-face {
+    font-family: 'OpenDyslexic';
+    src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  /* ===== APP FONT OVERRIDES (Entire UI) ===== */
+  [data-app-font="sans"],
+  [data-app-font="sans"] body {
+    font-family: var(--font-inter), system-ui, sans-serif !important;
+  }
+  [data-app-font="sans"] h1, [data-app-font="sans"] h2, [data-app-font="sans"] h3,
+  [data-app-font="sans"] h4, [data-app-font="sans"] h5, [data-app-font="sans"] h6,
+  [data-app-font="sans"] button, [data-app-font="sans"] input,
+  [data-app-font="sans"] select, [data-app-font="sans"] textarea {
+    font-family: var(--font-inter), system-ui, sans-serif !important;
+  }
+
+  [data-app-font="system"],
+  [data-app-font="system"] body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+  [data-app-font="system"] h1, [data-app-font="system"] h2, [data-app-font="system"] h3,
+  [data-app-font="system"] h4, [data-app-font="system"] h5, [data-app-font="system"] h6,
+  [data-app-font="system"] button, [data-app-font="system"] input,
+  [data-app-font="system"] select, [data-app-font="system"] textarea {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+
+  [data-app-font="dyslexic"],
+  [data-app-font="dyslexic"] body {
+    font-family: 'OpenDyslexic', system-ui, sans-serif !important;
+    letter-spacing: 0.03em;
+  }
+  [data-app-font="dyslexic"] h1, [data-app-font="dyslexic"] h2, [data-app-font="dyslexic"] h3,
+  [data-app-font="dyslexic"] h4, [data-app-font="dyslexic"] h5, [data-app-font="dyslexic"] h6,
+  [data-app-font="dyslexic"] button, [data-app-font="dyslexic"] input,
+  [data-app-font="dyslexic"] select, [data-app-font="dyslexic"] textarea {
+    font-family: 'OpenDyslexic', system-ui, sans-serif !important;
+  }
+
+  /* ===== EDITOR FONT OVERRIDES (Screenplay Editor Only) ===== */
+  [data-editor-font="sans"] .ProseMirror,
+  [data-editor-font="sans"] .pm-editor,
+  [data-editor-font="sans"] .font-screenplay,
+  [data-editor-font="sans"] .screenplay-text {
+    font-family: var(--font-inter), system-ui, sans-serif !important;
+    letter-spacing: 0.01em;
+  }
+
+  [data-editor-font="system"] .ProseMirror,
+  [data-editor-font="system"] .pm-editor,
+  [data-editor-font="system"] .font-screenplay,
+  [data-editor-font="system"] .screenplay-text {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+
+  [data-editor-font="dyslexic"] .ProseMirror,
+  [data-editor-font="dyslexic"] .pm-editor,
+  [data-editor-font="dyslexic"] .font-screenplay,
+  [data-editor-font="dyslexic"] .screenplay-text {
+    font-family: 'OpenDyslexic', var(--font-courier-prime), monospace !important;
+    letter-spacing: 0.05em;
+    word-spacing: 0.12em;
   }
 
   /* ===== ACCESSIBILITY ===== */

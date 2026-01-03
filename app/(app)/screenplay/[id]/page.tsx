@@ -55,6 +55,10 @@ export default function EditorPage() {
         e.preventDefault();
         setSettingsOpen(true);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'e') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('editor-open-export'));
+      }
     };
     const handleCommandPaletteOpen = () => {
       setCommandPaletteOpen(true);

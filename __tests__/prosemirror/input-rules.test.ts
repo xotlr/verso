@@ -380,3 +380,46 @@ describe('rule coverage', () => {
     });
   });
 });
+
+describe('dual dialogue input rule', () => {
+  it('should match "CHARACTER ^" pattern', () => {
+    // The dual dialogue rule pattern
+    const dualDialogueRegex = /\s*\^\s*$/;
+
+    expect(dualDialogueRegex.test('MARY ^')).toBe(true);
+    expect(dualDialogueRegex.test('JOHN ^')).toBe(true);
+    expect(dualDialogueRegex.test('CHARACTER NAME ^')).toBe(true);
+    expect(dualDialogueRegex.test(' ^')).toBe(true);
+    expect(dualDialogueRegex.test('^')).toBe(true);
+  });
+
+  it('should match ^ with various spacing', () => {
+    const dualDialogueRegex = /\s*\^\s*$/;
+
+    expect(dualDialogueRegex.test('MARY  ^')).toBe(true);
+    expect(dualDialogueRegex.test('MARY ^ ')).toBe(true);
+    expect(dualDialogueRegex.test('MARY  ^  ')).toBe(true);
+  });
+
+  it('should not match ^ in the middle of text', () => {
+    const dualDialogueRegex = /\s*\^\s*$/;
+
+    expect(dualDialogueRegex.test('A^B')).toBe(false);
+    expect(dualDialogueRegex.test('MARY ^ continues')).toBe(false);
+  });
+
+  it('should capture text before ^', () => {
+    // Simulate how the input rule extracts character name
+    const text = 'SARAH ^';
+    const characterName = text.replace(/\s*\^\s*$/, '').trim();
+    expect(characterName).toBe('SARAH');
+  });
+
+  it('should handle complex character names', () => {
+    const extractName = (text: string) => text.replace(/\s*\^\s*$/, '').trim();
+
+    expect(extractName("MARY O'BRIEN ^")).toBe("MARY O'BRIEN");
+    expect(extractName('DR. SMITH ^')).toBe('DR. SMITH');
+    expect(extractName('UNCLE JOHN (V.O.) ^')).toBe('UNCLE JOHN (V.O.)');
+  });
+});

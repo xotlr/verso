@@ -1,0 +1,172 @@
+/**
+ * Premium Theme Chrome
+ * Decorative page frame elements for immersive themes
+ */
+
+/* ============================================
+   REGISTRATION MARKS (Mission Control)
+   Print-style corner brackets on page frames
+   ============================================ */
+[data-theme-preset="mission-control"] .pm-page-frame {
+  position: relative;
+}
+
+/* Top-left corner mark */
+[data-theme-preset="mission-control"] .pm-page-frame::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 16px;
+  height: 16px;
+  border-top: 1.5px solid hsl(var(--foreground) / var(--chrome-opacity, 0.25));
+  border-left: 1.5px solid hsl(var(--foreground) / var(--chrome-opacity, 0.25));
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Top-right corner mark */
+[data-theme-preset="mission-control"] .pm-page-frame::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  border-top: 1.5px solid hsl(var(--foreground) / var(--chrome-opacity, 0.25));
+  border-right: 1.5px solid hsl(var(--foreground) / var(--chrome-opacity, 0.25));
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Bottom corner marks via JavaScript-injected elements or additional wrappers */
+/* For a pure CSS solution, we use the page content wrapper */
+[data-theme-preset="mission-control"] .pm-page-content-wrapper {
+  position: relative;
+}
+
+[data-theme-preset="mission-control"] .pm-page-content-wrapper::before {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  width: 16px;
+  height: 16px;
+  border-bottom: 1.5px solid hsl(var(--foreground) / var(--chrome-opacity, 0.25));
+  border-left: 1.5px solid hsl(var(--foreground) / var(--chrome-opacity, 0.25));
+  pointer-events: none;
+  z-index: 10;
+}
+
+[data-theme-preset="mission-control"] .pm-page-content-wrapper::after {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  border-bottom: 1.5px solid hsl(var(--foreground) / var(--chrome-opacity, 0.25));
+  border-right: 1.5px solid hsl(var(--foreground) / var(--chrome-opacity, 0.25));
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Center crosshair mark (optional) */
+[data-theme-preset="mission-control"] .pm-page-frame[data-show-crosshair="true"]::before {
+  content: '+';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-space-mono), monospace;
+  font-size: 10px;
+  color: hsl(var(--foreground) / 0.1);
+  pointer-events: none;
+}
+
+/* ============================================
+   ILLUMINATED BORDER (Manuscript)
+   Gold decorative lines suggesting manuscript margins
+   ============================================ */
+[data-theme-preset="manuscript"] .pm-page-frame {
+  position: relative;
+}
+
+/* Inner gold border */
+[data-theme-preset="manuscript"] .pm-page-frame::before {
+  content: '';
+  position: absolute;
+  inset: 16px;
+  border: 1px solid hsl(var(--accent) / var(--chrome-opacity, 0.2));
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Corner flourishes - using box-shadow for subtle glow */
+[data-theme-preset="manuscript"] .pm-page-frame::after {
+  content: '';
+  position: absolute;
+  inset: 14px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(135deg, hsl(var(--accent) / 0.15) 0%, transparent 20%) top left,
+    linear-gradient(225deg, hsl(var(--accent) / 0.15) 0%, transparent 20%) top right,
+    linear-gradient(315deg, hsl(var(--accent) / 0.15) 0%, transparent 20%) bottom right,
+    linear-gradient(45deg, hsl(var(--accent) / 0.15) 0%, transparent 20%) bottom left;
+  background-size: 24px 24px;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ============================================
+   PAGE NUMBER STYLING
+   Theme-specific page number treatments
+   ============================================ */
+
+/* Mission Control: Technical monospace */
+[data-theme-preset="mission-control"] .pm-page-frame-number {
+  font-family: var(--font-space-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+[data-theme-preset="mission-control"] .pm-page-frame-number::before {
+  content: 'PG:';
+  opacity: 0.4;
+  margin-right: 4px;
+}
+
+/* Manuscript: Elegant serif */
+[data-theme-preset="manuscript"] .pm-page-frame-number {
+  font-family: var(--font-fraunces), serif;
+  font-style: italic;
+  color: hsl(var(--accent));
+}
+
+/* Film Noir: Classic typewriter */
+[data-theme-preset="film-noir"] .pm-page-frame-number {
+  font-family: var(--font-courier-prime), 'Courier New', monospace;
+  letter-spacing: 0.05em;
+}
+
+/* Cyberpunk: Neon glow */
+[data-theme-preset="cyberpunk"] .pm-page-frame-number {
+  font-family: var(--font-geist-mono), monospace;
+  color: hsl(var(--accent));
+  text-shadow: 0 0 4px hsl(var(--accent) / 0.5);
+}
+
+/* ============================================
+   REDUCED MOTION
+   Static decorations are fine, but disable any animations
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  [data-theme-preset] .pm-page-frame::before,
+  [data-theme-preset] .pm-page-frame::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

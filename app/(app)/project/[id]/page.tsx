@@ -22,8 +22,6 @@ import { ScreenplayListCard } from '@/components/screenplay/screenplay-list-card
 import {
   PiFilmScript,
   PiFilmScriptFill,
-  PiChartBar,
-  PiChartBarFill,
   PiClipboard,
   PiClipboardFill,
 } from 'react-icons/pi';
@@ -53,7 +51,6 @@ import {
   Video,
   Image as ImageIcon,
   Grid3X3,
-  BarChart3,
   Pencil,
 } from 'lucide-react';
 import { ExternalLinkCard, ExternalLinkData } from '@/components/external-link-card';
@@ -69,8 +66,6 @@ import type { ImportResult } from '@/components/import-drop-zone/types';
 import { getImportQuipShort } from '@/lib/import-quips';
 import { ResourceDropZoneOverlay } from '@/components/resource-drop-zone-overlay';
 import { toast } from 'sonner';
-import { ReportsInlineContent } from '@/components/reports/ReportsInlineContent';
-import type { Scene, Character, Location } from '@/types/screenplay';
 import { CallsheetCard, CallsheetCardSkeleton, CallsheetDialog, CallsheetExportDialog } from '@/components/callsheet';
 import type { CallsheetCardData, CallsheetCreateInput } from '@/types/callsheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -84,7 +79,12 @@ type ResourceFilter = 'all' | 'videos' | 'docs' | 'visual' | 'other';
 interface Screenplay {
   id: string;
   title: string;
+  logline: string | null;
   synopsis: string | null;
+  wordCount: number;
+  genre: string | null;
+  isFavorite: boolean;
+  type: 'FILM' | 'TV' | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -120,6 +120,7 @@ interface ProjectData {
   description: string | null;
   status: ProjectStatus | null;
   budget: number | null;
+  banner: string | null;
   userId: string;
   createdAt: string;
   updatedAt: string;
@@ -144,7 +145,7 @@ const STATUS_CONFIG: Record<ProjectStatus, { label: string; color: string }> = {
   COMPLETED: { label: 'Completed', color: 'bg-emerald-600' },
 };
 
-type TabValue = 'screenplays' | 'notes' | 'schedules' | 'budgets' | 'resources' | 'crew' | 'reports' | 'callsheets' | 'production';
+type TabValue = 'screenplays' | 'notes' | 'schedules' | 'budgets' | 'resources' | 'crew' | 'callsheets' | 'production';
 
 // Format budget for display
 function formatBudget(budget: number): string {
@@ -173,14 +174,6 @@ export default function ProjectPage() {
   const [externalLinks, setExternalLinks] = useState<ExternalLinkData[]>([]);
   const [resourceFilter, setResourceFilter] = useState<ResourceFilter>('all');
 
-  // Reports state
-  const [selectedScreenplayForReports, setSelectedScreenplayForReports] = useState<string | null>(null);
-  const [reportData, setReportData] = useState<{
-    scenes: Scene[];
-    characters: Character[];
-    locations: Location[];
-  } | null>(null);
-  const [loadingReports, setLoadingReports] = useState(false);
 
   // Callsheets state
   const [callsheets, setCallsheets] = useState<CallsheetCardData[]>([]);
@@ -427,36 +420,6 @@ export default function ProjectPage() {
     }
   };
 
-  // Load screenplay data for reports
-  const loadReportData = async (screenplayId: string) => {
-    setLoadingReports(true);
-    try {
-      const response = await fetch(`/api/screenplays/${screenplayId}/analysis`);
-      if (response.ok) {
-        const data = await response.json();
-        setReportData({
-          scenes: data.scenes || [],
-          characters: data.characters || [],
-          locations: data.locations || [],
-        });
-      }
-    } catch (error) {
-      console.error('Error loading report data:', error);
-    } finally {
-      setLoadingReports(false);
-    }
-  };
-
-  // Load report data when switching to reports tab or changing screenplay
-  useEffect(() => {
-    if (activeTab === 'reports' && project?.screenplays.length) {
-      const screenplayId = selectedScreenplayForReports || project.screenplays[0]?.id;
-      if (screenplayId) {
-        setSelectedScreenplayForReports(screenplayId);
-        loadReportData(screenplayId);
-      }
-    }
-  }, [activeTab, project?.screenplays, selectedScreenplayForReports]);
 
   // Filter resources by embed type
   const filteredLinks = externalLinks.filter((link) => {
@@ -563,19 +526,21 @@ export default function ProjectPage() {
 
   if (isLoading) {
     return (
-      <ScrollArea className="flex-1">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4 mb-8">
-            <Skeleton className="h-8 w-8" />
-            <Skeleton className="h-8 w-48" />
-          </div>
+      <div className="flex flex-col h-full">
+        {/* Banner skeleton */}
+        <Skeleton className="h-48 md:h-56 w-full flex-shrink-0" />
+        {/* Content skeleton */}
+        <div className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+          <Skeleton className="h-5 w-full max-w-2xl mb-3" />
+          <Skeleton className="h-4 w-48 mb-6" />
+          <Skeleton className="h-10 w-96 mb-4" />
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {[1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-32 rounded-xl" />
             ))}
           </div>
         </div>
-      </ScrollArea>
+      </div>
     );
   }
 
@@ -584,7 +549,7 @@ export default function ProjectPage() {
   }
 
   return (
-    <>
+    <div className="flex flex-col h-full">
       <TemplateSelector
         isOpen={templateSelectorOpen}
         onClose={() => setTemplateSelectorOpen(false)}
@@ -615,6 +580,8 @@ export default function ProjectPage() {
           projectId={projectId}
           currentName={project.name}
           currentDescription={project.description}
+          currentBanner={project.banner}
+          userId={session?.user?.id || ''}
           onSuccess={loadProject}
         />
       )}
@@ -673,32 +640,66 @@ export default function ProjectPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <ScrollArea className="h-full">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center gap-4 mb-4">
-              <Button variant="ghost" size="sm" onClick={() => router.push('/home')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
+      {/* Banner */}
+      <div className="relative h-48 md:h-56 flex-shrink-0">
+        {project.banner ? (
+          <img
+            src={project.banner}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-muted/80 to-muted/40" />
+        )}
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+
+        {/* Back button */}
+        <div className="absolute top-4 left-4 z-20">
+          <Button
+            variant="glass"
+            size="sm"
+            onClick={() => router.push('/home')}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        </div>
+
+        {/* Title overlay at bottom */}
+        <div className="absolute bottom-0 inset-x-0 z-20">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{project.name}</h1>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                onClick={() => setRenameDialogOpen(true)}
+                aria-label="Edit project"
+              >
+                <Pencil className="h-4 w-4" />
               </Button>
             </div>
+            {/* Status badge */}
+            {project.status && (
+              <Badge variant="secondary" className="bg-background/50 backdrop-blur-sm">
+                <span className={cn('h-2 w-2 rounded-full mr-1.5', STATUS_CONFIG[project.status].color)} />
+                {STATUS_CONFIG[project.status].label}
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <ScrollArea className="flex-1">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Meta info */}
+          <div className="mb-6">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <h1 className="text-3xl font-bold text-foreground">{project.name}</h1>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                    onClick={() => setRenameDialogOpen(true)}
-                    aria-label="Edit project"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </div>
                 {project.description && (
-                  <p className="text-muted-foreground">{project.description}</p>
+                  <p className="text-muted-foreground mb-3">{project.description}</p>
                 )}
                 {/* Team Avatars + Budget */}
                 {(() => {
@@ -862,14 +863,6 @@ export default function ProjectPage() {
                   )}
                   <span className="hidden sm:inline">Team</span>
                 </TabsTrigger>
-                <TabsTrigger value="reports" className="gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-sm">
-                  {activeTab === 'reports' ? (
-                    <PiChartBarFill className="h-4 w-4 flex-shrink-0" />
-                  ) : (
-                    <PiChartBar className="h-4 w-4 flex-shrink-0" />
-                  )}
-                  <span className="hidden sm:inline">Reports</span>
-                </TabsTrigger>
                 <TabsTrigger value="callsheets" className="gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-sm">
                   {activeTab === 'callsheets' ? (
                     <PiClipboardFill className="h-4 w-4 flex-shrink-0" />
@@ -934,7 +927,12 @@ export default function ProjectPage() {
                       screenplay={{
                         id: screenplay.id,
                         title: screenplay.title,
+                        logline: screenplay.logline,
                         synopsis: screenplay.synopsis,
+                        wordCount: screenplay.wordCount,
+                        genre: screenplay.genre,
+                        isFavorite: screenplay.isFavorite,
+                        type: screenplay.type ?? undefined,
                         updatedAt: screenplay.updatedAt,
                       }}
                       href={`/screenplay/${screenplay.id}`}
@@ -942,8 +940,7 @@ export default function ProjectPage() {
                       onDelete={() => setDeleteTarget({ id: screenplay.id, type: 'screenplays' })}
                       onRemoveFromProject={() => handleUnlinkScreenplay(screenplay.id)}
                       showProject={false}
-                      showType={false}
-                      showFavorite={false}
+                      showWordCount={true}
                     />
                   ))}
                 </div>
@@ -1154,71 +1151,6 @@ export default function ProjectPage() {
               />
             </TabsContent>
 
-            {/* Reports Tab */}
-            <TabsContent value="reports">
-              {project.screenplays.length === 0 ? (
-                <Empty border>
-                  <EmptyMedia variant="icon">
-                    <BarChart3 className="h-6 w-6" />
-                  </EmptyMedia>
-                  <EmptyHeader>
-                    <EmptyTitle>No screenplays to analyze</EmptyTitle>
-                    <EmptyDescription>Add a screenplay to this project to generate reports</EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              ) : (
-                <div className="space-y-6">
-                  {/* Screenplay selector if multiple */}
-                  {project.screenplays.length > 1 && (
-                    <Select
-                      value={selectedScreenplayForReports || project.screenplays[0]?.id}
-                      onValueChange={(id) => {
-                        setSelectedScreenplayForReports(id);
-                        loadReportData(id);
-                      }}
-                    >
-                      <SelectTrigger className="w-[280px]">
-                        <SelectValue placeholder="Select screenplay" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {project.screenplays.map((sp) => (
-                          <SelectItem key={sp.id} value={sp.id}>
-                            {sp.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-
-                  {/* Reports content */}
-                  {loadingReports ? (
-                    <div className="bg-card rounded-lg border border-border/60 p-8">
-                      <div className="flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                          <p className="text-sm text-muted-foreground">Loading report data...</p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : reportData ? (
-                    <ReportsInlineContent
-                      scenes={reportData.scenes}
-                      characters={reportData.characters}
-                      locations={reportData.locations}
-                      screenplayTitle={
-                        project.screenplays.find(s => s.id === selectedScreenplayForReports)?.title ||
-                        project.screenplays[0]?.title || ''
-                      }
-                    />
-                  ) : (
-                    <div className="bg-card rounded-lg border border-border/60 p-8 text-center">
-                      <p className="text-muted-foreground">Select a screenplay to view reports</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </TabsContent>
-
             {/* Callsheets Tab */}
             <TabsContent value="callsheets">
               {loadingCallsheets ? (
@@ -1272,7 +1204,7 @@ export default function ProjectPage() {
           </Tabs>
         </div>
       </ScrollArea>
-    </>
+    </div>
   );
 }
 

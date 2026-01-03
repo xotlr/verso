@@ -1,0 +1,204 @@
+/**
+ * Premium Theme UI Chrome
+ * UI style variants for different theme aesthetics
+ */
+
+/* ============================================
+   BRUTALIST UI CHROME (Mission Control)
+   Sharp edges, offset shadows, industrial feel
+   ============================================ */
+[data-ui-chrome="brutalist"] {
+  --radius: 2px;
+}
+
+/* Brutalist buttons */
+[data-ui-chrome="brutalist"] button:not([data-radix-collection-item]),
+[data-ui-chrome="brutalist"] [role="button"]:not([data-radix-collection-item]) {
+  border-radius: 2px !important;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+/* Primary button - offset shadow */
+[data-ui-chrome="brutalist"] .btn-primary,
+[data-ui-chrome="brutalist"] button[data-variant="default"] {
+  box-shadow: 3px 3px 0 hsl(var(--foreground) / 0.15);
+  transition: box-shadow 100ms ease, transform 100ms ease;
+}
+
+[data-ui-chrome="brutalist"] .btn-primary:hover,
+[data-ui-chrome="brutalist"] button[data-variant="default"]:hover {
+  box-shadow: 2px 2px 0 hsl(var(--foreground) / 0.2);
+  transform: translate(1px, 1px);
+}
+
+[data-ui-chrome="brutalist"] .btn-primary:active,
+[data-ui-chrome="brutalist"] button[data-variant="default"]:active {
+  box-shadow: 0px 0px 0 hsl(var(--foreground) / 0.2);
+  transform: translate(3px, 3px);
+}
+
+/* Brutalist cards */
+[data-ui-chrome="brutalist"] .card,
+[data-ui-chrome="brutalist"] [data-slot="card"] {
+  border-radius: 2px !important;
+  border: 1.5px solid hsl(var(--border));
+}
+
+/* Brutalist dialogs */
+[data-ui-chrome="brutalist"] [data-radix-dialog-content],
+[data-ui-chrome="brutalist"] [role="dialog"] {
+  border-radius: 4px !important;
+  border: 2px solid hsl(var(--border));
+  box-shadow: 8px 8px 0 hsl(var(--foreground) / 0.1);
+}
+
+/* Brutalist inputs */
+[data-ui-chrome="brutalist"] input,
+[data-ui-chrome="brutalist"] textarea,
+[data-ui-chrome="brutalist"] select {
+  border-radius: 2px !important;
+  border: 1.5px solid hsl(var(--border));
+}
+
+[data-ui-chrome="brutalist"] input:focus,
+[data-ui-chrome="brutalist"] textarea:focus,
+[data-ui-chrome="brutalist"] select:focus {
+  border-color: hsl(var(--accent));
+  box-shadow: 0 0 0 1px hsl(var(--accent));
+}
+
+/* ============================================
+   GLASSMORPHIC UI CHROME (Cyberpunk)
+   Frosted glass effect, translucent panels
+   ============================================ */
+[data-ui-chrome="glassmorphic"] .card,
+[data-ui-chrome="glassmorphic"] [data-slot="card"] {
+  background: hsl(var(--card) / 0.7) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsl(var(--border) / 0.5);
+}
+
+[data-ui-chrome="glassmorphic"] [data-radix-dialog-content],
+[data-ui-chrome="glassmorphic"] [role="dialog"] {
+  background: hsl(var(--card) / 0.85) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid hsl(var(--border) / 0.4);
+  box-shadow:
+    0 8px 32px hsl(var(--foreground) / 0.1),
+    inset 0 0 0 1px hsl(var(--card) / 0.1);
+}
+
+[data-ui-chrome="glassmorphic"] [data-radix-popover-content],
+[data-ui-chrome="glassmorphic"] [data-radix-dropdown-menu-content] {
+  background: hsl(var(--card) / 0.9) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsl(var(--border) / 0.3);
+}
+
+/* Glassmorphic buttons */
+[data-ui-chrome="glassmorphic"] button[data-variant="secondary"],
+[data-ui-chrome="glassmorphic"] button[data-variant="outline"] {
+  background: hsl(var(--secondary) / 0.5) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Glassmorphic sidebar */
+[data-ui-chrome="glassmorphic"] .app-sidebar {
+  background: hsl(var(--sidebar-background) / 0.8) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* ============================================
+   NEUMORPHIC UI CHROME (Manuscript)
+   Soft embossed shadows, organic feel
+   ============================================ */
+[data-ui-chrome="neumorphic"] {
+  --shadow-light: hsl(var(--background) / 0.8);
+  --shadow-dark: hsl(var(--foreground) / 0.08);
+}
+
+.dark[data-ui-chrome="neumorphic"] {
+  --shadow-light: hsl(var(--card) / 0.5);
+  --shadow-dark: hsl(0 0% 0% / 0.3);
+}
+
+/* Neumorphic cards - convex (raised) */
+[data-ui-chrome="neumorphic"] .card,
+[data-ui-chrome="neumorphic"] [data-slot="card"] {
+  background: hsl(var(--card));
+  border: none !important;
+  box-shadow:
+    4px 4px 8px var(--shadow-dark),
+    -4px -4px 8px var(--shadow-light);
+}
+
+/* Neumorphic buttons - convex */
+[data-ui-chrome="neumorphic"] button:not([data-radix-collection-item]) {
+  box-shadow:
+    3px 3px 6px var(--shadow-dark),
+    -3px -3px 6px var(--shadow-light);
+  transition: box-shadow 150ms ease;
+}
+
+[data-ui-chrome="neumorphic"] button:not([data-radix-collection-item]):hover {
+  box-shadow:
+    2px 2px 4px var(--shadow-dark),
+    -2px -2px 4px var(--shadow-light);
+}
+
+/* Neumorphic buttons - pressed (concave) */
+[data-ui-chrome="neumorphic"] button:not([data-radix-collection-item]):active {
+  box-shadow:
+    inset 3px 3px 6px var(--shadow-dark),
+    inset -3px -3px 6px var(--shadow-light);
+}
+
+/* Neumorphic inputs - concave (inset) */
+[data-ui-chrome="neumorphic"] input,
+[data-ui-chrome="neumorphic"] textarea,
+[data-ui-chrome="neumorphic"] select {
+  background: hsl(var(--background));
+  border: none !important;
+  box-shadow:
+    inset 2px 2px 4px var(--shadow-dark),
+    inset -2px -2px 4px var(--shadow-light);
+}
+
+[data-ui-chrome="neumorphic"] input:focus,
+[data-ui-chrome="neumorphic"] textarea:focus,
+[data-ui-chrome="neumorphic"] select:focus {
+  box-shadow:
+    inset 2px 2px 4px var(--shadow-dark),
+    inset -2px -2px 4px var(--shadow-light),
+    0 0 0 2px hsl(var(--accent) / 0.3);
+}
+
+/* Neumorphic dialogs */
+[data-ui-chrome="neumorphic"] [data-radix-dialog-content],
+[data-ui-chrome="neumorphic"] [role="dialog"] {
+  border: none !important;
+  box-shadow:
+    8px 8px 16px var(--shadow-dark),
+    -8px -8px 16px var(--shadow-light),
+    0 24px 48px hsl(var(--foreground) / 0.1);
+}
+
+/* ============================================
+   REDUCED MOTION
+   Simplify transitions for accessibility
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  [data-ui-chrome] button,
+  [data-ui-chrome] .card,
+  [data-ui-chrome] input {
+    transition: none !important;
+  }
+}

@@ -36,6 +36,7 @@ import {
   toggleUnderline,
 } from '@/lib/prosemirror/plugins/keymap';
 import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
+import { canMakeDualDialogue, wrapInDualDialogue } from '@/lib/prosemirror/commands/dual-dialogue';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface FloatingToolbarProps {
@@ -110,6 +111,7 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderlined, setIsUnderlined] = useState(false);
+  const [canDualDialogue, setCanDualDialogue] = useState(false);
 
   // Update toolbar position based on selection
   const updatePosition = useCallback(() => {
@@ -156,6 +158,7 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
     setIsItalic(isMarkActive(state, 'italic'));
     setIsUnderlined(isMarkActive(state, 'underline'));
     setCurrentElement(getCurrentElementType(state));
+    setCanDualDialogue(canMakeDualDialogue(state));
 
     setPosition({
       top,
@@ -212,6 +215,13 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
     },
     [view]
   );
+
+  // Handle dual dialogue
+  const handleDualDialogue = useCallback(() => {
+    if (!view) return;
+    wrapInDualDialogue(view.state, view.dispatch, view);
+    view.focus();
+  }, [view]);
 
   if (!position.visible) {
     return null;
@@ -272,6 +282,23 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <Separator orientation="vertical" className="h-6 mx-1" />
+        </>
+      )}
+
+      {/* Dual Dialogue Button - shows when applicable */}
+      {canDualDialogue && (
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={buttonClass}
+            onClick={handleDualDialogue}
+            title="Make dual dialogue (⌘⇧D)"
+          >
+            <MessageSquare className={iconClass} />
+            <MessageSquare className={`${iconClass} -ml-2`} />
+          </Button>
           <Separator orientation="vertical" className="h-6 mx-1" />
         </>
       )}

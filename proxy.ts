@@ -75,8 +75,8 @@ function addSecurityHeaders(response: NextResponse, host: string): NextResponse 
     `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""} https://js.stripe.com https://challenges.cloudflare.com`,
     // Styles: self + inline (required for ProseMirror and Tailwind)
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    // Images: self + data URIs + blob + external image hosts
-    "img-src 'self' data: blob: https://*.supabase.co https://*.googleusercontent.com https://lh3.googleusercontent.com https://avatars.githubusercontent.com",
+    // Images: allow all HTTPS (standard for user-generated content - images can't execute code)
+    "img-src 'self' data: blob: https:",
     // Fonts: self + Google Fonts
     "font-src 'self' https://fonts.gstatic.com",
     // Connect: API calls to self + Supabase + Stripe + Anthropic

@@ -14,8 +14,9 @@ import { Schema, NodeSpec, MarkSpec, DOMOutputSpec } from 'prosemirror-model';
  */
 
 // Title page (cover page) container - holds editable child nodes
+// All 6 fields are required so ghost placeholders always appear
 const title_page: NodeSpec = {
-  content: 'title_page_title title_page_author title_page_logline? title_page_contact? title_page_copyright? title_page_draft?',
+  content: 'title_page_title title_page_author title_page_logline title_page_contact title_page_copyright title_page_draft',
   group: 'block',
   defining: true,
   parseDOM: [{ tag: 'div.pm-title-page' }],

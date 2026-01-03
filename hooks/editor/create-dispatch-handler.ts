@@ -178,6 +178,12 @@ export function createDispatchHandler(
 
     if (tr.docChanged) {
       const doc = newState.doc;
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[DispatchHandler] docChanged - calling setCurrentDoc:', {
+          childCount: doc.content.childCount,
+          contentSize: doc.content.size,
+        });
+      }
       setters.setCurrentDoc(doc);
       setters.setCurrentEditorState(newState);
       handleDocChange(doc, deps, setters);

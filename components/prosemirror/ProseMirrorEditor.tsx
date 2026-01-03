@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/button';
 import { MobileEditorToolbar } from '@/components/editor/mobile-editor-toolbar';
 import { MobileSceneCharacterSheet } from '@/components/editor/MobileSceneCharacterSheet';
 import { ZoomIndicator } from './ZoomIndicator';
+import { TextSelection } from 'prosemirror-state';
 import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
 import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plugins/keymap';
 import { updateTypewriterScrollSettings } from '@/lib/prosemirror/plugins';
@@ -37,6 +38,7 @@ import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
 import { useSettings } from '@/contexts/settings-context';
 import { useDebugMetrics } from '@/components/analytics/debug-metrics-context';
 import { BeginnerTips } from '@/components/editor/BeginnerTips';
+import { TypingTestPanel } from './dev/TypingTestPanel';
 import '@/styles/editor/prosemirror.css';
 
 export type ViewMode = 'discrete' | 'continuous';
@@ -194,6 +196,8 @@ export function ProseMirrorEditor({
   const showSceneNumbers = settings.editor.showSceneNumbers ?? true;
   // Scene number position: left, right, or both (industry standard)
   const sceneNumberPosition = settings.editor.sceneNumberPosition ?? 'both';
+  // Show placeholder ghost text in empty elements
+  const showPlaceholders = settings.editor.showPlaceholders ?? true;
   // Reading mode - read-only with minimal UI
   const isReadingMode = settings.editor.readingMode ?? false;
   // Effective editable state: prop AND not reading mode
@@ -284,6 +288,8 @@ export function ProseMirrorEditor({
     undo: handleUndo,
     redo: handleRedo,
     paginationResult: livePaginationResult,
+    paginationError,
+    isWasmReady,
   } = useProseMirrorEditor({
     initialContent: content,
     onUpdate: onContentChange,
@@ -335,6 +341,20 @@ export function ProseMirrorEditor({
       applyLayoutMetadataCSS(paginationResult.stats.layout);
     }
   }, [paginationResult]);
+
+  // Log pagination errors in development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && paginationError) {
+      console.error('[ProseMirrorEditor] Pagination error:', paginationError);
+    }
+  }, [paginationError]);
+
+  // Log WASM readiness status
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ProseMirrorEditor] WASM ready:', isWasmReady, 'Result:', !!paginationResult);
+    }
+  }, [isWasmReady, paginationResult]);
 
   // Push WASM pagination stats to debug panel (dev only)
   // Extract stable callbacks to avoid infinite loop - the context object changes
@@ -403,6 +423,32 @@ export function ProseMirrorEditor({
   const handleUnderline = useCallback(() => {
     if (!view) return;
     toggleUnderline(view.state, view.dispatch);
+    view.focus();
+  }, [view]);
+
+  // Handle clicks on empty areas - place cursor at nearest position
+  const handleEmptyAreaClick = useCallback((e: React.MouseEvent) => {
+    if (!view) return;
+
+    // Check if click was directly on the container (not on ProseMirror content)
+    const target = e.target as HTMLElement;
+    if (target.closest('.ProseMirror')) return; // Let ProseMirror handle it
+
+    // Try to find position from coordinates
+    const coords = { left: e.clientX, top: e.clientY };
+    const pos = view.posAtCoords(coords);
+
+    if (pos) {
+      // Found a position - place cursor there
+      const { tr } = view.state;
+      const selection = TextSelection.near(view.state.doc.resolve(pos.pos));
+      view.dispatch(tr.setSelection(selection).scrollIntoView());
+    } else {
+      // Couldn't find position - go to end of document
+      const { tr, doc } = view.state;
+      const selection = TextSelection.atEnd(doc);
+      view.dispatch(tr.setSelection(selection).scrollIntoView());
+    }
     view.focus();
   }, [view]);
 
@@ -487,6 +533,7 @@ export function ProseMirrorEditor({
         viewMode === 'discrete' && 'pm-discrete-mode',
         isInFocusMode && 'pm-focus-mode',
         isReadingMode && 'pm-reading-mode',
+        !showPlaceholders && 'hide-placeholders',
         className
       )}
     >
@@ -581,7 +628,7 @@ export function ProseMirrorEditor({
             {isDiscreteMode && isReady && (
               <PageFrameRenderer
                 frames={pageFrames}
-                scale={1}
+                scale={scale}
                 discreteMode={isDiscreteMode}
                 pageStyle={pageStyle}
                 showPageNumbers={settings.interface.showPageNumbers}
@@ -593,7 +640,7 @@ export function ProseMirrorEditor({
             {isDiscreteMode && isReady && (
               <PageGapRenderer
                 frames={pageFrames}
-                scale={1}
+                scale={scale}
                 discreteMode={isDiscreteMode}
                 scrollContainerRef={scrollContainerRef}
               />
@@ -606,6 +653,7 @@ export function ProseMirrorEditor({
                   'pm-editor-pages',
                   isDiscreteMode && 'pm-content-layer'
                 )}
+                onClick={handleEmptyAreaClick}
               >
                 {/* ProseMirror mounts here */}
                 <div
@@ -718,6 +766,11 @@ export function ProseMirrorEditor({
       {/* Beginner tips - contextual writing guidance */}
       {showBeginnerTips && isReady && !isMobile && effectiveEditable && (
         <BeginnerTips currentElementType={currentElementType} />
+      )}
+
+      {/* Typing test panel - dev mode only (Ctrl+Shift+T) */}
+      {process.env.NODE_ENV === 'development' && isReady && (
+        <TypingTestPanel view={view} />
       )}
 
     </div>
