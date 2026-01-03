@@ -1,6 +1,19 @@
 import { authEdge } from "@/lib/auth.edge"
 import { NextRequest, NextResponse } from "next/server"
 
+// Correlation ID header name (standard)
+const CORRELATION_ID_HEADER = 'x-correlation-id'
+
+/**
+ * Generate a unique correlation ID.
+ * Format: timestamp-random for sortability and uniqueness.
+ */
+function generateCorrelationId(): string {
+  const timestamp = Date.now().toString(36)
+  const random = Math.random().toString(36).substring(2, 10)
+  return `${timestamp}-${random}`
+}
+
 // CSRF protection for API routes
 function checkCsrf(request: NextRequest, host: string): NextResponse | null {
   const method = request.method
@@ -48,7 +61,9 @@ function checkCsrf(request: NextRequest, host: string): NextResponse | null {
 }
 
 // Security headers to add to all responses
-function addSecurityHeaders(response: NextResponse, host: string): NextResponse {
+function addSecurityHeaders(response: NextResponse, host: string, correlationId: string): NextResponse {
+  // Add correlation ID for request tracing
+  response.headers.set(CORRELATION_ID_HEADER, correlationId)
   response.headers.set("X-Content-Type-Options", "nosniff")
   response.headers.set("X-Frame-Options", "DENY")
   response.headers.set("X-XSS-Protection", "1; mode=block")
@@ -77,8 +92,8 @@ function addSecurityHeaders(response: NextResponse, host: string): NextResponse 
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     // Images: allow all HTTPS (standard for user-generated content - images can't execute code)
     "img-src 'self' data: blob: https:",
-    // Fonts: self + Google Fonts
-    "font-src 'self' https://fonts.gstatic.com",
+    // Fonts: self + Google Fonts + jsdelivr (OpenDyslexic)
+    "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net",
     // Connect: API calls to self + Supabase + Stripe + Anthropic
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.anthropic.com",
     // Frames: Stripe for payments
@@ -179,6 +194,10 @@ export const proxy = authEdge((req) => {
   const forwardedProto = req.headers.get("x-forwarded-proto")
   const protocol = forwardedProto || (host.includes("localhost") ? "http" : "https")
 
+  // Generate or propagate correlation ID for request tracing
+  const existingCorrelationId = req.headers.get(CORRELATION_ID_HEADER)
+  const correlationId = existingCorrelationId || generateCorrelationId()
+
   // CSRF protection for API routes (except webhooks which have their own verification)
   if (pathname.startsWith("/api/") && !pathname.startsWith("/api/stripe/webhook")) {
     const csrfError = checkCsrf(req, host)
@@ -191,7 +210,8 @@ export const proxy = authEdge((req) => {
   if (pathname in legacyRedirects) {
     return addSecurityHeaders(
       NextResponse.redirect(new URL(legacyRedirects[pathname], req.nextUrl.origin)),
-      host
+      host,
+      correlationId
     )
   }
 
@@ -200,7 +220,8 @@ export const proxy = authEdge((req) => {
   if (editorRedirect) {
     return addSecurityHeaders(
       NextResponse.redirect(new URL(editorRedirect, req.nextUrl.origin)),
-      host
+      host,
+      correlationId
     )
   }
 
@@ -221,16 +242,16 @@ export const proxy = authEdge((req) => {
         // User went directly to app.*/login - redirect to workspace after login
         loginUrl.searchParams.set("callbackUrl", `${protocol}://${host}/home`)
       }
-      return addSecurityHeaders(NextResponse.redirect(loginUrl), host)
+      return addSecurityHeaders(NextResponse.redirect(loginUrl), host, correlationId)
     }
 
     // User is authenticated - redirect root to /home
     if (pathname === "/") {
-      return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)), host)
+      return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)), host, correlationId)
     }
 
     // User is authenticated, allow access to app subdomain
-    return addSecurityHeaders(NextResponse.next(), host)
+    return addSecurityHeaders(NextResponse.next(), host, correlationId)
   }
 
   // On main domain (or development without subdomain routing)
@@ -244,39 +265,39 @@ export const proxy = authEdge((req) => {
   // If trying to access app routes on main domain, redirect to app subdomain (production only)
   if (useSubdomainRouting && isAppRoute(pathname)) {
     const appUrl = getAppUrl(host, pathname, protocol)
-    return addSecurityHeaders(NextResponse.redirect(appUrl), host)
+    return addSecurityHeaders(NextResponse.redirect(appUrl), host, correlationId)
   }
 
   // Redirect to app subdomain if already logged in and trying to access login/signup (production only)
   if (useSubdomainRouting && isLoggedIn && (pathname === "/login" || pathname === "/signup")) {
     const appUrl = getAppUrl(host, "/home", protocol)
-    return addSecurityHeaders(NextResponse.redirect(appUrl), host)
+    return addSecurityHeaders(NextResponse.redirect(appUrl), host, correlationId)
   }
 
   // Redirect logged-in users from main domain root to app subdomain (production only)
   if (useSubdomainRouting && isLoggedIn && pathname === "/") {
     const appUrl = getAppUrl(host, "/home", protocol)
-    return addSecurityHeaders(NextResponse.redirect(appUrl), host)
+    return addSecurityHeaders(NextResponse.redirect(appUrl), host, correlationId)
   }
 
   // In development OR production fallback: protect app routes
   if (isAppRoute(pathname) && !isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl.origin)
     loginUrl.searchParams.set("callbackUrl", pathname)
-    return addSecurityHeaders(NextResponse.redirect(loginUrl), host)
+    return addSecurityHeaders(NextResponse.redirect(loginUrl), host, correlationId)
   }
 
   // Redirect logged-in users from login/signup to workspace (in development)
   if (!useSubdomainRouting && isLoggedIn && (pathname === "/login" || pathname === "/signup")) {
-    return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)), host)
+    return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)), host, correlationId)
   }
 
   // Redirect logged-in users from root to /home (in development)
   if (!useSubdomainRouting && isLoggedIn && pathname === "/") {
-    return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)), host)
+    return addSecurityHeaders(NextResponse.redirect(new URL("/home", req.nextUrl.origin)), host, correlationId)
   }
 
-  return addSecurityHeaders(NextResponse.next(), host)
+  return addSecurityHeaders(NextResponse.next(), host, correlationId)
 })
 
 export const config = {

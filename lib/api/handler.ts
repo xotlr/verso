@@ -48,6 +48,15 @@ import {
   RateLimitError,
   InternalError,
 } from './errors';
+import {
+  logger,
+  withLogContextAsync,
+  generateCorrelationId,
+  type LogContext,
+} from '@/lib/logger';
+
+// Correlation ID header name (matches proxy.ts)
+const CORRELATION_ID_HEADER = 'x-correlation-id';
 
 type RateLimitConfig = (typeof RATE_LIMITS)[keyof typeof RATE_LIMITS];
 
@@ -171,95 +180,159 @@ export function createApiHandler<
     request: NextRequest,
     routeContext?: RouteContext
   ): Promise<NextResponse> {
-    try {
-      // 1. Authentication
-      let user: SessionUser | undefined;
+    const startTime = performance.now();
 
-      if (authMode !== 'none') {
-        const session = await auth();
+    // Get or generate correlation ID (should be set by proxy, fallback for direct calls)
+    const correlationId =
+      request.headers.get(CORRELATION_ID_HEADER) || generateCorrelationId();
 
-        if (authMode === 'required' && !session?.user?.id) {
-          throw new UnauthorizedError();
+    // Build initial log context
+    const logContext: LogContext = {
+      correlationId,
+      path: new URL(request.url).pathname,
+      method: request.method,
+      ip: getClientIp(request),
+      userAgent: request.headers.get('user-agent') || undefined,
+    };
+
+    // Wrap entire handler in log context for correlation ID propagation
+    return withLogContextAsync(logContext, async () => {
+      let statusCode = 200;
+
+      try {
+        // 1. Authentication
+        let user: SessionUser | undefined;
+
+        if (authMode !== 'none') {
+          const session = await auth();
+
+          if (authMode === 'required' && !session?.user?.id) {
+            throw new UnauthorizedError();
+          }
+
+          if (session?.user?.id) {
+            user = session.user as SessionUser;
+            // Update log context with user ID
+            logContext.userId = user.id;
+          }
         }
 
-        if (session?.user?.id) {
-          user = session.user as SessionUser;
+        // 2. Rate Limiting
+        if (rateLimitConfig) {
+          const identifier = user?.id || getClientIp(request);
+          const result = await rateLimit(identifier, rateLimitConfig);
+
+          if (!result.success) {
+            logger.security('Rate limit exceeded', {
+              identifier: user?.id ? 'user' : 'ip',
+              limit: rateLimitConfig.maxRequests,
+              windowMs: rateLimitConfig.windowMs,
+            });
+            throw new RateLimitError(result.resetAt);
+          }
         }
-      }
 
-      // 2. Rate Limiting
-      if (rateLimitConfig) {
-        const identifier = user?.id || getClientIp(request);
-        const result = await rateLimit(identifier, rateLimitConfig);
+        // 3. Parse route params
+        const params = routeContext?.params
+          ? ((await routeContext.params) as TParams)
+          : ({} as TParams);
 
-        if (!result.success) {
-          throw new RateLimitError(result.resetAt);
+        // 4. Parse and validate request body
+        let data: TData = undefined as TData;
+
+        if (schema) {
+          try {
+            const body = await request.json();
+            data = schema.parse(body);
+          } catch (error) {
+            if (error instanceof ZodError) {
+              throw new ValidationError('Validation failed', {
+                errors: error.issues.map((issue) => ({
+                  path: issue.path.join('.'),
+                  message: issue.message,
+                })),
+              });
+            }
+            // JSON parse error
+            if (error instanceof SyntaxError) {
+              throw new ValidationError('Invalid JSON body');
+            }
+            throw error;
+          }
         }
-      }
 
-      // 3. Parse route params
-      const params = routeContext?.params
-        ? ((await routeContext.params) as TParams)
-        : ({} as TParams);
+        // 5. Parse search params
+        const searchParams = new URL(request.url).searchParams;
 
-      // 4. Parse and validate request body
-      let data: TData = undefined as TData;
+        // 6. Call handler
+        const context = {
+          user,
+          data,
+          params,
+          searchParams,
+          request,
+        };
 
-      if (schema) {
-        try {
-          const body = await request.json();
-          data = schema.parse(body);
-        } catch (error) {
-          if (error instanceof ZodError) {
-            throw new ValidationError('Validation failed', {
-              errors: error.issues.map((issue) => ({
-                path: issue.path.join('.'),
-                message: issue.message,
-              })),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await (handler as any)(context);
+
+        // 7. Return response
+        const durationMs = Math.round(performance.now() - startTime);
+        let response: NextResponse;
+
+        if (result instanceof NextResponse) {
+          response = result;
+          statusCode = response.status;
+        } else {
+          response = NextResponse.json(result);
+        }
+
+        // Add correlation ID to response
+        response.headers.set(CORRELATION_ID_HEADER, correlationId);
+
+        // Log successful request
+        logger.request({
+          message: 'Request completed',
+          statusCode,
+          durationMs,
+        });
+
+        return response;
+      } catch (error) {
+        const durationMs = Math.round(performance.now() - startTime);
+
+        // Handle known API errors
+        if (error instanceof ApiError) {
+          statusCode = error.status;
+
+          // Log client errors at info level, server errors at error level
+          if (statusCode >= 500) {
+            logger.error('Request failed', error as Error);
+          } else if (statusCode >= 400) {
+            logger.request({
+              message: 'Request rejected',
+              statusCode,
+              durationMs,
+              meta: { code: error.code },
             });
           }
-          // JSON parse error
-          if (error instanceof SyntaxError) {
-            throw new ValidationError('Invalid JSON body');
-          }
-          throw error;
+
+          const response = NextResponse.json(error.toJSON(), { status: error.status });
+          response.headers.set(CORRELATION_ID_HEADER, correlationId);
+          return response;
         }
+
+        // Log unexpected errors
+        statusCode = 500;
+        logger.error('Unexpected error', error as Error);
+
+        // Return generic error for unexpected issues
+        const internalError = new InternalError();
+        const response = NextResponse.json(internalError.toJSON(), { status: 500 });
+        response.headers.set(CORRELATION_ID_HEADER, correlationId);
+        return response;
       }
-
-      // 5. Parse search params
-      const searchParams = new URL(request.url).searchParams;
-
-      // 6. Call handler
-      const context = {
-        user,
-        data,
-        params,
-        searchParams,
-        request,
-      };
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await (handler as any)(context);
-
-      // 7. Return response
-      if (result instanceof NextResponse) {
-        return result;
-      }
-
-      return NextResponse.json(result);
-    } catch (error) {
-      // Handle known API errors
-      if (error instanceof ApiError) {
-        return NextResponse.json(error.toJSON(), { status: error.status });
-      }
-
-      // Log unexpected errors
-      console.error('[API Error]', error);
-
-      // Return generic error for unexpected issues
-      const internalError = new InternalError();
-      return NextResponse.json(internalError.toJSON(), { status: 500 });
-    }
+    });
   }
 
   return routeHandler;

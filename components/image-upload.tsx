@@ -15,6 +15,7 @@ interface ImageUploadProps {
   className?: string
   placeholder?: string
   compact?: boolean
+  variant?: 'default' | 'unstyled'
 }
 
 export function ImageUpload({
@@ -26,6 +27,7 @@ export function ImageUpload({
   className,
   placeholder = 'Drop an image here or click to upload',
   compact = false,
+  variant = 'default',
 }: ImageUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -109,7 +111,8 @@ export function ImageUpload({
       {value ? (
         <div
           className={cn(
-            'relative rounded-lg overflow-hidden border border-border bg-muted',
+            'relative overflow-hidden',
+            variant === 'default' && 'rounded-lg border border-border bg-muted',
             aspectClasses[aspectRatio]
           )}
         >
@@ -169,13 +172,15 @@ export function ImageUpload({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           className={cn(
-            'border-2 border-dashed rounded-lg cursor-pointer transition-colors',
+            'cursor-pointer transition-colors',
             'flex flex-col items-center justify-center',
             compact ? 'gap-1 p-2' : 'gap-2 p-4',
             aspectClasses[aspectRatio],
-            isDragging
+            variant === 'default' && 'border-2 border-dashed rounded-lg',
+            variant === 'default' && (isDragging
               ? 'border-primary bg-primary/5'
-              : 'border-border hover:border-primary/50 hover:bg-muted/50',
+              : 'border-border hover:border-primary/50 hover:bg-muted/50'),
+            variant === 'unstyled' && 'bg-muted/30 hover:bg-muted/50',
             isUploading && 'pointer-events-none opacity-50'
           )}
         >

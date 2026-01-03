@@ -3,7 +3,7 @@
 import React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import type { InterfaceSettings, EditorSettings, AccessibilityFont } from '@/types/settings';
 
@@ -196,7 +196,7 @@ export function AccessibilitySection({
                 Disables animations, transitions, and theme ambient effects
               </p>
             </div>
-            <Checkbox
+            <Switch
               checked={interfaceSettings.reduceMotion}
               onCheckedChange={(checked) => updateInterfaceSettings({
                 reduceMotion: checked as boolean
@@ -214,7 +214,7 @@ export function AccessibilitySection({
                 Increases contrast between text and backgrounds
               </p>
             </div>
-            <Checkbox
+            <Switch
               checked={interfaceSettings.highContrast}
               onCheckedChange={(checked) => updateInterfaceSettings({
                 highContrast: checked as boolean
@@ -241,7 +241,7 @@ export function AccessibilitySection({
                 Word count and page statistics at the bottom of the editor
               </p>
             </div>
-            <Checkbox
+            <Switch
               checked={interfaceSettings.showStatsBar}
               onCheckedChange={(checked) => updateInterfaceSettings({
                 showStatsBar: checked as boolean
@@ -259,7 +259,7 @@ export function AccessibilitySection({
                 Page numbers on the right side of each page
               </p>
             </div>
-            <Checkbox
+            <Switch
               checked={interfaceSettings.showPageNumbers}
               onCheckedChange={(checked) => updateInterfaceSettings({
                 showPageNumbers: checked as boolean

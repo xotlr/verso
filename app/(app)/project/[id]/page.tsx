@@ -186,11 +186,36 @@ export default function ProjectPage() {
   // Rename dialog state
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
 
+  // Load all project data in a single request
+  const loadAllData = async () => {
+    setIsLoading(true);
+    setLoadingCallsheets(true);
+    try {
+      // Combined endpoint: 3 API calls → 1
+      const response = await fetch(`/api/projects/${projectId}/page-data`);
+      if (!response.ok) {
+        if (response.status === 404) {
+          router.push('/home');
+          return;
+        }
+        throw new Error('Failed to fetch project data');
+      }
+
+      const data = await response.json();
+      setProject(data.project);
+      setExternalLinks(data.links || []);
+      setCallsheets(data.callsheets || []);
+    } catch (error) {
+      console.error('Error loading project data:', error);
+    } finally {
+      setIsLoading(false);
+      setLoadingCallsheets(false);
+    }
+  };
+
   useEffect(() => {
     if (projectId) {
-      loadProject();
-      loadLinks();
-      loadCallsheets();
+      loadAllData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
@@ -204,32 +229,10 @@ export default function ProjectPage() {
     }
   }, [project?.name]);
 
-  const loadLinks = async () => {
-    try {
-      const response = await fetch(`/api/projects/${projectId}/links`);
-      if (response.ok) {
-        const data = await response.json();
-        setExternalLinks(data);
-      }
-    } catch (error) {
-      console.error('Error loading links:', error);
-    }
-  };
-
-  const loadCallsheets = async () => {
-    setLoadingCallsheets(true);
-    try {
-      const response = await fetch(`/api/projects/${projectId}/callsheets`);
-      if (response.ok) {
-        const data = await response.json();
-        setCallsheets(data);
-      }
-    } catch (error) {
-      console.error('Error loading callsheets:', error);
-    } finally {
-      setLoadingCallsheets(false);
-    }
-  };
+  // Individual loaders for after mutations (just reload all data)
+  const loadLinks = () => loadAllData();
+  const loadCallsheets = () => loadAllData();
+  const loadProject = () => loadAllData();
 
   const saveCallsheet = async (data: CallsheetCreateInput) => {
     setSavingCallsheet(true);
@@ -281,23 +284,6 @@ export default function ProjectPage() {
     } catch (error) {
       console.error('Error deleting callsheet:', error);
       toast.error('Failed to delete callsheet');
-    }
-  };
-
-  const loadProject = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/projects/${projectId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setProject(data);
-      } else if (response.status === 404) {
-        router.push('/home');
-      }
-    } catch (error) {
-      console.error('Error loading project:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 

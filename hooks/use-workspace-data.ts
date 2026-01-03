@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import useSWR from 'swr';
 import type { GreetingCategory } from '@/lib/greeting/types';
 
 export interface ScreenplayItem {
@@ -87,6 +88,14 @@ export interface DashboardStats {
   recentCategories: GreetingCategory[];
 }
 
+interface WorkspaceData {
+  screenplays: { items: ScreenplayItem[]; total: number; hasMore: boolean };
+  projects: ProjectItem[];
+  series: SeriesItem[];
+  stacks: StackItem[];
+  dashboardStats: DashboardStats;
+}
+
 export interface UseWorkspaceDataReturn {
   screenplays: ScreenplayItem[];
   projects: ProjectItem[];
@@ -102,58 +111,110 @@ export interface UseWorkspaceDataReturn {
   setStacks: React.Dispatch<React.SetStateAction<StackItem[]>>;
 }
 
+// SWR fetcher with error handling
+const fetcher = async (url: string): Promise<WorkspaceData> => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('Failed to fetch workspace data');
+  }
+  return response.json();
+};
+
 /**
  * Hook for managing workspace data (screenplays, projects, stats)
+ *
+ * Uses SWR for:
+ * - Instant cached renders on repeat visits (stale-while-revalidate)
+ * - Background revalidation for fresh data
+ * - Offline support via cache
+ * - Request deduplication
  */
 export function useWorkspaceData(): UseWorkspaceDataReturn {
-  const [screenplays, setScreenplays] = useState<ScreenplayItem[]>([]);
-  const [projects, setProjects] = useState<ProjectItem[]>([]);
-  const [series, setSeries] = useState<SeriesItem[]>([]);
-  const [stacks, setStacks] = useState<StackItem[]>([]);
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [screenplaysRes, projectsRes, seriesRes, stacksRes, statsRes] = await Promise.all([
-        fetch('/api/screenplays'),
-        fetch('/api/projects'),
-        fetch('/api/series'),
-        fetch('/api/stacks'),
-        fetch('/api/dashboard/stats'),
-      ]);
-
-      if (screenplaysRes.ok) {
-        const data = await screenplaysRes.json();
-        setScreenplays(data.screenplays || []);
-      }
-
-      if (projectsRes.ok) {
-        const data = await projectsRes.json();
-        setProjects(data);
-      }
-
-      if (seriesRes.ok) {
-        const data = await seriesRes.json();
-        setSeries(data || []);
-      }
-
-      if (stacksRes.ok) {
-        const data = await stacksRes.json();
-        setStacks(data || []);
-      }
-
-      if (statsRes.ok) {
-        setDashboardStats(await statsRes.json());
-      }
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setIsLoading(false);
+  // SWR for data fetching with caching
+  const { data, error, isLoading: swrLoading, mutate } = useSWR<WorkspaceData>(
+    '/api/workspace-data',
+    fetcher,
+    {
+      // Revalidate on focus (user returns to tab)
+      revalidateOnFocus: true,
+      // Keep stale data while revalidating
+      revalidateIfStale: true,
+      // Retry on error
+      errorRetryCount: 2,
+      // Don't revalidate on mount if we have fresh data (< 30s old)
+      dedupingInterval: 30000,
+      // Keep previous data while loading new data
+      keepPreviousData: true,
     }
-  }, []);
+  );
 
+  // Local state for optimistic updates (drag-drop, etc.)
+  // These allow immediate UI updates before server confirmation
+  const [localScreenplays, setLocalScreenplays] = useState<ScreenplayItem[] | null>(null);
+  const [localProjects, setLocalProjects] = useState<ProjectItem[] | null>(null);
+  const [localSeries, setLocalSeries] = useState<SeriesItem[] | null>(null);
+  const [localStacks, setLocalStacks] = useState<StackItem[] | null>(null);
+
+  // Sync local state with SWR data when it changes
+  useEffect(() => {
+    if (data) {
+      // Only reset local state if it was null (initial load)
+      // This preserves optimistic updates during revalidation
+      if (localScreenplays === null) setLocalScreenplays(null);
+      if (localProjects === null) setLocalProjects(null);
+      if (localSeries === null) setLocalSeries(null);
+      if (localStacks === null) setLocalStacks(null);
+    }
+  }, [data, localScreenplays, localProjects, localSeries, localStacks]);
+
+  // Use local state if set (optimistic update), otherwise use SWR data
+  const screenplays = localScreenplays ?? data?.screenplays?.items ?? [];
+  const projects = localProjects ?? data?.projects ?? [];
+  const series = localSeries ?? data?.series ?? [];
+  const stacks = localStacks ?? data?.stacks ?? [];
+  const dashboardStats = data?.dashboardStats ?? null;
+
+  // Wrapper setters that set local state for optimistic updates
+  const setScreenplays = useCallback((value: React.SetStateAction<ScreenplayItem[]>) => {
+    setLocalScreenplays((prev) => {
+      const current = prev ?? data?.screenplays?.items ?? [];
+      return typeof value === 'function' ? value(current) : value;
+    });
+  }, [data]);
+
+  const setProjects = useCallback((value: React.SetStateAction<ProjectItem[]>) => {
+    setLocalProjects((prev) => {
+      const current = prev ?? data?.projects ?? [];
+      return typeof value === 'function' ? value(current) : value;
+    });
+  }, [data]);
+
+  const setSeries = useCallback((value: React.SetStateAction<SeriesItem[]>) => {
+    setLocalSeries((prev) => {
+      const current = prev ?? data?.series ?? [];
+      return typeof value === 'function' ? value(current) : value;
+    });
+  }, [data]);
+
+  const setStacks = useCallback((value: React.SetStateAction<StackItem[]>) => {
+    setLocalStacks((prev) => {
+      const current = prev ?? data?.stacks ?? [];
+      return typeof value === 'function' ? value(current) : value;
+    });
+  }, [data]);
+
+  // Reload data (triggers SWR revalidation)
+  const loadData = useCallback(async () => {
+    // Clear local optimistic state
+    setLocalScreenplays(null);
+    setLocalProjects(null);
+    setLocalSeries(null);
+    setLocalStacks(null);
+    // Revalidate SWR cache
+    await mutate();
+  }, [mutate]);
+
+  // Delete item and revalidate
   const deleteItem = useCallback(async (id: string, type: 'screenplay' | 'project' | 'series' | 'stack') => {
     const endpoints = {
       screenplay: `/api/screenplays/${id}`,
@@ -166,32 +227,27 @@ export function useWorkspaceData(): UseWorkspaceDataReturn {
     const response = await fetch(endpoint, { method: 'DELETE' });
 
     if (!response.ok) {
-      // Try to get error details from response
       let errorMessage = `Failed to delete ${type}`;
       try {
         const errorData = await response.json();
         if (errorData.error) {
           errorMessage = errorData.error;
-          // Include details if available (dev mode)
           if (errorData.details) {
             errorMessage += `: ${errorData.details}`;
           }
         }
       } catch {
-        // Response wasn't JSON, use status text
         errorMessage = `Failed to delete ${type}: ${response.status} ${response.statusText}`;
       }
       throw new Error(errorMessage);
     }
 
-    // Reload data after deletion
+    // Revalidate after deletion
     await loadData();
   }, [loadData]);
 
-  // Load data on mount
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  // Combined loading state
+  const isLoading = swrLoading && !data;
 
   return {
     screenplays,

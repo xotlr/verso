@@ -4,15 +4,15 @@
  */
 
 /* ============================================
-   REGISTRATION MARKS (Mission Control)
+   REGISTRATION MARKS (Apollo)
    Print-style corner brackets on page frames
    ============================================ */
-[data-theme-preset="mission-control"] .pm-page-frame {
+[data-theme-preset="apollo"] .pm-page-frame {
   position: relative;
 }
 
 /* Top-left corner mark */
-[data-theme-preset="mission-control"] .pm-page-frame::before {
+[data-theme-preset="apollo"] .pm-page-frame::before {
   content: '';
   position: absolute;
   top: 8px;
@@ -26,7 +26,7 @@
 }
 
 /* Top-right corner mark */
-[data-theme-preset="mission-control"] .pm-page-frame::after {
+[data-theme-preset="apollo"] .pm-page-frame::after {
   content: '';
   position: absolute;
   top: 8px;
@@ -41,11 +41,11 @@
 
 /* Bottom corner marks via JavaScript-injected elements or additional wrappers */
 /* For a pure CSS solution, we use the page content wrapper */
-[data-theme-preset="mission-control"] .pm-page-content-wrapper {
+[data-theme-preset="apollo"] .pm-page-content-wrapper {
   position: relative;
 }
 
-[data-theme-preset="mission-control"] .pm-page-content-wrapper::before {
+[data-theme-preset="apollo"] .pm-page-content-wrapper::before {
   content: '';
   position: absolute;
   bottom: 8px;
@@ -58,7 +58,7 @@
   z-index: 10;
 }
 
-[data-theme-preset="mission-control"] .pm-page-content-wrapper::after {
+[data-theme-preset="apollo"] .pm-page-content-wrapper::after {
   content: '';
   position: absolute;
   bottom: 8px;
@@ -72,7 +72,7 @@
 }
 
 /* Center crosshair mark (optional) */
-[data-theme-preset="mission-control"] .pm-page-frame[data-show-crosshair="true"]::before {
+[data-theme-preset="apollo"] .pm-page-frame[data-show-crosshair="true"]::before {
   content: '+';
   position: absolute;
   top: 50%;
@@ -121,19 +121,55 @@
 }
 
 /* ============================================
+   ILLUMINATED BORDER (Lords - LOTR inspired)
+   Elvish gold decorative border
+   ============================================ */
+[data-theme-preset="shire"] .pm-page-frame {
+  position: relative;
+}
+
+/* Inner gold border */
+[data-theme-preset="shire"] .pm-page-frame::before {
+  content: '';
+  position: absolute;
+  inset: 16px;
+  border: 1px solid hsl(var(--accent) / var(--chrome-opacity, 0.2));
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Corner flourishes - elvish gold corners */
+[data-theme-preset="shire"] .pm-page-frame::after {
+  content: '';
+  position: absolute;
+  inset: 14px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(135deg, hsl(var(--accent) / 0.18) 0%, transparent 25%) top left,
+    linear-gradient(225deg, hsl(var(--accent) / 0.18) 0%, transparent 25%) top right,
+    linear-gradient(315deg, hsl(var(--accent) / 0.18) 0%, transparent 25%) bottom right,
+    linear-gradient(45deg, hsl(var(--accent) / 0.18) 0%, transparent 25%) bottom left;
+  background-size: 28px 28px;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ============================================
    PAGE NUMBER STYLING
    Theme-specific page number treatments
    ============================================ */
 
-/* Mission Control: Technical monospace */
-[data-theme-preset="mission-control"] .pm-page-frame-number {
+/* Apollo: Technical monospace */
+[data-theme-preset="apollo"] .pm-page-frame-number {
   font-family: var(--font-space-mono), monospace;
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
-[data-theme-preset="mission-control"] .pm-page-frame-number::before {
+[data-theme-preset="apollo"] .pm-page-frame-number::before {
   content: 'PG:';
   opacity: 0.4;
   margin-right: 4px;
@@ -152,11 +188,48 @@
   letter-spacing: 0.05em;
 }
 
-/* Cyberpunk: Neon glow */
-[data-theme-preset="cyberpunk"] .pm-page-frame-number {
+/* Zoltraak: Magic purple glow */
+[data-theme-preset="zoltraak"] .pm-page-frame-number {
   font-family: var(--font-geist-mono), monospace;
+  color: hsl(var(--primary));
+  text-shadow: 0 0 6px hsl(var(--primary) / 0.4);
+}
+
+/* Mr. Robot: Terminal monospace */
+[data-theme-preset="mr-robot"] .pm-page-frame-number {
+  font-family: var(--font-geist-mono), 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: hsl(var(--primary));
+}
+
+/* Lords: Elegant serif with gold */
+[data-theme-preset="shire"] .pm-page-frame-number {
+  font-family: var(--font-bodoni-moda), serif;
+  font-style: italic;
   color: hsl(var(--accent));
-  text-shadow: 0 0 4px hsl(var(--accent) / 0.5);
+}
+
+/* ============================================
+   AKIRA: Heavier font weight for UI elements
+   ============================================ */
+[data-theme-preset="akira"] {
+  /* Tabs, breadcrumbs, section titles use heavier weight */
+  --font-weight-ui-emphasis: 600;
+}
+
+[data-theme-preset="akira"] [role="tablist"] button,
+[data-theme-preset="akira"] nav[aria-label*="breadcrumb"] a,
+[data-theme-preset="akira"] nav[aria-label*="breadcrumb"] span,
+[data-theme-preset="akira"] .breadcrumb,
+[data-theme-preset="akira"] h1,
+[data-theme-preset="akira"] h2,
+[data-theme-preset="akira"] h3,
+[data-theme-preset="akira"] h4,
+[data-theme-preset="akira"] [class*="CardTitle"],
+[data-theme-preset="akira"] [class*="section-title"],
+[data-theme-preset="akira"] [class*="SectionTitle"] {
+  font-weight: 600;
 }
 
 /* ============================================

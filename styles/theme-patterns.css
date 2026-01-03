@@ -7,7 +7,7 @@
 /* ============================================
    DOT MATRIX PATTERN (Mission Control / Nothing)
    ============================================ */
-[data-theme-preset="mission-control"] .pm-editor-wrapper::before {
+[data-theme-preset="apollo"] .pm-editor-wrapper::before {
   content: '';
   position: fixed;
   inset: 0;
@@ -22,7 +22,7 @@
 }
 
 /* Dark mode - adjust dot visibility */
-.dark[data-theme-preset="mission-control"] .pm-editor-wrapper::before {
+.dark[data-theme-preset="apollo"] .pm-editor-wrapper::before {
   background-image: radial-gradient(
     circle,
     hsl(var(--foreground) / calc(var(--pattern-opacity, 0.06) * 0.6)) 1px,
@@ -31,9 +31,9 @@
 }
 
 /* ============================================
-   BLUEPRINT GRID PATTERN (Cyberpunk)
+   BLUEPRINT GRID PATTERN (Zoltraak)
    ============================================ */
-[data-theme-preset="cyberpunk"] .pm-editor-wrapper::before {
+[data-theme-preset="zoltraak"] .pm-editor-wrapper::before {
   content: '';
   position: fixed;
   inset: 0;
@@ -104,10 +104,32 @@
 }
 
 /* ============================================
-   SCANLINES OVERLAY (optional for Cyberpunk)
+   PARCHMENT TEXTURE (Lords - LOTR inspired)
+   Aged manuscript paper effect
+   ============================================ */
+[data-theme-preset="shire"] .pm-editor-wrapper::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--pattern-opacity, 0.05);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  filter: contrast(1.15) sepia(0.15);
+}
+
+/* Dark mode - reduce noise, warm tint */
+.dark[data-theme-preset="shire"] .pm-editor-wrapper::before {
+  opacity: calc(var(--pattern-opacity, 0.05) * 0.4);
+  filter: contrast(1.1) sepia(0.2);
+}
+
+/* ============================================
+   SCANLINES OVERLAY (optional for Zoltraak)
    Subtle CRT-style horizontal lines
    ============================================ */
-[data-theme-preset="cyberpunk"][data-scanlines="true"] .pm-editor-wrapper::after {
+[data-theme-preset="zoltraak"][data-scanlines="true"] .pm-editor-wrapper::after {
   content: '';
   position: fixed;
   inset: 0;
@@ -119,6 +141,36 @@
     transparent 2px,
     hsl(0 0% 0% / 0.015) 2px,
     hsl(0 0% 0% / 0.015) 4px
+  );
+}
+
+/* ============================================
+   CRT SCANLINES (Mr. Robot)
+   Amber phosphor terminal effect
+   ============================================ */
+[data-theme-preset="mr-robot"] .pm-editor-wrapper::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    hsl(35 100% 50% / var(--pattern-opacity, 0.02)) 2px,
+    hsl(35 100% 50% / var(--pattern-opacity, 0.02)) 4px
+  );
+}
+
+/* Dark mode - more visible amber scanlines */
+.dark[data-theme-preset="mr-robot"] .pm-editor-wrapper::before {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    hsl(35 100% 50% / var(--pattern-opacity, 0.03)) 2px,
+    hsl(35 100% 50% / var(--pattern-opacity, 0.03)) 4px
   );
 }
 

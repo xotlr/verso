@@ -198,16 +198,15 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   } = persistence;
 
   // Load screenplay and metadata from database
+  // Uses combined endpoint to avoid duplicate auth/access checks
   useEffect(() => {
     const loadScreenplay = async () => {
       try {
-        const [screenplayRes, shotsRes] = await Promise.all([
-          fetch(`/api/screenplays/${screenplayId}`),
-          fetch(`/api/screenplays/${screenplayId}/shots`),
-        ]);
+        // Single request for both screenplay and shots - eliminates duplicate auth overhead
+        const res = await fetch(`/api/screenplays/${screenplayId}/editor-data`);
 
-        if (screenplayRes.ok) {
-          const screenplay = await screenplayRes.json();
+        if (res.ok) {
+          const { screenplay, shots } = await res.json();
 
           // Set content via persistence hook
           persistence.setScreenplayText(screenplay.content || "");
@@ -254,11 +253,9 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
 
           // Initialize timelapse
           persistence.initializeTimelapse(screenplay.content || "");
-        }
 
-        if (shotsRes.ok) {
-          const data = await shotsRes.json();
-          setShots(data.shots || []);
+          // Set shots from combined response
+          setShots(shots || []);
         }
       } catch (error) {
         console.error("Error loading screenplay:", error);

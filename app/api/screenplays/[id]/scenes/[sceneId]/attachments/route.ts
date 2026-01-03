@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
+import { validateImageUrl } from "@/lib/file-validation"
+import { logger } from "@/lib/logger"
 import { z } from "zod"
 
 // GET /api/screenplays/[id]/scenes/[sceneId]/attachments - List scene attachments
@@ -38,7 +40,7 @@ export async function GET(
 
     return NextResponse.json(attachments)
   } catch (error) {
-    console.error("Error fetching scene attachments:", error)
+    logger.error("Failed to fetch scene attachments", error as Error)
     return NextResponse.json(
       { error: "Failed to fetch scene attachments" },
       { status: 500 }
@@ -90,6 +92,22 @@ export async function POST(
 
     const { type, url, filename, caption } = result.data
 
+    // Server-side validation: verify URL is from allowed storage domain and is valid image
+    try {
+      validateImageUrl(url)
+    } catch (validationError) {
+      logger.security('Invalid attachment URL rejected', {
+        url: url.substring(0, 100), // Truncate for logging
+        screenplayId: id,
+        sceneId,
+        userId: session.user.id,
+      })
+      return NextResponse.json(
+        { error: (validationError as Error).message },
+        { status: 400 }
+      )
+    }
+
     // Check attachment limit (max 10 per scene)
     const existingCount = await prisma.sceneAttachment.count({
       where: { screenplayId: id, sceneId },
@@ -123,9 +141,15 @@ export async function POST(
       },
     })
 
+    logger.audit('create', 'sceneAttachment', attachment.id, {
+      screenplayId: id,
+      sceneId,
+      type,
+    })
+
     return NextResponse.json(attachment, { status: 201 })
   } catch (error) {
-    console.error("Error creating scene attachment:", error)
+    logger.error("Failed to create scene attachment", error as Error)
     return NextResponse.json(
       { error: "Failed to create scene attachment" },
       { status: 500 }

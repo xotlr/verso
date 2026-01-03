@@ -1540,6 +1540,17 @@
   cursor: text;
 }
 
+/* Ensure empty centered fields have minimum width for clicking */
+.pm-title-page-title:empty,
+.pm-title-page-title:has(> br:only-child),
+.pm-title-page-author:empty,
+.pm-title-page-author:has(> br:only-child),
+.pm-title-page-logline:empty,
+.pm-title-page-logline:has(> br:only-child) {
+  min-width: 200px;
+  position: relative; /* For absolute positioning of placeholder */
+}
+
 /* Title - large, centered, uppercase */
 .pm-title-page-title {
   font-size: 24px;
@@ -1568,13 +1579,16 @@
   line-height: 20px;
 }
 
-/* Empty state placeholders - simple inline hints */
+/* Empty state placeholders - absolutely positioned so cursor appears at left */
 /* Match both truly empty elements AND elements with only a BR (cursor placeholder) */
 .pm-title-page-title:empty::before,
 .pm-title-page-title:has(> br:only-child)::before {
   content: 'Title';
   color: hsl(var(--muted-foreground) / 0.4);
   pointer-events: none;
+  position: absolute;
+  left: 0;
+  width: 100%;
 }
 
 .pm-title-page-author:empty::before,
@@ -1582,6 +1596,9 @@
   content: 'Written by';
   color: hsl(var(--muted-foreground) / 0.4);
   pointer-events: none;
+  position: absolute;
+  left: 0;
+  width: 100%;
 }
 
 .pm-title-page-logline:empty::before,
@@ -1589,6 +1606,9 @@
   content: 'Logline';
   color: hsl(var(--muted-foreground) / 0.4);
   pointer-events: none;
+  position: absolute;
+  left: 0;
+  width: 100%;
 }
 
 /* Contact info - positioned bottom left (industry standard) */
@@ -1602,6 +1622,7 @@
   line-height: 18px;
   text-align: left;
   min-height: 1.2em;
+  min-width: 150px; /* Ensure clickable even when empty */
   outline: none;
   cursor: text;
 }

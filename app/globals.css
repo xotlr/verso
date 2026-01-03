@@ -1,4 +1,5 @@
 /* Premium Theme CSS - imports must be first */
+@import url('https://fonts.googleapis.com/css2?family=Badeen+Display&family=Bonheur+Royale&display=swap');
 @import '../styles/theme-patterns.css';
 @import '../styles/theme-chrome.css';
 @import '../styles/theme-ui-chrome.css';
@@ -136,7 +137,7 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
-    font-size: var(--font-size, 14px);
+    font-size: var(--font-size, 14px) !important;
   }
 
   /* Global text selection highlight using primary color */
@@ -222,12 +223,56 @@
   [data-ui-font="chakra-petch"] {
     font-family: var(--font-chakra-petch), system-ui, sans-serif;
   }
+  [data-ui-font="sixtyfour"] {
+    font-family: var(--font-sixtyfour), monospace, system-ui;
+  }
+  [data-ui-font="doto"] {
+    font-family: var(--font-doto), monospace, system-ui;
+  }
+  [data-ui-font="special-elite"] {
+    font-family: var(--font-special-elite), monospace, system-ui;
+  }
+  [data-ui-font="geist-mono"] {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+  }
+  [data-ui-font="syne"] {
+    font-family: var(--font-syne), system-ui, sans-serif;
+  }
+  [data-ui-font="poiret-one"] {
+    font-family: var(--font-poiret-one), system-ui, sans-serif;
+  }
+  [data-ui-font="badeen-display"] {
+    font-family: 'Badeen Display', Georgia, serif;
+  }
 
   /* ===== HEADING & BODY FONTS ===== */
-  /* Custom fonts for Matcha/Neovictorian themes */
+  /* Header fonts are theme-controlled via data-header-font attribute */
   :root {
-    --font-heading: var(--font-fraunces), Georgia, serif;
+    --font-heading: inherit;
     --font-body: var(--font-plus-jakarta), system-ui, sans-serif;
+  }
+
+  /* Header font options - applied via data-header-font attribute */
+  [data-header-font="default"] {
+    --font-heading: inherit;
+  }
+  [data-header-font="badeen-display"] {
+    --font-heading: 'Badeen Display', Georgia, serif;
+  }
+  [data-header-font="bonheur-royale"] {
+    --font-heading: 'Bonheur Royale', cursive, serif;
+  }
+  [data-header-font="fraunces"] {
+    --font-heading: var(--font-fraunces), Georgia, serif;
+  }
+  [data-header-font="bodoni-moda"] {
+    --font-heading: var(--font-bodoni-moda), Georgia, serif;
+  }
+  [data-header-font="plaster"] {
+    --font-heading: var(--font-plaster), Impact, sans-serif;
+  }
+  [data-header-font="montserrat"] {
+    --font-heading: var(--font-montserrat), system-ui, sans-serif;
   }
 
   /* Apply heading font to all headings */
@@ -265,6 +310,11 @@
     font-weight: bold;
     font-style: normal;
     font-display: swap;
+  }
+
+  /* ===== FONT PREVIEW (Theme selector - must use theme font, not app font) ===== */
+  .font-preview {
+    font-family: var(--preview-font, inherit) !important;
   }
 
   /* ===== APP FONT OVERRIDES (Entire UI) ===== */

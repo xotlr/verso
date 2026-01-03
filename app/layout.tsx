@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunces, Plus_Jakarta_Sans, Bodoni_Moda, Plaster, Montserrat, Space_Grotesk, Space_Mono, DotGothic16, Audiowide, Oxanium, Chakra_Petch } from "next/font/google";
+import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunces, Plus_Jakarta_Sans, Bodoni_Moda, Plaster, Montserrat, Space_Grotesk, Space_Mono, DotGothic16, Audiowide, Oxanium, Chakra_Petch, Sixtyfour, Doto, Special_Elite, Syne, Poiret_One } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SettingsProvider } from "@/contexts/settings-context";
@@ -21,15 +21,18 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Non-critical fonts: preload: false prevents loading until CSS actually uses them
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+  preload: false,
 });
 
 const ibmPlexSans = IBM_Plex_Sans({
   weight: ['400', '500', '600', '700'],
   variable: "--font-ibm-plex",
   subsets: ["latin"],
+  preload: false,
 });
 
 const courierPrime = Courier_Prime({
@@ -42,72 +45,118 @@ const outfit = Outfit({
   weight: ['300', '400', '500', '600'],
   variable: "--font-outfit",
   subsets: ["latin"],
+  preload: false,
 });
 
 const fraunces = Fraunces({
   weight: ['400', '500', '600', '700'],
   variable: "--font-fraunces",
   subsets: ["latin"],
+  preload: false,
 });
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   weight: ['400', '500', '600', '700'],
   variable: "--font-plus-jakarta",
   subsets: ["latin"],
+  preload: false,
 });
 
 const bodoniModa = Bodoni_Moda({
   weight: ['400', '700'],
   variable: "--font-bodoni-moda",
   subsets: ["latin"],
+  preload: false,
 });
 
 const plaster = Plaster({
   weight: '400',
   variable: "--font-plaster",
   subsets: ["latin"],
+  preload: false,
 });
 
 const montserrat = Montserrat({
   weight: ['400', '500', '600', '700', '800', '900'],
   variable: "--font-montserrat",
   subsets: ["latin"],
+  preload: false,
 });
 
 const spaceGrotesk = Space_Grotesk({
   weight: ['400', '500', '600', '700'],
   variable: "--font-space-grotesk",
   subsets: ["latin"],
+  preload: false,
 });
 
 const spaceMono = Space_Mono({
   weight: ['400', '700'],
   variable: "--font-space-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 const dotGothic16 = DotGothic16({
   weight: '400',
   variable: "--font-dot-gothic",
   subsets: ["latin"],
+  preload: false,
 });
 
 const audiowide = Audiowide({
   weight: '400',
   variable: "--font-audiowide",
   subsets: ["latin"],
+  preload: false,
 });
 
 const oxanium = Oxanium({
   weight: ['400', '500', '600', '700'],
   variable: "--font-oxanium",
   subsets: ["latin"],
+  preload: false,
 });
 
 const chakraPetch = Chakra_Petch({
   weight: ['400', '500', '600', '700'],
   variable: "--font-chakra-petch",
   subsets: ["latin"],
+  preload: false,
+});
+
+const sixtyfour = Sixtyfour({
+  variable: "--font-sixtyfour",
+  subsets: ["latin"],
+  preload: false,
+});
+
+const doto = Doto({
+  weight: '400',
+  variable: "--font-doto",
+  subsets: ["latin"],
+  preload: false,
+});
+
+const specialElite = Special_Elite({
+  weight: '400',
+  variable: "--font-special-elite",
+  subsets: ["latin"],
+  preload: false,
+});
+
+const syne = Syne({
+  weight: ['400', '500', '600', '700', '800'],
+  variable: "--font-syne",
+  subsets: ["latin"],
+  preload: false,
+});
+
+const poiretOne = Poiret_One({
+  weight: '400',
+  variable: "--font-poiret-one",
+  subsets: ["latin"],
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -182,7 +231,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable} ${bodoniModa.variable} ${plaster.variable} ${montserrat.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${dotGothic16.variable} ${audiowide.variable} ${oxanium.variable} ${chakraPetch.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable} ${bodoniModa.variable} ${plaster.variable} ${montserrat.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${dotGothic16.variable} ${audiowide.variable} ${oxanium.variable} ${chakraPetch.variable} ${sixtyfour.variable} ${doto.variable} ${specialElite.variable} ${syne.variable} ${poiretOne.variable}`}
     >
       <body className="antialiased overflow-hidden h-screen">
         <WebVitals />

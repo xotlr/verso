@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { Download, Upload, RotateCcw, Palette, Type, Keyboard, LogOut, Accessibility } from 'lucide-react';
+import useSWR from 'swr';
+import { Download, Upload, RotateCcw, Palette, Type, Keyboard, LogOut, Accessibility, CreditCard, User } from 'lucide-react';
 import { useSettings } from '@/contexts/settings-context';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { downloadFile, createFileInput, readFileAsText } from '@/lib/dom-utils';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -24,15 +25,17 @@ interface SettingsContentProps {
 }
 
 const NAV_ITEMS = [
+  { value: 'profile', icon: User, label: 'Profile' },
   { value: 'appearance', icon: Palette, label: 'Appearance' },
   { value: 'editor', icon: Type, label: 'Editor' },
   { value: 'accessibility', icon: Accessibility, label: 'Accessibility' },
   { value: 'shortcuts', icon: Keyboard, label: 'Shortcuts' },
+  { value: 'billing', icon: CreditCard, label: 'Billing' },
 ] as const;
 
-export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneButton = false }: SettingsContentProps) {
+export function SettingsContent({ defaultTab = 'profile', onDone, showDoneButton = false }: SettingsContentProps) {
   // Ensure we don't use 'account' as default since it no longer exists
-  const initialTab = defaultTab === 'account' ? 'appearance' : defaultTab;
+  const initialTab = defaultTab === 'account' ? 'profile' : defaultTab;
   const { data: session, update: updateSession } = useSession();
   const {
     settings,
@@ -47,7 +50,20 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
 
   const [activeTab, setActiveTab] = useState(initialTab);
 
-  // Profile state
+  // SWR fetcher
+  const fetcher = (url: string) => fetch(url).then(res => res.ok ? res.json() : null);
+
+  // Fetch profile with SWR for instant cached renders
+  const { data: profileData, isLoading: swrLoading, mutate: mutateProfile } = useSWR(
+    session?.user?.id ? `/api/users/${session.user.id}/settings-profile` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false, // Don't revalidate while user is editing
+      dedupingInterval: 30000,
+    }
+  );
+
+  // Local profile state for form editing
   const [profile, setProfile] = useState<UserProfile>({
     name: session?.user?.name || '',
     username: '',
@@ -57,8 +73,25 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
     banner: null,
     isPublic: true,
   });
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Sync SWR data to local state when it loads
+  useEffect(() => {
+    if (profileData) {
+      setProfile({
+        name: profileData.name || '',
+        username: profileData.username || '',
+        title: profileData.title || '',
+        bio: profileData.bio || '',
+        avatar: profileData.image || null,
+        banner: profileData.banner || null,
+        isPublic: profileData.isPublic ?? true,
+      });
+      if (profileData.username) {
+        setUsernameStatus('available');
+      }
+    }
+  }, [profileData]);
 
   // Username check state
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
@@ -68,41 +101,8 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
   // Get current user plan
   const currentPlan = ((session?.user as { plan?: string })?.plan || 'FREE').toUpperCase();
 
-  // Fetch profile data on mount
-  React.useEffect(() => {
-    if (session?.user?.id) {
-      fetchProfile();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user?.id]);
-
-  const fetchProfile = async () => {
-    if (!session?.user?.id) return;
-    setIsLoadingProfile(true);
-    try {
-      const response = await fetch(`/api/users/${session.user.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setProfile({
-          name: data.name || '',
-          username: data.username || '',
-          title: data.title || '',
-          bio: data.bio || '',
-          avatar: data.image || null,
-          banner: data.banner || null,
-          isPublic: data.isPublic ?? true,
-        });
-        // If user has username, mark as available
-        if (data.username) {
-          setUsernameStatus('available');
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch profile:', error);
-    } finally {
-      setIsLoadingProfile(false);
-    }
-  };
+  // Loading state: SWR loading and no cached data
+  const isLoadingProfile = swrLoading && !profileData;
 
   const checkUsername = async (username: string) => {
     if (!username || username.length < 3) {
@@ -168,6 +168,8 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
       });
       if (response.ok) {
         toast.success('Profile saved');
+        // Update SWR cache with new profile data
+        await mutateProfile();
         // Refresh the session to update cached user data (avatar, name, username, etc.)
         // Pass the updated data to ensure the JWT callback receives it
         await updateSession({
@@ -205,25 +207,10 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
   };
 
   return (
-    <div className="space-y-4">
-      {/* Profile Section */}
-      <ProfileSection
-        profile={profile}
-        setProfile={setProfile}
-        session={session}
-        isLoadingProfile={isLoadingProfile}
-        isSavingProfile={isSavingProfile}
-        usernameStatus={usernameStatus}
-        usernameError={usernameError}
-        onUsernameChange={handleUsernameChange}
-        onSaveProfile={handleSaveProfile}
-        currentPlan={currentPlan}
-      />
-
-      {/* Settings Navigation & Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-        {/* Mobile: Discord-style vertical list navigation */}
-        <div className="md:hidden space-y-1 mb-4">
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* Mobile: Vertical list navigation */}
+        <div className="md:hidden space-y-1">
           {NAV_ITEMS.map((item) => (
             <button
               key={item.value}
@@ -241,19 +228,88 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
           ))}
         </div>
 
-        {/* Desktop: Horizontal tabs */}
-        <div className="hidden md:block pt-4 shrink-0">
-          <TabsList className="w-full justify-start bg-muted/50 rounded-lg p-1 gap-1">
+        {/* Desktop: Left sidebar navigation - sticky */}
+        <aside className="hidden md:flex flex-col w-48 shrink-0 sticky top-0 self-start">
+          <nav className="space-y-1">
             {NAV_ITEMS.map((item) => (
-              <TabsTrigger key={item.value} value={item.value} className="gap-2 rounded-md text-xs sm:text-sm">
+              <button
+                key={item.value}
+                onClick={() => setActiveTab(item.value)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  activeTab === item.value
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
                 <item.icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </TabsTrigger>
+                {item.label}
+              </button>
             ))}
-          </TabsList>
-        </div>
+          </nav>
 
-        <div className="py-5">
+          {/* Actions - in sidebar */}
+          <div className="mt-6 pt-4 border-t space-y-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-2 text-muted-foreground"
+              onClick={handleExport}
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-2 text-muted-foreground"
+              onClick={handleImport}
+            >
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-2 text-muted-foreground"
+              onClick={resetSettings}
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset
+            </Button>
+          </div>
+
+          {/* Sign Out - red */}
+          <div className="mt-4 pt-4 border-t">
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => signOut({ callbackUrl: '/' })}
+            >
+              <LogOut className="h-4 w-4" />
+              Log out
+            </Button>
+          </div>
+        </aside>
+
+        {/* Content area */}
+        <div className="flex-1 min-w-0">
+          {/* Profile Settings */}
+          <TabsContent value="profile" className="m-0">
+            <ProfileSection
+              profile={profile}
+              setProfile={setProfile}
+              session={session}
+              isLoadingProfile={isLoadingProfile}
+              isSavingProfile={isSavingProfile}
+              usernameStatus={usernameStatus}
+              usernameError={usernameError}
+              onUsernameChange={handleUsernameChange}
+              onSaveProfile={handleSaveProfile}
+              currentPlan={currentPlan}
+            />
+          </TabsContent>
+
           {/* Appearance Settings */}
           <TabsContent value="appearance" className="m-0">
             <AppearanceSection
@@ -285,17 +341,18 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
           <TabsContent value="shortcuts" className="m-0">
             <KeyboardSection />
           </TabsContent>
-        </div>
-      </Tabs>
 
-      {/* Billing Section */}
-      <div className="mt-8">
-        <BillingSection currentPlan={currentPlan} />
+          {/* Billing Settings */}
+          <TabsContent value="billing" className="m-0">
+            <BillingSection currentPlan={currentPlan} />
+          </TabsContent>
+        </div>
       </div>
 
-      {/* Footer Actions */}
-      <div className="mt-6 pt-6 border-t shrink-0 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+      {/* Footer - Done button and mobile actions */}
+      <div className="mt-6 pt-6 flex flex-wrap items-center justify-between gap-3 md:justify-end">
+        {/* Mobile: Show export/import/reset */}
+        <div className="flex items-center gap-2 md:hidden">
           <Button variant="outline" size="sm" onClick={handleExport} className="gap-2">
             <Download className="h-4 w-4" />
             Export
@@ -304,22 +361,20 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
             <Upload className="h-4 w-4" />
             Import
           </Button>
-        </div>
-        <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={resetSettings} className="gap-2">
             <RotateCcw className="h-4 w-4" />
             Reset
           </Button>
-          {showDoneButton && onDone && (
-            <Button onClick={onDone} className="gap-2">
-              Done
-            </Button>
-          )}
         </div>
+        {showDoneButton && onDone && (
+          <Button onClick={onDone} className="gap-2">
+            Done
+          </Button>
+        )}
       </div>
 
       {/* Sign Out - Mobile only (desktop has it in sidebar) */}
-      <div className="mt-6 pt-6 border-t md:hidden">
+      <div className="mt-6 pt-6 md:hidden">
         <Button
           variant="ghost"
           className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -329,7 +384,7 @@ export function SettingsContent({ defaultTab = 'appearance', onDone, showDoneBut
           Log out
         </Button>
       </div>
-    </div>
+    </Tabs>
   );
 }
 

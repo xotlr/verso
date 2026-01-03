@@ -214,8 +214,9 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                 <SidebarMenuButton
                   tooltip="Create"
                   className={cn(
-                    "justify-center rounded-lg bg-primary text-primary-foreground shadow-sm",
-                    "hover:bg-primary/90 transition-all"
+                    "justify-center rounded-lg bg-primary text-primary-foreground",
+                    "hover:bg-primary/90 transition-all",
+                    "data-[state=open]:text-background"
                   )}
                 >
                   <Plus className="h-4 w-4" />

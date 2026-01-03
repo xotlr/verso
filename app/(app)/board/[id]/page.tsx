@@ -56,39 +56,29 @@ export default function BoardPage() {
   const [title, setTitle] = useState("Loading...");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch screenplay and scene metadata
+  // Fetch screenplay, scene metadata, and acts in single request
   useEffect(() => {
     async function loadData() {
       try {
-        // Fetch screenplay
-        const screenplayResponse = await fetch(`/api/screenplays/${id}`);
-        if (!screenplayResponse.ok) throw new Error('Failed to fetch screenplay');
+        // Combined endpoint: 3 API calls → 1
+        const response = await fetch(`/api/screenplays/${id}/board-data`);
+        if (!response.ok) throw new Error('Failed to fetch board data');
 
-        const data = await screenplayResponse.json();
-        setTitle(data.title || "Untitled Screenplay");
+        const { screenplay, sceneMetas: metas } = await response.json();
+
+        setTitle(screenplay.title || "Untitled Screenplay");
+        setSceneMetas(metas || {});
+
+        if (Array.isArray(screenplay.acts) && screenplay.acts.length > 0) {
+          setActs(screenplay.acts);
+        }
 
         // Parse content and extract scenes
-        if (data.content) {
-          const doc = deserializeFromStorage(data.content);
+        if (screenplay.content) {
+          const doc = deserializeFromStorage(screenplay.content);
           const sceneInfos = extractScenes(doc);
           const parsedScenes = sceneInfos.map((info, index) => convertToScene(info, index));
           setScenes(parsedScenes);
-        }
-
-        // Fetch all scene metadata
-        const metaResponse = await fetch(`/api/screenplays/${id}/scenes/meta`);
-        if (metaResponse.ok) {
-          const metas = await metaResponse.json();
-          setSceneMetas(metas);
-        }
-
-        // Fetch acts configuration
-        const actsResponse = await fetch(`/api/screenplays/${id}/acts`);
-        if (actsResponse.ok) {
-          const actsData = await actsResponse.json();
-          if (Array.isArray(actsData) && actsData.length > 0) {
-            setActs(actsData);
-          }
         }
       } catch (error) {
         console.error('Error loading data:', error);

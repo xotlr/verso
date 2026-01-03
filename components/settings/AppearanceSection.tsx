@@ -10,10 +10,17 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
-import { ThemePreset, UIFont, ScreenplayFont, themeMetadata } from '@/types/settings';
+import { cn } from '@/lib/utils';
+import { ThemePreset, UIFont, ScreenplayFont, HeaderFont, themeMetadata, themePresets } from '@/types/settings';
 import type { VisualSettings } from '@/types/settings';
+
+const ALL_THEME_PRESETS: ThemePreset[] = [
+  'verso', 'paper', 'spirited', 'sterling', 'koe', 'supernatural',
+  'apollo', 'zoltraak', 'akira', 'mr-robot',
+  'howl', 'the-office', 'maelle', 'shire', 'limitless'
+];
 
 interface AppearanceSectionProps {
   settings: VisualSettings;
@@ -26,46 +33,44 @@ export function AppearanceSection({
   updateVisualSettings,
   setThemePreset,
 }: AppearanceSectionProps) {
+  const [isDark, setIsDark] = React.useState(() => {
+    // Initialize with correct value on client
+    if (typeof document !== 'undefined') {
+      return document.documentElement.classList.contains('dark');
+    }
+    return false;
+  });
+
+  React.useEffect(() => {
+    // Watch for theme changes
+    const checkDark = () => document.documentElement.classList.contains('dark');
+    const observer = new MutationObserver(() => {
+      setIsDark(checkDark());
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* Theme Preset Card */}
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-base">Theme Preset</CardTitle>
-          <CardDescription>Choose a visual theme for your workspace</CardDescription>
+          <CardTitle className="text-base">Theme</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Essential Themes */}
-          <ThemeGroup
-            label="Essential"
-            presets={['verso', 'paper']}
-            currentPreset={settings.themePreset}
-            onSelect={setThemePreset}
-          />
-
-          {/* Vintage Themes */}
-          <ThemeGroup
-            label="Vintage"
-            presets={['matcha', 'neovictorian']}
-            currentPreset={settings.themePreset}
-            onSelect={setThemePreset}
-          />
-
-          {/* Genre Themes */}
-          <ThemeGroup
-            label="Genre"
-            presets={['romance', 'horror']}
-            currentPreset={settings.themePreset}
-            onSelect={setThemePreset}
-          />
-
-          {/* Premium Themes */}
-          <ThemeGroup
-            label="Premium"
-            presets={['mission-control', 'cyberpunk', 'typewriter', 'screenplay-classic', 'sepia', 'midnight', 'studio', 'belle-epoque', 'faerun']}
-            currentPreset={settings.themePreset}
-            onSelect={setThemePreset}
-          />
+        <CardContent>
+          <div className="grid grid-cols-5 gap-3">
+            {ALL_THEME_PRESETS.map((preset) => (
+              <ThemePreview
+                key={preset}
+                preset={preset}
+                selected={settings.themePreset === preset}
+                onClick={() => setThemePreset(preset)}
+                isDark={isDark}
+              />
+            ))}
+          </div>
         </CardContent>
       </Card>
 
@@ -76,7 +81,7 @@ export function AppearanceSection({
           <CardDescription>Customize fonts and text sizing</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="text-sm font-medium mb-1.5 block">UI Font</label>
               <Select
@@ -97,6 +102,30 @@ export function AppearanceSection({
                   <SelectItem value="audiowide">Audiowide</SelectItem>
                   <SelectItem value="oxanium">Oxanium</SelectItem>
                   <SelectItem value="chakra-petch">Chakra Petch</SelectItem>
+                  <SelectItem value="sixtyfour">Sixtyfour</SelectItem>
+                  <SelectItem value="doto">Doto</SelectItem>
+                  <SelectItem value="special-elite">Special Elite</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Header Font</label>
+              <Select
+                value={settings.headerFont || 'default'}
+                onValueChange={(value) => updateVisualSettings({ headerFont: value as HeaderFont })}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Select font" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Default</SelectItem>
+                  <SelectItem value="badeen-display">Badeen Display</SelectItem>
+                  <SelectItem value="bonheur-royale">Bonheur Royale</SelectItem>
+                  <SelectItem value="fraunces">Fraunces</SelectItem>
+                  <SelectItem value="bodoni-moda">Bodoni Moda</SelectItem>
+                  <SelectItem value="plaster">Plaster</SelectItem>
+                  <SelectItem value="montserrat">Montserrat</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -178,34 +207,121 @@ export function AppearanceSection({
   );
 }
 
-interface ThemeGroupProps {
-  label: string;
-  presets: ThemePreset[];
-  currentPreset: ThemePreset;
-  onSelect: (preset: ThemePreset) => void;
+interface ThemePreviewProps {
+  preset: ThemePreset;
+  selected: boolean;
+  onClick: () => void;
+  isDark: boolean;
 }
 
-function ThemeGroup({ label, presets, currentPreset, onSelect }: ThemeGroupProps) {
+// Map uiFont values to CSS font families
+const fontFamilyMap: Record<string, string> = {
+  'inter': 'Inter, system-ui, sans-serif',
+  'sf-pro': '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
+  'geist': 'Geist, system-ui, sans-serif',
+  'geist-mono': '"Geist Mono", ui-monospace, monospace',
+  'ibm-plex': '"IBM Plex Sans", system-ui, sans-serif',
+  'plus-jakarta': '"Plus Jakarta Sans", system-ui, sans-serif',
+  'space-grotesk': '"Space Grotesk", system-ui, sans-serif',
+  'dot-gothic': 'DotGothic16, system-ui, sans-serif',
+  'audiowide': 'Audiowide, system-ui, sans-serif',
+  'oxanium': 'Oxanium, system-ui, sans-serif',
+  'chakra-petch': '"Chakra Petch", system-ui, sans-serif',
+  'sixtyfour': 'Sixtyfour, system-ui, sans-serif',
+  'doto': 'Doto, system-ui, sans-serif',
+  'special-elite': '"Special Elite", system-ui, sans-serif',
+  'syne': 'Syne, system-ui, sans-serif',
+  'poiret-one': '"Poiret One", system-ui, sans-serif',
+};
+
+function ThemePreview({ preset, selected, onClick, isDark }: ThemePreviewProps) {
+  const theme = themePresets[preset];
+  const colors = isDark ? theme.darkColors : theme.lightColors;
+
+  // Get colors for current mode
+  const bg = `hsl(${colors?.background || (isDark ? '0 0% 10%' : '0 0% 95%')})`;
+  const page = `hsl(${colors?.page || (isDark ? '0 0% 12%' : '0 0% 100%')})`;
+  const fg = `hsl(${colors?.foreground || (isDark ? '0 0% 80%' : '0 0% 20%')})`;
+  const primary = `hsl(${colors?.primary || (isDark ? '0 0% 90%' : '0 0% 15%')})`;
+  const card = `hsl(${colors?.card || (isDark ? '0 0% 12%' : '0 0% 98%')})`;
+
+  // Get border radius (scale down for preview)
+  const radius = theme.borderRadius ?? 8;
+  const scaledRadius = Math.max(1, Math.round(radius / 2));
+
+  // Get font family
+  const uiFont = theme.uiFont ?? 'inter';
+  const fontFamily = fontFamilyMap[uiFont] || 'system-ui, sans-serif';
+
   return (
-    <div>
-      <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider mb-2">{label}</p>
-      <div className="grid grid-cols-2 gap-2">
-        {presets.map((preset) => (
-          <button
-            key={preset}
-            onClick={() => onSelect(preset)}
-            className={`p-3 rounded-lg border-2 transition-all text-left ${
-              currentPreset === preset
-                ? 'border-primary bg-primary/5'
-                : 'border-border hover:border-primary/50'
-            }`}
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center gap-1.5"
+    >
+      <div
+        className={cn(
+          "w-full aspect-[4/3] border-2 overflow-hidden transition-all flex relative",
+          selected ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/50"
+        )}
+        style={{ backgroundColor: bg, borderRadius: `${scaledRadius + 2}px` }}
+      >
+        {/* Sidebar */}
+        <div
+          className="w-5 h-full"
+          style={{
+            backgroundColor: card,
+            borderTopLeftRadius: `${scaledRadius}px`,
+            borderBottomLeftRadius: `${scaledRadius}px`,
+          }}
+        >
+          <div className="w-2 h-1 mt-2 mx-auto" style={{ backgroundColor: fg, opacity: 0.4, borderRadius: `${scaledRadius}px` }} />
+          <div className="w-3 h-0.5 mt-1 mx-auto" style={{ backgroundColor: fg, opacity: 0.3, borderRadius: `${scaledRadius}px` }} />
+          <div className="w-2 h-0.5 mt-1 mx-auto" style={{ backgroundColor: fg, opacity: 0.3, borderRadius: `${scaledRadius}px` }} />
+        </div>
+        {/* Main area with page */}
+        <div className="flex-1 p-1.5 flex items-center justify-center">
+          {/* Page */}
+          <div
+            className="w-full h-full flex flex-col items-center justify-center p-1"
+            style={{ backgroundColor: page, borderRadius: `${scaledRadius}px` }}
           >
-            <div className="text-sm font-medium">{themeMetadata[preset].name}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{themeMetadata[preset].subtitle}</div>
-          </button>
-        ))}
+            {/* Font preview - use CSS variable to override app font */}
+            <span
+              className="text-[11px] font-medium leading-none font-preview"
+              style={{ color: fg, '--preview-font': fontFamily } as React.CSSProperties}
+            >
+              Aa
+            </span>
+            {/* Text lines */}
+            <div className="mt-1 w-full flex flex-col items-center gap-0.5">
+              <div className="h-[1.5px] w-8" style={{ backgroundColor: fg, opacity: 0.5, borderRadius: `${scaledRadius}px` }} />
+              <div className="h-[1.5px] w-6" style={{ backgroundColor: fg, opacity: 0.4, borderRadius: `${scaledRadius}px` }} />
+              <div className="h-[1.5px] w-7" style={{ backgroundColor: fg, opacity: 0.3, borderRadius: `${scaledRadius}px` }} />
+            </div>
+          </div>
+        </div>
+        {/* Primary accent button */}
+        <div
+          className="absolute bottom-1 right-1 w-3 h-2"
+          style={{ backgroundColor: primary, borderRadius: `${scaledRadius}px` }}
+        />
       </div>
-    </div>
+      <span
+        className={cn(
+          "text-xs",
+          selected ? "text-foreground font-medium" : "text-muted-foreground"
+        )}
+        style={{
+          fontFamily,
+          fontStyle: themeMetadata[preset].style === 'italic' ? 'italic' : undefined,
+          textTransform: themeMetadata[preset].style === 'uppercase' ? 'uppercase'
+            : themeMetadata[preset].style === 'lowercase' ? 'lowercase'
+            : undefined,
+        }}
+      >
+        {themeMetadata[preset].name}
+      </span>
+    </button>
   );
 }
 
@@ -293,7 +409,7 @@ function CursorSettingsCard({ settings, updateVisualSettings }: CursorSettingsCa
             <label className="text-sm font-medium">Glow Effect</label>
             <p className="text-xs text-muted-foreground">Add subtle glow around cursor</p>
           </div>
-          <Checkbox
+          <Switch
             checked={settings.cursor.glowEnabled}
             onCheckedChange={(checked) => updateVisualSettings({
               cursor: { ...settings.cursor, glowEnabled: checked as boolean }
@@ -343,7 +459,7 @@ function CursorSettingsCard({ settings, updateVisualSettings }: CursorSettingsCa
             <label className="text-sm font-medium">Custom Color</label>
             <p className="text-xs text-muted-foreground">Use custom cursor color instead of theme</p>
           </div>
-          <Checkbox
+          <Switch
             checked={settings.cursor.color !== null}
             onCheckedChange={(checked) => updateVisualSettings({
               cursor: { ...settings.cursor, color: checked ? '24 60% 50%' : null }

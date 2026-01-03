@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
+import { logger } from "@/lib/logger"
 import { z } from "zod"
 
 // Validation schema for updating attachment
@@ -66,9 +67,14 @@ export async function PATCH(
       },
     })
 
+    logger.audit('update', 'sceneAttachment', attachmentId, {
+      screenplayId: id,
+      fields: Object.keys(result.data),
+    })
+
     return NextResponse.json(updated)
   } catch (error) {
-    console.error("Error updating attachment:", error)
+    logger.error("Failed to update attachment", error as Error)
     return NextResponse.json(
       { error: "Failed to update attachment" },
       { status: 500 }
@@ -116,9 +122,14 @@ export async function DELETE(
       where: { id: attachmentId },
     })
 
+    logger.audit('delete', 'sceneAttachment', attachmentId, {
+      screenplayId: id,
+      sceneId: attachment.sceneId,
+    })
+
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error deleting attachment:", error)
+    logger.error("Failed to delete attachment", error as Error)
     return NextResponse.json(
       { error: "Failed to delete attachment" },
       { status: 500 }

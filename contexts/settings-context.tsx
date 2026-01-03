@@ -31,6 +31,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       const stored = localStorage.getItem(SETTINGS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+        // Validate theme preset, fallback to verso if invalid
+        const storedPreset = parsed.visual?.themePreset;
+        const validThemePreset = storedPreset && storedPreset in themePresets
+          ? storedPreset
+          : defaultSettings.visual.themePreset;
         // Merge with defaults to ensure all fields exist
         setSettings({
           ...defaultSettings,
@@ -38,6 +43,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           visual: {
             ...defaultSettings.visual,
             ...parsed.visual,
+            // Use validated theme preset
+            themePreset: validThemePreset,
             // Deep merge visualization palettes
             lightVisualization: {
               ...defaultSettings.visual.lightVisualization,
@@ -126,6 +133,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
     // Apply font classes
     root.setAttribute('data-ui-font', settings.visual.uiFont);
+    root.setAttribute('data-header-font', settings.visual.headerFont || 'default');
     root.setAttribute('data-screenplay-font', settings.visual.screenplayFont);
 
     // Apply app font override (affects entire UI)

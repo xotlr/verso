@@ -197,8 +197,8 @@
   }
 }
 
-[data-theme-preset="mission-control"] .status-indicator,
-[data-theme-preset="mission-control"] [data-status] {
+[data-theme-preset="apollo"] .status-indicator,
+[data-theme-preset="apollo"] [data-status] {
   animation: led-pulse 2s ease-in-out infinite;
 }
 
@@ -223,8 +223,8 @@
     animation: none !important;
   }
 
-  [data-theme-preset="mission-control"] .status-indicator,
-  [data-theme-preset="mission-control"] [data-status] {
+  [data-theme-preset="apollo"] .status-indicator,
+  [data-theme-preset="apollo"] [data-status] {
     animation: none !important;
   }
 }

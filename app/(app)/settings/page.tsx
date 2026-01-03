@@ -30,7 +30,7 @@ function SettingsPageContent() {
 
 function SettingsLoading() {
   return (
-    <PageLayout narrow>
+    <PageLayout>
       <div className="space-y-4">
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-64 w-full" />
@@ -41,7 +41,7 @@ function SettingsLoading() {
 
 export default function SettingsPage() {
   return (
-    <PageLayout narrow>
+    <PageLayout>
       <Suspense fallback={<SettingsLoading />}>
         <SettingsPageContent />
       </Suspense>

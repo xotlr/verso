@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import type { EditorSettings } from '@/types/settings';
 
 interface EditorSectionProps {
@@ -27,7 +27,7 @@ export function EditorSection({ settings, updateEditorSettings }: EditorSectionP
                 Display scene numbers next to scene headings
               </p>
             </div>
-            <Checkbox
+            <Switch
               checked={settings.showSceneNumbers ?? true}
               onCheckedChange={(checked) => updateEditorSettings({
                 showSceneNumbers: checked as boolean
@@ -51,7 +51,7 @@ export function EditorSection({ settings, updateEditorSettings }: EditorSectionP
                 Display ghost text hints in empty elements
               </p>
             </div>
-            <Checkbox
+            <Switch
               checked={settings.showPlaceholders ?? true}
               onCheckedChange={(checked) => updateEditorSettings({
                 showPlaceholders: checked as boolean
@@ -65,7 +65,7 @@ export function EditorSection({ settings, updateEditorSettings }: EditorSectionP
                 Display contextual tips for each screenplay element
               </p>
             </div>
-            <Checkbox
+            <Switch
               checked={settings.showBeginnerTips ?? false}
               onCheckedChange={(checked) => updateEditorSettings({
                 showBeginnerTips: checked as boolean

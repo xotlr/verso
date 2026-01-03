@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { TeamRole, Screenplay } from '@prisma/client';
+import { cache } from 'react';
 
 // Share role hierarchy (from least to most permissions)
 export type ShareRole = 'VIEWER' | 'COMMENTER' | 'EDITOR' | 'ADMIN';
@@ -30,24 +31,10 @@ function hasMinShareRole(userRole: ShareRole, minRole: ShareRole): boolean {
 }
 
 /**
- * Check if a user has access to a screenplay.
- * Checks ownership, team membership, and share access.
- *
- * @param screenplayId - The screenplay ID to check
- * @param userId - The user ID to check access for
- * @param requiredRole - Minimum share role required (default: VIEWER)
- * @returns Access result with screenplay data if allowed
- *
- * @example
- * ```ts
- * const access = await checkScreenplayAccess(screenplayId, userId);
- * if (!access.allowed) {
- *   return NextResponse.json({ error: access.error }, { status: access.status });
- * }
- * // User has access to access.screenplay
- * ```
+ * Internal implementation of screenplay access check.
+ * Wrapped with cache() for request-level deduplication in Server Components.
  */
-export async function checkScreenplayAccess(
+async function checkScreenplayAccessImpl(
   screenplayId: string,
   userId: string,
   requiredRole: ShareRole = 'VIEWER'
@@ -101,6 +88,30 @@ export async function checkScreenplayAccess(
 
   return { allowed: false, error: 'Access denied', status: 403 };
 }
+
+/**
+ * Check if a user has access to a screenplay.
+ * Checks ownership, team membership, and share access.
+ *
+ * This function is memoized per-request using React's cache() function,
+ * preventing duplicate database queries when called multiple times with
+ * the same arguments during a single request.
+ *
+ * @param screenplayId - The screenplay ID to check
+ * @param userId - The user ID to check access for
+ * @param requiredRole - Minimum share role required (default: VIEWER)
+ * @returns Access result with screenplay data if allowed
+ *
+ * @example
+ * ```ts
+ * const access = await checkScreenplayAccess(screenplayId, userId);
+ * if (!access.allowed) {
+ *   return NextResponse.json({ error: access.error }, { status: access.status });
+ * }
+ * // User has access to access.screenplay
+ * ```
+ */
+export const checkScreenplayAccess = cache(checkScreenplayAccessImpl);
 
 /**
  * Require screenplay access. Throws if access is denied.
