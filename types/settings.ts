@@ -761,7 +761,7 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       ],
     },
     uiFont: 'geist',
-    headerFont: 'fraunces',
+    headerFont: 'bodoni-moda',            // Edwardian elegance
     borderRadius: 6,
     cursor: {
       mode: 'line',
@@ -868,7 +868,7 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       ],
     },
     uiFont: 'special-elite',
-    headerFont: 'fraunces',
+    headerFont: 'bodoni-moda',            // Gothic dramatic serif
     borderRadius: 4,
     cursor: {
       mode: 'line',
