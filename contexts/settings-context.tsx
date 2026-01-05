@@ -59,6 +59,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
               ...defaultSettings.visual.cursor,
               ...(parsed.visual?.cursor || {}),
             },
+            // Deep merge petals settings
+            petals: {
+              ...defaultSettings.visual.petals,
+              ...(parsed.visual?.petals || {}),
+            },
           },
           editor: {
             ...defaultSettings.editor,
@@ -312,6 +317,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           cursor: {
             ...defaultSettings.visual.cursor,
             ...(parsed.visual?.cursor || {}),
+          },
+          petals: {
+            ...defaultSettings.visual.petals,
+            ...(parsed.visual?.petals || {}),
           },
         },
         editor: {

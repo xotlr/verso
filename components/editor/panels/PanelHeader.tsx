@@ -27,7 +27,7 @@ export function PanelHeader({
   className,
 }: PanelHeaderProps) {
   return (
-    <div className={cn('px-4 py-3 border-b border-border flex items-center gap-2', className)}>
+    <div className={cn('px-4 py-3 flex items-center gap-2', className)}>
       <div className="flex-1 min-w-0">
         <h2 className="font-semibold text-sm">{title}</h2>
         {description && (
@@ -43,12 +43,12 @@ export function PanelHeader({
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6"
+          className="h-7 w-7"
           asChild
           title="View full page"
         >
           <Link href={viewHref}>
-            <ExternalLink className="h-3.5 w-3.5" />
+            <ExternalLink className="h-4 w-4" />
           </Link>
         </Button>
       )}
@@ -56,11 +56,11 @@ export function PanelHeader({
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6"
+          className="h-7 w-7"
           onClick={onAdd}
           title={addLabel}
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-4 w-4" />
         </Button>
       )}
     </div>

@@ -448,6 +448,31 @@ const marks: Record<string, MarkSpec> = {
       return ['u', 0];
     },
   },
+  highlight: {
+    attrs: {
+      color: { default: 'yellow' }, // 'yellow' | 'green' | 'blue' | 'pink' | 'orange'
+    },
+    parseDOM: [
+      {
+        tag: 'mark[data-highlight]',
+        getAttrs: (dom) => ({
+          color: (dom as HTMLElement).getAttribute('data-highlight-color') || 'yellow',
+        }),
+      },
+    ],
+    toDOM(mark): DOMOutputSpec {
+      const color = mark.attrs.color || 'yellow';
+      return [
+        'mark',
+        {
+          'data-highlight': 'true',
+          'data-highlight-color': color,
+          class: `pm-highlight pm-highlight-${color}`,
+        },
+        0,
+      ];
+    },
+  },
 };
 
 /**

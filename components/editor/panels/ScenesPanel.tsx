@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
-import { Undo2, Film } from 'lucide-react';
+import { Film } from 'lucide-react';
 import { usePanelVirtualization } from '@/hooks/use-panel-virtualization';
 import { DndContext, closestCenter, DragEndEvent, DragStartEvent, DragOverlay } from '@dnd-kit/core';
 import {
@@ -15,46 +13,33 @@ import type { EditorView } from 'prosemirror-view';
 import { TextSelection } from 'prosemirror-state';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PanelContainer } from './PanelContainer';
-import { PanelHeader } from './PanelHeader';
 import { PanelEmptyState } from './PanelEmptyState';
+import { PanelSkeleton } from './PanelSkeleton';
 import { usePanelDndSensors } from './use-panel-dnd';
 import { SortableSceneItem } from './SortableSceneItem';
 import { SceneFilters } from './SceneFilters';
-import { ActHeader, type Act } from './ActHeader';
 import { useSceneSelection } from './use-scene-selection';
-import { useActManagement } from './use-act-management';
 
 interface ScenesPanelProps {
   scenes: SceneInfo[];
   view: EditorView | null;
   currentSceneId?: string | null;
   screenplayId?: string;
-  onAddScene?: () => void;
   onAddShotToScene?: (sceneId: string) => void;
   className?: string;
 }
 
-// Flattened item types for virtualization
-type FlatListItem =
-  | { type: 'restore-button'; id: string }
-  | { type: 'ungrouped-scene'; id: string; scene: SceneInfo; sceneIndex: number }
-  | { type: 'act-header'; id: string; act: Act }
-  | { type: 'act-scene'; id: string; scene: SceneInfo; sceneIndex: number; actId: string };
-
 /**
- * Scenes panel showing hierarchical act/scene structure with navigation.
+ * Scenes panel showing flat scene list with navigation.
  * Supports filtering by scene type (INT/EXT) and time of day.
  */
-export function ScenesPanel({
+function ScenesPanelInner({
   scenes,
   view,
   currentSceneId,
-  screenplayId,
-  onAddScene,
   onAddShotToScene,
   className,
 }: ScenesPanelProps) {
-  const [expandedActs, setExpandedActs] = useState<Set<string>>(new Set(['act-1']));
   const [searchQuery, setSearchQuery] = useState('');
   const [sceneTypeFilters, setSceneTypeFilters] = useState<Set<string>>(new Set());
   const [timeOfDayFilters, setTimeOfDayFilters] = useState<Set<string>>(new Set());
@@ -65,25 +50,9 @@ export function ScenesPanel({
     activeId ? scenes.find(s => s.id === activeId) : null
   , [activeId, scenes]);
 
-  // Custom hooks for selection and act management
+  // Custom hook for selection
   const sceneIds = useMemo(() => scenes.map(s => s.id), [scenes]);
   const { selectedScenes, selectedCount, handleSelect } = useSceneSelection({ sceneIds });
-  const {
-    editingActId,
-    editingName,
-    hiddenActsCount,
-    ungroupAct,
-    resetAllGroups,
-    groupScenes,
-    ungroupScenes,
-    startEditingAct,
-    saveActName,
-    cancelEditingAct,
-    setEditingName,
-    getActDisplayName,
-    isActHidden,
-    getSceneCustomGroup,
-  } = useActManagement({ screenplayId });
 
   // Toggle filter helper
   const toggleFilter = useCallback((
@@ -114,141 +83,34 @@ export function ScenesPanel({
   // Sensors for drag & drop
   const sensors = usePanelDndSensors();
 
-  // Group scenes into acts (every 10 scenes)
-  const acts = useMemo(() => {
-    if (scenes.length === 0) return [];
-
-    const actsData: Act[] = [];
-    let currentAct: Act | null = null;
-    let actIndex = 0;
-
-    scenes.forEach((scene, idx) => {
-      if (idx === 0 || idx % 10 === 0) {
-        actIndex++;
-        currentAct = {
-          id: `act-${actIndex}`,
-          name: `Act ${actIndex}`,
-          scenes: [],
-        };
-        actsData.push(currentAct);
-      }
-
-      if (currentAct) {
-        currentAct.scenes.push(scene);
-      }
-    });
-
-    return actsData;
-  }, [scenes]);
-
   // Filter scenes by search query and filters
-  const filteredActs = useMemo(() => {
-    const filterScenes = (sceneList: SceneInfo[]) => {
-      const hasFilters = searchQuery || sceneTypeFilters.size > 0 || timeOfDayFilters.size > 0;
-      if (!hasFilters) return sceneList;
+  const filteredScenes = useMemo(() => {
+    const hasFilters = searchQuery || sceneTypeFilters.size > 0 || timeOfDayFilters.size > 0;
+    if (!hasFilters) return scenes;
 
-      return sceneList.filter(scene => {
-        const matchesSearch = !searchQuery ||
-          scene.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          scene.type.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesType = sceneTypeFilters.size === 0 ||
-          sceneTypeFilters.has(scene.type.toUpperCase());
-        const matchesToD = timeOfDayFilters.size === 0 ||
-          timeOfDayFilters.has(scene.timeOfDay?.toUpperCase() || 'DAY');
-        return matchesSearch && matchesType && matchesToD;
-      });
-    };
-
-    return acts.map(act => ({
-      ...act,
-      scenes: filterScenes(act.scenes as SceneInfo[]),
-    })).filter(act => act.scenes.length > 0);
-  }, [acts, searchQuery, sceneTypeFilters, timeOfDayFilters]);
-
-  // Separate visible (grouped) acts from ungrouped scenes
-  const { visibleActs, ungroupedScenes } = useMemo(() => {
-    const visible: typeof filteredActs = [];
-    const ungrouped: SceneInfo[] = [];
-
-    filteredActs.forEach(act => {
-      if (isActHidden(act.id)) {
-        ungrouped.push(...(act.scenes as SceneInfo[]));
-      } else {
-        visible.push(act);
-      }
+    return scenes.filter(scene => {
+      const matchesSearch = !searchQuery ||
+        scene.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        scene.type.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesType = sceneTypeFilters.size === 0 ||
+        sceneTypeFilters.has(scene.type.toUpperCase());
+      const matchesToD = timeOfDayFilters.size === 0 ||
+        timeOfDayFilters.has(scene.timeOfDay?.toUpperCase() || 'DAY');
+      return matchesSearch && matchesType && matchesToD;
     });
+  }, [scenes, searchQuery, sceneTypeFilters, timeOfDayFilters]);
 
-    return { visibleActs: visible, ungroupedScenes: ungrouped };
-  }, [filteredActs, isActHidden]);
-
-  // Flatten hierarchy for virtualization
-  const flattenedItems = useMemo((): FlatListItem[] => {
-    const items: FlatListItem[] = [];
-
-    // Restore button if there are hidden acts
-    if (hiddenActsCount > 0) {
-      items.push({ type: 'restore-button', id: 'restore-groups' });
-    }
-
-    // Ungrouped scenes
-    ungroupedScenes.forEach((scene) => {
-      items.push({
-        type: 'ungrouped-scene',
-        id: scene.id,
-        scene,
-        sceneIndex: scenes.indexOf(scene),
-      });
-    });
-
-    // Grouped acts with their scenes
-    visibleActs.forEach((act) => {
-      items.push({ type: 'act-header', id: act.id, act: act as Act });
-
-      if (expandedActs.has(act.id)) {
-        (act.scenes as SceneInfo[]).forEach((scene) => {
-          items.push({
-            type: 'act-scene',
-            id: scene.id,
-            scene,
-            sceneIndex: scenes.indexOf(scene),
-            actId: act.id,
-          });
-        });
-      }
-    });
-
-    return items;
-  }, [hiddenActsCount, ungroupedScenes, visibleActs, expandedActs, scenes]);
-
-  // All scene IDs for sortable context
-  const allSceneIds = useMemo(() => {
-    return flattenedItems
-      .filter((item): item is Extract<FlatListItem, { type: 'ungrouped-scene' | 'act-scene' }> =>
-        item.type === 'ungrouped-scene' || item.type === 'act-scene'
-      )
-      .map(item => item.id);
-  }, [flattenedItems]);
+  // Scene IDs for sortable context
+  const sortableSceneIds = useMemo(() => filteredScenes.map(s => s.id), [filteredScenes]);
 
   // Virtualization hook
   const { parentRef, isVirtualized, virtualItems, totalSize, getItem, allItems } =
     usePanelVirtualization({
-      items: flattenedItems,
+      items: filteredScenes,
       estimateSize: 44,
-      getItemKey: (item) => item.id,
+      getItemKey: (scene) => scene.id,
       minItemsForVirtualization: 25,
     });
-
-  const toggleAct = useCallback((actId: string) => {
-    setExpandedActs(prev => {
-      const next = new Set(prev);
-      if (next.has(actId)) {
-        next.delete(actId);
-      } else {
-        next.add(actId);
-      }
-      return next;
-    });
-  }, []);
 
   const navigateToScene = useCallback((scene: SceneInfo) => {
     if (!view) return;
@@ -299,7 +161,6 @@ export function ScenesPanel({
     });
 
     if (found) {
-      // Select the entire heading text (excluding the node boundaries)
       const $start = view.state.doc.resolve(nodeStart + 1);
       const $end = view.state.doc.resolve(nodeEnd - 1);
       const tr = view.state.tr.setSelection(TextSelection.between($start, $end));
@@ -311,25 +172,22 @@ export function ScenesPanel({
   // Handle drag start - set active ID for overlay
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
-    // Haptic feedback
     if (navigator.vibrate) {
       navigator.vibrate(15);
     }
   }, []);
 
-  // Handle drag end - log reorder for now (document reordering is a separate feature)
+  // Handle drag end
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
 
     if (over && active.id !== over.id) {
-      // Find the scenes in the current order
       const oldIndex = scenes.findIndex(s => s.id === active.id);
       const newIndex = scenes.findIndex(s => s.id === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
         // TODO: Implement actual document reordering via ProseMirror transaction
-        // Light haptic on drop
         if (navigator.vibrate) {
           navigator.vibrate([5, 50, 5]);
         }
@@ -342,97 +200,32 @@ export function ScenesPanel({
     setActiveId(null);
   }, []);
 
-  // Handle grouping selected scenes
-  const handleGroupScenes = useCallback((sceneId: string) => {
-    // If scene is selected and there are selections, group all selected
-    // Otherwise just group this single scene
-    const scenesToGroup = selectedScenes.has(sceneId) && selectedCount > 0
-      ? Array.from(selectedScenes)
-      : [sceneId];
-    groupScenes(scenesToGroup);
-  }, [selectedScenes, selectedCount, groupScenes]);
-
-  // Handle ungrouping selected scenes
-  const handleUngroupScenes = useCallback((sceneId: string) => {
-    const scenesToUngroup = selectedScenes.has(sceneId) && selectedCount > 0
-      ? Array.from(selectedScenes)
-      : [sceneId];
-    ungroupScenes(scenesToUngroup);
-  }, [selectedScenes, selectedCount, ungroupScenes]);
-
-  // Render a single flattened item
-  const renderFlatItem = useCallback((item: FlatListItem) => {
-    switch (item.type) {
-      case 'restore-button':
-        return (
-          <button
-            key={item.id}
-            onClick={resetAllGroups}
-            className={cn(
-              'w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg',
-              'text-[10px] text-muted-foreground',
-              'hover:bg-accent/50 hover:text-foreground',
-              'transition-colors'
-            )}
-          >
-            <Undo2 className="h-3 w-3" />
-            Restore all groups ({hiddenActsCount})
-          </button>
-        );
-
-      case 'act-header':
-        return (
-          <ActHeader
-            key={item.id}
-            act={item.act}
-            isExpanded={expandedActs.has(item.act.id)}
-            isEditing={editingActId === item.act.id}
-            editingName={editingName}
-            displayName={getActDisplayName(item.act)}
-            onToggle={() => toggleAct(item.act.id)}
-            onStartEditing={(e) => startEditingAct(item.act.id, getActDisplayName(item.act), e)}
-            onEditingNameChange={setEditingName}
-            onSaveEdit={saveActName}
-            onCancelEdit={cancelEditingAct}
-            onUngroup={() => ungroupAct(item.act.id)}
-          />
-        );
-
-      case 'ungrouped-scene':
-      case 'act-scene': {
-        const customGroup = getSceneCustomGroup(item.scene.id);
-        return (
-          <SortableSceneItem
-            key={item.id}
-            scene={item.scene}
-            sceneIndex={item.sceneIndex}
-            isActive={item.scene.id === currentSceneId}
-            isSelected={selectedScenes.has(item.scene.id)}
-            selectedCount={selectedCount}
-            isInCustomGroup={!!customGroup}
-            navigateToScene={navigateToScene}
-            formatSceneHeading={formatSceneHeading}
-            onSelect={handleSelect}
-            onRename={handleSceneRename}
-            onAddShot={onAddShotToScene}
-            onGroup={() => handleGroupScenes(item.scene.id)}
-            onUngroup={() => handleUngroupScenes(item.scene.id)}
-          />
-        );
-      }
-    }
+  // Render a single scene item
+  const renderSceneItem = useCallback((scene: SceneInfo, index: number) => {
+    return (
+      <SortableSceneItem
+        key={scene.id}
+        scene={scene}
+        sceneIndex={index}
+        isActive={scene.id === currentSceneId}
+        isSelected={selectedScenes.has(scene.id)}
+        selectedCount={selectedCount}
+        navigateToScene={navigateToScene}
+        formatSceneHeading={formatSceneHeading}
+        onSelect={handleSelect}
+        onRename={handleSceneRename}
+        onAddShot={onAddShotToScene}
+      />
+    );
   }, [
-    resetAllGroups, hiddenActsCount, expandedActs, editingActId, editingName,
-    getActDisplayName, toggleAct, startEditingAct, setEditingName, saveActName,
-    cancelEditingAct, ungroupAct, currentSceneId, selectedScenes, selectedCount,
-    navigateToScene, formatSceneHeading, handleSelect, handleSceneRename, onAddShotToScene,
-    getSceneCustomGroup, handleGroupScenes, handleUngroupScenes
+    currentSceneId, selectedScenes, selectedCount,
+    navigateToScene, formatSceneHeading, handleSelect, handleSceneRename, onAddShotToScene
   ]);
 
   // Render drag overlay
   const renderDragOverlay = () => (
     <DragOverlay dropAnimation={{ duration: 200, easing: 'ease-out' }}>
-      {activeScene && allSceneIds.includes(activeScene.id) && (
+      {activeScene && sortableSceneIds.includes(activeScene.id) && (
         <div className="bg-background rounded-lg shadow-2xl ring-2 ring-primary border border-border px-2.5 py-2 text-xs font-medium flex items-center gap-2">
           {formatSceneHeading(activeScene)}
           {selectedCount > 1 && selectedScenes.has(activeScene.id) && (
@@ -445,17 +238,17 @@ export function ScenesPanel({
     </DragOverlay>
   );
 
+  // Show skeleton when editor view hasn't initialized yet
+  if (!view && scenes.length === 0) {
+    return (
+      <PanelContainer className={className}>
+        <PanelSkeleton variant="scenes" />
+      </PanelContainer>
+    );
+  }
+
   return (
     <PanelContainer className={className}>
-      <PanelHeader
-        title="Scenes"
-        description="Navigate your script"
-        count={scenes.length}
-        onAdd={onAddScene}
-        addLabel="Add scene"
-        viewHref={screenplayId ? `/cards/${screenplayId}` : undefined}
-      />
-
       {/* Search & Filters */}
       {scenes.length > 5 && (
         <SceneFilters
@@ -472,7 +265,7 @@ export function ScenesPanel({
       {/* Content */}
       <ScrollArea className="flex-1 min-h-0" viewportRef={parentRef}>
         <div className="p-3">
-          {flattenedItems.length === 0 ? (
+          {filteredScenes.length === 0 ? (
             <PanelEmptyState
               icon={Film}
               title={activeFilterCount > 0 ? 'No matching scenes' : 'No scenes yet'}
@@ -490,14 +283,14 @@ export function ScenesPanel({
               onDragCancel={handleDragCancel}
             >
               <SortableContext
-                items={allSceneIds}
+                items={sortableSceneIds}
                 strategy={verticalListSortingStrategy}
               >
                 {isVirtualized && virtualItems ? (
                   // Virtualized rendering for large lists
                   <div style={{ height: totalSize, position: 'relative' }}>
                     {virtualItems.map((virtualItem) => {
-                      const item = getItem(virtualItem);
+                      const scene = getItem(virtualItem);
                       return (
                         <div
                           key={virtualItem.key}
@@ -509,33 +302,16 @@ export function ScenesPanel({
                             transform: `translateY(${virtualItem.start}px)`,
                           }}
                         >
-                          {renderFlatItem(item)}
+                          {renderSceneItem(scene, virtualItem.index)}
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  // Non-virtualized rendering for small lists with smooth animations
-                  <AnimatePresence initial={false} mode="popLayout">
-                    <div className="space-y-0.5">
-                      {allItems.map((item) => (
-                        <motion.div
-                          key={item.id}
-                          layout
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{
-                            opacity: { duration: 0.15 },
-                            height: { duration: 0.2 },
-                            layout: { duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }
-                          }}
-                        >
-                          {renderFlatItem(item)}
-                        </motion.div>
-                      ))}
-                    </div>
-                  </AnimatePresence>
+                  // Non-virtualized rendering for small lists
+                  <div className="space-y-0.5">
+                    {allItems.map((scene, index) => renderSceneItem(scene, index))}
+                  </div>
                 )}
               </SortableContext>
               {renderDragOverlay()}
@@ -546,3 +322,5 @@ export function ScenesPanel({
     </PanelContainer>
   );
 }
+
+export const ScenesPanel = React.memo(ScenesPanelInner);

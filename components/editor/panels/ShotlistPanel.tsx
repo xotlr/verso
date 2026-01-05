@@ -53,14 +53,15 @@ import {
 } from '@/types/shotlist';
 import { getShotDisplayName } from '@/lib/screenplay/patterns';
 import { PanelContainer } from './PanelContainer';
-import { PanelHeader } from './PanelHeader';
 import { PanelSearch } from './PanelSearch';
+import { PanelSkeleton } from './PanelSkeleton';
 
 interface ShotlistPanelProps {
   screenplayId: string;
   scenesWithShots: SceneWithShots[];
   detectedShots?: DetectedShot[];
   currentSceneId?: string | null;
+  isLoading?: boolean;
   onShotsChange?: (shots: Shot[]) => void;
   onSceneClick?: (sceneId: string) => void;
   onEditShot?: (shot: Shot) => void;
@@ -78,7 +79,7 @@ interface SortableShotItemProps {
   getStatusBadge: (status: ShotStatus) => string;
 }
 
-function SortableShotItem({
+const SortableShotItem = React.memo(function SortableShotItem({
   shot,
   onEditShot,
   handleDuplicateShot,
@@ -160,9 +161,9 @@ function SortableShotItem({
             <Button
               variant="ghost"
               size="icon"
-              className="h-5 w-5 opacity-0 group-hover:opacity-100 shrink-0"
+              className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0"
             >
-              <MoreHorizontal className="h-3 w-3" />
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-36">
@@ -191,17 +192,18 @@ function SortableShotItem({
       </div>
     </div>
   );
-}
+});
 
 /**
  * Shotlist panel showing shots grouped by scene.
  * Compact sidebar version of the full shotlist view.
  */
-export function ShotlistPanel({
+function ShotlistPanelInner({
   screenplayId,
   scenesWithShots,
   detectedShots = [],
   currentSceneId,
+  isLoading = false,
   onShotsChange,
   onSceneClick: _onSceneClick,
   onEditShot,
@@ -386,15 +388,10 @@ export function ShotlistPanel({
 
   return (
     <PanelContainer className={className}>
-      <PanelHeader
-        title="Shotlist"
-        description="Plan your shots"
-        count={totalShots}
-        viewHref={`/shotlist/${screenplayId}`}
-      />
-
-      {/* Content */}
-      {scenesWithShots.length === 0 ? (
+      {/* Loading state */}
+      {isLoading && scenesWithShots.length === 0 ? (
+        <PanelSkeleton variant="shotlist" />
+      ) : scenesWithShots.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground text-sm p-3">
           <Clapperboard className="h-8 w-8 mx-auto mb-3 opacity-50" />
           <p className="font-medium">No scenes yet</p>
@@ -406,7 +403,7 @@ export function ShotlistPanel({
         <>
           {/* Search and Filter */}
           {totalShots > 3 && (
-            <div className="p-3 space-y-2 border-b border-border shrink-0">
+            <div className="p-3 space-y-2 shrink-0">
               <PanelSearch
                 value={searchQuery}
                 onChange={setSearchQuery}
@@ -417,13 +414,10 @@ export function ShotlistPanel({
                   (status) => (
                     <Button
                       key={status}
-                      variant={statusFilter === status ? 'default' : 'secondary'}
+                      variant={statusFilter === status ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setStatusFilter(status)}
-                      className={cn(
-                        'h-auto px-2 py-0.5 rounded-full text-[10px] font-medium',
-                        statusFilter !== status && 'text-muted-foreground hover:text-foreground'
-                      )}
+                      className="h-7 px-2 text-[10px]"
                     >
                       {status === 'all'
                         ? 'All'
@@ -486,20 +480,20 @@ export function ShotlistPanel({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-5 w-5 shrink-0"
+                          className="h-7 w-7 shrink-0"
                           onClick={(e) => {
                             e.stopPropagation();
                             onAddShot(scene.sceneId);
                           }}
                         >
-                          <Plus className="h-3 w-3" />
+                          <Plus className="h-4 w-4" />
                         </Button>
                       )}
                     </div>
 
                     {/* Shots list with Drag & Drop */}
                     {expandedScenes.has(scene.sceneId) && (
-                      <div className="border-t space-y-1 p-2">
+                      <div className="space-y-1 p-2">
                         {scene.shots.length === 0 && getDetectedShotsForScene(scene.sceneId).length === 0 ? (
                           <Button
                             variant="outline"
@@ -545,7 +539,7 @@ export function ShotlistPanel({
                             {getDetectedShotsForScene(scene.sceneId).filter(
                               detected => !isAlreadySaved(detected, scene.shots)
                             ).length > 0 && (
-                              <div className="mt-2 pt-2 border-t border-dashed border-border/50">
+                              <div className="mt-2 pt-2">
                                 <div className="flex items-center gap-1.5 px-2 py-1 mb-1">
                                   <Sparkles className="h-3 w-3 text-amber-500" />
                                   <span className="text-[10px] font-medium text-muted-foreground">
@@ -589,11 +583,11 @@ export function ShotlistPanel({
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0 hover:bg-amber-500/20"
+                                          className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0 hover:bg-amber-500/20"
                                           onClick={() => onAddDetectedShot(detected)}
                                           title="Add to shotlist"
                                         >
-                                          <Plus className="h-3 w-3" />
+                                          <Plus className="h-4 w-4" />
                                         </Button>
                                       )}
                                     </div>
@@ -615,3 +609,5 @@ export function ShotlistPanel({
     </PanelContainer>
   );
 }
+
+export const ShotlistPanel = React.memo(ShotlistPanelInner);

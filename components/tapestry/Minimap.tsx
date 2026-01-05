@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import type { LayoutResult, EdgeBundle } from '@/lib/tapestry/types';
 
 interface MinimapProps {
@@ -32,6 +32,16 @@ export function Minimap({
 }: MinimapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+  const cleanupRef = useRef<(() => void) | null>(null);
+
+  // Cleanup event listeners on unmount
+  useEffect(() => {
+    return () => {
+      if (cleanupRef.current) {
+        cleanupRef.current();
+      }
+    };
+  }, []);
 
   // Calculate scale to fit content in minimap
   const contentWidth = layout.bounds.width;
@@ -70,10 +80,14 @@ export function Minimap({
       isDragging.current = false;
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      cleanupRef.current = null;
     };
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
+
+    // Store cleanup function for unmount safety
+    cleanupRef.current = handleMouseUp;
   }, [scale, viewport.scale, onViewportChange]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {

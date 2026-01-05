@@ -2,8 +2,18 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useTapestryHistory } from '@/hooks/tapestry/use-tapestry-history';
-import * as d3 from 'd3';
-import { ZoomBehavior, ZoomTransform, zoomIdentity } from 'd3-zoom';
+// D3 tree-shaken imports (~200KB savings vs full bundle)
+import { select, pointer, type Selection } from 'd3-selection';
+import { zoom, zoomIdentity, type ZoomBehavior, type ZoomTransform } from 'd3-zoom';
+import { drag } from 'd3-drag';
+import {
+  forceSimulation,
+  forceLink,
+  forceManyBody,
+  forceCenter,
+  forceCollide,
+  type SimulationNodeDatum,
+} from 'd3-force';
 import {
   TapestryNode,
   TapestryConnection,
@@ -17,6 +27,7 @@ import {
   createEmptyTapestry,
   getTapestryStorageKey,
   migrateTapestryState,
+  getNodeDimensions,
   DEFAULT_NOTE_WIDTH,
   DEFAULT_NOTE_HEIGHT,
   DEFAULT_CHARACTER_WIDTH,
@@ -39,11 +50,13 @@ import { NoteEditorDialog } from './note-editor-dialog';
 import { createDefaultFilters, type TapestryFilters } from './filter-panel';
 import { ContextMenu, type ContextMenuItem } from './context-menu';
 import { Input } from '@/components/ui/input';
-import { sanitizeForD3Text } from '@/lib/utils';
+import { sanitizeForD3Text, getInitials } from '@/lib/utils';
+import { safeGetItem, safeSetItem, safeRemoveItem } from '@/lib/storage';
 import { Scene, Location } from '@/types/screenplay';
 import type { IndexCard } from '@/components/index-cards';
 import type { CharacterInfo } from '@/hooks/editor/types';
 import { PaperNoise } from '@/components/prosemirror/PaperNoise';
+import { useSettings } from '@/contexts/settings-context';
 
 // New layout system imports
 import {
@@ -59,6 +72,24 @@ import {
   EDGE_OPACITY,
   DEFAULT_LAYOUT_CONFIG,
 } from '@/lib/tapestry';
+import {
+  createTapestryLookups,
+  getNode,
+  getNodeConnections,
+  getGroupNodes,
+  type TapestryLookups,
+} from '@/lib/tapestry/lookups';
+import {
+  computeGroupBounds,
+  type GroupBounds,
+} from '@/lib/tapestry/bounds';
+import {
+  calculateViewport,
+  getVisibleNodes as getViewportVisibleNodes,
+  getVisibleNodeIds,
+  getVisibleConnections,
+  type Viewport,
+} from '@/lib/tapestry/virtualization';
 import { EntitySidebar } from './EntitySidebar';
 import { Minimap } from './Minimap';
 import { CharacterProfilePanel } from './character-profile-panel';
@@ -69,13 +100,9 @@ function getIndexCardsStorageKey(screenplayId: string): string {
 }
 
 function loadIndexCards(screenplayId: string): IndexCard[] {
-  try {
-    const saved = localStorage.getItem(getIndexCardsStorageKey(screenplayId));
-    if (saved) {
-      return JSON.parse(saved) as IndexCard[];
-    }
-  } catch {
-    // Invalid data
+  const result = safeGetItem<IndexCard[]>(getIndexCardsStorageKey(screenplayId));
+  if (result.success && result.data) {
+    return result.data;
   }
   return [];
 }
@@ -88,20 +115,6 @@ const NODE_TYPE_ICONS: Record<TapestryNodeType, string> = {
   location: 'L',
   note: 'N',
 };
-
-// Helper to get node dimensions based on type
-function getNodeDimensions(node: TapestryNode): { width: number; height: number } {
-  if (node.type === 'character') {
-    return {
-      width: node.width || DEFAULT_CHARACTER_WIDTH,
-      height: node.height || DEFAULT_CHARACTER_HEIGHT
-    };
-  }
-  return {
-    width: node.width || DEFAULT_NOTE_WIDTH,
-    height: node.height || DEFAULT_NOTE_HEIGHT
-  };
-}
 
 // Check if a node intersects with marquee selection rectangle
 function isNodeInMarquee(
@@ -120,6 +133,38 @@ function isNodeInMarquee(
   // AABB intersection check
   return node.x < maxX && node.x + dims.width > minX &&
          node.y < maxY && node.y + dims.height > minY;
+}
+
+// Helper to render connection pins on a node
+// Uses rect with corner radius based on theme (rounded theme = circular, square theme = square)
+function renderConnectionPins(
+  nodeGroup: Selection<SVGGElement, TapestryNode, null, undefined>,
+  nodeWidth: number,
+  nodeHeight: number,
+  size: number,
+  cornerRadius: number
+): void {
+  const halfSize = size / 2;
+
+  // Left pin (input)
+  nodeGroup.append('rect')
+    .attr('class', 'node-pin')
+    .attr('x', -halfSize)
+    .attr('y', nodeHeight / 2 - halfSize)
+    .attr('width', size)
+    .attr('height', size)
+    .attr('rx', cornerRadius)
+    .attr('fill', 'hsl(var(--primary))');
+
+  // Right pin (output)
+  nodeGroup.append('rect')
+    .attr('class', 'node-pin')
+    .attr('x', nodeWidth - halfSize)
+    .attr('y', nodeHeight / 2 - halfSize)
+    .attr('width', size)
+    .attr('height', size)
+    .attr('rx', cornerRadius)
+    .attr('fill', 'hsl(var(--primary))');
 }
 
 interface TapestryProps {
@@ -141,6 +186,12 @@ export function Tapestry({
 }: TapestryProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Get theme settings for border radius
+  const { settings } = useSettings();
+  const themeRadius = settings.visual.borderRadius;
+  // Scale radius values proportionally (base is 12px)
+  const getRadius = (base: number) => Math.round((base / 12) * themeRadius);
 
   // Use history hook for undo/redo support
   const {
@@ -277,6 +328,62 @@ export function Tapestry({
     highlightState.lockedSceneId
   );
 
+  // ============================================================================
+  // PERFORMANCE OPTIMIZATION: Lookup Maps & Bounds Pre-computation
+  // These replace O(N) array.find() and array.filter() with O(1) map lookups
+  // ============================================================================
+
+  // Create lookup maps for O(1) node/connection access
+  const lookups = useMemo<TapestryLookups>(() => {
+    return createTapestryLookups(state.nodes, state.connections, state.groups);
+  }, [state.nodes, state.connections, state.groups]);
+
+  // Pre-compute group bounds in a single O(N) pass instead of O(G × N) per render
+  const groupBoundsMap = useMemo<Map<string, GroupBounds>>(() => {
+    return computeGroupBounds(state.nodes, state.groups);
+  }, [state.nodes, state.groups]);
+
+  // Track viewport for virtualization (updated on zoom/pan)
+  const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, width: 800, height: 600 });
+  const viewportRef = useRef<Viewport>(viewport);
+
+  // Debounced viewport update to avoid excessive re-renders during pan/zoom
+  const updateViewport = useCallback(() => {
+    const transform = transformRef.current;
+    const newViewport = calculateViewport(
+      dimensions.width,
+      dimensions.height,
+      transform.x,
+      transform.y,
+      transform.k
+    );
+    // Only update if viewport changed significantly (reduces re-renders)
+    const current = viewportRef.current;
+    const threshold = 50; // pixels
+    if (
+      Math.abs(current.x - newViewport.x) > threshold ||
+      Math.abs(current.y - newViewport.y) > threshold ||
+      Math.abs(current.width - newViewport.width) > threshold ||
+      Math.abs(current.height - newViewport.height) > threshold
+    ) {
+      viewportRef.current = newViewport;
+      setViewport(newViewport);
+    }
+  }, [dimensions]);
+
+  // Compute visible nodes based on viewport (virtualization)
+  const { visibleNodes, visibleNodeIds } = useMemo(() => {
+    // Include extra padding for smoother scrolling
+    const visible = getViewportVisibleNodes(state.nodes, viewport, 200);
+    const ids = new Set(visible.map(n => n.id));
+    return { visibleNodes: visible, visibleNodeIds: ids };
+  }, [state.nodes, viewport]);
+
+  // Compute visible connections (only those with at least one visible endpoint)
+  const visibleConnections = useMemo(() => {
+    return getVisibleConnections(state.connections, visibleNodeIds);
+  }, [state.connections, visibleNodeIds]);
+
   // Sidebar interaction handlers
   const handleEntityHover = useCallback((nodeId: string | null) => {
     setHighlightState(prev => ({
@@ -361,23 +468,19 @@ export function Tapestry({
   // Load state from localStorage with migration (doesn't push to history)
   useEffect(() => {
     const storageKey = getTapestryStorageKey(screenplayId);
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Migrate legacy data if needed
-        const migrated = migrateTapestryState(parsed);
-        resetState(migrated); // Use resetState to avoid pushing to history
-        transformRef.current = d3.zoomIdentity
-          .translate(migrated.panX, migrated.panY)
-          .scale(migrated.zoom);
+    const result = safeGetItem<TapestryState>(storageKey);
 
-        // Save migrated data back if it changed
-        if (parsed !== migrated) {
-          localStorage.setItem(storageKey, JSON.stringify(migrated));
-        }
-      } catch {
-        // Invalid data, start fresh
+    if (result.success && result.data) {
+      // Migrate legacy data if needed
+      const migrated = migrateTapestryState(result.data);
+      resetState(migrated); // Use resetState to avoid pushing to history
+      transformRef.current = zoomIdentity
+        .translate(migrated.panX, migrated.panY)
+        .scale(migrated.zoom);
+
+      // Save migrated data back if it changed
+      if (result.data !== migrated) {
+        safeSetItem(storageKey, migrated);
       }
     }
   }, [screenplayId, resetState]);
@@ -622,7 +725,7 @@ export function Tapestry({
 
       const newState = { ...prev, nodes: newNodes, connections: newConnections, groups: newGroups };
       const storageKey = getTapestryStorageKey(screenplayId);
-      localStorage.setItem(storageKey, JSON.stringify(newState));
+      safeSetItem(storageKey, newState);
       return newState;
     });
   }, [scenes, characters, locations, screenplayId, resetTrigger]);
@@ -630,7 +733,7 @@ export function Tapestry({
   // Save state to localStorage
   const saveState = useCallback((newState: TapestryState) => {
     const storageKey = getTapestryStorageKey(screenplayId);
-    localStorage.setItem(storageKey, JSON.stringify(newState));
+    safeSetItem(storageKey, newState);
   }, [screenplayId]);
 
   // Physics update loop - runs via requestAnimationFrame for smooth spring animation
@@ -639,7 +742,7 @@ export function Tapestry({
     let needsUpdate = false;
 
     physicsRef.current.forEach((groupState, groupId) => {
-      const groupEl = d3.select(`[data-group-id="${groupId}"]`);
+      const groupEl = select(`[data-group-id="${groupId}"]`);
       if (groupEl.empty()) return;
 
       const numCards = groupState.cards.length;
@@ -688,7 +791,7 @@ export function Tapestry({
 
         // Update DOM - find card by index in DOM order
         const cardEls = groupEl.selectAll('.stacked-card');
-        const cardEl = d3.select(cardEls.nodes()[i] as Element);
+        const cardEl = select(cardEls.nodes()[i] as Element);
         if (!cardEl.empty()) {
           cardEl.attr('transform',
             `translate(${card.x}, ${card.y}) rotate(${card.rot}, ${DEFAULT_NOTE_WIDTH / 2}, ${DEFAULT_NOTE_HEIGHT / 2})`
@@ -792,7 +895,7 @@ export function Tapestry({
   useEffect(() => {
     if (!svgRef.current) return;
 
-    const svg = d3.select(svgRef.current);
+    const svg = select(svgRef.current);
     const { width, height } = dimensions;
 
     // Clear previous content
@@ -866,7 +969,7 @@ export function Tapestry({
 
     // Setup zoom with touch gesture support
     // Right-click drag for panning, scroll wheel for zoom
-    const zoom = d3.zoom<SVGSVGElement, unknown>()
+    const zoomBehavior = zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.25, 4])
       .touchable(() => true)
       .filter((event) => {
@@ -886,30 +989,37 @@ export function Tapestry({
       })
       .on('zoom', (event) => {
         // Only update D3 transform during zoom (no React state update)
+        // DO NOT call updateViewport() here - it triggers re-renders that clear the SVG mid-zoom
         container.attr('transform', event.transform);
         transformRef.current = event.transform;
       })
       .on('end', () => {
-        // Save to React state only when zoom/pan ends
-        setState(prev => ({
-          ...prev,
-          zoom: transformRef.current.k,
-          panX: transformRef.current.x,
-          panY: transformRef.current.y,
-        }));
+        // Save to React state and localStorage when zoom/pan ends
+        setState(prev => {
+          const newState = {
+            ...prev,
+            zoom: transformRef.current.k,
+            panX: transformRef.current.x,
+            panY: transformRef.current.y,
+          };
+          saveState(newState);
+          return newState;
+        });
+        // Final viewport update
+        updateViewport();
       });
 
-    svg.call(zoom);
-    zoomRef.current = zoom;
+    svg.call(zoomBehavior);
+    zoomRef.current = zoomBehavior;
 
     // Apply saved transform
-    svg.call(zoom.transform, transformRef.current);
+    svg.call(zoomBehavior.transform, transformRef.current);
 
     // Draw groups first (behind everything)
     const groupsGroup = container.append('g').attr('class', 'groups');
 
     // Create drag behavior for groups (moves child nodes too)
-    const groupDrag = d3.drag<SVGGElement, TapestryGroup>()
+    const groupDrag = drag<SVGGElement, TapestryGroup>()
       .touchable(() => true)
       .clickDistance(5)
       .container(function() {
@@ -920,7 +1030,7 @@ export function Tapestry({
       })
       .on('start', function(event, d) {
         event.sourceEvent?.stopPropagation();
-        d3.select(this).raise().attr('opacity', 0.9).classed('dragging', true);
+        select(this).raise().attr('opacity', 0.9).classed('dragging', true);
 
         // Initialize spring physics for collapsed groups
         const physics = physicsRef.current.get(d.id);
@@ -935,7 +1045,7 @@ export function Tapestry({
         const dy = event.y - d.y;
         d.x = event.x;
         d.y = event.y;
-        d3.select(this).attr('transform', `translate(${d.x}, ${d.y})`);
+        select(this).attr('transform', `translate(${d.x}, ${d.y})`);
 
         // Update physics drag velocity (spring physics loop handles card transforms)
         const physics = physicsRef.current.get(d.id);
@@ -944,8 +1054,11 @@ export function Tapestry({
           physics.dragVelocity.y = physics.dragVelocity.y * 0.7 + dy * 0.3;
         }
 
-        // Move child nodes visually during drag
-        state.nodes.filter(n => n.groupId === d.id).forEach(node => {
+        // Move child nodes visually during drag - O(1) lookup instead of O(N) filter
+        const childNodes = lookups.nodesByGroupId.get(d.id) || [];
+        const childNodeIds = new Set(childNodes.map(n => n.id));
+
+        childNodes.forEach(node => {
           node.x += dx;
           node.y += dy;
           // Update the visual position of the node
@@ -954,54 +1067,56 @@ export function Tapestry({
         });
 
         // Update connection paths for nodes in this group (especially for collapsed groups)
-        const childNodeIds = new Set(
-          state.nodes.filter(n => n.groupId === d.id).map(n => n.id)
-        );
+        // Use pre-computed connections for each node instead of iterating all connections
+        const collapsedStackWidth = DEFAULT_NOTE_WIDTH + 30;
+        const collapsedStackHeight = DEFAULT_NOTE_HEIGHT + 30;
 
-        state.connections.forEach(conn => {
-          // Skip if neither end is in this group
-          if (!childNodeIds.has(conn.sourceId) && !childNodeIds.has(conn.targetId)) return;
+        // Collect unique connections that involve any child node
+        const processedConnIds = new Set<string>();
+        for (const node of childNodes) {
+          const nodeConns = lookups.connectionsByNodeId.get(node.id) || [];
+          for (const conn of nodeConns) {
+            if (processedConnIds.has(conn.id)) continue;
+            processedConnIds.add(conn.id);
 
-          const sourceNode = state.nodes.find(n => n.id === conn.sourceId);
-          const targetNode = state.nodes.find(n => n.id === conn.targetId);
-          if (!sourceNode || !targetNode) return;
+            // O(1) lookups instead of O(N) finds
+            const sourceNode = lookups.nodeById.get(conn.sourceId);
+            const targetNode = lookups.nodeById.get(conn.targetId);
+            if (!sourceNode || !targetNode) continue;
 
-          // Calculate endpoints (redirect to group center if in collapsed group)
-          const collapsedStackWidth = DEFAULT_NOTE_WIDTH + 30;
-          const collapsedStackHeight = DEFAULT_NOTE_HEIGHT + 30;
+            let sourceX: number, sourceY: number, targetX: number, targetY: number;
 
-          let sourceX: number, sourceY: number, targetX: number, targetY: number;
+            // Source endpoint - O(1) group lookup
+            const sourceGroup = sourceNode.groupId ? lookups.groupById.get(sourceNode.groupId) : undefined;
+            if (sourceGroup?.collapsed) {
+              sourceX = sourceGroup.x + collapsedStackWidth;
+              sourceY = sourceGroup.y + collapsedStackHeight / 2;
+            } else {
+              sourceX = sourceNode.x + (sourceNode.width || DEFAULT_NOTE_WIDTH);
+              sourceY = sourceNode.y + (sourceNode.height || DEFAULT_NOTE_HEIGHT) / 2;
+            }
 
-          // Source endpoint
-          const sourceGroup = sourceNode.groupId ? state.groups.find(g => g.id === sourceNode.groupId) : null;
-          if (sourceGroup?.collapsed) {
-            sourceX = sourceGroup.x + collapsedStackWidth;
-            sourceY = sourceGroup.y + collapsedStackHeight / 2;
-          } else {
-            sourceX = sourceNode.x + (sourceNode.width || DEFAULT_NOTE_WIDTH);
-            sourceY = sourceNode.y + (sourceNode.height || DEFAULT_NOTE_HEIGHT) / 2;
+            // Target endpoint - O(1) group lookup
+            const targetGroup = targetNode.groupId ? lookups.groupById.get(targetNode.groupId) : undefined;
+            if (targetGroup?.collapsed) {
+              targetX = targetGroup.x;
+              targetY = targetGroup.y + collapsedStackHeight / 2;
+            } else {
+              targetX = targetNode.x;
+              targetY = targetNode.y + (targetNode.height || DEFAULT_NOTE_HEIGHT) / 2;
+            }
+
+            // Generate curved path
+            const midX = (sourceX + targetX) / 2;
+            const pathD = `M ${sourceX} ${sourceY} C ${midX} ${sourceY}, ${midX} ${targetY}, ${targetX} ${targetY}`;
+
+            // Update the path element
+            connectionsGroup.selectAll(`[data-conn-id="${conn.id}"] path`).attr('d', pathD);
           }
-
-          // Target endpoint
-          const targetGroup = targetNode.groupId ? state.groups.find(g => g.id === targetNode.groupId) : null;
-          if (targetGroup?.collapsed) {
-            targetX = targetGroup.x;
-            targetY = targetGroup.y + collapsedStackHeight / 2;
-          } else {
-            targetX = targetNode.x;
-            targetY = targetNode.y + (targetNode.height || DEFAULT_NOTE_HEIGHT) / 2;
-          }
-
-          // Generate curved path
-          const midX = (sourceX + targetX) / 2;
-          const pathD = `M ${sourceX} ${sourceY} C ${midX} ${sourceY}, ${midX} ${targetY}, ${targetX} ${targetY}`;
-
-          // Update the path element
-          connectionsGroup.selectAll(`[data-conn-id="${conn.id}"] path`).attr('d', pathD);
-        });
+        }
       })
       .on('end', function(_, d) {
-        d3.select(this).attr('opacity', 1).classed('dragging', false);
+        select(this).attr('opacity', 1).classed('dragging', false);
 
         // Stop dragging but keep physics running for drift/settle effect
         const physics = physicsRef.current.get(d.id);
@@ -1038,23 +1153,19 @@ export function Tapestry({
       // Progress: 0 = fully expanded, 1 = fully collapsed
       const progress = group.collapseProgress ?? (isCollapsed ? 1 : 0);
 
-      // Dynamic resize: calculate bounds from child nodes
-      const childNodes = state.nodes.filter(n => n.groupId === group.id);
+      // Dynamic resize: use pre-computed bounds (O(1) lookup instead of O(N) calculation)
+      const childNodes = lookups.nodesByGroupId.get(group.id) || [];
+      const bounds = groupBoundsMap.get(group.id);
       let dynamicWidth = group.width;
       let dynamicHeight = group.height;
 
-      if (childNodes.length > 0) {
-        const minX = Math.min(...childNodes.map(n => n.x));
-        const maxX = Math.max(...childNodes.map(n => n.x + (n.width || DEFAULT_NOTE_WIDTH)));
-        const minY = Math.min(...childNodes.map(n => n.y));
-        const maxY = Math.max(...childNodes.map(n => n.y + (n.height || DEFAULT_NOTE_HEIGHT)));
-
-        dynamicWidth = maxX - minX + groupPadding * 2;
-        dynamicHeight = maxY - minY + groupPadding + groupHeaderHeight + 10;
+      if (bounds && bounds.nodeCount > 0) {
+        dynamicWidth = bounds.width;
+        dynamicHeight = bounds.height;
 
         // Update group position to be relative to child bounds
-        group.x = minX - groupPadding;
-        group.y = minY - groupHeaderHeight - 10;
+        group.x = bounds.x;
+        group.y = bounds.y;
       }
 
       // Collapsed mode: card stack matching node size, Expanded: full container
@@ -1118,13 +1229,13 @@ export function Tapestry({
 
       // Container background - transitions from dashed (expanded) to solid (collapsed)
       const dashArray = progress < 0.5 ? '8,4' : 'none';
-      const containerFill = progress > 0.7 ? 'transparent' : `hsl(var(--muted) / ${lerp(0.2, 0, progress)})`;
+      const containerFill = progress > 0.7 ? 'transparent' : 'hsl(var(--card))';
 
       groupG.append('rect')
         .attr('class', 'group-body')
         .attr('width', displayWidth)
         .attr('height', displayHeight)
-        .attr('rx', 12)
+        .attr('rx', getRadius(12))
         .attr('fill', containerFill)
         .attr('stroke', progress > 0.8 ? 'transparent' : 'hsl(var(--border))')
         .attr('stroke-width', 1)
@@ -1138,7 +1249,7 @@ export function Tapestry({
           .attr('class', 'group-header')
           .attr('width', displayWidth)
           .attr('height', groupHeaderHeight)
-          .attr('fill', 'hsl(var(--muted) / 0.4)')
+          .attr('fill', 'hsl(var(--muted))')
           .attr('opacity', headerOpacity);
 
         groupG.append('line')
@@ -1156,7 +1267,7 @@ export function Tapestry({
           .attr('x', 14)
           .attr('y', groupHeaderHeight / 2 + 5)
           .attr('font-size', '10px')
-          .attr('fill', 'hsl(var(--muted-foreground))')
+          .attr('fill', 'hsl(var(--foreground))')
           .attr('pointer-events', 'none')
           .attr('opacity', headerOpacity)
           .text('▼');
@@ -1212,7 +1323,7 @@ export function Tapestry({
           cardG.append('rect')
             .attr('width', cardWidth)
             .attr('height', cardHeight)
-            .attr('rx', 8)
+            .attr('rx', getRadius(8))
             .attr('fill', i === 0 ? 'hsl(var(--card))' : 'hsl(var(--muted))')
             .attr('stroke', 'hsl(var(--border))')
             .attr('stroke-width', 1)
@@ -1258,7 +1369,7 @@ export function Tapestry({
                 .attr('x', 12)
                 .attr('y', 21)
                 .attr('font-size', '10px')
-                .attr('fill', 'hsl(var(--muted-foreground))')
+                .attr('fill', 'hsl(var(--foreground))')
                 .text('▶');
 
               // Group title on top card
@@ -1277,7 +1388,7 @@ export function Tapestry({
                 .attr('y', 21)
                 .attr('font-size', '10px')
                 .attr('text-anchor', 'end')
-                .attr('fill', 'hsl(var(--muted-foreground))')
+                .attr('fill', 'hsl(var(--foreground))')
                 .attr('opacity', controlsOpacity)
                 .text(`${childCount}`);
 
@@ -1289,7 +1400,7 @@ export function Tapestry({
                     .attr('x', 12)
                     .attr('y', 55)
                     .attr('font-size', '13px')
-                    .attr('fill', 'hsl(var(--foreground) / 0.8)')
+                    .attr('fill', 'hsl(var(--foreground))')
                     .text(sanitizeForD3Text(firstNode.title || firstNode.content?.slice(0, 25) || '...', 22));
 
                   if (childNodes.length > 1) {
@@ -1297,7 +1408,7 @@ export function Tapestry({
                       .attr('x', 12)
                       .attr('y', 75)
                       .attr('font-size', '11px')
-                      .attr('fill', 'hsl(var(--muted-foreground))')
+                      .attr('fill', 'hsl(var(--foreground))')
                       .text(`+${childNodes.length - 1} more items`);
                   }
                 }
@@ -1412,13 +1523,13 @@ export function Tapestry({
           edgeGroup
             .on('mouseenter', function() {
               if (!hasAnyHighlightActive) {
-                d3.select(this).attr('opacity', 1);
+                select(this).attr('opacity', 1);
                 mainPath.attr('stroke', highlightColor);
               }
             })
             .on('mouseleave', function() {
               if (!hasAnyHighlightActive) {
-                d3.select(this).attr('opacity', EDGE_OPACITY.default);
+                select(this).attr('opacity', EDGE_OPACITY.default);
                 mainPath.attr('stroke', lineColor);
               }
             })
@@ -1439,14 +1550,17 @@ export function Tapestry({
       });
     } else {
       // Fallback: original connection rendering for non-bundled mode
-      state.connections.forEach(conn => {
-        const sourceNode = state.nodes.find(n => n.id === conn.sourceId);
-        const targetNode = state.nodes.find(n => n.id === conn.targetId);
+      // Use visible connections for virtualization (only render connections with visible endpoints)
+      visibleConnections.forEach(conn => {
+        // O(1) lookups instead of O(N) finds
+        const sourceNode = lookups.nodeById.get(conn.sourceId);
+        const targetNode = lookups.nodeById.get(conn.targetId);
         if (!sourceNode || !targetNode) return;
 
         // Check if nodes are in collapsed groups - skip connections to hidden nodes
-        const sourceGroup = sourceNode.groupId ? state.groups.find(g => g.id === sourceNode.groupId) : null;
-        const targetGroup = targetNode.groupId ? state.groups.find(g => g.id === targetNode.groupId) : null;
+        // O(1) lookups instead of O(N) finds
+        const sourceGroup = sourceNode.groupId ? lookups.groupById.get(sourceNode.groupId) : undefined;
+        const targetGroup = targetNode.groupId ? lookups.groupById.get(targetNode.groupId) : undefined;
         const sourceInCollapsed = sourceGroup?.collapsed;
         const targetInCollapsed = targetGroup?.collapsed;
 
@@ -1531,7 +1645,7 @@ export function Tapestry({
           .attr('stroke-width', isHighlightedConn ? 3 : 2)
           .attr('stroke-linecap', 'round')
           .attr('fill', 'none')
-          .attr('opacity', isHighlightedConn ? 0.3 : 0.08);
+          .attr('opacity', isHighlightedConn ? 0.4 : 0.15);
 
         // Main connection path - thread/string texture effect
         const mainPath = connGroup.append('path')
@@ -1549,18 +1663,18 @@ export function Tapestry({
         // Hover: switch to primary color and solid line
         mainPath
           .on('mouseenter', function() {
-            d3.select(this)
+            select(this)
               .attr('stroke', highlightColor)
               .attr('stroke-width', 2)
               .attr('stroke-dasharray', 'none');
-            if (this.parentNode) d3.select(this.parentNode as Element).attr('opacity', 1);
+            if (this.parentNode) select(this.parentNode as Element).attr('opacity', 1);
           })
           .on('mouseleave', function() {
-            d3.select(this)
+            select(this)
               .attr('stroke', isHighlightedConn ? highlightColor : mutedColor)
               .attr('stroke-width', isHighlightedConn ? 2 : 1.5)
               .attr('stroke-dasharray', isHighlightedConn ? 'none' : '8 4');
-            if (this.parentNode) d3.select(this.parentNode as Element).attr('opacity', connOpacity);
+            if (this.parentNode) select(this.parentNode as Element).attr('opacity', connOpacity);
           });
 
         // Clickable area for label editing (always present for double-click)
@@ -1597,7 +1711,7 @@ export function Tapestry({
         connGroup.append('text')
           .attr('class', 'connection-label-handwritten')
           .attr('dy', -8)
-          .attr('font-family', "'Caveat', cursive")
+          .attr('font-family', 'var(--font-caveat), cursive')
           .attr('font-size', '13px')
           .attr('fill', conn.label ? 'hsl(var(--foreground) / 0.7)' : 'hsl(var(--muted-foreground) / 0.4)')
           .style('pointer-events', 'none')
@@ -1614,7 +1728,7 @@ export function Tapestry({
 
     // Create drag behavior with touch support
     // clickDistance(5) ensures clicks register even with slight mouse movement
-    const drag = d3.drag<SVGGElement, TapestryNode>()
+    const nodeDragBehavior = drag<SVGGElement, TapestryNode>()
       .touchable(() => true)
       .clickDistance(5)
       .container(function() {
@@ -1625,23 +1739,23 @@ export function Tapestry({
       })
       .on('start', function(event, d) {
         event.sourceEvent?.stopPropagation();
-        d3.select(this).raise().attr('opacity', 0.95);
-        d3.select(this).attr('cursor', 'grabbing');
+        select(this).raise().attr('opacity', 0.95);
+        select(this).attr('cursor', 'grabbing');
       })
       .on('drag', function(event, d) {
         d.x = event.x;
         d.y = event.y;
-        d3.select(this).attr('transform', `translate(${d.x}, ${d.y})`);
+        select(this).attr('transform', `translate(${d.x}, ${d.y})`);
 
         // Update all connections involving this node in real-time (thread-like behavior)
+        // O(1) lookup for connections involving this node instead of O(C) iteration
         const draggedDims = getNodeDimensions(d);
+        const nodeConns = lookups.connectionsByNodeId.get(d.id) || [];
 
-        state.connections.forEach(conn => {
-          if (conn.sourceId !== d.id && conn.targetId !== d.id) return;
-
-          // Get the other node's current position
-          const sourceNode = conn.sourceId === d.id ? d : state.nodes.find(n => n.id === conn.sourceId);
-          const targetNode = conn.targetId === d.id ? d : state.nodes.find(n => n.id === conn.targetId);
+        nodeConns.forEach(conn => {
+          // Get the other node's current position - O(1) lookup
+          const sourceNode = conn.sourceId === d.id ? d : lookups.nodeById.get(conn.sourceId);
+          const targetNode = conn.targetId === d.id ? d : lookups.nodeById.get(conn.targetId);
           if (!sourceNode || !targetNode) return;
 
           const sourceDims = getNodeDimensions(sourceNode as TapestryNode);
@@ -1663,7 +1777,7 @@ export function Tapestry({
         });
       })
       .on('end', function(event, d) {
-        d3.select(this).attr('opacity', 1).attr('cursor', 'grab');
+        select(this).attr('opacity', 1).attr('cursor', 'grab');
 
         // Check if node was dropped into a group
         const nodeDims = getNodeDimensions(d);
@@ -1673,24 +1787,13 @@ export function Tapestry({
         let newGroupId: string | undefined = undefined;
 
         // Find if node center is inside any group bounds
+        // Use pre-computed bounds for O(1) lookup instead of O(N) calculation per group
         for (const group of state.groups) {
-          // Calculate group bounds from child nodes or use stored position
-          const childNodes = state.nodes.filter(n => n.groupId === group.id && n.id !== d.id);
-          let groupX = group.x || 0;
-          let groupY = group.y || 0;
-          let groupWidth = group.width || DEFAULT_GROUP_WIDTH;
-          let groupHeight = group.height || DEFAULT_GROUP_HEIGHT;
-
-          if (childNodes.length > 0) {
-            const minX = Math.min(...childNodes.map(n => n.x));
-            const minY = Math.min(...childNodes.map(n => n.y));
-            const maxX = Math.max(...childNodes.map(n => n.x + (n.width || DEFAULT_NOTE_WIDTH)));
-            const maxY = Math.max(...childNodes.map(n => n.y + (n.height || DEFAULT_NOTE_HEIGHT)));
-            groupX = minX - 20;
-            groupY = minY - 42;
-            groupWidth = maxX - minX + 40;
-            groupHeight = maxY - minY + 62;
-          }
+          const bounds = groupBoundsMap.get(group.id);
+          let groupX = bounds?.x ?? group.x ?? 0;
+          let groupY = bounds?.y ?? group.y ?? 0;
+          let groupWidth = bounds?.width ?? group.width ?? DEFAULT_GROUP_WIDTH;
+          let groupHeight = bounds?.height ?? group.height ?? DEFAULT_GROUP_HEIGHT;
 
           // Check if node center is inside this group
           if (nodeCenterX >= groupX && nodeCenterX <= groupX + groupWidth &&
@@ -1727,11 +1830,13 @@ export function Tapestry({
     const indexCards = loadIndexCards(screenplayId);
     const cardsBySceneId = new Map(indexCards.map(c => [c.sceneId, c]));
 
-    // Render each node
-    state.nodes.forEach(node => {
+    // Render each VISIBLE node (virtualization - only render nodes in viewport)
+    // This dramatically reduces DOM elements for large tapestries
+    visibleNodes.forEach(node => {
       // Skip nodes in collapsed groups OR groups that are animating collapse/expand
+      // O(1) lookup instead of O(N) find
       if (node.groupId) {
-        const parentGroup = state.groups.find(g => g.id === node.groupId);
+        const parentGroup = lookups.groupById.get(node.groupId);
         if (parentGroup?.collapsed || parentGroup?.collapseProgress !== undefined) return;
       }
 
@@ -1749,14 +1854,25 @@ export function Tapestry({
       const isNodeHighlighted = highlightedNodeIds.has(node.id);
       const hasActiveSelection = selectedNodes.size > 0;
 
+      // Build accessible label for screen readers
+      const nodeAriaLabel = nodeType === 'character'
+        ? `${node.title}, character, ${node.dialogueCount || 0} lines`
+        : nodeType === 'scene'
+          ? `Scene ${node.sceneNumber || ''}: ${node.title || node.content?.slice(0, 30) || 'Untitled'}`
+          : `${node.title || 'Note'}: ${node.content?.slice(0, 30) || ''}`;
+
       const nodeGroup = nodesGroup.append('g')
         .datum(node)
         .attr('class', `node tapestry-node ${nodeType}-node ${nodeType === 'character' ? 'polaroid-node' : ''} ${isSelected ? 'selected' : ''} ${isNodeHighlighted ? 'highlighted' : ''}`)
         .attr('data-node-id', node.id)
         .attr('transform', `translate(${node.x}, ${node.y})`)
         .attr('cursor', 'grab')
-        .attr('opacity', matchesFilter ? (hasActiveSelection && !isNodeHighlighted ? 0.3 : 1) : 0.2)
-        .call(drag);
+        .attr('opacity', matchesFilter ? (hasActiveSelection && !isNodeHighlighted ? 0.15 : 1) : 0.2)
+        .attr('tabindex', 0)
+        .attr('role', 'button')
+        .attr('aria-label', nodeAriaLabel)
+        .attr('aria-selected', isSelected ? 'true' : 'false')
+        .call(nodeDragBehavior);
 
       // ========== POLAROID STYLE FOR CHARACTER NODES ==========
       if (nodeType === 'character') {
@@ -1766,19 +1882,14 @@ export function Tapestry({
         const borderPadding = 6;
 
         // Get initials for avatar
-        const initials = node.title
-          .split(' ')
-          .slice(0, 2)
-          .map(w => w[0])
-          .join('')
-          .toUpperCase();
+        const initials = getInitials(node.title);
 
         // Polaroid frame - uses card background for theme compatibility
         nodeGroup.append('rect')
           .attr('class', 'polaroid-frame node-bg')
           .attr('width', polaroidWidth)
           .attr('height', polaroidHeight)
-          .attr('rx', 6)
+          .attr('rx', getRadius(6))
           .attr('fill', 'hsl(var(--card))')
           .attr('stroke', isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))')
           .attr('stroke-width', isSelected ? 2 : 1)
@@ -1791,7 +1902,7 @@ export function Tapestry({
           .attr('y', borderPadding)
           .attr('width', polaroidWidth - borderPadding * 2)
           .attr('height', portraitHeight)
-          .attr('rx', 2)
+          .attr('rx', getRadius(2))
           .attr('fill', 'hsl(var(--muted))');
 
         // Initials in portrait
@@ -1805,26 +1916,26 @@ export function Tapestry({
           .attr('opacity', 0.9)
           .text(initials);
 
-        // Character name (handwritten style)
+        // Character name (uses header font from theme)
         nodeGroup.append('text')
           .attr('class', 'polaroid-name node-title')
           .attr('x', polaroidWidth / 2)
           .attr('y', portraitHeight + borderPadding + 18)
           .attr('text-anchor', 'middle')
-          .attr('font-family', "'Caveat', cursive")
+          .attr('font-family', 'var(--font-heading), serif')
           .attr('font-size', '14px')
           .attr('font-weight', '600')
           .attr('fill', 'hsl(var(--foreground))')
           .text(sanitizeForD3Text(node.title || 'Untitled', 12));
 
-        // Stats line (dialogue count)
+        // Stats line (dialogue count - uses handwritten style)
         const dialogueText = `${node.dialogueCount || 0} lines`;
         nodeGroup.append('text')
           .attr('class', 'polaroid-stats')
           .attr('x', polaroidWidth / 2)
           .attr('y', portraitHeight + borderPadding + 30)
           .attr('text-anchor', 'middle')
-          .attr('font-family', "'Caveat', cursive")
+          .attr('font-family', 'var(--font-caveat), cursive')
           .attr('font-size', '10px')
           .attr('fill', 'hsl(var(--muted-foreground))')
           .text(dialogueText);
@@ -1855,26 +1966,9 @@ export function Tapestry({
             .attr('fill', 'hsl(var(--destructive-foreground) / 0.5)');
         }
 
-        // Connection pins (compact for smaller polaroid)
-        nodeGroup.append('circle')
-          .attr('class', 'node-pin')
-          .attr('cx', 0)
-          .attr('cy', polaroidHeight / 2)
-          .attr('r', 4)
-          .attr('fill', 'hsl(var(--primary))')
-          .attr('stroke', 'hsl(var(--background))')
-          .attr('stroke-width', 1.5);
-
-        nodeGroup.append('circle')
-          .attr('class', 'node-pin')
-          .attr('cx', polaroidWidth)
-          .attr('cy', polaroidHeight / 2)
-          .attr('r', 4)
-          .attr('fill', 'hsl(var(--primary))')
-          .attr('stroke', 'hsl(var(--background))')
-          .attr('stroke-width', 1.5);
-
-        // Hover handled by CSS via .polaroid-node class
+        // Connection pins (compact for smaller polaroid, shape scales with theme radius)
+        const pinSize = 8;
+        renderConnectionPins(nodeGroup, polaroidWidth, polaroidHeight, pinSize, Math.min(getRadius(pinSize / 2), pinSize / 2));
 
       } else {
         // ========== STANDARD NODE RENDERING ==========
@@ -1885,7 +1979,7 @@ export function Tapestry({
           .attr('class', 'node-bg')
           .attr('width', nodeWidth)
           .attr('height', nodeHeight)
-          .attr('rx', 8)
+          .attr('rx', getRadius(8))
           .attr('fill', 'hsl(var(--card))')
           .attr('stroke', isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))')
           .attr('stroke-width', isSelected ? 2 : 1)
@@ -1896,8 +1990,8 @@ export function Tapestry({
         .attr('class', 'node-header')
         .attr('width', nodeWidth)
         .attr('height', headerHeight)
-        .attr('rx', 8)
-        .attr('ry', 8)
+        .attr('rx', getRadius(8))
+        .attr('ry', getRadius(8))
         .attr('fill', isSelected ? 'hsl(var(--primary))' : mutedHeaderColor);
 
       // Square off bottom corners of header
@@ -1933,22 +2027,22 @@ export function Tapestry({
       nodeGroup
         .on('mouseenter', function() {
           if (!selectedNodes.has(node.id)) {
-            d3.select(this).select('.node-header').attr('fill', 'hsl(var(--primary))');
-            d3.select(this).select('.node-header-bottom').attr('fill', 'hsl(var(--primary))');
-            d3.select(this).select('.node-type-icon').attr('fill', 'white');
-            d3.select(this).select('.node-title').attr('fill', 'white');
-            d3.select(this).select('.time-icon').attr('fill', 'white');
-            d3.select(this).select('.node-bg').attr('stroke', 'hsl(var(--primary))');
+            select(this).select('.node-header').attr('fill', 'hsl(var(--primary))');
+            select(this).select('.node-header-bottom').attr('fill', 'hsl(var(--primary))');
+            select(this).select('.node-type-icon').attr('fill', 'white');
+            select(this).select('.node-title').attr('fill', 'white');
+            select(this).select('.time-icon').attr('fill', 'white');
+            select(this).select('.node-bg').attr('stroke', 'hsl(var(--primary))');
           }
         })
         .on('mouseleave', function() {
           if (!selectedNodes.has(node.id)) {
-            d3.select(this).select('.node-header').attr('fill', mutedHeaderColor);
-            d3.select(this).select('.node-header-bottom').attr('fill', mutedHeaderColor);
-            d3.select(this).select('.node-type-icon').attr('fill', 'hsl(var(--muted-foreground))');
-            d3.select(this).select('.node-title').attr('fill', 'hsl(var(--foreground))');
-            d3.select(this).select('.time-icon').attr('fill', 'hsl(var(--muted-foreground))');
-            d3.select(this).select('.node-bg').attr('stroke', 'hsl(var(--border))');
+            select(this).select('.node-header').attr('fill', mutedHeaderColor);
+            select(this).select('.node-header-bottom').attr('fill', mutedHeaderColor);
+            select(this).select('.node-type-icon').attr('fill', 'hsl(var(--muted-foreground))');
+            select(this).select('.node-title').attr('fill', 'hsl(var(--foreground))');
+            select(this).select('.time-icon').attr('fill', 'hsl(var(--muted-foreground))');
+            select(this).select('.node-bg').attr('stroke', 'hsl(var(--border))');
           }
         });
 
@@ -1992,7 +2086,7 @@ export function Tapestry({
         badgeG.append('rect')
           .attr('width', badgeWidth)
           .attr('height', badgeHeight)
-          .attr('rx', badgeHeight / 2)
+          .attr('rx', getRadius(badgeHeight / 2))
           .attr('fill', `${statusColor}20`)
           .attr('stroke', statusColor)
           .attr('stroke-width', 1);
@@ -2048,26 +2142,9 @@ export function Tapestry({
           .attr('fill', 'hsl(var(--destructive-foreground) / 0.5)');
       }
 
-      // Larger pins for thread-like connections (6px radius) - non-character nodes
-      // Input pin (left side)
-      nodeGroup.append('circle')
-        .attr('class', 'node-pin')
-        .attr('cx', 0)
-        .attr('cy', nodeHeight / 2)
-        .attr('r', 6)
-        .attr('fill', 'hsl(var(--primary))')
-        .attr('stroke', 'hsl(var(--background))')
-        .attr('stroke-width', 2);
-
-      // Output pin (right side)
-      nodeGroup.append('circle')
-        .attr('class', 'node-pin')
-        .attr('cx', nodeWidth)
-        .attr('cy', nodeHeight / 2)
-        .attr('r', 6)
-        .attr('fill', 'hsl(var(--primary))')
-        .attr('stroke', 'hsl(var(--background))')
-        .attr('stroke-width', 2);
+      // Connection pins (shape scales with theme radius)
+      const pinSize = 12;
+      renderConnectionPins(nodeGroup, nodeWidth, nodeHeight, pinSize, Math.min(getRadius(pinSize / 2), pinSize / 2));
       } // End else (standard node rendering)
 
       // Click handlers
@@ -2166,6 +2243,59 @@ export function Tapestry({
           setSelectedNodes(new Set([node.id]));
         }
       });
+
+      // Keyboard handler for accessibility (Enter/Space to select)
+      nodeGroup.on('keydown', (event: KeyboardEvent) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          event.stopPropagation();
+
+          // Shift+Enter adds to selection, regular Enter replaces selection
+          if (event.shiftKey) {
+            setSelectedNodes(prev => {
+              const newSet = new Set(prev);
+              if (newSet.has(node.id)) {
+                newSet.delete(node.id);
+              } else {
+                newSet.add(node.id);
+              }
+              return newSet;
+            });
+          } else {
+            // Regular Enter - toggle single selection
+            if (selectedNodes.has(node.id) && selectedNodes.size === 1) {
+              setSelectedNodes(new Set());
+              setProfileCharacter(null);
+            } else {
+              setSelectedNodes(new Set([node.id]));
+              if (node.type === 'character') {
+                setProfileCharacter(node);
+              } else {
+                setProfileCharacter(null);
+              }
+            }
+          }
+        } else if (event.key === 'Delete' || event.key === 'Backspace') {
+          event.preventDefault();
+          // Delete this node
+          if (selectedNodes.has(node.id)) {
+            handleDeleteNote();
+          }
+        } else if (event.key === 'e' || event.key === 'E') {
+          // Quick edit with 'e' key
+          event.preventDefault();
+          setEditingNode(node);
+        }
+      });
+
+      // Focus/blur handlers for hover effect when focused
+      nodeGroup.on('focus', () => {
+        select(`[data-node-id="${node.id}"]`).classed('keyboard-focused', true);
+      });
+
+      nodeGroup.on('blur', () => {
+        select(`[data-node-id="${node.id}"]`).classed('keyboard-focused', false);
+      });
     });
 
     // Group controls overlay (rendered ON TOP of nodes for interactivity)
@@ -2178,21 +2308,14 @@ export function Tapestry({
       // Skip overlay for collapsed or animating groups - the card has its own controls
       if (isCollapsed || isAnimating) return;
 
-      const childNodes = state.nodes.filter(n => n.groupId === group.id);
+      // O(1) lookup instead of O(N) filter
+      const childNodes = lookups.nodesByGroupId.get(group.id) || [];
+      const bounds = groupBoundsMap.get(group.id);
 
-      // Calculate group position from child nodes
-      let groupX = group.x;
-      let groupY = group.y;
-      let displayWidth = group.width;
-
-      if (childNodes.length > 0) {
-        const minX = Math.min(...childNodes.map(n => n.x));
-        const maxX = Math.max(...childNodes.map(n => n.x + (n.width || DEFAULT_NOTE_WIDTH)));
-        const minY = Math.min(...childNodes.map(n => n.y));
-        groupX = minX - 20; // groupPadding
-        groupY = minY - 32 - 10; // groupHeaderHeight + offset
-        displayWidth = maxX - minX + 40;
-      }
+      // Use pre-computed bounds instead of recalculating
+      let groupX = bounds?.x ?? group.x;
+      let groupY = bounds?.y ?? group.y;
+      let displayWidth = bounds?.width ?? group.width;
 
       const controlsG = groupControlsOverlay.append('g')
         .attr('class', 'group-controls')
@@ -2213,12 +2336,12 @@ export function Tapestry({
       let dragStartX = groupX;
       let dragStartY = groupY;
 
-      const groupDragBehavior = d3.drag<SVGRectElement, unknown>()
+      const groupDragBehavior = drag<SVGRectElement, unknown>()
         .container(function() { return container.node() as SVGGElement; })
         .clickDistance(5)
         .on('start', function(event) {
           event.sourceEvent?.stopPropagation();
-          d3.select(this).attr('cursor', 'grabbing');
+          select(this).attr('cursor', 'grabbing');
           const groupEl = groupsGroup.select(`[data-group-id="${group.id}"]`);
           groupEl.raise().attr('opacity', 0.85).classed('dragging', true);
           // Store starting position
@@ -2236,11 +2359,13 @@ export function Tapestry({
           groupEl.attr('transform', `translate(${dragStartX}, ${dragStartY})`);
 
           // Update this control overlay position
-          d3.select(this.parentNode as Element).attr('transform', `translate(${dragStartX}, ${dragStartY})`);
+          select(this.parentNode as Element).attr('transform', `translate(${dragStartX}, ${dragStartY})`);
 
           // Move child nodes visually and track their new positions
+          // O(1) lookup instead of O(N) filter
+          const groupChildNodes = lookups.nodesByGroupId.get(group.id) || [];
           const childNodePositions = new Map<string, {x: number, y: number}>();
-          state.nodes.filter(n => n.groupId === group.id).forEach(node => {
+          groupChildNodes.forEach(node => {
             const nodeEl = nodesGroup.select(`[data-node-id="${node.id}"]`);
             const nodeTransform = nodeEl.attr('transform');
             const nodeMatch = nodeTransform?.match(/translate\(([^,]+),\s*([^)]+)\)/);
@@ -2255,76 +2380,79 @@ export function Tapestry({
             }
           });
 
-          // Update connections for moved nodes
-          state.connections.forEach(conn => {
-            const sourceInGroup = childNodePositions.has(conn.sourceId);
-            const targetInGroup = childNodePositions.has(conn.targetId);
-            if (!sourceInGroup && !targetInGroup) return;
+          // Update connections for moved nodes - use O(1) lookups
+          // Get unique connections involving any child node
+          const processedConnIds = new Set<string>();
+          for (const node of groupChildNodes) {
+            const nodeConns = lookups.connectionsByNodeId.get(node.id) || [];
+            for (const conn of nodeConns) {
+              if (processedConnIds.has(conn.id)) continue;
+              processedConnIds.add(conn.id);
 
-            const sourceNode = state.nodes.find(n => n.id === conn.sourceId);
-            const targetNode = state.nodes.find(n => n.id === conn.targetId);
-            if (!sourceNode || !targetNode) return;
+              const sourceInGroup = childNodePositions.has(conn.sourceId);
+              const targetInGroup = childNodePositions.has(conn.targetId);
+              if (!sourceInGroup && !targetInGroup) continue;
 
-            // Get positions - from map if in group, otherwise from DOM
-            let sX: number, sY: number, tX: number, tY: number;
+              // O(1) lookups instead of O(N) finds
+              const sourceNode = lookups.nodeById.get(conn.sourceId);
+              const targetNode = lookups.nodeById.get(conn.targetId);
+              if (!sourceNode || !targetNode) continue;
 
-            if (sourceInGroup) {
-              const pos = childNodePositions.get(conn.sourceId)!;
-              sX = pos.x;
-              sY = pos.y;
-            } else {
-              const sourceEl = nodesGroup.select(`[data-node-id="${sourceNode.id}"]`);
-              const sourceTransform = sourceEl.attr('transform');
-              const sourceMatch = sourceTransform?.match(/translate\(([^,]+),\s*([^)]+)\)/);
-              if (!sourceMatch) return;
-              sX = parseFloat(sourceMatch[1]);
-              sY = parseFloat(sourceMatch[2]);
+              // Get positions - from map if in group, otherwise from DOM
+              let sX: number, sY: number, tX: number, tY: number;
+
+              if (sourceInGroup) {
+                const pos = childNodePositions.get(conn.sourceId)!;
+                sX = pos.x;
+                sY = pos.y;
+              } else {
+                const sourceEl = nodesGroup.select(`[data-node-id="${sourceNode.id}"]`);
+                const sourceTransform = sourceEl.attr('transform');
+                const sourceMatch = sourceTransform?.match(/translate\(([^,]+),\s*([^)]+)\)/);
+                if (!sourceMatch) continue;
+                sX = parseFloat(sourceMatch[1]);
+                sY = parseFloat(sourceMatch[2]);
+              }
+
+              if (targetInGroup) {
+                const pos = childNodePositions.get(conn.targetId)!;
+                tX = pos.x;
+                tY = pos.y;
+              } else {
+                const targetEl = nodesGroup.select(`[data-node-id="${targetNode.id}"]`);
+                const targetTransform = targetEl.attr('transform');
+                const targetMatch = targetTransform?.match(/translate\(([^,]+),\s*([^)]+)\)/);
+                if (!targetMatch) continue;
+                tX = parseFloat(targetMatch[1]);
+                tY = parseFloat(targetMatch[2]);
+              }
+
+              const sourceDims = getNodeDimensions(sourceNode);
+              const targetDims = getNodeDimensions(targetNode);
+
+              const srcX = sX + sourceDims.width;
+              const srcY = sY + sourceDims.height / 2;
+              const tgtX = tX;
+              const tgtY = tY + targetDims.height / 2;
+
+              const pathDx = Math.abs(tgtX - srcX);
+              const controlOffset = Math.max(40, pathDx * 0.3);
+              const pathD = `M ${srcX} ${srcY} C ${srcX + controlOffset} ${srcY}, ${tgtX - controlOffset} ${tgtY}, ${tgtX} ${tgtY}`;
+
+              connectionsGroup.selectAll(`[data-conn-id="${conn.id}"] path`).attr('d', pathD);
             }
-
-            if (targetInGroup) {
-              const pos = childNodePositions.get(conn.targetId)!;
-              tX = pos.x;
-              tY = pos.y;
-            } else {
-              const targetEl = nodesGroup.select(`[data-node-id="${targetNode.id}"]`);
-              const targetTransform = targetEl.attr('transform');
-              const targetMatch = targetTransform?.match(/translate\(([^,]+),\s*([^)]+)\)/);
-              if (!targetMatch) return;
-              tX = parseFloat(targetMatch[1]);
-              tY = parseFloat(targetMatch[2]);
-            }
-
-            const sourceDims = getNodeDimensions(sourceNode);
-            const targetDims = getNodeDimensions(targetNode);
-
-            const srcX = sX + sourceDims.width;
-            const srcY = sY + sourceDims.height / 2;
-            const tgtX = tX;
-            const tgtY = tY + targetDims.height / 2;
-
-            const pathDx = Math.abs(tgtX - srcX);
-            const controlOffset = Math.max(40, pathDx * 0.3);
-            const pathD = `M ${srcX} ${srcY} C ${srcX + controlOffset} ${srcY}, ${tgtX - controlOffset} ${tgtY}, ${tgtX} ${tgtY}`;
-
-            connectionsGroup.selectAll(`[data-conn-id="${conn.id}"] path`).attr('d', pathD);
-          });
+          }
         })
         .on('end', function() {
-          d3.select(this).attr('cursor', 'grab');
+          select(this).attr('cursor', 'grab');
           const groupEl = groupsGroup.select(`[data-group-id="${group.id}"]`);
           groupEl.attr('opacity', 1).classed('dragging', false);
 
           // Calculate how much the group moved from original state positions
-          const childNodes = state.nodes.filter(n => n.groupId === group.id);
-          let originalX = group.x;
-          let originalY = group.y;
-
-          if (childNodes.length > 0) {
-            const minX = Math.min(...childNodes.map(n => n.x));
-            const minY = Math.min(...childNodes.map(n => n.y));
-            originalX = minX - 20;
-            originalY = minY - 42;
-          }
+          // Use pre-computed bounds for O(1) lookup
+          const originalBounds = groupBoundsMap.get(group.id);
+          let originalX = originalBounds?.x ?? group.x;
+          let originalY = originalBounds?.y ?? group.y;
 
           const dx = dragStartX - originalX;
           const dy = dragStartY - originalY;
@@ -2352,7 +2480,7 @@ export function Tapestry({
         .attr('x', 14)
         .attr('y', 32 / 2 + 5)
         .attr('font-size', '10px')
-        .attr('fill', 'hsl(var(--muted-foreground))')
+        .attr('fill', 'hsl(var(--foreground))')
         .attr('cursor', 'pointer')
         .attr('pointer-events', 'all')
         .text('▼')
@@ -2367,8 +2495,8 @@ export function Tapestry({
         .attr('transform', `translate(${displayWidth - 24}, ${32 / 2})`)
           .attr('cursor', 'pointer')
           .attr('opacity', 0.4)
-          .on('mouseenter', function() { d3.select(this).attr('opacity', 1); })
-          .on('mouseleave', function() { d3.select(this).attr('opacity', 0.4); })
+          .on('mouseenter', function() { select(this).attr('opacity', 1); })
+          .on('mouseleave', function() { select(this).attr('opacity', 0.4); })
           .on('click', (event) => {
             event.stopPropagation();
             setState(prev => {
@@ -2403,7 +2531,7 @@ export function Tapestry({
       // Check if we're clicking on the canvas background (not a node)
       if (target.tagName === 'rect' && !target.closest('.tapestry-node') && !target.closest('.tapestry-group')) {
         event.preventDefault();
-        const [mx, my] = d3.pointer(event, container.node());
+        const [mx, my] = pointer(event, container.node());
         marqueeRef.current = { start: { x: mx, y: my }, end: { x: mx, y: my } };
         setIsMarqueeSelecting(true);
         setMarqueeStart({ x: mx, y: my });
@@ -2413,7 +2541,7 @@ export function Tapestry({
 
     svg.on('mousemove', (event) => {
       if (!marqueeRef.current.start) return;
-      const [mx, my] = d3.pointer(event, container.node());
+      const [mx, my] = pointer(event, container.node());
       marqueeRef.current.end = { x: mx, y: my };
       setMarqueeEnd({ x: mx, y: my });
 
@@ -2493,7 +2621,7 @@ export function Tapestry({
       svg.on('contextmenu', null);
       svg.selectAll('*').remove();
     };
-  }, [state.nodes, state.connections, state.groups, dimensions, isConnecting, connectingFrom, selectedNodes, saveState, onSceneClick, nodeMatchesFilters, layout, edgeBundles, highlightedEdges, hasAnyHighlight, showAllLines, highlightedConnections, highlightedNodeIds, snapToGrid]);
+  }, [state.nodes, state.connections, state.groups, dimensions, isConnecting, connectingFrom, selectedNodes, saveState, onSceneClick, nodeMatchesFilters, layout, edgeBundles, highlightedEdges, hasAnyHighlight, showAllLines, highlightedConnections, highlightedNodeIds, snapToGrid, lookups, groupBoundsMap, visibleNodes, visibleConnections, updateViewport]);
 
   // Add new node of specified type
   const handleAddNode = useCallback((type: TapestryNodeType) => {
@@ -2588,8 +2716,11 @@ export function Tapestry({
   const handleAutoCluster = useCallback(() => {
     if (state.nodes.length === 0) return;
 
+    // Type for nodes in D3 force simulation
+    type SimNode = TapestryNode & SimulationNodeDatum;
+
     // Create a copy of nodes for simulation
-    const simulationNodes = state.nodes.map(node => ({
+    const simulationNodes: SimNode[] = state.nodes.map(node => ({
       ...node,
       fx: node.pinned ? node.x : undefined,
       fy: node.pinned ? node.y : undefined,
@@ -2602,14 +2733,14 @@ export function Tapestry({
     }));
 
     // Run force simulation
-    const simulation = d3.forceSimulation(simulationNodes as d3.SimulationNodeDatum[])
-      .force('link', d3.forceLink(links)
-        .id((d: any) => d.id)
+    const simulation = forceSimulation(simulationNodes)
+      .force('link', forceLink<SimNode, typeof links[number]>(links)
+        .id((d) => d.id)
         .distance(180)
         .strength(0.5))
-      .force('charge', d3.forceManyBody().strength(-300))
-      .force('center', d3.forceCenter(dimensions.width / 2, dimensions.height / 2))
-      .force('collision', d3.forceCollide().radius(100))
+      .force('charge', forceManyBody().strength(-300))
+      .force('center', forceCenter(dimensions.width / 2, dimensions.height / 2))
+      .force('collision', forceCollide().radius(100))
       .stop();
 
     // Run simulation for a fixed number of ticks
@@ -2622,11 +2753,11 @@ export function Tapestry({
       const newNodes = prev.nodes.map(node => {
         if (node.pinned) return node;
         const simNode = simulationNodes.find(n => n.id === node.id);
-        if (simNode) {
+        if (simNode && simNode.x !== undefined && simNode.y !== undefined) {
           return {
             ...node,
-            x: (simNode as any).x || node.x,
-            y: (simNode as any).y || node.y,
+            x: simNode.x,
+            y: simNode.y,
           };
         }
         return node;
@@ -2878,7 +3009,16 @@ export function Tapestry({
     if (nextIndex < 0) nextIndex = sortedNodes.length - 1;
     if (nextIndex >= sortedNodes.length) nextIndex = 0;
 
-    setSelectedNodes(new Set([sortedNodes[nextIndex].id]));
+    const nextNodeId = sortedNodes[nextIndex].id;
+    setSelectedNodes(new Set([nextNodeId]));
+
+    // Move focus to the selected node for keyboard accessibility
+    requestAnimationFrame(() => {
+      const nodeEl = document.querySelector(`[data-node-id="${nextNodeId}"]`) as HTMLElement | null;
+      if (nodeEl) {
+        nodeEl.focus();
+      }
+    });
   }, [state.nodes, selectedNodes]);
 
   // Save edited node
@@ -2911,7 +3051,7 @@ export function Tapestry({
   // Zoom controls
   const handleZoomIn = useCallback(() => {
     if (svgRef.current && zoomRef.current) {
-      d3.select(svgRef.current)
+      select(svgRef.current)
         .transition()
         .duration(300)
         .call(zoomRef.current.scaleBy, 1.3);
@@ -2920,7 +3060,7 @@ export function Tapestry({
 
   const handleZoomOut = useCallback(() => {
     if (svgRef.current && zoomRef.current) {
-      d3.select(svgRef.current)
+      select(svgRef.current)
         .transition()
         .duration(300)
         .call(zoomRef.current.scaleBy, 0.7);
@@ -2929,26 +3069,26 @@ export function Tapestry({
 
   const handleFitView = useCallback(() => {
     if (svgRef.current && zoomRef.current) {
-      d3.select(svgRef.current)
+      select(svgRef.current)
         .transition()
         .duration(500)
-        .call(zoomRef.current.transform, d3.zoomIdentity);
+        .call(zoomRef.current.transform, zoomIdentity);
     }
   }, []);
 
   // Reset layout to regenerate from scratch
   const handleResetLayout = useCallback(() => {
     const storageKey = getTapestryStorageKey(screenplayId);
-    localStorage.removeItem(storageKey);
+    safeRemoveItem(storageKey);
 
     // Clear state first, then trigger regeneration
     resetState(createEmptyTapestry());
     setResetTrigger(prev => prev + 1);
 
     // Reset zoom to default
-    transformRef.current = d3.zoomIdentity;
+    transformRef.current = zoomIdentity;
     if (svgRef.current && zoomRef.current) {
-      d3.select(svgRef.current).call(zoomRef.current.transform, d3.zoomIdentity);
+      select(svgRef.current).call(zoomRef.current.transform, zoomIdentity);
     }
   }, [screenplayId, resetState]);
 
@@ -3064,14 +3204,32 @@ export function Tapestry({
           availableCharacters={availableCharacters}
         />
 
+        {/* Screen reader keyboard shortcuts description */}
+        <div id="tapestry-shortcuts" className="sr-only">
+          Keyboard shortcuts: Tab to cycle through nodes. Enter or Space to select.
+          Shift+Enter to add to selection. Arrow keys to move selected nodes.
+          E to edit focused node. Delete to remove selected. Escape to clear selection.
+          Control+Z to undo. Control+Shift+Z to redo. Control+C to copy. Control+V to paste.
+        </div>
+
+        {/* Live region for selection announcements */}
+        <div aria-live="polite" aria-atomic="true" className="sr-only">
+          {selectedNodes.size === 0
+            ? ''
+            : selectedNodes.size === 1
+              ? `Selected: ${state.nodes.find(n => selectedNodes.has(n.id))?.title || 'node'}`
+              : `${selectedNodes.size} nodes selected`}
+        </div>
+
         <svg
           ref={svgRef}
           width={dimensions.width}
           height={dimensions.height}
           className="w-full h-full touch-none"
           style={{ touchAction: 'none' }}
-          role="img"
-          aria-label={`Tapestry board for ${screenplayTitle}`}
+          role="application"
+          aria-label={`Tapestry board for ${screenplayTitle}. ${state.nodes.length} nodes, ${state.connections.length} connections.`}
+          aria-describedby="tapestry-shortcuts"
         >
           <title>Tapestry - {screenplayTitle}</title>
           {/* SVG filters for soft shadows (procreate style) */}
@@ -3103,8 +3261,8 @@ export function Tapestry({
             }}
             onViewportChange={(x, y) => {
               if (svgRef.current && zoomRef.current) {
-                const newTransform = d3.zoomIdentity.translate(x, y).scale(transformRef.current.k);
-                d3.select(svgRef.current)
+                const newTransform = zoomIdentity.translate(x, y).scale(transformRef.current.k);
+                select(svgRef.current)
                   .transition()
                   .duration(300)
                   .call(zoomRef.current.transform, newTransform);
@@ -3303,7 +3461,7 @@ export function Tapestry({
               autoFocus
               defaultValue={editingConnection.label}
               placeholder="Add label..."
-              className="h-8 w-48 text-sm bg-background border-border/50 rounded-lg font-['Caveat'] text-base"
+              className="h-8 w-48 text-sm bg-background border-border/50 rounded-lg handwritten text-base"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   handleSaveConnectionLabel(editingConnection.id, (e.target as HTMLInputElement).value);

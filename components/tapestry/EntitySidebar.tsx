@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback } from 'react';
-import { cn } from '@/lib/utils';
+import { useCallback, useMemo, memo, type KeyboardEvent } from 'react';
+import { cn, getInitials } from '@/lib/utils';
 import type { SidebarEntity, HighlightState } from '@/lib/tapestry/types';
 
 interface EntitySidebarProps {
@@ -43,9 +43,10 @@ export function EntitySidebar({
   );
 
   return (
-    <div
+    <nav
       className="absolute top-0 left-0 h-full pointer-events-none z-10"
       style={{ width: sidebarWidth + paddingLeft }}
+      aria-label="Tapestry entities"
     >
       <div
         className="h-full overflow-y-auto pointer-events-auto"
@@ -53,11 +54,11 @@ export function EntitySidebar({
       >
         {/* Characters Section */}
         {characters.length > 0 && (
-          <div className="mb-4">
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 px-2">
+          <section className="mb-4" aria-label="Characters">
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 px-2">
               Characters
-            </div>
-            <div className="space-y-1">
+            </h3>
+            <ul className="space-y-1" role="listbox" aria-label={`${characters.length} characters`}>
               {characters.map(entity => (
                 <EntityCard
                   key={entity.id}
@@ -69,17 +70,17 @@ export function EntitySidebar({
                   sidebarWidth={sidebarWidth}
                 />
               ))}
-            </div>
-          </div>
+            </ul>
+          </section>
         )}
 
         {/* Locations Section */}
         {locations.length > 0 && (
-          <div>
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 px-2">
+          <section aria-label="Locations">
+            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 px-2">
               Locations
-            </div>
-            <div className="space-y-1">
+            </h3>
+            <ul className="space-y-1" role="listbox" aria-label={`${locations.length} locations`}>
               {locations.map(entity => (
                 <EntityCard
                   key={entity.id}
@@ -91,11 +92,11 @@ export function EntitySidebar({
                   sidebarWidth={sidebarWidth}
                 />
               ))}
-            </div>
-          </div>
+            </ul>
+          </section>
         )}
       </div>
-    </div>
+    </nav>
   );
 }
 
@@ -108,7 +109,8 @@ interface EntityCardProps {
   sidebarWidth: number;
 }
 
-function EntityCard({
+// Memoized EntityCard prevents unnecessary re-renders when parent updates
+const EntityCard = memo(function EntityCard({
   entity,
   isHighlighted,
   isDimmed,
@@ -128,18 +130,38 @@ function EntityCard({
     onClick(entity.nodeId);
   }, [entity.nodeId, onClick]);
 
-  // Get initials for avatar
-  const initials = entity.name
-    .split(' ')
-    .slice(0, 2)
-    .map(w => w[0])
-    .join('')
-    .toUpperCase();
+  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLLIElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick(entity.nodeId);
+    }
+  }, [entity.nodeId, onClick]);
+
+  const handleFocus = useCallback(() => {
+    onHover(entity.nodeId);
+  }, [entity.nodeId, onHover]);
+
+  const handleBlur = useCallback(() => {
+    onHover(null);
+  }, [onHover]);
+
+  // Get initials for avatar - memoized
+  const initials = useMemo(() => getInitials(entity.name), [entity.name]);
+
+  // Build accessible label with entity info
+  const ariaLabel = entity.type === 'character'
+    ? `${entity.name}, ${entity.dialogueCount} lines, ${entity.connectionCount} scenes`
+    : `${entity.name}, ${entity.connectionCount} scenes`;
 
   return (
-    <div
+    <li
+      role="option"
+      tabIndex={0}
+      aria-selected={isHighlighted}
+      aria-label={ariaLabel}
       className={cn(
         'group relative flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-all duration-200',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1',
         isHighlighted && 'bg-accent/20',
         isDimmed && 'opacity-30',
         !isHighlighted && !isDimmed && 'hover:bg-accent/10'
@@ -151,6 +173,9 @@ function EntityCard({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
     >
       {/* Avatar */}
       <div
@@ -159,6 +184,7 @@ function EntityCard({
           isHighlighted && 'ring-2 ring-white/50'
         )}
         style={{ backgroundColor: entity.color }}
+        aria-hidden="true"
       >
         {initials}
       </div>
@@ -168,7 +194,7 @@ function EntityCard({
         <div className="text-sm font-medium text-foreground truncate">
           {entity.name}
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground" aria-hidden="true">
           {entity.type === 'character' && entity.dialogueCount > 0 && (
             <span className="flex items-center gap-0.5">
               <DialogueIcon className="w-3 h-3" />
@@ -189,15 +215,22 @@ function EntityCard({
           isHighlighted ? 'scale-150' : 'scale-100'
         )}
         style={{ backgroundColor: entity.color }}
+        aria-hidden="true"
       />
-    </div>
+    </li>
   );
-}
+});
 
-// Simple icons
+// Simple icons with accessibility
 function DialogueIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 16 16" fill="currentColor">
+    <svg
+      className={className}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      aria-hidden="true"
+      role="img"
+    >
       <path d="M8 1a7 7 0 1 0 4.95 11.95l2.12.7a.5.5 0 0 0 .63-.63l-.7-2.12A7 7 0 0 0 8 1Z" />
     </svg>
   );
@@ -205,7 +238,13 @@ function DialogueIcon({ className }: { className?: string }) {
 
 function SceneIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 16 16" fill="currentColor">
+    <svg
+      className={className}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      aria-hidden="true"
+      role="img"
+    >
       <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Zm2 1v8h8V4H4Z" />
     </svg>
   );

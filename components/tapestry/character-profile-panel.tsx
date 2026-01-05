@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import { motion, type Variants } from 'framer-motion';
 import { X, MessageSquare, Film, Users, FileText, Pin, PinOff, Edit3, User } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getInitials } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import type { TapestryNode, TapestryConnection } from '@/types/tapestry';
@@ -43,40 +43,59 @@ export function CharacterProfilePanel({
   const [notes, setNotes] = useState(character.notes || '');
   const [arcSummary, setArcSummary] = useState(character.arcSummary || '');
 
-  // Get scenes this character appears in
-  const characterScenes = allNodes.filter(
-    n => n.type === 'scene' && character.sceneAppearances?.includes(n.sceneId || '')
+  // ============================================================================
+  // PERFORMANCE: All computed values memoized to prevent unnecessary recalculations
+  // ============================================================================
+
+  // Get scenes this character appears in - memoized
+  const characterScenes = useMemo(() =>
+    allNodes.filter(
+      n => n.type === 'scene' && character.sceneAppearances?.includes(n.sceneId || '')
+    ),
+    [allNodes, character.sceneAppearances]
   );
 
-  // Get relationships (connections to other characters)
-  const characterConnections = connections.filter(
-    c => (c.sourceId === character.id || c.targetId === character.id) &&
-         c.type === 'relationship'
+  // Get relationships (connections to other characters) - memoized
+  const characterConnections = useMemo(() =>
+    connections.filter(
+      c => (c.sourceId === character.id || c.targetId === character.id) &&
+           c.type === 'relationship'
+    ),
+    [connections, character.id]
   );
 
-  const relatedCharacters = characterConnections.map(conn => {
-    const otherId = conn.sourceId === character.id ? conn.targetId : conn.sourceId;
-    const otherChar = allNodes.find(n => n.id === otherId);
-    return {
-      connection: conn,
-      character: otherChar,
-    };
-  }).filter(r => r.character);
+  // Build node lookup map for O(1) access - memoized
+  const nodeById = useMemo(() =>
+    new Map(allNodes.map(n => [n.id, n])),
+    [allNodes]
+  );
 
-  // Get initials for avatar
-  const initials = character.title
-    .split(' ')
-    .slice(0, 2)
-    .map(w => w[0])
-    .join('')
-    .toUpperCase();
+  // Get related characters using O(1) lookups - memoized
+  const relatedCharacters = useMemo(() =>
+    characterConnections.map(conn => {
+      const otherId = conn.sourceId === character.id ? conn.targetId : conn.sourceId;
+      const otherChar = nodeById.get(otherId);
+      return {
+        connection: conn,
+        character: otherChar,
+      };
+    }).filter(r => r.character),
+    [characterConnections, character.id, nodeById]
+  );
 
-  // Calculate dialogue percentage (compared to highest character)
-  const allCharacterDialogue = allNodes
-    .filter(n => n.type === 'character')
-    .map(n => n.dialogueCount || 0);
-  const maxDialogue = Math.max(...allCharacterDialogue, 1);
-  const dialoguePercentage = Math.round(((character.dialogueCount || 0) / maxDialogue) * 100);
+  // Get initials for avatar - memoized
+  const initials = useMemo(() => getInitials(character.title), [character.title]);
+
+  // Calculate dialogue percentage (compared to highest character) - memoized
+  const dialoguePercentage = useMemo(() => {
+    let maxDialogue = 1;
+    for (const node of allNodes) {
+      if (node.type === 'character' && (node.dialogueCount || 0) > maxDialogue) {
+        maxDialogue = node.dialogueCount || 0;
+      }
+    }
+    return Math.round(((character.dialogueCount || 0) / maxDialogue) * 100);
+  }, [allNodes, character.dialogueCount]);
 
   const handleTogglePin = useCallback(() => {
     onUpdate({ ...character, pinned: !character.pinned });
@@ -234,7 +253,7 @@ export function CharacterProfilePanel({
                       <div
                         className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-semibold bg-muted text-muted-foreground flex-shrink-0"
                       >
-                        {relChar?.title.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+                        {getInitials(relChar?.title)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-medium truncate">{relChar?.title}</div>

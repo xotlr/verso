@@ -122,9 +122,9 @@ export function ActHeader({
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 opacity-0 group-hover/act:opacity-100 transition-opacity shrink-0"
+            className="h-7 w-7 opacity-0 group-hover/act:opacity-100 transition-opacity shrink-0"
           >
-            <MoreHorizontal className="h-3.5 w-3.5" />
+            <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-40">

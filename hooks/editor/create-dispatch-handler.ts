@@ -21,9 +21,7 @@ import { EDITOR_DEBOUNCE } from '@/lib/constants/editor';
 import {
   calculateWordCount,
   calculatePageCount,
-  extractScenes,
-  extractCharacters,
-  extractDetectedShotsFromDocument,
+  extractAll,
 } from './document-extractors';
 import type { SceneInfo, CharacterInfo } from './types';
 import type { DetectedShot } from '@/types/shotlist';
@@ -94,12 +92,11 @@ export function handleDocChange(
     }
   }, EDITOR_DEBOUNCE.CONTENT_UPDATE);
 
-  // Debounce scene/character extraction
+  // Debounce scene/character extraction - SINGLE PASS for performance
   if (timeoutRefs.extraction.current) clearTimeout(timeoutRefs.extraction.current);
   timeoutRefs.extraction.current = setTimeout(() => {
-    const scenes = extractScenes(doc);
-    const characters = extractCharacters(doc);
-    const detectedShots = extractDetectedShotsFromDocument(doc, scenes);
+    // Extract all in one document traversal (O(n) instead of O(3n))
+    const { scenes, characters, detectedShots } = extractAll(doc);
 
     charactersRef.current = characters.map(c => c.name);
     locationsRef.current = scenes.map(s => s.location).filter((v, i, a) => v && a.indexOf(v) === i);

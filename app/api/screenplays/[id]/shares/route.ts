@@ -4,58 +4,106 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { ShareRole } from "@prisma/client"
 
-// Helper to check if user can manage shares (owner or ADMIN share role)
-async function canManageShares(screenplayId: string, userId: string) {
+/**
+ * Access check result with screenplay data.
+ * Fetches all needed data in a single query to avoid N+1.
+ */
+interface ShareAccessResult {
+  allowed: boolean
+  isOwner: boolean
+  screenplay?: {
+    userId: string
+    teamId: string | null
+    projectTeamId: string | null
+    owner: { id: string; name: string | null; email: string | null; image: string | null }
+  }
+  error?: string
+  status?: number
+}
+
+/**
+ * Check if user can manage shares. Single query version.
+ * Gets screenplay + owner + user's share + team membership in one go.
+ */
+async function checkShareAccess(
+  screenplayId: string,
+  userId: string
+): Promise<ShareAccessResult> {
+  // Single query that gets everything we need for access check AND owner info
   const screenplay = await prisma.screenplay.findUnique({
     where: { id: screenplayId },
     select: {
       userId: true,
-      project: { select: { teamId: true } },
       teamId: true,
+      project: { select: { teamId: true } },
+      user: {
+        select: { id: true, name: true, email: true, image: true },
+      },
+      // Include the requesting user's share in this query
+      shares: {
+        where: { userId },
+        select: { role: true },
+        take: 1,
+      },
     },
   })
 
   if (!screenplay) {
-    return { allowed: false, error: "Screenplay not found", status: 404 }
+    return { allowed: false, isOwner: false, error: "Screenplay not found", status: 404 }
   }
 
   // Owner can always manage shares
   if (screenplay.userId === userId) {
-    return { allowed: true, isOwner: true }
-  }
-
-  // Check if user has ADMIN share role
-  const share = await prisma.screenplayShare.findUnique({
-    where: {
-      screenplayId_userId: {
-        screenplayId,
-        userId,
+    return {
+      allowed: true,
+      isOwner: true,
+      screenplay: {
+        userId: screenplay.userId,
+        teamId: screenplay.teamId,
+        projectTeamId: screenplay.project?.teamId ?? null,
+        owner: screenplay.user,
       },
-    },
-  })
-
-  if (share?.role === "ADMIN") {
-    return { allowed: true, isOwner: false }
-  }
-
-  // Check team admin access
-  const teamId = screenplay.teamId || screenplay.project?.teamId
-  if (teamId) {
-    const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId,
-          userId,
-        },
-      },
-    })
-
-    if (membership && (membership.role === "OWNER" || membership.role === "ADMIN")) {
-      return { allowed: true, isOwner: false }
     }
   }
 
-  return { allowed: false, error: "Access denied", status: 403 }
+  // Check if user has ADMIN share role (already fetched above)
+  const userShare = screenplay.shares[0]
+  if (userShare?.role === "ADMIN") {
+    return {
+      allowed: true,
+      isOwner: false,
+      screenplay: {
+        userId: screenplay.userId,
+        teamId: screenplay.teamId,
+        projectTeamId: screenplay.project?.teamId ?? null,
+        owner: screenplay.user,
+      },
+    }
+  }
+
+  // Check team admin access (only if screenplay is in a team)
+  const teamId = screenplay.teamId || screenplay.project?.teamId
+  if (teamId) {
+    const membership = await prisma.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId } },
+      select: { role: true },
+    })
+
+    if (membership && (membership.role === "OWNER" || membership.role === "ADMIN")) {
+      return {
+        allowed: true,
+        isOwner: false,
+        screenplay: {
+          userId: screenplay.userId,
+          teamId: screenplay.teamId,
+          projectTeamId: screenplay.project?.teamId ?? null,
+          owner: screenplay.user,
+        },
+      }
+    }
+  }
+
+  return { allowed: false, isOwner: false, error: "Access denied", status: 403 }
 }
 
 // GET /api/screenplays/[id]/shares - List all shares for a screenplay
@@ -73,7 +121,44 @@ export async function GET(
     }
 
     const { id } = await params
-    const access = await canManageShares(id, session.user.id)
+
+    // Fetch access check, shares, and invites in parallel
+    // Access check also returns owner info, eliminating the separate screenplay fetch
+    const [access, shares, invites] = await Promise.all([
+      checkShareAccess(id, session.user.id),
+      prisma.screenplayShare.findMany({
+        where: { screenplayId: id },
+        select: {
+          id: true,
+          role: true,
+          createdAt: true,
+          user: {
+            select: { id: true, name: true, email: true, image: true },
+          },
+          sharer: {
+            select: { id: true, name: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.shareInvite.findMany({
+        where: {
+          screenplayId: id,
+          expiresAt: { gt: new Date() },
+        },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          createdAt: true,
+          expiresAt: true,
+          inviter: {
+            select: { id: true, name: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ])
 
     if (!access.allowed) {
       return NextResponse.json(
@@ -82,70 +167,8 @@ export async function GET(
       )
     }
 
-    // Get all shares
-    const shares = await prisma.screenplayShare.findMany({
-      where: { screenplayId: id },
-      select: {
-        id: true,
-        role: true,
-        createdAt: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-          },
-        },
-        sharer: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    })
-
-    // Get pending invites
-    const invites = await prisma.shareInvite.findMany({
-      where: {
-        screenplayId: id,
-        expiresAt: { gt: new Date() },
-      },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        expiresAt: true,
-        inviter: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    })
-
-    // Get screenplay owner info
-    const screenplay = await prisma.screenplay.findUnique({
-      where: { id },
-      select: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-          },
-        },
-      },
-    })
-
     return NextResponse.json({
-      owner: screenplay?.user,
+      owner: access.screenplay?.owner,
       shares,
       pendingInvites: invites,
     })
@@ -184,14 +207,6 @@ export async function POST(
     }
 
     const { id } = await params
-    const access = await canManageShares(id, session.user.id)
-
-    if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
-    }
 
     const body = await request.json()
     const result = createShareSchema.safeParse(body)
@@ -203,15 +218,29 @@ export async function POST(
       )
     }
 
-    const { userId, email, role } = result.data
+    const { userId: targetUserId, email, role } = result.data
 
     // If userId provided, create direct share
-    if (userId) {
-      // Check user exists
-      const targetUser = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { id: true, name: true, email: true, image: true },
-      })
+    if (targetUserId) {
+      // Parallelize: access check + target user + existing share check
+      const [access, targetUser, existingShare] = await Promise.all([
+        checkShareAccess(id, session.user.id),
+        prisma.user.findUnique({
+          where: { id: targetUserId },
+          select: { id: true, name: true, email: true, image: true },
+        }),
+        prisma.screenplayShare.findUnique({
+          where: { screenplayId_userId: { screenplayId: id, userId: targetUserId } },
+          select: { id: true },
+        }),
+      ])
+
+      if (!access.allowed) {
+        return NextResponse.json(
+          { error: access.error },
+          { status: access.status }
+        )
+      }
 
       if (!targetUser) {
         return NextResponse.json(
@@ -219,16 +248,6 @@ export async function POST(
           { status: 404 }
         )
       }
-
-      // Check if share already exists
-      const existingShare = await prisma.screenplayShare.findUnique({
-        where: {
-          screenplayId_userId: {
-            screenplayId: id,
-            userId,
-          },
-        },
-      })
 
       if (existingShare) {
         return NextResponse.json(
@@ -241,7 +260,7 @@ export async function POST(
       const share = await prisma.screenplayShare.create({
         data: {
           screenplayId: id,
-          userId,
+          userId: targetUserId,
           role: role as ShareRole,
           sharedBy: session.user.id,
         },
@@ -250,12 +269,7 @@ export async function POST(
           role: true,
           createdAt: true,
           user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              image: true,
-            },
+            select: { id: true, name: true, email: true, image: true },
           },
         },
       })
@@ -265,11 +279,21 @@ export async function POST(
 
     // If email provided, create invite or direct share if user exists
     if (email) {
-      // Check if user exists with this email
-      const existingUser = await prisma.user.findUnique({
-        where: { email },
-        select: { id: true, name: true, email: true, image: true },
-      })
+      // Parallelize: access check + user lookup by email
+      const [access, existingUser] = await Promise.all([
+        checkShareAccess(id, session.user.id),
+        prisma.user.findUnique({
+          where: { email },
+          select: { id: true, name: true, email: true, image: true },
+        }),
+      ])
+
+      if (!access.allowed) {
+        return NextResponse.json(
+          { error: access.error },
+          { status: access.status }
+        )
+      }
 
       if (existingUser) {
         // Check if share already exists
@@ -302,12 +326,7 @@ export async function POST(
             role: true,
             createdAt: true,
             user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                image: true,
-              },
+              select: { id: true, name: true, email: true, image: true },
             },
           },
         })
@@ -350,8 +369,6 @@ export async function POST(
           expiresAt: true,
         },
       })
-
-      // TODO: Send email notification
 
       return NextResponse.json({
         type: "invite",

@@ -98,17 +98,6 @@ describe('CharactersPanel', () => {
   });
 
   describe('rendering', () => {
-    it('should render panel header with title', () => {
-      render(<CharactersPanel characters={[]} />);
-      expect(screen.getByText('Characters')).toBeInTheDocument();
-    });
-
-    it('should render character count in header', () => {
-      const characters = createMockCharacters(5);
-      render(<CharactersPanel characters={characters} />);
-      expect(screen.getByText('5')).toBeInTheDocument();
-    });
-
     it('should show empty state when no characters', () => {
       render(<CharactersPanel characters={[]} />);
       expect(screen.getByText('No characters yet')).toBeInTheDocument();
@@ -133,11 +122,6 @@ describe('CharactersPanel', () => {
       const character = createMockCharacter({ dialogueCount: 42 });
       render(<CharactersPanel characters={[character]} />);
       expect(screen.getByText('42 lines')).toBeInTheDocument();
-    });
-
-    it('should display 0 for no characters count', () => {
-      render(<CharactersPanel characters={[]} />);
-      expect(screen.getByText('0')).toBeInTheDocument();
     });
   });
 
@@ -204,25 +188,6 @@ describe('CharactersPanel', () => {
     });
   });
 
-  describe('add button', () => {
-    it('should render add button when onAddCharacter is provided', () => {
-      const onAddCharacter = vi.fn();
-      render(<CharactersPanel characters={[]} onAddCharacter={onAddCharacter} />);
-      expect(screen.getByTitle('Add character')).toBeInTheDocument();
-    });
-
-    it('should not render add button when onAddCharacter is not provided', () => {
-      render(<CharactersPanel characters={[]} />);
-      expect(screen.queryByTitle('Add character')).not.toBeInTheDocument();
-    });
-
-    it('should call onAddCharacter when add button is clicked', () => {
-      const onAddCharacter = vi.fn();
-      render(<CharactersPanel characters={[]} onAddCharacter={onAddCharacter} />);
-      fireEvent.click(screen.getByTitle('Add character'));
-      expect(onAddCharacter).toHaveBeenCalledTimes(1);
-    });
-  });
 
   describe('character avatar', () => {
     it('should display first letter of character name as avatar', () => {

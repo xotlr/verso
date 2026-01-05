@@ -66,3 +66,21 @@ export function sanitizeForD3Text(text: string | null | undefined, maxLength?: n
 
   return sanitized;
 }
+
+/**
+ * Extract initials from a name string.
+ * Handles edge cases: empty strings, consecutive spaces, single-letter names.
+ */
+export function getInitials(name: string | null | undefined, maxChars = 2): string {
+  if (!name) return '?';
+
+  const initials = name
+    .split(' ')
+    .filter(word => word.length > 0)  // Filter empty strings from consecutive spaces
+    .slice(0, maxChars)
+    .map(word => word[0])
+    .join('')
+    .toUpperCase();
+
+  return initials || '?';  // Fallback for empty result
+}

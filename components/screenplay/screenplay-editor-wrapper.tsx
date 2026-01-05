@@ -368,7 +368,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
   // Modern Mode: Use the ProseMirror-based editor
   return (
       <div className={cn("h-full flex", `layout-${layoutMode}`)}>
-        {/* Activity Bar + Secondary Panel - Scenes & Characters */}
+        {/* Left Sidebar Panel - Push layout (extends from left sidebar) */}
         <EditorPanel
           scenes={sceneInfos}
           characters={charInfos}
@@ -383,41 +383,41 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           onAddDetectedShot={handleAddDetectedShot}
         />
 
-      {/* Main content area - editor */}
-      <div className="flex-1 relative h-full isolate">
-        {/* Collaboration Avatars - floating in top right (Yjs awareness) */}
-        <div className="fixed top-4 right-4 z-30">
-          <CollaborationAvatars
-            remoteUsers={yjsCollaboration.remoteUsers}
-            isConnected={yjsCollaboration.isConnected}
+        {/* Main content area - editor (flex-1 takes remaining space) */}
+        <div className="flex-1 relative h-full isolate min-w-0">
+          {/* Collaboration Avatars - floating in top right (Yjs awareness) */}
+          <div className="fixed top-4 right-4 z-30">
+            <CollaborationAvatars
+              remoteUsers={yjsCollaboration.remoteUsers}
+              isConnected={yjsCollaboration.isConnected}
+            />
+          </div>
+
+          <ProseMirrorEditor
+            content={persistence.screenplayText}
+            onContentChange={handleTextChange}
+            onScenesChange={handleScenesChange}
+            onCurrentSceneChange={setCurrentSceneId}
+            onSave={() => persistence.saveScreenplay(persistence.screenplayText, true)}
+            onViewReady={setEditorView}
+            isSaving={persistence.isSaving}
+            editable={true}
+            showElementIndicator={true}
+            showStats={true}
+            scenes={sceneInfos}
+            characters={charInfos}
+            onTimelapse={() => router.push(`/screenplay/${screenplayId}/timelapse`)}
+            onToggleVersionHistory={() => setIsVersionHistoryOpen(true)}
+            scenesCount={sceneInfos.length}
+            charactersCount={charInfos.length}
+            shotlistCount={detectedShots.length}
+            notesCount={0}
+            // Yjs CRDT collaboration (when enabled in settings)
+            yXmlFragment={yjsEnabled ? yjsCollaboration.yXmlFragment ?? undefined : undefined}
+            awareness={yjsEnabled ? yjsCollaboration.awareness ?? undefined : undefined}
+            yjsUserInfo={yjsEnabled ? { name: session?.user?.name ?? 'Anonymous', color: userColor } : undefined}
           />
         </div>
-
-        <ProseMirrorEditor
-          content={persistence.screenplayText}
-          onContentChange={handleTextChange}
-          onScenesChange={handleScenesChange}
-          onCurrentSceneChange={setCurrentSceneId}
-          onSave={() => persistence.saveScreenplay(persistence.screenplayText, true)}
-          onViewReady={setEditorView}
-          isSaving={persistence.isSaving}
-          editable={true}
-          showElementIndicator={true}
-          showStats={true}
-          scenes={sceneInfos}
-          characters={charInfos}
-          onTimelapse={() => router.push(`/screenplay/${screenplayId}/timelapse`)}
-          onToggleVersionHistory={() => setIsVersionHistoryOpen(true)}
-          scenesCount={sceneInfos.length}
-          charactersCount={charInfos.length}
-          shotlistCount={detectedShots.length}
-          notesCount={0}
-          // Yjs CRDT collaboration (when enabled in settings)
-          yXmlFragment={yjsEnabled ? yjsCollaboration.yXmlFragment ?? undefined : undefined}
-          awareness={yjsEnabled ? yjsCollaboration.awareness ?? undefined : undefined}
-          yjsUserInfo={yjsEnabled ? { name: session?.user?.name ?? 'Anonymous', color: userColor } : undefined}
-        />
-      </div>
 
       {/* Floating panels and dialogs */}
       <EditorFloatingPanel

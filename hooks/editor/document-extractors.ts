@@ -71,13 +71,18 @@ const TIME_PATTERNS = [
  * - "EXT. THORNFIELD KEEP - SIEGE COMMAND - DAY 4 - EARLY MORNING"
  */
 function parseSceneHeadingText(text: string): { type: string; location: string; timeOfDay?: string } {
-  // Match INT/EXT prefix
-  const prefixMatch = text.match(/^(INT|EXT|INT\/EXT|I\/E)\.?\s+/i);
+  // Match INT/EXT prefix - handles various formats:
+  // "INT. LOCATION", "INT LOCATION", "INT.LOCATION", "EXT./INT. LOCATION"
+  const prefixMatch = text.match(/^(INT\.?\/EXT\.?|EXT\.?\/INT\.?|INT\/EXT|EXT\/INT|I\/E|INT|EXT)\.?\s*/i);
   if (!prefixMatch) {
     return { type: 'INT', location: text || 'UNKNOWN' };
   }
 
-  const type = prefixMatch[1].toUpperCase();
+  // Normalize type to standard format
+  let type = prefixMatch[1].toUpperCase().replace(/\./g, '');
+  // Normalize EXT/INT to INT/EXT
+  if (type === 'EXT/INT') type = 'INT/EXT';
+
   let remainder = text.slice(prefixMatch[0].length);
 
   // Remove parenthetical content (flashbacks, etc.) for time detection
@@ -155,17 +160,17 @@ export function extractScenes(doc: ProseMirrorNode): SceneInfo[] {
         .toLowerCase();
       const id = node.attrs.id || `scene-${sceneIndex}-${offset}-${contentHash || 'empty'}`;
 
-      // Always parse text content to extract time properly from complex headings
+      // Always parse text content - attrs may not be synced with text
       const textContent = node.textContent;
       const parsed = textContent ? parseSceneHeadingText(textContent) : null;
 
-      // Use attrs if available, otherwise fall back to parsed values
-      const type = node.attrs.type || parsed?.type || 'INT';
-      const location = node.attrs.location || parsed?.location || '';
+      // ALWAYS prefer parsed values from text content (source of truth)
+      // Attrs often have defaults that weren't updated when user typed
+      const type = parsed?.type || 'INT';
+      const location = parsed?.location || '';
 
-      // For time: prefer parsed time from text (handles complex headings better),
-      // fall back to attrs, then to detection
-      const explicitTime = parsed?.timeOfDay || node.attrs.timeOfDay;
+      // For time: prefer parsed time from text (handles complex headings better)
+      const explicitTime = parsed?.timeOfDay;
 
       // Run time detection to check if time was auto-detected from keywords
       const detection = detectTimeOfDay(location, explicitTime, previousTimeOfDay);
@@ -340,3 +345,140 @@ export function extractDetectedShotsFromDocument(
  * Re-exports from screenplay-patterns for convenience.
  */
 export { getShotDisplayName };
+
+/**
+ * Combined extraction result for single-pass document traversal.
+ */
+export interface ExtractionResult {
+  scenes: SceneInfo[];
+  characters: CharacterInfo[];
+  detectedShots: DetectedShot[];
+}
+
+/**
+ * Extract all document information in a SINGLE PASS.
+ * This is much more efficient than calling extractScenes, extractCharacters,
+ * and extractDetectedShots separately, which would traverse the document 3x.
+ *
+ * Performance: O(n) instead of O(3n) where n = number of document nodes.
+ */
+export function extractAll(doc: ProseMirrorNode): ExtractionResult {
+  // Scene data collection
+  const sceneData: Array<{
+    id: string;
+    type: string;
+    location: string;
+    timeOfDay: string;
+    sceneNumber: string | null;
+    position: number;
+    autoDetectedTimeOfDay: boolean;
+  }> = [];
+
+  // Character tracking
+  const characterPositions: Array<{ name: string; position: number }> = [];
+  const characterMap = new Map<string, CharacterInfo>();
+
+  // Detected shots
+  const detectedShots: DetectedShot[] = [];
+
+  let sceneIndex = 0;
+  let lineNumber = 0;
+  let previousTimeOfDay: TimeOfDay | undefined;
+
+  // SINGLE PASS through document
+  doc.forEach((node, offset) => {
+    lineNumber++;
+    const nodeType = node.type.name;
+
+    if (nodeType === 'scene_heading') {
+      sceneIndex++;
+      const contentHash = node.textContent
+        .slice(0, 20)
+        .replace(/[^a-z0-9]/gi, '')
+        .toLowerCase();
+      const id = node.attrs.id || `scene-${sceneIndex}-${offset}-${contentHash || 'empty'}`;
+
+      const textContent = node.textContent;
+      const parsed = textContent ? parseSceneHeadingText(textContent) : null;
+
+      const type = parsed?.type || 'INT';
+      const location = parsed?.location || '';
+      const explicitTime = parsed?.timeOfDay;
+
+      const detection = detectTimeOfDay(location, explicitTime, previousTimeOfDay);
+      previousTimeOfDay = detection.timeOfDay;
+
+      sceneData.push({
+        id,
+        type,
+        location,
+        timeOfDay: explicitTime || detection.timeOfDay,
+        sceneNumber: node.attrs.sceneNumber,
+        position: offset,
+        autoDetectedTimeOfDay: detection.autoDetected,
+      });
+    } else if (nodeType === 'character') {
+      const name = node.textContent.replace(/\s*\([^)]+\)\s*$/, '').trim();
+      if (name) {
+        // Track position for per-scene character assignment
+        characterPositions.push({ name, position: offset });
+
+        // Count for dialogue stats
+        const charId = node.attrs.characterId || name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        if (characterMap.has(charId)) {
+          characterMap.get(charId)!.dialogueCount++;
+        } else {
+          characterMap.set(charId, { id: charId, name, dialogueCount: 1 });
+        }
+      }
+    }
+
+    // Check for shot patterns in any text content
+    const text = node.textContent.trim();
+    if (text) {
+      const detected = detectShot(text);
+      if (detected) {
+        const contentHash = text.slice(0, 20).replace(/[^a-z0-9]/gi, '').toLowerCase();
+        detectedShots.push({
+          id: `detected-${offset}-${contentHash}`,
+          sceneId: null, // Will be assigned below
+          shotType: detected.shotType,
+          subject: detected.subject,
+          lineContent: text,
+          position: offset,
+          lineNumber,
+        });
+      }
+    }
+  });
+
+  // Post-processing: assign characters to scenes
+  const scenes: SceneInfo[] = sceneData.map((scene, index) => {
+    const nextScenePosition = sceneData[index + 1]?.position ?? Infinity;
+    const sceneCharacters = new Set<string>();
+    for (const char of characterPositions) {
+      if (char.position > scene.position && char.position < nextScenePosition) {
+        sceneCharacters.add(char.name);
+      }
+    }
+    return { ...scene, characters: Array.from(sceneCharacters) };
+  });
+
+  // Post-processing: assign detected shots to scenes
+  for (const shot of detectedShots) {
+    for (const scene of scenes) {
+      if (scene.position < shot.position) {
+        shot.sceneId = scene.id;
+      } else {
+        break;
+      }
+    }
+  }
+
+  // Sort characters by dialogue count
+  const characters = Array.from(characterMap.values()).sort(
+    (a, b) => b.dialogueCount - a.dialogueCount
+  );
+
+  return { scenes, characters, detectedShots };
+}

@@ -16,12 +16,15 @@ import {
 } from "lucide-react";
 import { TbHome, TbHomeFilled } from 'react-icons/tb';
 import { PiFilmScript, PiFilmScriptFill } from 'react-icons/pi';
-import { RiFolder6Line, RiFolder6Fill, RiStackLine, RiStackFill } from 'react-icons/ri';
+import { RiFolder6Line, RiFolder6Fill, RiStackLine, RiStackFill, RiGroup2Fill, RiGroup2Line } from 'react-icons/ri';
 import { BiEdit, BiSolidEdit } from 'react-icons/bi';
 import { BsCameraReels, BsCameraReelsFill, BsGrid3X3Gap, BsGrid3X3GapFill } from 'react-icons/bs';
 import { PiNeedleFill } from 'react-icons/pi';
 import { TbNeedleThread } from 'react-icons/tb';
+import { HiFilm, HiOutlineFilm } from "react-icons/hi2";
+import { FaNoteSticky, FaRegNoteSticky } from "react-icons/fa6";
 import { Logo } from "@/components/logo";
+import type { EditorPanelType } from '@/components/editor/EditorPanelContext';
 
 import { cn } from '@/lib/utils';
 import "@/styles/sidebar-animations.css";
@@ -41,9 +44,6 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { NavMenuItem } from "@/components/nav-menu-item";
@@ -131,6 +131,34 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
 
+  // Panel state (synced via events with EditorPanelContext)
+  const [activePanel, setActivePanel] = useState<EditorPanelType | null>(null);
+  const [panelCounts, setPanelCounts] = useState({ scenes: 0, characters: 0, shots: 0, notes: 0 });
+
+  // Listen for panel state changes from EditorPanelContext
+  useEffect(() => {
+    const handlePanelState = (e: CustomEvent<{
+      activePanel: EditorPanelType | null;
+      open: boolean;
+      counts?: { scenes: number; characters: number; shots: number; notes: number };
+    }>) => {
+      setActivePanel(e.detail.open ? e.detail.activePanel : null);
+      if (e.detail.counts) {
+        setPanelCounts(e.detail.counts);
+      }
+    };
+
+    window.addEventListener('editor-panel-state', handlePanelState as EventListener);
+    return () => window.removeEventListener('editor-panel-state', handlePanelState as EventListener);
+  }, []);
+
+  // Toggle panel from sidebar
+  const handlePanelToggle = (panel: EditorPanelType) => {
+    window.dispatchEvent(new CustomEvent('editor-panel-toggle', {
+      detail: { panel }
+    }));
+  };
+
 
   // Main navigation items with filled/outline icon pairs
   // notification: true shows a small dot, number shows count
@@ -168,18 +196,13 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   ];
 
   // Screenplay-specific navigation (only shown when in a screenplay context)
+  // Note: Shotlist removed - accessible via panel toggle + "Full page" link
   const screenplayNavItems = screenplayId ? [
     {
       title: "Editor",
       url: `/screenplay/${screenplayId}`,
       icon: BiEdit,
       activeIcon: BiSolidEdit,
-    },
-    {
-      title: "Shotlist",
-      url: `/shotlist/${screenplayId}`,
-      icon: BsCameraReels,
-      activeIcon: BsCameraReelsFill,
     },
     {
       title: "Tapestry",
@@ -198,7 +221,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   return (
     <Sidebar className="bg-sidebar sidebar-animated">
       {/* Header */}
-      <SidebarHeader className="gap-3 p-0">
+      <SidebarHeader className="gap-1.5 p-0">
         {/* Logo - matches header height for alignment */}
         <div className="flex h-11 items-center justify-center">
           <Link href="/home" className="flex items-center justify-center">
@@ -207,7 +230,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
         </div>
 
         {/* Create Button with Dropdown */}
-        <SidebarMenu className="gap-1.5 px-2 pt-2">
+        <SidebarMenu className="px-2 pb-3">
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -242,113 +265,135 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
         {/* Editor Mode: Only show editor-relevant tools */}
         {mounted && isEditorMode && screenplayId ? (
           <>
-            {/* Editor Tools */}
-            <SidebarGroup className="pt-2">
-              <SidebarGroupLabel>Editor</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {screenplayNavItems.map((item, index) => (
-                    <NavMenuItem
-                      key={item.url}
-                      title={item.title}
-                      url={item.url}
-                      icon={item.icon}
-                      activeIcon={item.activeIcon}
-                      pathname={pathname}
-                      index={index}
-                    />
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            {/* Editor Tools + Panel Toggles - single unified menu */}
+            <SidebarMenu>
+              {screenplayNavItems.map((item, index) => (
+                <NavMenuItem
+                  key={item.url}
+                  title={item.title}
+                  url={item.url}
+                  icon={item.icon}
+                  activeIcon={item.activeIcon}
+                  pathname={pathname}
+                  index={index}
+                />
+              ))}
+              {pathname === `/screenplay/${screenplayId}` && (
+                <>
+                  <NavMenuItem
+                    title={`Scenes${panelCounts.scenes ? ` (${panelCounts.scenes})` : ''}`}
+                    icon={HiOutlineFilm}
+                    activeIcon={HiFilm}
+                    pathname={pathname}
+                    onClick={() => handlePanelToggle('scenes')}
+                    isActive={activePanel === 'scenes'}
+                    notification={panelCounts.scenes > 0}
+                  />
+                  <NavMenuItem
+                    title={`Characters${panelCounts.characters ? ` (${panelCounts.characters})` : ''}`}
+                    icon={RiGroup2Line}
+                    activeIcon={RiGroup2Fill}
+                    pathname={pathname}
+                    onClick={() => handlePanelToggle('characters')}
+                    isActive={activePanel === 'characters'}
+                    notification={panelCounts.characters > 0}
+                  />
+                  <NavMenuItem
+                    title={`Shotlist${panelCounts.shots ? ` (${panelCounts.shots})` : ''}`}
+                    icon={BsCameraReels}
+                    activeIcon={BsCameraReelsFill}
+                    pathname={pathname}
+                    onClick={() => handlePanelToggle('shotlist')}
+                    isActive={activePanel === 'shotlist'}
+                    notification={panelCounts.shots > 0}
+                  />
+                  <NavMenuItem
+                    title={`Notes${panelCounts.notes ? ` (${panelCounts.notes})` : ''}`}
+                    icon={FaRegNoteSticky}
+                    activeIcon={FaNoteSticky}
+                    pathname={pathname}
+                    onClick={() => handlePanelToggle('notes')}
+                    isActive={activePanel === 'notes'}
+                    notification={panelCounts.notes > 0}
+                  />
+                </>
+              )}
 
-            {/* Resources */}
-            <SidebarGroup>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <SidebarMenuButton tooltip="Resources">
-                        <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                      </SidebarMenuButton>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent side="right" align="start" className="w-48">
-                      <DropdownMenuLabel>Resources</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setFormattingGuideOpen(true)}>
-                        <BookOpen className="mr-2 h-4 w-4" />
-                        Formatting Guide
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
-                        <Keyboard className="mr-2 h-4 w-4" />
-                        Keyboard Shortcuts
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroup>
+              {/* Resources */}
+              <SidebarMenuItem>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <SidebarMenuButton tooltip="Resources">
+                      <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                    </SidebarMenuButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="right" align="start" className="w-48">
+                    <DropdownMenuLabel>Resources</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setFormattingGuideOpen(true)}>
+                      <BookOpen className="mr-2 h-4 w-4" />
+                      Formatting Guide
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
+                      <Keyboard className="mr-2 h-4 w-4" />
+                      Keyboard Shortcuts
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </>
         ) : (
           <>
             {/* Library Mode: Main Navigation */}
-            <SidebarGroup className="pt-2">
-              <SidebarGroupLabel>Menu</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {mainNavItems.map((item, index) => (
-                    <NavMenuItem
-                      key={item.url}
-                      title={item.title}
-                      url={item.url}
-                      icon={item.icon}
-                      activeIcon={item.activeIcon}
-                      pathname={pathname}
-                      index={index}
-                      notification={item.notification}
-                    />
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            <SidebarMenu>
+              {mainNavItems.map((item, index) => (
+                <NavMenuItem
+                  key={item.url}
+                  title={item.title}
+                  url={item.url}
+                  icon={item.icon}
+                  activeIcon={item.activeIcon}
+                  pathname={pathname}
+                  index={index}
+                  notification={item.notification}
+                />
+              ))}
 
-            {/* Resources Section */}
-            <SidebarGroup>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <SidebarMenuButton tooltip="Resources">
-                        <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                      </SidebarMenuButton>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent side="right" align="start" className="w-48">
-                      <DropdownMenuLabel>Resources</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setTemplateSelectorOpen(true)}>
-                        <LayoutTemplate className="mr-2 h-4 w-4" />
-                        Templates
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setFormattingGuideOpen(true)}>
-                        <BookOpen className="mr-2 h-4 w-4" />
-                        Formatting Guide
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
-                        <Keyboard className="mr-2 h-4 w-4" />
-                        Keyboard Shortcuts
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <Link href="/help" className="flex items-center cursor-pointer">
-                          <HelpCircle className="mr-2 h-4 w-4" />
-                          Help & Feedback
-                        </Link>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroup>
+              {/* Resources */}
+              <SidebarMenuItem>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <SidebarMenuButton tooltip="Resources">
+                      <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                    </SidebarMenuButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="right" align="start" className="w-48">
+                    <DropdownMenuLabel>Resources</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setTemplateSelectorOpen(true)}>
+                      <LayoutTemplate className="mr-2 h-4 w-4" />
+                      Templates
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setFormattingGuideOpen(true)}>
+                      <BookOpen className="mr-2 h-4 w-4" />
+                      Formatting Guide
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
+                      <Keyboard className="mr-2 h-4 w-4" />
+                      Keyboard Shortcuts
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/help" className="flex items-center cursor-pointer">
+                        <HelpCircle className="mr-2 h-4 w-4" />
+                        Help & Feedback
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </SidebarMenuItem>
+            </SidebarMenu>
           </>
         )}
       </SidebarContent>

@@ -43,7 +43,15 @@ export function useTapestryHistory(initialState: TapestryState) {
       }
 
       // Don't push to history if state hasn't actually changed
-      if (JSON.stringify(h.present) === JSON.stringify(nextState)) {
+      // Use shallow structural comparison instead of JSON.stringify for O(1) vs O(n)
+      if (
+        h.present.nodes === nextState.nodes &&
+        h.present.connections === nextState.connections &&
+        h.present.groups === nextState.groups &&
+        h.present.zoom === nextState.zoom &&
+        h.present.panX === nextState.panX &&
+        h.present.panY === nextState.panY
+      ) {
         return h;
       }
 

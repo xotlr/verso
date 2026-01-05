@@ -40,9 +40,9 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type { CharacterInfo } from '@/hooks/editor/use-prosemirror-editor';
 import { PanelContainer } from './PanelContainer';
-import { PanelHeader } from './PanelHeader';
 import { PanelSearch } from './PanelSearch';
 import { PanelEmptyState } from './PanelEmptyState';
+import { PanelSkeleton } from './PanelSkeleton';
 import { usePanelDndSensors } from './use-panel-dnd';
 
 export type CharacterRole = 'Protagonist' | 'Antagonist' | 'Supporting' | 'Minor';
@@ -70,7 +70,6 @@ interface CharactersPanelProps {
   characters: CharacterInfo[];
   screenplayId?: string;
   view?: EditorView | null;
-  onAddCharacter?: () => void;
   className?: string;
 }
 
@@ -226,11 +225,11 @@ const SortableCharacterItem = React.memo(function SortableCharacterItem({
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  'h-6 w-6 opacity-0 group-hover:opacity-100',
+                  'h-7 w-7 opacity-0 group-hover:opacity-100',
                   isProtagonist && 'text-primary-foreground hover:bg-primary-foreground/20'
                 )}
               >
-                <MoreHorizontal className="h-3.5 w-3.5" />
+                <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -276,7 +275,6 @@ export const CharactersPanel = React.memo(function CharactersPanel({
   characters,
   screenplayId,
   view,
-  onAddCharacter,
   className,
 }: CharactersPanelProps) {
 
@@ -284,6 +282,7 @@ export const CharactersPanel = React.memo(function CharactersPanel({
   const [characterFilter, setCharacterFilter] = useState('');
   const [roleFilter, setRoleFilter] = useState<CharacterRole | 'all'>('all');
   const [loadComplete, setLoadComplete] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitialLoadRef = useRef(true);
 
@@ -385,9 +384,13 @@ export const CharactersPanel = React.memo(function CharactersPanel({
 
   // Load character roles from localStorage and API on mount
   useEffect(() => {
-    if (!screenplayId) return;
+    if (!screenplayId) {
+      setIsLoading(false);
+      return;
+    }
 
     const loadRoles = async () => {
+      setIsLoading(true);
       // First try localStorage for immediate display
       const localData = localStorage.getItem(storageKey!);
       if (localData) {
@@ -416,6 +419,7 @@ export const CharactersPanel = React.memo(function CharactersPanel({
       } finally {
         isInitialLoadRef.current = false;
         setLoadComplete(true);
+        setIsLoading(false);
       }
     };
 
@@ -557,16 +561,10 @@ export const CharactersPanel = React.memo(function CharactersPanel({
 
   return (
     <PanelContainer className={className}>
-      <PanelHeader
-        title="Characters"
-        description="Track speaking roles"
-        count={characters.length}
-        onAdd={onAddCharacter}
-        addLabel="Add character"
-      />
-
-      {/* Content */}
-      {characters.length === 0 ? (
+      {/* Loading state */}
+      {isLoading && characters.length === 0 ? (
+        <PanelSkeleton variant="characters" />
+      ) : characters.length === 0 ? (
         <PanelEmptyState
           icon={Users}
           title="No characters yet"
@@ -575,7 +573,7 @@ export const CharactersPanel = React.memo(function CharactersPanel({
       ) : (
         <>
           {/* Search and Filter - Fixed at top */}
-          <div className="p-3 space-y-2 border-b border-border shrink-0">
+          <div className="p-3 space-y-2 shrink-0">
             <PanelSearch
               value={characterFilter}
               onChange={setCharacterFilter}
@@ -583,18 +581,15 @@ export const CharactersPanel = React.memo(function CharactersPanel({
             />
             <div className="flex gap-1 flex-wrap">
               {(['all', 'Protagonist', 'Antagonist', 'Supporting', 'Minor'] as const).map((role) => (
-                <button
+                <Button
                   key={role}
+                  variant={roleFilter === role ? 'default' : 'ghost'}
+                  size="sm"
                   onClick={() => setRoleFilter(role)}
-                  className={cn(
-                    'px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors',
-                    roleFilter === role
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-accent text-muted-foreground hover:text-foreground'
-                  )}
+                  className="h-7 px-2 text-[10px]"
                 >
                   {getFilterLabel(role)}
-                </button>
+                </Button>
               ))}
             </div>
           </div>

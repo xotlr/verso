@@ -19,8 +19,8 @@ import { FloatingToolbar } from './FloatingToolbar';
 import { AutocompleteDropdown } from './AutocompleteDropdown';
 import { EditorContextMenu } from './EditorContextMenu';
 import { ElementToolbar } from './ElementToolbar';
-import { LeftToolbar } from '@/components/editor/LeftToolbar';
-import { FocusButton } from '@/components/editor/FocusButton';
+import { RightToolbar } from '@/components/editor/RightToolbar';
+import type { HighlightColor } from '@/types/settings';
 import { EditorUnifiedToolbar } from '@/components/editor/EditorUnifiedToolbar';
 import { EditorScrollArea, EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { PageFrameRenderer, PageGapRenderer } from './PageFrameRenderer';
@@ -92,8 +92,9 @@ export interface ProseMirrorEditorProps {
 
 /**
  * Minimal stats bar - shows save status + page count, expands on hover for more stats.
+ * Memoized to prevent re-renders on every keystroke.
  */
-function StatsBar({
+const StatsBar = React.memo(function StatsBar({
   wordCount,
   pageCount,
   sceneCount,
@@ -144,7 +145,7 @@ function StatsBar({
       </div>
     </div>
   );
-}
+});
 
 /**
  * Main ProseMirror screenplay editor component.
@@ -204,10 +205,16 @@ export function ProseMirrorEditor({
   const effectiveEditable = editable && !isReadingMode;
   // Show beginner tips for new screenwriters
   const showBeginnerTips = settings.editor.showBeginnerTips ?? false;
+  // Paper color from settings
+  const paperColor = settings.editor.paperColor ?? 'white';
+  // Highlight color from settings
+  const highlightColor = settings.editor.highlightColor ?? 'yellow';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_currentSpread, setCurrentSpread] = useState(0);
   const [isInFocusMode, setIsInFocusMode] = useState(false);
   const [scenesSheetOpen, setScenesSheetOpen] = useState(false);
+  const [isHighlightActive, setIsHighlightActive] = useState(false);
+  const [isEraserActive, setIsEraserActive] = useState(false);
   const isMobile = useIsMobile();
 
   // Ref for scroll container (for zoom gestures)
@@ -245,6 +252,32 @@ export function ProseMirrorEditor({
       },
     });
   }, [updateSettings, settings.editor, isReadingMode]);
+
+  // Handle highlight color change
+  const handleHighlightColorChange = useCallback((color: HighlightColor) => {
+    updateSettings({
+      editor: {
+        ...settings.editor,
+        highlightColor: color,
+      },
+    });
+  }, [updateSettings, settings.editor]);
+
+  // Toggle highlight mode (mutually exclusive with eraser)
+  const toggleHighlight = useCallback(() => {
+    setIsHighlightActive(prev => {
+      if (!prev) setIsEraserActive(false); // Deactivate eraser when activating highlight
+      return !prev;
+    });
+  }, []);
+
+  // Toggle eraser mode (mutually exclusive with highlight)
+  const toggleEraser = useCallback(() => {
+    setIsEraserActive(prev => {
+      if (!prev) setIsHighlightActive(false); // Deactivate highlight when activating eraser
+      return !prev;
+    });
+  }, []);
 
   // Listen for focus mode changes to hide view switcher
   useEffect(() => {
@@ -366,6 +399,84 @@ export function ProseMirrorEditor({
     setWasmStats(paginationResult.stats, paginationResult.stats.layout ?? null);
     setWasmReady(true);
   }, [setWasmStats, setWasmReady, paginationResult]);
+
+  // Apply highlight to current selection when in highlight mode
+  const applyHighlight = useCallback(() => {
+    if (!view || !isHighlightActive) return;
+
+    const { state, dispatch } = view;
+    const { selection } = state;
+
+    // Only apply if there's a text selection
+    if (selection.empty) return;
+
+    const highlightMark = state.schema.marks.highlight;
+    if (!highlightMark) return;
+
+    // Create the mark with the selected color
+    const mark = highlightMark.create({ color: highlightColor });
+
+    // Apply the mark to the selection
+    const { from, to } = selection;
+    const tr = state.tr.addMark(from, to, mark);
+    dispatch(tr);
+  }, [view, isHighlightActive, highlightColor]);
+
+  // Listen for mouseup to apply highlights (works in both edit and reading mode)
+  useEffect(() => {
+    if (!view || !isHighlightActive) return;
+
+    const handleMouseUp = () => {
+      // Small delay to ensure selection is finalized
+      requestAnimationFrame(() => {
+        applyHighlight();
+      });
+    };
+
+    const editorDOM = view.dom;
+    editorDOM.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      editorDOM.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [view, isHighlightActive, applyHighlight]);
+
+  // Remove highlight from current selection
+  const removeHighlight = useCallback(() => {
+    if (!view || !isEraserActive) return;
+
+    const { state, dispatch } = view;
+    const { selection } = state;
+
+    // Only apply if there's a text selection
+    if (selection.empty) return;
+
+    const highlightMark = state.schema.marks.highlight;
+    if (!highlightMark) return;
+
+    // Remove the highlight mark from selection
+    const { from, to } = selection;
+    const tr = state.tr.removeMark(from, to, highlightMark);
+    dispatch(tr);
+  }, [view, isEraserActive]);
+
+  // Listen for mouseup to remove highlights when eraser is active
+  useEffect(() => {
+    if (!view || !isEraserActive) return;
+
+    const handleMouseUp = () => {
+      requestAnimationFrame(() => {
+        removeHighlight();
+      });
+    };
+
+    const editorDOM = view.dom;
+    editorDOM.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      editorDOM.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [view, isEraserActive, removeHighlight]);
 
   // Create page frames from WASM pagination result
   // WASM now handles all positioning including title page offset
@@ -533,45 +644,38 @@ export function ProseMirrorEditor({
         viewMode === 'discrete' && 'pm-discrete-mode',
         isInFocusMode && 'pm-focus-mode',
         isReadingMode && 'pm-reading-mode',
+        `pm-paper-${paperColor}`,
         !showPlaceholders && 'hide-placeholders',
         className
       )}
     >
-      {/* Focus/Reading mode buttons - always visible on desktop */}
-      {isReady && !isMobile && toolbarLayout !== 'maelle' && (
-        <FocusButton
-          onToggleFocusMode={toggleFocusMode}
-          isInFocusMode={isInFocusMode}
-          onToggleReadingMode={toggleReadingMode}
-          isInReadingMode={isReadingMode}
-        />
-      )}
-
-      {/* Desktop toolbars - conditional based on layout setting, hidden in read-only/reading mode */}
-      {isReady && !isMobile && effectiveEditable && (
+      {/* Desktop toolbars - conditional based on layout setting */}
+      {isReady && !isMobile && (
         toolbarLayout === 'maelle' ? (
-          // Maelle: Unified floating header (Google Docs style)
-          <EditorUnifiedToolbar
-            zoom={scale}
-            fitToWidthScale={fitToWidthScale}
-            onZoomChange={setZoom}
-            onResetZoom={resetZoom}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            onToggleFocusMode={toggleFocusMode}
-            onTimelapse={onTimelapse}
-            onVersionHistory={onToggleVersionHistory}
-            scenesCount={scenesCount}
-            charactersCount={charactersCount}
-            shotlistCount={shotlistCount}
-            notesCount={notesCount}
-            isInFocusMode={isInFocusMode}
-          />
+          // Maelle: Unified floating header (Google Docs style) - hidden in reading mode
+          effectiveEditable && (
+            <EditorUnifiedToolbar
+              zoom={scale}
+              fitToWidthScale={fitToWidthScale}
+              onZoomChange={setZoom}
+              onResetZoom={resetZoom}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              onToggleFocusMode={toggleFocusMode}
+              onTimelapse={onTimelapse}
+              onVersionHistory={onToggleVersionHistory}
+              scenesCount={scenesCount}
+              charactersCount={charactersCount}
+              shotlistCount={shotlistCount}
+              notesCount={notesCount}
+              isInFocusMode={isInFocusMode}
+            />
+          )
         ) : (
-          // Verso: Separate floating toolbars (Procreate style)
-          <LeftToolbar
+          // Verso: Right-side floating toolbar (Procreate style) - always visible
+          <RightToolbar
             zoom={scale}
             fitToWidthScale={fitToWidthScale}
             onZoomChange={setZoom}
@@ -581,6 +685,15 @@ export function ProseMirrorEditor({
             onUndo={handleUndo}
             onRedo={handleRedo}
             isInFocusMode={isInFocusMode}
+            onToggleFocusMode={toggleFocusMode}
+            isInReadingMode={isReadingMode}
+            onToggleReadingMode={toggleReadingMode}
+            isHighlightActive={isHighlightActive}
+            highlightColor={highlightColor}
+            onHighlightToggle={toggleHighlight}
+            onHighlightColorChange={handleHighlightColorChange}
+            isEraserActive={isEraserActive}
+            onEraserToggle={toggleEraser}
           />
         )
       )}
@@ -670,16 +783,16 @@ export function ProseMirrorEditor({
         </div>
       </EditorScrollArea>
 
-      {/* Element type toolbar (expandable indicator) */}
-      {showElementIndicator && isReady && (
+      {/* Element type toolbar (expandable indicator) - hidden in reading mode */}
+      {showElementIndicator && isReady && !isReadingMode && (
         <ElementToolbar
           view={view}
           currentElementType={currentElementType}
         />
       )}
 
-      {/* Stats bar - hidden on mobile */}
-      {showStats && settings.interface.showStatsBar && isReady && !isMobile && (
+      {/* Stats bar - hidden on mobile and in reading mode */}
+      {showStats && settings.interface.showStatsBar && isReady && !isMobile && !isReadingMode && (
         <StatsBar
           wordCount={wordCount}
           pageCount={pageCount}

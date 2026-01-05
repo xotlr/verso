@@ -235,7 +235,7 @@ pub fn extract_reusable_pages(
     // Handle title page: if has_title_page, page 1 is the title page
     // Content pages are numbered from 2, so we need to adjust
     let adjusted_pages_to_keep = if has_title_page && pages_to_keep > 0 {
-        pages_to_keep
+        pages_to_keep + 1 // Include title page in pages to keep
     } else {
         pages_to_keep
     };

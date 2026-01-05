@@ -39,8 +39,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { PanelContainer } from './PanelContainer';
-import { PanelHeader } from './PanelHeader';
 import { PanelSearch } from './PanelSearch';
+import { PanelSkeleton } from './PanelSkeleton';
 
 export interface Note {
   id: string;
@@ -72,7 +72,7 @@ interface SortableNoteItemProps {
   formatDate: (date: Date) => string;
 }
 
-function SortableNoteItem({
+const SortableNoteItem = React.memo(function SortableNoteItem({
   note,
   editingNoteId,
   editContent,
@@ -176,9 +176,9 @@ function SortableNoteItem({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-5 w-5 opacity-0 group-hover:opacity-100 shrink-0"
+                    className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0"
                   >
-                    <MoreHorizontal className="h-3 w-3" />
+                    <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-32">
@@ -219,13 +219,13 @@ function SortableNoteItem({
       )}
     </div>
   );
-}
+});
 
 /**
  * Notes panel with auto-save functionality.
  * Shows screenplay notes with optional scene linking.
  */
-export function NotesPanel({
+function NotesPanelInner({
   screenplayId,
   currentSceneId,
   className,
@@ -450,21 +450,9 @@ export function NotesPanel({
 
   return (
     <PanelContainer className={className}>
-      <PanelHeader
-        title="Notes"
-        description="Comments and reminders"
-        count={notes.length}
-        onAdd={handleAddNote}
-        addLabel="Add note"
-      />
-
-      {/* Content */}
+      {/* Loading state */}
       {isLoading ? (
-        <div className="p-4 space-y-3 animate-pulse">
-          <div className="h-4 w-32 rounded bg-muted" />
-          <div className="h-20 w-full rounded-md bg-muted" />
-          <div className="h-4 w-48 rounded bg-muted" />
-        </div>
+        <PanelSkeleton variant="notes" />
       ) : notes.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground text-sm p-3">
           <CiStickyNote className="h-8 w-8 mx-auto mb-3 opacity-50" />
@@ -486,7 +474,7 @@ export function NotesPanel({
         <>
           {/* Search */}
           {notes.length > 3 && (
-            <div className="p-3 border-b border-border shrink-0">
+            <div className="p-3 shrink-0">
               <PanelSearch
                 value={searchQuery}
                 onChange={setSearchQuery}
@@ -538,3 +526,5 @@ export function NotesPanel({
     </PanelContainer>
   );
 }
+
+export const NotesPanel = React.memo(NotesPanelInner);

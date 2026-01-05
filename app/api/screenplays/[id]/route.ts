@@ -19,28 +19,81 @@ export async function GET(
     }
 
     const { id } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
+    const userId = session.user.id
 
-    if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
-    }
-
-    // Update lastOpenedAt and fetch screenplay
-    const screenplay = await prisma.screenplay.update({
+    // Single query that fetches screenplay + access check data + all needed relations
+    // This replaces the separate checkScreenplayAccess call + update fetch
+    const screenplay = await prisma.screenplay.findUnique({
       where: { id },
-      data: { lastOpenedAt: new Date() },
       include: {
-        project: { select: { id: true, name: true } },
+        project: { select: { id: true, name: true, teamId: true } },
         team: { select: { id: true, name: true } },
         series: { select: { id: true, title: true } },
         seasonRef: { select: { id: true, number: true, title: true } },
+        // Include user's share for access check
+        shares: {
+          where: { userId },
+          select: { role: true },
+          take: 1,
+        },
       },
     })
 
-    return NextResponse.json(screenplay)
+    if (!screenplay) {
+      return NextResponse.json(
+        { error: "Screenplay not found" },
+        { status: 404 }
+      )
+    }
+
+    // Inline access check using fetched data
+    let hasAccess = false
+
+    // Owner has access
+    if (screenplay.userId === userId) {
+      hasAccess = true
+    }
+    // User has a share (any role grants VIEWER access for GET)
+    else if (screenplay.shares.length > 0) {
+      hasAccess = true
+    }
+    // Check team membership only if screenplay is in a team
+    else {
+      const teamId = screenplay.teamId || screenplay.project?.teamId
+      if (teamId) {
+        const membership = await prisma.teamMember.findUnique({
+          where: { teamId_userId: { teamId, userId } },
+          select: { role: true },
+        })
+        if (membership) {
+          hasAccess = true
+        }
+      }
+    }
+
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "Access denied" },
+        { status: 403 }
+      )
+    }
+
+    // Update lastOpenedAt (minimal query)
+    await prisma.screenplay.update({
+      where: { id },
+      data: { lastOpenedAt: new Date() },
+      select: { id: true },
+    })
+
+    // Remove internal fields from response
+    const { shares: _shares, ...screenplayResponse } = screenplay
+    // Clean up project.teamId from response (only needed for access check)
+    if (screenplayResponse.project) {
+      const { teamId: _teamId, ...projectData } = screenplayResponse.project
+      screenplayResponse.project = projectData as typeof screenplayResponse.project
+    }
+
+    return NextResponse.json(screenplayResponse)
   } catch (error) {
     console.error("Error fetching screenplay:", error)
     return NextResponse.json(

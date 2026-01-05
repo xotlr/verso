@@ -108,21 +108,6 @@ describe('ScenesPanel', () => {
   });
 
   describe('rendering', () => {
-    it('should render panel header with title', () => {
-      render(<ScenesPanel scenes={[]} view={null} />);
-      expect(screen.getByText('Scenes')).toBeInTheDocument();
-    });
-
-    it('should render scene count in header', () => {
-      const scenes = createMockScenes(5);
-      render(<ScenesPanel scenes={scenes} view={null} />);
-      // Find the count in header (has specific muted styling)
-      const countElement = screen.getAllByText('5').find(
-        (el) => el.className.includes('text-muted-foreground') && el.className.includes('ml-auto')
-      );
-      expect(countElement).toBeInTheDocument();
-    });
-
     it('should show empty state when no scenes', () => {
       render(<ScenesPanel scenes={[]} view={null} />);
       expect(screen.getByText('No scenes yet')).toBeInTheDocument();
@@ -147,31 +132,6 @@ describe('ScenesPanel', () => {
       const scene = createMockScene({ type: 'EXT', location: 'BEACH' });
       render(<ScenesPanel scenes={[scene]} view={null} />);
       expect(screen.getByText(/EXT\. BEACH/)).toBeInTheDocument();
-    });
-
-    it('should display 0 for no scenes count', () => {
-      render(<ScenesPanel scenes={[]} view={null} />);
-      expect(screen.getByText('0')).toBeInTheDocument();
-    });
-  });
-
-  describe('add button', () => {
-    it('should render add button when onAddScene is provided', () => {
-      const onAddScene = vi.fn();
-      render(<ScenesPanel scenes={[]} view={null} onAddScene={onAddScene} />);
-      expect(screen.getByTitle('Add scene')).toBeInTheDocument();
-    });
-
-    it('should not render add button when onAddScene is not provided', () => {
-      render(<ScenesPanel scenes={[]} view={null} />);
-      expect(screen.queryByTitle('Add scene')).not.toBeInTheDocument();
-    });
-
-    it('should call onAddScene when add button is clicked', () => {
-      const onAddScene = vi.fn();
-      render(<ScenesPanel scenes={[]} view={null} onAddScene={onAddScene} />);
-      fireEvent.click(screen.getByTitle('Add scene'));
-      expect(onAddScene).toHaveBeenCalledTimes(1);
     });
   });
 

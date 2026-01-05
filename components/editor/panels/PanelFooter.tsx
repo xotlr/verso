@@ -14,7 +14,7 @@ interface PanelFooterProps {
  */
 export function PanelFooter({ children, className }: PanelFooterProps) {
   return (
-    <div className={cn('px-4 py-3 border-t border-border shrink-0', className)}>
+    <div className={cn('px-4 py-3 shrink-0', className)}>
       {children}
     </div>
   );

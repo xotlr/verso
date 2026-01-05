@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunces, Plus_Jakarta_Sans, Bodoni_Moda, Plaster, Montserrat, Space_Grotesk, Space_Mono, DotGothic16, Audiowide, Oxanium, Chakra_Petch, Sixtyfour, Doto, Special_Elite, Syne, Poiret_One } from "next/font/google";
+import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunces, Plus_Jakarta_Sans, Bodoni_Moda, Plaster, Montserrat, Space_Grotesk, Space_Mono, DotGothic16, Audiowide, Oxanium, Chakra_Petch, Sixtyfour, Doto, Special_Elite, Syne, Poiret_One, Caveat, Bonheur_Royale, Badeen_Display, Bellefair, Cinzel_Decorative } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SettingsProvider } from "@/contexts/settings-context";
@@ -10,6 +10,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { WebVitals } from "@/components/analytics/web-vitals";
 import { PerformancePanel } from "@/components/analytics/performance-panel";
 import { DebugMetricsProvider } from "@/components/analytics/debug-metrics-context";
+import { PetalsRenderer } from "@/components/effects/petals-renderer";
+import { AuroraRenderer } from "@/components/effects/aurora-renderer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -159,6 +161,42 @@ const poiretOne = Poiret_One({
   preload: false,
 });
 
+const caveat = Caveat({
+  weight: ['400', '500', '600', '700'],
+  variable: "--font-caveat",
+  subsets: ["latin"],
+  preload: false,
+});
+
+const bonheurRoyale = Bonheur_Royale({
+  weight: '400',
+  variable: "--font-bonheur-royale",
+  subsets: ["latin"],
+  preload: false,
+});
+
+const badeenDisplay = Badeen_Display({
+  weight: '400',
+  variable: "--font-badeen-display",
+  subsets: ["latin"],
+  preload: false,
+  adjustFontFallback: false,
+});
+
+const bellefair = Bellefair({
+  weight: '400',
+  variable: "--font-bellefair",
+  subsets: ["latin"],
+  preload: false,
+});
+
+const cinzelDecorative = Cinzel_Decorative({
+  weight: ['400', '700', '900'],
+  variable: "--font-cinzel-decorative",
+  subsets: ["latin"],
+  preload: false,
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://verso.ac'),
   alternates: {
@@ -231,7 +269,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable} ${bodoniModa.variable} ${plaster.variable} ${montserrat.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${dotGothic16.variable} ${audiowide.variable} ${oxanium.variable} ${chakraPetch.variable} ${sixtyfour.variable} ${doto.variable} ${specialElite.variable} ${syne.variable} ${poiretOne.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable} ${bodoniModa.variable} ${plaster.variable} ${montserrat.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${dotGothic16.variable} ${audiowide.variable} ${oxanium.variable} ${chakraPetch.variable} ${sixtyfour.variable} ${doto.variable} ${specialElite.variable} ${syne.variable} ${poiretOne.variable} ${caveat.variable} ${bonheurRoyale.variable} ${badeenDisplay.variable} ${bellefair.variable} ${cinzelDecorative.variable}`}
     >
       <body className="antialiased overflow-hidden h-screen">
         <WebVitals />
@@ -240,6 +278,8 @@ export default function RootLayout({
             defaultTheme="system"
           >
             <SettingsProvider>
+              <PetalsRenderer />
+              <AuroraRenderer />
               <ShortcutsProvider>
                 <TeamProvider>
                   <DebugMetricsProvider>

@@ -7,63 +7,36 @@
   --ease-in-out-circ: cubic-bezier(0.85, 0, 0.15, 1);
 }
 
-/* Logo animations */
+/* Logo animations - no transforms to avoid jank */
 .sidebar-logo-animated {
   position: relative;
-  transform-origin: center;
-  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.sidebar-logo-animated:hover .sidebar-icon-container svg:first-child {
-  transform: rotate(30deg) scale(1.1);
-}
-
-.sidebar-logo-animated:hover .sidebar-icon-container svg:last-child {
-  transform: scale(1.2);
+  transition: opacity 150ms ease;
 }
 
 .sidebar-logo-animated:active {
-  transform: scale(0.95);
+  opacity: 0.7;
 }
 
-/* Menu item stagger animations */
+/* Menu item - no animations to avoid jank */
 .sidebar-menu-item {
-  animation: slideIn 250ms var(--ease-out-expo) both;
-  animation-delay: var(--stagger-delay, 0ms);
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  /* Animations removed - they caused jank on re-renders */
 }
 
 /* Menu button hover effects - icon-only mode */
 .sidebar-menu-button {
   position: relative;
   overflow: hidden;
-  transform: translateZ(0);
-  transition: all 200ms var(--ease-out-back);
+  transition: background-color 150ms ease, box-shadow 150ms ease;
 }
 
-/* Hover - subtle lift with glow ring */
+/* Hover - subtle background change only (no transforms to avoid jank) */
 .sidebar-menu-button:hover {
-  transform: scale(1.05);
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.1),
-    0 0 0 2px hsl(var(--primary) / 0.08);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.08);
 }
 
-/* Active - snappy press */
+/* Active - instant feedback via background */
 .sidebar-menu-button:active {
-  transform: scale(0.97);
-  transition: transform 60ms cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  background-color: hsl(var(--accent) / 0.8);
 }
 
 /* Focus ring */
@@ -86,21 +59,18 @@
     0 0 20px hsl(var(--primary) / 0.15);
 }
 
-/* User button animations - PREMIUM */
+/* User button animations */
 .sidebar-user-button {
   position: relative;
-  transform: translateZ(0);
-  transition: all 200ms var(--ease-out-expo);
+  transition: background-color 150ms ease, box-shadow 150ms ease;
 }
 
 .sidebar-user-button:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 16px rgb(0 0 0 / 12%);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
 }
 
 .sidebar-user-button:active {
-  transform: translateY(-1px) scale(0.98);
-  transition-duration: 100ms;
+  background-color: hsl(var(--accent) / 0.8);
 }
 
 /* Chevron animation - ENHANCED */
@@ -167,23 +137,10 @@
   transition: all 250ms var(--ease-out-expo);
 }
 
-/* Performance optimizations - only on interactive elements */
+/* Performance optimizations */
 .sidebar-menu-button,
 .sidebar-user-button {
-  backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
-}
-
-/* Only promote to GPU layer on hover */
-.sidebar-menu-button:hover,
-.sidebar-user-button:hover {
-  will-change: transform;
-}
-
-/* Remove will-change after interaction to free GPU memory */
-.sidebar-menu-button:not(:hover),
-.sidebar-user-button:not(:hover) {
-  will-change: auto;
 }
 
 /* Reduce motion for accessibility */

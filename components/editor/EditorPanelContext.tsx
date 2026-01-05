@@ -79,11 +79,11 @@ export function EditorPanelProvider({
   children,
   defaultOpen = false,
   defaultPanel = null,
-  defaultPosition = 'right',
+  defaultPosition = 'left',
 }: EditorPanelProviderProps) {
   // Desktop state
   const [open, setOpen] = useState(defaultOpen);
-  const [activePanel, setActivePanel] = useState<EditorPanelType | null>(defaultPanel);
+  const [activePanel, setActivePanelState] = useState<EditorPanelType | null>(defaultPanel);
   const [position, setPosition] = useState<'left' | 'right'>(defaultPosition);
 
   // Mobile state
@@ -134,10 +134,10 @@ export function EditorPanelProvider({
     (panel: EditorPanelType | null) => {
       if (panel === activePanel) {
         // Toggle off if clicking same panel
-        setActivePanel(null);
+        setActivePanelState(null);
         setOpen(false);
       } else {
-        setActivePanel(panel);
+        setActivePanelState(panel);
         if (panel !== null) {
           setOpen(true);
         }
@@ -146,11 +146,28 @@ export function EditorPanelProvider({
     [activePanel]
   );
 
-  // Calculate total width for layout adjustments
+  // Listen for panel toggle events from sidebar (outside provider)
+  useEffect(() => {
+    const handlePanelToggle = (e: CustomEvent<{ panel: EditorPanelType }>) => {
+      handleSetActivePanel(e.detail.panel);
+    };
+
+    window.addEventListener('editor-panel-toggle', handlePanelToggle as EventListener);
+    return () => window.removeEventListener('editor-panel-toggle', handlePanelToggle as EventListener);
+  }, [handleSetActivePanel]);
+
+  // Broadcast panel state changes so sidebar can show active styling and counts
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('editor-panel-state', {
+      detail: { activePanel, open, counts }
+    }));
+  }, [activePanel, open, counts]);
+
+  // Calculate total width for layout adjustments (no activity bar anymore - icons in sidebar)
   const totalWidth = useMemo(() => {
     if (isMobile) return 0;
-    if (!open || !activePanel) return ACTIVITY_BAR_WIDTH;
-    return EDITOR_PANEL_WIDTH + ACTIVITY_BAR_WIDTH;
+    if (!open || !activePanel) return 0;
+    return EDITOR_PANEL_WIDTH;
   }, [isMobile, open, activePanel]);
 
   const isCollapsed = !open || !activePanel;

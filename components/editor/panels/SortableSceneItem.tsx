@@ -7,8 +7,6 @@ import {
   Trash2,
   Copy,
   Pencil,
-  FolderPlus,
-  Unlink,
 } from 'lucide-react';
 import {
   ContextMenu,
@@ -27,14 +25,11 @@ export interface SortableSceneItemProps {
   isActive?: boolean;
   isSelected?: boolean;
   selectedCount?: number;
-  isInCustomGroup?: boolean;
   navigateToScene: (scene: SceneInfo) => void;
   formatSceneHeading: (scene: SceneInfo) => string;
   onSelect?: (sceneId: string, event: React.MouseEvent) => void;
   onRename?: (scene: SceneInfo) => void;
   onAddShot?: (sceneId: string) => void;
-  onGroup?: () => void;
-  onUngroup?: () => void;
 }
 
 export function SortableSceneItem({
@@ -43,14 +38,10 @@ export function SortableSceneItem({
   isActive,
   isSelected,
   selectedCount = 0,
-  isInCustomGroup,
   navigateToScene,
   formatSceneHeading,
   onSelect,
   onRename,
-  onAddShot: _onAddShot,
-  onGroup,
-  onUngroup,
 }: SortableSceneItemProps) {
   const itemRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
@@ -222,18 +213,6 @@ export function SortableSceneItem({
           <Copy className="h-3.5 w-3.5 mr-2" />
           Duplicate{selectedCount > 1 ? ` (${selectedCount})` : ''}
         </ContextMenuItem>
-        {onGroup && (
-          <ContextMenuItem onClick={onGroup}>
-            <FolderPlus className="h-3.5 w-3.5 mr-2" />
-            Group{selectedCount > 1 ? ` (${selectedCount})` : ''}
-          </ContextMenuItem>
-        )}
-        {isInCustomGroup && onUngroup && (
-          <ContextMenuItem onClick={onUngroup}>
-            <Unlink className="h-3.5 w-3.5 mr-2" />
-            Ungroup{selectedCount > 1 ? ` (${selectedCount})` : ''}
-          </ContextMenuItem>
-        )}
         <ContextMenuSeparator />
         <ContextMenuItem className="text-destructive">
           <Trash2 className="h-3.5 w-3.5 mr-2" />

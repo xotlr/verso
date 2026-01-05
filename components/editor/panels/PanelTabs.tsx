@@ -34,7 +34,7 @@ export function PanelTabs<T extends string>({
 }: PanelTabsProps<T>) {
   if (variant === 'icon') {
     return (
-      <div className={cn('flex items-center justify-around px-2 py-2 border-b border-border shrink-0', className)}>
+      <div className={cn('flex items-center justify-around px-2 py-2 shrink-0', className)}>
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -57,7 +57,7 @@ export function PanelTabs<T extends string>({
   }
 
   return (
-    <div className={cn('flex items-center gap-1 px-3 py-2 border-b border-border shrink-0', className)}>
+    <div className={cn('flex items-center gap-1 px-3 py-2 shrink-0', className)}>
       {tabs.map((tab) => (
         <button
           key={tab.id}

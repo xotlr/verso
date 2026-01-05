@@ -34,8 +34,8 @@ export const themeMetadata: Record<ThemePreset, ThemeMetadata> = {
   limitless: { name: 'Limitless', subtitle: 'Infinite void blue', style: 'uppercase' },
 };
 
-export type UIFont = 'inter' | 'sf-pro' | 'geist' | 'geist-mono' | 'ibm-plex' | 'plus-jakarta' | 'space-grotesk' | 'dot-gothic' | 'audiowide' | 'oxanium' | 'chakra-petch' | 'sixtyfour' | 'doto' | 'special-elite' | 'syne' | 'poiret-one';
-export type HeaderFont = 'default' | 'badeen-display' | 'bonheur-royale' | 'fraunces' | 'bodoni-moda' | 'plaster' | 'montserrat' | 'doto';
+export type UIFont = 'inter' | 'sf-pro' | 'geist' | 'geist-mono' | 'ibm-plex' | 'plus-jakarta' | 'space-grotesk' | 'dot-gothic' | 'audiowide' | 'oxanium' | 'chakra-petch' | 'sixtyfour' | 'doto' | 'special-elite' | 'syne' | 'poiret-one' | 'bellefair' | 'cinzel-decorative';
+export type HeaderFont = 'default' | 'badeen-display' | 'bonheur-royale' | 'fraunces' | 'bodoni-moda' | 'plaster' | 'montserrat' | 'doto' | 'bellefair' | 'cinzel-decorative';
 export type ScreenplayFont = 'courier-prime' | 'courier-new' | 'courier-final-draft';
 export type AccessibilityFont = 'default' | 'sans' | 'system' | 'dyslexic';
 
@@ -61,7 +61,8 @@ export type AmbientEffect =
   | 'film-grain'      // 35mm film noise
   | 'crt-flicker'     // CRT phosphor flicker
   | 'candlelight'     // Subtle brightness variation
-  | 'neon-glow';      // Accent element glow pulses
+  | 'neon-glow'       // Accent element glow pulses
+  | 'aurora';         // WebGL flowing aurora (Limitless theme)
 
 export type UIChrome =
   | 'default'
@@ -150,6 +151,16 @@ export interface VisualSettings {
   animationSpeed: number; // 0.1-0.5s
   cursor: CursorSettings;
   premium?: Partial<PremiumThemeFeatures>; // Premium theme features (opt-in)
+  petals?: PetalsSettings; // Ambient falling petals effect
+}
+
+// Petals ambient effect settings
+export type PetalPalette = 'primary' | 'sakura' | 'rose' | 'autumn' | 'snow' | 'blossom' | 'gold' | 'blood';
+
+export interface PetalsSettings {
+  enabled: boolean;
+  palette: PetalPalette;
+  intensity: number; // 20-120, maps to petal count
 }
 
 export interface AutocompleteSettings {
@@ -162,6 +173,12 @@ export type PageStyle = 'themed' | 'plain';
 // Scene number position for production/shooting scripts
 export type SceneNumberPosition = 'left' | 'right' | 'both';
 
+// Paper background colors (Procreate-style presets)
+export type PaperColor = 'white' | 'cream' | 'sepia' | 'gray' | 'dark';
+
+// Highlight colors (Procreate-style swatches)
+export type HighlightColor = 'yellow' | 'green' | 'blue' | 'pink' | 'orange';
+
 export interface EditorSettings {
   autocomplete: AutocompleteSettings;
   textContrast: number; // 15-35, default 25 (lightness percentage)
@@ -169,6 +186,8 @@ export interface EditorSettings {
   focusLineHighlight: boolean;
   scrollMode: 'discrete' | 'continuous';
   pageStyle: PageStyle; // 'themed' uses theme colors, 'plain' uses off-white
+  paperColor: PaperColor; // Paper background color preset
+  highlightColor: HighlightColor; // Current highlight marker color
   showSceneNumbers: boolean; // Show scene numbers next to scene headings
   sceneNumberPosition: SceneNumberPosition; // Position: left, right, or both margins
   showPlaceholders: boolean; // Show ghost text hints in empty elements
@@ -317,6 +336,11 @@ export const defaultSettings: AppSettings = {
       glowIntensity: 0.3,
       width: 2,
     },
+    petals: {
+      enabled: false,
+      palette: 'sakura',
+      intensity: 60,
+    },
   },
   editor: {
     autocomplete: {
@@ -328,6 +352,8 @@ export const defaultSettings: AppSettings = {
     focusLineHighlight: false,
     scrollMode: 'discrete',
     pageStyle: 'themed', // Use theme-colored pages by default
+    paperColor: 'white', // Default paper color
+    highlightColor: 'yellow', // Default highlight color
     showSceneNumbers: true, // Show scene numbers next to scene headings
     sceneNumberPosition: 'both', // Industry standard: both margins for shooting scripts
     showPlaceholders: true, // Show ghost text hints in empty elements
@@ -1553,50 +1579,50 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
     animationSpeed: 0.15,
   },
 
-  // Maëlle: Clair Obscur Art Deco - dramatic golds, deep blacks, geometric elegance
+  // Maëlle: Symphony of Vines - luxurious gold on crushed black marble
   maelle: {
     themePreset: 'maelle',
     lightColors: {
-      background: '40 6% 95%',            // Warm ivory
-      foreground: '35 15% 8%',            // Near-black
-      card: '40 5% 98%',
-      cardForeground: '35 15% 8%',
-      page: '42 10% 92%',                 // Antique paper
-      pageForeground: '35 18% 6%',
-      primary: '45 90% 42%',              // Antique gold
-      primaryForeground: '35 15% 8%',
-      secondary: '38 6% 88%',
-      secondaryForeground: '35 12% 15%',
-      muted: '38 5% 85%',
-      mutedForeground: '35 8% 40%',
-      accent: '32 80% 38%',               // Deep bronze
-      accentForeground: '40 6% 95%',
+      background: '40 8% 96%',            // Soft marble white
+      foreground: '30 10% 8%',            // Near black
+      card: '40 6% 98%',
+      cardForeground: '30 10% 8%',
+      page: '40 10% 94%',                 // Antique paper
+      pageForeground: '30 12% 6%',
+      primary: '43 85% 42%',              // Rich antique gold
+      primaryForeground: '30 10% 8%',
+      secondary: '40 6% 90%',
+      secondaryForeground: '30 8% 15%',
+      muted: '40 5% 88%',
+      mutedForeground: '30 6% 40%',
+      accent: '38 75% 45%',               // Warm brass
+      accentForeground: '40 8% 96%',
       destructive: '0 60% 45%',
       destructiveForeground: '0 0% 100%',
-      border: '38 6% 78%',
-      input: '38 6% 82%',
-      ring: '45 90% 42%',
+      border: '40 6% 82%',
+      input: '40 6% 86%',
+      ring: '43 85% 42%',
     },
     darkColors: {
-      background: '30 20% 3%',            // True obsidian black
-      foreground: '45 20% 92%',           // Warm antique white
-      card: '30 15% 6%',
-      cardForeground: '45 20% 92%',
-      page: '30 12% 8%',                  // Dark velvet
-      pageForeground: '45 18% 88%',
-      primary: '45 95% 52%',              // Radiant gold
-      primaryForeground: '30 20% 3%',
-      secondary: '30 10% 10%',
-      secondaryForeground: '45 15% 82%',
-      muted: '30 8% 8%',
-      mutedForeground: '45 10% 45%',
-      accent: '38 85% 48%',               // Warm brass
-      accentForeground: '30 20% 3%',
+      background: '30 12% 2%',            // Crushed black
+      foreground: '42 20% 92%',           // Warm antique cream
+      card: '30 10% 4%',
+      cardForeground: '42 20% 92%',
+      page: '30 8% 5%',                   // Dark marble
+      pageForeground: '42 18% 90%',
+      primary: '45 95% 55%',              // Radiant gold
+      primaryForeground: '30 12% 2%',
+      secondary: '30 8% 8%',
+      secondaryForeground: '42 15% 80%',
+      muted: '30 6% 6%',
+      mutedForeground: '42 10% 45%',
+      accent: '40 90% 50%',               // Bright gold accent
+      accentForeground: '30 12% 2%',
       destructive: '0 55% 45%',
       destructiveForeground: '0 0% 100%',
-      border: '35 12% 15%',
-      input: '35 10% 12%',
-      ring: '45 95% 52%',
+      border: '35 8% 12%',
+      input: '35 6% 10%',
+      ring: '45 95% 55%',
     },
     lightVisualization: {
       beatColors: [
@@ -1646,18 +1672,23 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
         '#D97706', '#F59E0B', '#FBBF24', '#FCD34D', '#FDE68A',
       ],
     },
-    uiFont: 'poiret-one',
-    headerFont: 'bonheur-royale',
-    borderRadius: 4,                      // Subtle Art Deco corners
+    uiFont: 'cinzel-decorative',
+    headerFont: 'cinzel-decorative',
+    borderRadius: 4,
     animationSpeed: 0.25,
     cursor: {
       mode: 'line',
       blinkStyle: 'smooth',
       blinkSpeed: 530,
-      color: '45 95% 52%',                // Radiant gold cursor
+      color: '45 95% 55%',                // Radiant gold cursor
       glowEnabled: true,
-      glowIntensity: 0.4,
+      glowIntensity: 0.45,
       width: 2,
+    },
+    petals: {
+      enabled: true,
+      palette: 'gold',                    // Gold petals
+      intensity: 50,
     },
   },
 
@@ -1883,6 +1914,15 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       glowEnabled: true,
       glowIntensity: 0.4,
       width: 2,
+    },
+    premium: {
+      backgroundPattern: 'none',
+      patternOpacity: 0,
+      pageChrome: 'none',
+      chromeOpacity: 0,
+      ambientEffect: 'aurora',            // WebGL flowing aurora background
+      ambientIntensity: 1.0,
+      uiChrome: 'glassmorphic',
     },
   },
 };

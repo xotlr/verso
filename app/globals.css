@@ -1,5 +1,5 @@
 /* Premium Theme CSS - imports must be first */
-@import url('https://fonts.googleapis.com/css2?family=Badeen+Display&family=Bonheur+Royale&display=swap');
+/* Fonts now loaded via next/font/google in layout.tsx (self-hosted) */
 @import '../styles/theme-patterns.css';
 @import '../styles/theme-chrome.css';
 @import '../styles/theme-ui-chrome.css';
@@ -140,6 +140,11 @@
     font-size: var(--font-size, 14px) !important;
   }
 
+  /* Limitless: aurora is the background */
+  html[data-theme-preset="limitless"] body {
+    background: transparent;
+  }
+
   /* Global text selection highlight using primary color */
   ::selection {
     background: hsl(var(--primary) / 0.5);
@@ -244,6 +249,12 @@
   [data-ui-font="badeen-display"] {
     font-family: 'Badeen Display', Georgia, serif;
   }
+  [data-ui-font="bellefair"] {
+    font-family: var(--font-bellefair), Georgia, serif;
+  }
+  [data-ui-font="cinzel-decorative"] {
+    font-family: var(--font-cinzel-decorative), Georgia, serif;
+  }
 
   /* ===== HEADING & BODY FONTS ===== */
   /* Header fonts are theme-controlled via data-header-font attribute */
@@ -257,10 +268,10 @@
     --font-heading: inherit;
   }
   [data-header-font="badeen-display"] {
-    --font-heading: 'Badeen Display', Georgia, serif;
+    --font-heading: var(--font-badeen-display), Georgia, serif;
   }
   [data-header-font="bonheur-royale"] {
-    --font-heading: 'Bonheur Royale', cursive, serif;
+    --font-heading: var(--font-bonheur-royale), cursive, serif;
   }
   [data-header-font="fraunces"] {
     --font-heading: var(--font-fraunces), Georgia, serif;
@@ -274,9 +285,20 @@
   [data-header-font="montserrat"] {
     --font-heading: var(--font-montserrat), system-ui, sans-serif;
   }
+  [data-header-font="bellefair"] {
+    --font-heading: var(--font-bellefair), Georgia, serif;
+  }
+  [data-header-font="cinzel-decorative"] {
+    --font-heading: var(--font-cinzel-decorative), Georgia, serif;
+  }
 
-  /* Apply heading font to all headings */
-  h1, h2, h3, h4, h5, h6 {
+  /* Apply heading font to UI headings only (exclude screenplay editor) */
+  h1:not(.ProseMirror *),
+  h2:not(.ProseMirror *),
+  h3:not(.ProseMirror *),
+  h4:not(.ProseMirror *),
+  h5:not(.ProseMirror *),
+  h6:not(.ProseMirror *) {
     font-family: var(--font-heading);
   }
 
@@ -1589,3 +1611,59 @@ button {
     @apply opacity-100 translate-y-0;
   }
 }
+
+/* ===== MAELLE THEME - TEXTURED GOLD (Clair Obscur Inspired) ===== */
+[data-theme-preset="maelle"] {
+  /* Gold gradient variables for metallic effect */
+  --gold-gradient: linear-gradient(
+    135deg,
+    hsl(43, 85%, 35%) 0%,
+    hsl(45, 95%, 55%) 25%,
+    hsl(48, 90%, 65%) 50%,
+    hsl(45, 95%, 55%) 75%,
+    hsl(40, 80%, 40%) 100%
+  );
+
+  /* Textured gold with more depth and roughness variation */
+  --gold-textured: linear-gradient(
+    145deg,
+    hsl(40, 70%, 30%) 0%,
+    hsl(43, 85%, 45%) 20%,
+    hsl(47, 100%, 60%) 40%,
+    hsl(45, 90%, 50%) 60%,
+    hsl(42, 75%, 35%) 80%,
+    hsl(38, 60%, 25%) 100%
+  );
+}
+
+/* Apply textured gold to primary elements in Maelle */
+[data-theme-preset="maelle"] .btn-primary,
+[data-theme-preset="maelle"] button[data-slot="primary"],
+[data-theme-preset="maelle"] [data-accent="primary"] {
+  background: var(--gold-textured) !important;
+  background-size: 200% 200%;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Gold text effect for Maelle headings */
+.dark[data-theme-preset="maelle"] h1:not(.ProseMirror *),
+.dark[data-theme-preset="maelle"] h2:not(.ProseMirror *),
+[data-theme-preset="maelle"].dark h1:not(.ProseMirror *),
+[data-theme-preset="maelle"].dark h2:not(.ProseMirror *) {
+  background: var(--gold-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}
+
+/* Subtle gold accent on borders/dividers in dark mode */
+.dark[data-theme-preset="maelle"] [data-slot="divider"],
+[data-theme-preset="maelle"].dark [data-slot="divider"] {
+  background: linear-gradient(90deg, transparent, hsl(45, 80%, 45%), transparent);
+}
+

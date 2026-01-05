@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { PageStyle, SceneNumberPosition } from '@/types/settings';
+import type { PageStyle, SceneNumberPosition, PaperColor } from '@/types/settings';
 
 interface EditorSettingsPanelProps {
   open: boolean;
@@ -135,6 +135,32 @@ export function EditorSettingsPanel({
                   <SelectItem value="plain">Plain</SelectItem>
                 </SelectContent>
               </Select>
+            </SettingsRow>
+
+            <SettingsRow
+              label="Paper color"
+              description="Background tone for pages"
+            >
+              <div className="flex gap-1">
+                {([
+                  { color: 'white' as PaperColor, bg: 'bg-white', title: 'White' },
+                  { color: 'cream' as PaperColor, bg: 'bg-amber-50', title: 'Cream' },
+                  { color: 'sepia' as PaperColor, bg: 'bg-amber-100', title: 'Sepia' },
+                  { color: 'gray' as PaperColor, bg: 'bg-gray-200', title: 'Gray' },
+                  { color: 'dark' as PaperColor, bg: 'bg-gray-800', title: 'Dark' },
+                ]).map((paper) => (
+                  <button
+                    key={paper.color}
+                    onClick={() => updateEditorSettings({ paperColor: paper.color })}
+                    className={`size-6 rounded-md border-2 transition-all duration-100 ${paper.bg} ${
+                      settings.editor.paperColor === paper.color
+                        ? 'border-primary scale-110'
+                        : 'border-border/30 hover:border-border hover:scale-105'
+                    }`}
+                    title={paper.title}
+                  />
+                ))}
+              </div>
             </SettingsRow>
           </div>
         );
@@ -342,11 +368,11 @@ export function EditorSettingsPanel({
           'shadow-lg',
           'overflow-hidden flex flex-col',
           isSide
-            ? 'absolute left-full top-1/2 ml-3'
+            ? 'absolute right-full top-1/2 mr-3'
             : 'fixed top-24 left-1/2 -translate-x-1/2'
         )}
         initial={isSide
-          ? { opacity: 0, x: -12, y: '-50%' }
+          ? { opacity: 0, x: 12, y: '-50%' }
           : { opacity: 0, y: -12 }
         }
         animate={isSide
@@ -354,7 +380,7 @@ export function EditorSettingsPanel({
           : { opacity: 1, y: 0 }
         }
         exit={isSide
-          ? { opacity: 0, x: -12, y: '-50%' }
+          ? { opacity: 0, x: 12, y: '-50%' }
           : { opacity: 0, y: -12 }
         }
         transition={{

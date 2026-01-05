@@ -140,6 +140,8 @@
   background: hsl(var(--background));
   /* Apply theme temperature filter (warm/cool/neutral) */
   filter: var(--theme-temperature-filter, none);
+  /* CSS containment: isolate layout recalculations to this subtree */
+  contain: layout style;
 }
 
 .pm-editor-scroll-container {
@@ -153,6 +155,8 @@
 .pm-editor-scroll-area {
   background: hsl(var(--background));
   scroll-behavior: smooth;
+  /* CSS containment: paint prevents children from painting outside bounds */
+  contain: paint;
 
   /* Custom scrollbar */
   scrollbar-width: thin;
@@ -201,6 +205,8 @@
   background: hsl(var(--background));
   /* Centering handled by transform in ProseMirrorEditor.tsx */
   /* Zoom is instant - scroll adjusts simultaneously so content stays locked to page */
+  /* CSS containment: layout style isolates page layout calculations */
+  contain: layout style;
 }
 
 /* Mobile: Add horizontal padding to match useResponsiveScale calculation */
@@ -311,18 +317,14 @@
    Screenplay Element Styles
    ============================================ */
 
-/* All elements get smooth transitions for polished Tab cycling */
+/* Only animate non-layout properties for smooth element type changes.
+   Layout properties (margin, width) cause expensive reflows - skip them. */
 .ProseMirror p,
 .ProseMirror h3,
 .ProseMirror [class^="pm-"] {
   transition:
-    margin-left var(--pm-transition-element) var(--pm-ease-spring),
-    margin-right var(--pm-transition-element) var(--pm-ease-spring),
-    width var(--pm-transition-element) var(--pm-ease-spring),
-    text-align 80ms var(--pm-ease-out),
-    color 100ms ease,
-    font-weight 80ms ease;
-  will-change: margin-left, margin-right, width;
+    color 80ms ease-out,
+    font-weight 80ms ease-out;
 }
 
 /* ============================================
@@ -674,14 +676,13 @@
    Element Type Flash Animation
    ============================================ */
 @keyframes pm-element-flash {
-  0% { background: hsl(var(--primary) / 0); }
-  15% { background: hsl(var(--primary) / 0.06); }
-  100% { background: hsl(var(--primary) / 0); }
+  0% { background-color: hsl(var(--primary) / 0); }
+  20% { background-color: hsl(var(--primary) / 0.05); }
+  100% { background-color: hsl(var(--primary) / 0); }
 }
 
 .pm-element-changed {
-  animation: pm-element-flash 400ms var(--pm-ease-out);
-  border-radius: 4px;
+  animation: pm-element-flash 250ms ease-out;
 }
 
 /* ============================================
@@ -1244,23 +1245,133 @@
 }
 
 /* ============================================
-   Reading Mode
+   Paper Colors - Procreate-style presets
    ============================================ */
 
-/* Reading mode - hide cursor when not focused */
+/* White - clean default */
+.pm-paper-white .pm-page-frame {
+  background: hsl(0 0% 100%);
+}
+.dark .pm-paper-white .pm-page-frame {
+  background: hsl(0 0% 12%);
+}
+
+/* Cream - warm off-white */
+.pm-paper-cream .pm-page-frame {
+  background: hsl(40 40% 96%);
+}
+.dark .pm-paper-cream .pm-page-frame {
+  background: hsl(35 15% 14%);
+}
+
+/* Sepia - Kindle-style warm */
+.pm-paper-sepia .pm-page-frame {
+  background: hsl(35 45% 91%);
+}
+.pm-paper-sepia .pm-editor-page {
+  filter: sepia(0.06);
+}
+.dark .pm-paper-sepia .pm-page-frame {
+  background: hsl(30 20% 15%);
+}
+.dark .pm-paper-sepia .pm-editor-page {
+  filter: none;
+  color: hsl(35 25% 85%);
+}
+
+/* Gray - neutral focus */
+.pm-paper-gray .pm-page-frame {
+  background: hsl(0 0% 94%);
+}
+.dark .pm-paper-gray .pm-page-frame {
+  background: hsl(0 0% 16%);
+}
+
+/* Dark - high contrast dark */
+.pm-paper-dark .pm-page-frame {
+  background: hsl(0 0% 8%);
+}
+.pm-paper-dark .pm-editor-page {
+  color: hsl(0 0% 88%);
+}
+.dark .pm-paper-dark .pm-page-frame {
+  background: hsl(0 0% 6%);
+}
+
+/* ============================================
+   Reading Mode - Clean immersive experience
+   ============================================ */
+
+/* Reading mode - hide cursor for clean reading */
 .pm-reading-mode .ProseMirror {
   cursor: default;
 }
 
-/* Reading mode - subtle visual indicator */
+/* Softer text rendering in reading mode */
 .pm-reading-mode .pm-editor-page {
-  /* Slight sepia tint for reading comfort */
-  filter: sepia(0.03);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Reading mode - disable text selection highlight (optional) */
-.pm-reading-mode .ProseMirror::selection {
-  background: hsl(var(--primary) / 0.1);
+/* Hide page numbers in reading mode for cleaner look */
+.pm-reading-mode .pm-page-frame-number {
+  opacity: 0.3;
+}
+
+/* ============================================
+   Highlight Colors - Procreate-style markers
+   ============================================ */
+
+/* Base highlight styles */
+.pm-highlight {
+  border-radius: 2px;
+  padding: 0 1px;
+  margin: 0 -1px;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.pm-highlight:hover {
+  opacity: 0.85;
+}
+
+/* Yellow highlight */
+.pm-highlight-yellow {
+  background: hsl(50 95% 72% / 0.55);
+}
+.dark .pm-highlight-yellow {
+  background: hsl(48 80% 45% / 0.45);
+}
+
+/* Green highlight */
+.pm-highlight-green {
+  background: hsl(140 60% 72% / 0.5);
+}
+.dark .pm-highlight-green {
+  background: hsl(140 50% 40% / 0.45);
+}
+
+/* Blue highlight */
+.pm-highlight-blue {
+  background: hsl(210 80% 78% / 0.5);
+}
+.dark .pm-highlight-blue {
+  background: hsl(210 60% 45% / 0.45);
+}
+
+/* Pink highlight */
+.pm-highlight-pink {
+  background: hsl(330 70% 80% / 0.5);
+}
+.dark .pm-highlight-pink {
+  background: hsl(330 50% 50% / 0.4);
+}
+
+/* Orange highlight */
+.pm-highlight-orange {
+  background: hsl(30 90% 72% / 0.5);
+}
+.dark .pm-highlight-orange {
+  background: hsl(28 70% 45% / 0.45);
 }
 
 /* ============================================
@@ -1300,6 +1411,8 @@
   right: 0;
   pointer-events: none;
   z-index: 0;
+  /* CSS containment: strict isolates this visual layer completely */
+  contain: strict;
 }
 
 /* Individual page frame - background */
@@ -1331,6 +1444,7 @@
 /* Dark mode handled by CSS variables (--page) */
 
 /* Page number - industry standard top-right position */
+/* Matches scene number opacity for subtle, consistent appearance */
 .pm-page-frame-number {
   position: absolute;
   top: 48px;  /* 0.5" from top */
@@ -1339,7 +1453,7 @@
   font-family: var(--pm-font-family);
   font-size: var(--pm-font-size);
   line-height: var(--pm-line-height);
-  color: hsl(var(--card-foreground));
+  color: hsl(var(--foreground) / 0.4);
   user-select: none;
   pointer-events: auto; /* Allow visibility despite container pointer-events: none */
 }
@@ -1354,6 +1468,8 @@
   top: 0;
   pointer-events: none;
   z-index: 1;
+  /* CSS containment: strict isolates gap overlays from main layout */
+  contain: strict;
 }
 
 /* Gap overlay between pages - positioned within the transformed container */

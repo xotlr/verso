@@ -222,6 +222,27 @@ export const PIN_RADIUS = 6;
 export const NODE_HEADER_HEIGHT = 28;
 
 // ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Get node dimensions based on type.
+ * Centralized to avoid duplication across layout/virtualization/rendering code.
+ */
+export function getNodeDimensions(node: TapestryNode): { width: number; height: number } {
+  if (node.type === 'character') {
+    return {
+      width: node.width ?? DEFAULT_CHARACTER_WIDTH,
+      height: node.height ?? DEFAULT_CHARACTER_HEIGHT,
+    };
+  }
+  return {
+    width: node.width ?? DEFAULT_NOTE_WIDTH,
+    height: node.height ?? DEFAULT_NOTE_HEIGHT,
+  };
+}
+
+// ============================================================================
 // Factory Functions
 // ============================================================================
 

@@ -14,7 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { ThemePreset, UIFont, ScreenplayFont, HeaderFont, themeMetadata, themePresets } from '@/types/settings';
-import type { VisualSettings } from '@/types/settings';
+import type { VisualSettings, PetalPalette } from '@/types/settings';
 
 const ALL_THEME_PRESETS: ThemePreset[] = [
   'verso', 'paper', 'spirited', 'sterling', 'koe', 'supernatural',
@@ -203,6 +203,9 @@ export function AppearanceSection({
 
       {/* Cursor Effect Card */}
       <CursorSettingsCard settings={settings} updateVisualSettings={updateVisualSettings} />
+
+      {/* Petals Ambient Effect Card */}
+      <PetalsSettingsCard settings={settings} updateVisualSettings={updateVisualSettings} />
     </div>
   );
 }
@@ -483,6 +486,94 @@ function CursorSettingsCard({ settings, updateVisualSettings }: CursorSettingsCa
             />
             <p className="text-xs text-muted-foreground mt-1">Format: hue saturation% lightness%</p>
           </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface PetalsSettingsCardProps {
+  settings: VisualSettings;
+  updateVisualSettings: (settings: Partial<VisualSettings>) => void;
+}
+
+const PETAL_PALETTES: { value: PetalPalette; label: string; desc: string }[] = [
+  { value: 'primary', label: 'Primary', desc: 'Theme primary color' },
+  { value: 'sakura', label: 'Sakura', desc: 'Cherry blossom pink' },
+  { value: 'rose', label: 'Rose', desc: 'Deep romantic red' },
+  { value: 'gold', label: 'Gold', desc: 'Art Deco gold' },
+  { value: 'autumn', label: 'Autumn', desc: 'Warm falling leaves' },
+  { value: 'snow', label: 'Snow', desc: 'Winter white' },
+  { value: 'blossom', label: 'Blossom', desc: 'Spring flowers' },
+  { value: 'blood', label: 'Blood', desc: 'Crimson dramatic' },
+];
+
+function PetalsSettingsCard({ settings, updateVisualSettings }: PetalsSettingsCardProps) {
+  const petals = settings.petals ?? { enabled: false, palette: 'sakura' as PetalPalette, intensity: 60 };
+
+  return (
+    <Card>
+      <CardHeader className="pb-4">
+        <CardTitle className="text-base">Petals</CardTitle>
+        <CardDescription>Ambient falling petal effect</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Enable Toggle */}
+        <div className="flex items-center justify-between">
+          <div>
+            <label className="text-sm font-medium">Enable Petals</label>
+            <p className="text-xs text-muted-foreground">Show tranquil falling petals</p>
+          </div>
+          <Switch
+            checked={petals.enabled}
+            onCheckedChange={(checked) => updateVisualSettings({
+              petals: { ...petals, enabled: checked as boolean }
+            })}
+          />
+        </div>
+
+        {/* Only show additional settings when enabled */}
+        {petals.enabled && (
+          <>
+            {/* Palette Selection */}
+            <div>
+              <label className="text-sm font-medium mb-3 block">Palette</label>
+              <Select
+                value={petals.palette}
+                onValueChange={(value) => updateVisualSettings({
+                  petals: { ...petals, palette: value as PetalPalette }
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select palette" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PETAL_PALETTES.map((palette) => (
+                    <SelectItem key={palette.value} value={palette.value}>
+                      {palette.label} — {palette.desc}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Intensity Slider */}
+            <div>
+              <label className="text-sm font-medium mb-3 block">
+                Intensity: {petals.intensity ?? 60}
+              </label>
+              <Slider
+                value={[petals.intensity ?? 60]}
+                onValueChange={([value]) => updateVisualSettings({
+                  petals: { ...petals, intensity: value }
+                })}
+                min={20}
+                max={120}
+                step={5}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Number of petals</p>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>
