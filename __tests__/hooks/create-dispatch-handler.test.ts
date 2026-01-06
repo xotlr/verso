@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { EditorState, Transaction } from 'prosemirror-state';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { Schema } from 'prosemirror-model';
 import { history } from 'prosemirror-history';

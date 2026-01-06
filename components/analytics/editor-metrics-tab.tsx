@@ -15,8 +15,8 @@ import { cn } from '@/lib/utils';
  */
 export function EditorMetricsTab() {
   const { editorMetrics, isEnabled, setFrameStats, updateMemory } = useDebugMetricsRequired();
-  const frameCountRef = useRef({ total: 0, dropped: 0, lastReset: Date.now() });
-  const lastFrameTimeRef = useRef(performance.now());
+  const frameCountRef = useRef({ total: 0, dropped: 0, lastReset: 0 });
+  const lastFrameTimeRef = useRef(0);
 
   // Frame drop detection via requestAnimationFrame
   useEffect(() => {
@@ -24,6 +24,14 @@ export function EditorMetricsTab() {
 
     let rafId: number;
     const targetFrameTime = 1000 / 60; // 60 FPS target
+
+    // Initialize on first effect run to avoid impure calls during render
+    if (frameCountRef.current.lastReset === 0) {
+      frameCountRef.current.lastReset = Date.now();
+    }
+    if (lastFrameTimeRef.current === 0) {
+      lastFrameTimeRef.current = performance.now();
+    }
 
     const measureFrame = () => {
       const now = performance.now();

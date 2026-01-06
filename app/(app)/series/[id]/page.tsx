@@ -41,10 +41,8 @@ import {
   FileText,
   Loader2,
   Plus,
-  Clock,
   ArrowLeft,
   Pencil,
-  Trash2,
 } from 'lucide-react';
 import {
   PiFilmScript,

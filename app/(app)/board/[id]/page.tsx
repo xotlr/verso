@@ -149,10 +149,6 @@ export default function BoardPage() {
     router.push(`/screenplay/${id}?scene=${sceneId}`);
   }, [router, id]);
 
-  const handleBackToEditor = useCallback(() => {
-    router.push(`/screenplay/${id}`);
-  }, [router, id]);
-
   // Count scenes by act for stats
   const actCounts = scenes.reduce((counts, scene) => {
     const act = sceneMetas[scene.id]?.act || 'unassigned';

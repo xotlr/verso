@@ -13,7 +13,7 @@
  * with actual WASM calls are in the Rust test suite (cargo test).
  */
 
-import { describe, it, expect, test } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import type {
   Element,
   ElementType,
@@ -39,7 +39,6 @@ import type {
   WarningType,
   PaginationWarning,
   WorkerRequest,
-  WorkerResponse,
   PaginateRequest,
   PaginateResponse,
 } from '@/lib/verso/types';

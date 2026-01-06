@@ -567,7 +567,7 @@ describe('edge cases', () => {
 
     // Left column should include character + parenthetical + dialogue
     const leftColumn = resultState!.doc.firstChild!.child(0);
-    let nodeTypes: string[] = [];
+    const nodeTypes: string[] = [];
     leftColumn.forEach((node) => nodeTypes.push(node.type.name));
 
     expect(nodeTypes).toContain('character');

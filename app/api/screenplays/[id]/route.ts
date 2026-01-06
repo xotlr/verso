@@ -86,9 +86,11 @@ export async function GET(
     })
 
     // Remove internal fields from response
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { shares: _shares, ...screenplayResponse } = screenplay
     // Clean up project.teamId from response (only needed for access check)
     if (screenplayResponse.project) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { teamId: _teamId, ...projectData } = screenplayResponse.project
       screenplayResponse.project = projectData as typeof screenplayResponse.project
     }
