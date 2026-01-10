@@ -114,15 +114,20 @@ function formatTimeCompact(date: Date): string {
 
 // Type badge component
 function TypeBadge({ type }: { type: DisplayScreenplayType }) {
-  const isSeries = type === 'TV';
-  const Icon = isSeries ? Layers : PiFilmScript;
+  const config = {
+    TV: { icon: Layers, label: 'SERIES' },
+    FILM: { icon: PiFilmScript, label: 'FILM' },
+    STAGE: { icon: HiOutlineRectangleGroup, label: 'STAGE' },
+  }[type] || { icon: PiFilmScript, label: 'FILM' };
+
+  const Icon = config.icon;
 
   return (
     <span
       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20"
     >
       <Icon className="h-2.5 w-2.5" />
-      {isSeries ? 'SERIES' : 'FILM'}
+      {config.label}
     </span>
   );
 }

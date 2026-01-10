@@ -193,7 +193,7 @@ async function handleCheckoutCompleted(
   }
 
   // Fetch subscription details
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+  const subscription = await getStripe().subscriptions.retrieve(subscriptionId) as Stripe.Subscription
   const plan = (planName && VALID_PLANS.includes(planName.toUpperCase() as Plan))
     ? (planName.toUpperCase() as Plan)
     : "PRO"
@@ -206,7 +206,7 @@ async function handleCheckoutCompleted(
       stripeCustomerId: customerId || undefined,
       stripeSubscriptionId: subscription.id,
       stripePriceId: subscription.items.data[0]?.price?.id || null,
-      stripeCurrentPeriodEnd: getStripeDate(subscription.current_period_end),
+      stripeCurrentPeriodEnd: getStripeDate(subscription.items.data[0]?.current_period_end),
     },
   })
 
@@ -265,7 +265,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
         plan,
         stripeSubscriptionId: subscription.id,
         stripePriceId: subscription.items.data[0]?.price?.id || null,
-        stripeCurrentPeriodEnd: getStripeDate(subscription.current_period_end),
+        stripeCurrentPeriodEnd: getStripeDate(subscription.items.data[0]?.current_period_end),
       },
     })
 
@@ -291,7 +291,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
       plan,
       stripeSubscriptionId: subscription.id,
       stripePriceId: subscription.items.data[0]?.price?.id || null,
-      stripeCurrentPeriodEnd: getStripeDate(subscription.current_period_end),
+      stripeCurrentPeriodEnd: getStripeDate(subscription.items.data[0]?.current_period_end),
     },
   })
 
@@ -440,7 +440,7 @@ async function handleTeamCheckoutCompleted(
   }
 
   // Fetch subscription details
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+  const subscription = await getStripe().subscriptions.retrieve(subscriptionId) as Stripe.Subscription
 
   // Determine maxSeats based on price/product (can be configured in Stripe product metadata)
   // Default: Team plan = 10 seats
@@ -453,7 +453,7 @@ async function handleTeamCheckoutCompleted(
       stripeCustomerId: customerId || undefined,
       stripeSubscriptionId: subscription.id,
       stripePriceId: subscription.items.data[0]?.price?.id || null,
-      stripeCurrentPeriodEnd: getStripeDate(subscription.current_period_end),
+      stripeCurrentPeriodEnd: getStripeDate(subscription.items.data[0]?.current_period_end),
       maxSeats,
     },
   })
@@ -498,7 +498,7 @@ async function handleTeamSubscriptionUpdate(subscriptionData: Stripe.Subscriptio
       team.id,
       subscription.id,
       subscription.items.data[0]?.price?.id || "",
-      subscription.current_period_end,
+      subscription.items.data[0]?.current_period_end,
       maxSeats
     )
 
@@ -520,7 +520,7 @@ async function handleTeamSubscriptionUpdate(subscriptionData: Stripe.Subscriptio
     teamId,
     subscription.id,
     subscription.items.data[0]?.price?.id || "",
-    subscription.current_period_end,
+    subscription.items.data[0]?.current_period_end,
     maxSeats
   )
 

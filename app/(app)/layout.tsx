@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useMounted } from "@/hooks/use-mobile";
@@ -24,17 +24,11 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-export default function AppLayout({ children }: AppLayoutProps) {
-  const pathname = usePathname();
+// Component to handle checkout success - needs useSearchParams wrapped in Suspense
+function CheckoutSuccessHandler() {
   const searchParams = useSearchParams();
   const { update: updateSession } = useSession();
-  const mounted = useMounted();
-  const [focusMode, setFocusMode] = useState(false);
 
-  // Check if we're on a screenplay editor page (but not timelapse)
-  const isEditorPage = pathname.startsWith("/screenplay/") && !pathname.includes("/timelapse");
-
-  // Show success toast after Stripe checkout and refresh session
   useEffect(() => {
     const success = searchParams.get("success");
     const plan = searchParams.get("plan");
@@ -60,6 +54,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
       window.history.replaceState({}, "", url.toString());
     }
   }, [searchParams, updateSession]);
+
+  return null;
+}
+
+export default function AppLayout({ children }: AppLayoutProps) {
+  const pathname = usePathname();
+  const mounted = useMounted();
+  const [focusMode, setFocusMode] = useState(false);
+
+  // Check if we're on a screenplay editor page (but not timelapse)
+  const isEditorPage = pathname.startsWith("/screenplay/") && !pathname.includes("/timelapse");
 
   // Ref for keyboard accessibility
   const focusContainerRef = useRef<HTMLDivElement>(null);
@@ -125,6 +130,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <SeriesActionsProvider>
       <ProjectActionsProvider>
       <EditorSceneProvider>
+        {/* Handle checkout success - wrapped in Suspense for useSearchParams */}
+        <Suspense fallback={null}>
+          <CheckoutSuccessHandler />
+        </Suspense>
         <SidebarProvider>
           {/* Sidebar - slides out in focus mode */}
           <div className={cn(

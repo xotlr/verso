@@ -6,7 +6,7 @@ export type ScreenplayTypeId = 'film' | 'tv-series' | 'blank';
 export type DatabaseScreenplayType = 'FILM' | 'TV';
 
 // Display type for cards (excludes blank since it's only for creation)
-export type DisplayScreenplayType = 'FILM' | 'TV';
+export type DisplayScreenplayType = 'FILM' | 'TV' | 'STAGE';
 
 export type TVFormat = 'drama' | 'sitcom' | 'pilot';
 

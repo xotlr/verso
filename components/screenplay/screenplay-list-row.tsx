@@ -46,8 +46,11 @@ function formatWordCount(count: number): string {
 
 // Type badge component - icon only, larger
 function TypeBadge({ type }: { type: DisplayScreenplayType }) {
-  const isSeries = type === 'TV';
-  const Icon = isSeries ? Layers : PiFilmScript;
+  const Icon = {
+    TV: Layers,
+    FILM: PiFilmScript,
+    STAGE: HiOutlineRectangleGroup,
+  }[type] || PiFilmScript;
 
   return (
     <span className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary border border-primary/20">

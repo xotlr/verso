@@ -14,6 +14,7 @@ interface DraggableScreenplayCardProps {
   showProject?: boolean;
   showTeam?: boolean;
   showWordCount?: boolean;
+  showType?: boolean;
   onEdit?: () => void;
   onRename?: () => void;
   onExport?: () => void;
@@ -37,6 +38,7 @@ export function DraggableScreenplayCard({
   showProject,
   showTeam,
   showWordCount,
+  showType,
   onEdit,
   onRename,
   onExport,
@@ -104,6 +106,7 @@ export function DraggableScreenplayCard({
           showProject={showProject}
           showTeam={showTeam}
           showWordCount={showWordCount}
+          showType={showType}
         />
       </div>
     );
@@ -132,6 +135,7 @@ export function DraggableScreenplayCard({
         showProject={showProject}
         showTeam={showTeam}
         showWordCount={showWordCount}
+        showType={showType}
         onEdit={onEdit}
         onRename={onRename}
         onExport={onExport}
