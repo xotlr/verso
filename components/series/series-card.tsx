@@ -66,7 +66,7 @@ export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) 
   const stackLayers = Math.min(Math.max(seasonCount, 1), 3);
 
   // Card height - responsive sizing, more compact on mobile
-  const cardHeight = 'min-h-[160px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px]';
+  const cardHeight = 'min-h-[100px] sm:min-h-[160px] md:min-h-[180px] lg:min-h-[200px]';
 
   return (
     <div className="group/stack relative transition-all duration-300 ease-out hover:-translate-y-1">
@@ -119,7 +119,7 @@ export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) 
         )}
       >
         <Link href={linkHref} className="flex-1 flex flex-col">
-          <div className="p-3 sm:p-4 md:p-5 lg:p-6 flex flex-col h-full font-mono">
+          <div className="p-2.5 sm:p-4 md:p-5 flex flex-col h-full font-mono">
             {/* Header: Type Badge + Title + Menu */}
             <div className="flex justify-between items-start mb-2">
               <div className="flex-1 min-w-0">
@@ -191,9 +191,9 @@ export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) 
               )}
             </div>
 
-            {/* Logline */}
+            {/* Logline - hidden on tiny screens */}
             {series.logline && (
-              <div className="flex-grow">
+              <div className="flex-grow hidden sm:block">
                 <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground line-clamp-2">
                   <span className="font-bold text-foreground mr-1">LOGLINE:</span>
                   {series.logline}
@@ -228,12 +228,12 @@ export function SeriesCardSkeleton() {
   return (
     <div className="relative">
       {/* Shadow layers - vertical only */}
-      <div className="absolute inset-0 rounded-xl bg-muted border border-border translate-y-1 min-h-[160px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px]" />
-      <div className="absolute inset-0 rounded-xl bg-muted border border-border translate-y-0.5 min-h-[160px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px]" />
+      <div className="absolute inset-0 rounded-xl bg-muted border border-border translate-y-1 min-h-[100px] sm:min-h-[160px] md:min-h-[180px] lg:min-h-[200px]" />
+      <div className="absolute inset-0 rounded-xl bg-muted border border-border translate-y-0.5 min-h-[100px] sm:min-h-[160px] md:min-h-[180px] lg:min-h-[200px]" />
 
       {/* Main card */}
-      <div className="relative bg-card rounded-xl border border-border/60 min-h-[160px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px]">
-        <div className="p-3 sm:p-4 md:p-5 lg:p-6 flex flex-col h-full font-mono">
+      <div className="relative bg-card rounded-xl border border-border/60 min-h-[100px] sm:min-h-[160px] md:min-h-[180px] lg:min-h-[200px]">
+        <div className="p-2.5 sm:p-4 md:p-5 flex flex-col h-full font-mono">
           {/* Header skeleton */}
           <div className="flex items-start justify-between mb-2">
             <div className="flex-1">

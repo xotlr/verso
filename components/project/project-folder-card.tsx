@@ -146,7 +146,7 @@ export function ProjectFolderCard({
   }, [project.roles]);
 
   // Card height - responsive sizing, more compact on mobile
-  const cardHeight = 'min-h-[160px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px]';
+  const cardHeight = 'min-h-[100px] sm:min-h-[160px] md:min-h-[180px] lg:min-h-[200px]';
 
   // Get first screenplay for peeking preview
   const firstScreenplay = project.screenplays?.[0];
@@ -208,7 +208,7 @@ export function ProjectFolderCard({
         )}
       >
         <Link href={linkHref} className="flex-1 flex flex-col">
-          <div className="p-3 sm:p-4 md:p-5 lg:p-6 flex flex-col h-full font-mono">
+          <div className="p-2.5 sm:p-4 md:p-5 flex flex-col h-full font-mono">
             {/* Header: Type Badge + Status + Title + Menu */}
             <div className="flex justify-between items-start mb-2">
               <div className="flex-1 min-w-0">
@@ -297,9 +297,9 @@ export function ProjectFolderCard({
               )}
             </div>
 
-            {/* Roles Section */}
+            {/* Roles Section - hidden on tiny screens */}
             {(keyRoles.director || keyRoles.writer || keyRoles.producer) && (
-              <div className="mt-2 space-y-0.5 text-[10px]">
+              <div className="mt-2 space-y-0.5 text-[10px] hidden sm:block">
                 {keyRoles.director && (
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground w-16 uppercase tracking-wide">Directed by</span>
@@ -405,8 +405,8 @@ export function ProjectFolderCardSkeleton() {
       <div className="absolute top-0 left-3 sm:left-4 w-[35%] sm:w-[38%] h-4 sm:h-5 bg-muted rounded-t-md sm:rounded-t-lg border border-b-0 border-border" />
 
       {/* Main card */}
-      <div className="relative bg-card rounded-xl border border-border min-h-[160px] sm:min-h-[180px] md:min-h-[200px] lg:min-h-[220px]">
-        <div className="p-3 sm:p-4 md:p-5 lg:p-6 flex flex-col h-full font-mono">
+      <div className="relative bg-card rounded-xl border border-border min-h-[100px] sm:min-h-[160px] md:min-h-[180px] lg:min-h-[200px]">
+        <div className="p-2.5 sm:p-4 md:p-5 flex flex-col h-full font-mono">
           {/* Header skeleton */}
           <div className="flex items-start justify-between mb-2">
             <div className="flex-1">

@@ -217,7 +217,7 @@ export function WorkspaceContentGrid({
   if (isLoading) {
     if (viewMode === 'grid') {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
           {activeTab === 'screenplays' && [1, 2, 3].map((i) => <ScreenplayListCardSkeleton key={i} />)}
           {activeTab === 'series' && [1, 2, 3].map((i) => <SeriesCardSkeleton key={i} />)}
           {activeTab === 'projects' && [1, 2, 3].map((i) => <ProjectFolderCardSkeleton key={i} />)}
@@ -269,7 +269,7 @@ export function WorkspaceContentGrid({
             onCreateStack={onCreateStack}
             onAddToStack={onAddToStack}
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {/* Render stacks first */}
               {filteredStacks.map((stack) => (
                 <DroppableStackCard
@@ -453,7 +453,7 @@ export function WorkspaceContentGrid({
 
     if (viewMode === 'grid') {
       return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
           {filteredSeries.map((s) => (
             <SeriesCard
               key={s.id}
@@ -525,7 +525,7 @@ export function WorkspaceContentGrid({
 
   if (viewMode === 'grid') {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
         {filteredProjects.map((project) => (
           <ProjectFolderCard
             key={project.id}

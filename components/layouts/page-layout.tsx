@@ -37,8 +37,8 @@ export function PageLayout({
           'mx-auto',
           narrow ? 'max-w-4xl' : 'max-w-7xl',
           !noPadding && 'px-3 sm:px-4 md:px-6 lg:px-8 pt-4 sm:pt-6 md:pt-8',
-          // Bottom padding: extra on mobile for bottom nav, more on desktop
-          !noPadding && 'pb-24 md:pb-16',
+          // Bottom padding: extra on mobile for floating bottom nav (h-14 at bottom-4 + safe area)
+          !noPadding && 'pb-28 md:pb-16',
           className
         )}
       >

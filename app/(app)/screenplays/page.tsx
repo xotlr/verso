@@ -636,9 +636,9 @@ function ScreenplaysContent() {
         {/* Content Grid/List */}
         {isLoading ? (
           viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="min-h-[140px] sm:min-h-[180px] bg-card rounded-xl border border-border/60 p-3 sm:p-5">
+                <div key={i} className="min-h-[120px] sm:min-h-[160px] bg-card rounded-xl border border-border/60 p-2.5 sm:p-4">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <Skeleton className="h-5 w-3/4 mb-2" />
@@ -682,7 +682,7 @@ function ScreenplaysContent() {
             onCreateStack={createStackFromDrop}
             onAddToStack={addToStack}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {/* Render stacks first */}
               {filteredStacks.map((stack) => (
                 <DroppableStackCard
@@ -820,7 +820,7 @@ function ScreenplaysLoading() {
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
         {[1, 2, 3].map((i) => (
           <ScreenplayListCardSkeleton key={i} />
         ))}

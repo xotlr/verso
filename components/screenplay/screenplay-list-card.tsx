@@ -172,7 +172,7 @@ export function ScreenplayListCard({
   const stackedPaperCount = getStackedPaperCount(screenplay.wordCount);
 
   // Card height classes - use min-height to allow content to expand
-  const cardHeight = isCompact ? 'min-h-[120px] sm:min-h-[140px]' : 'min-h-[180px] sm:min-h-[200px] md:min-h-[220px]';
+  const cardHeight = isCompact ? 'min-h-[90px] sm:min-h-[120px]' : 'min-h-[110px] sm:min-h-[180px] md:min-h-[200px]';
 
   // Series cards are more rounded (like a bound book)
   const cardRadius = isSeries ? 'rounded-xl' : 'rounded-lg';
@@ -235,8 +235,8 @@ export function ScreenplayListCard({
 
       <Link href={linkHref} className="flex-1 flex flex-col">
         <div className={cn(
-          'p-4 sm:p-5 md:p-6 flex flex-col h-full font-mono',
-          isCompact && 'p-3 sm:p-4'
+          'p-2.5 sm:p-4 md:p-5 flex flex-col h-full font-mono',
+          isCompact && 'p-2 sm:p-3'
         )}>
           {/* Header: Type Badge + Title + Menu */}
           <div className="flex justify-between items-start mb-2">
@@ -271,9 +271,9 @@ export function ScreenplayListCard({
                 />
               )}
 
-              {/* Author line */}
+              {/* Author line - hidden on tiny screens */}
               {authorName && (
-                <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide flex items-center gap-1.5">
+                <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide hidden sm:flex items-center gap-1.5">
                   <span>Written by {authorName}</span>
                   {/* Genre inline for TV to save space */}
                   {showGenre && screenplay.genre && (
@@ -285,9 +285,9 @@ export function ScreenplayListCard({
                 </div>
               )}
 
-              {/* Genre on its own line for Film (if no author) */}
+              {/* Genre on its own line for Film (if no author) - hidden on tiny screens */}
               {!authorName && showGenre && screenplay.genre && (
-                <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wide">
+                <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wide hidden sm:block">
                   {screenplay.genre}
                 </div>
               )}
@@ -364,9 +364,9 @@ export function ScreenplayListCard({
             )}
           </div>
 
-          {/* Logline/Synopsis with "LOGLINE:" label */}
+          {/* Logline/Synopsis - hidden on tiny screens */}
           {displayText && !isCompact && (
-            <div className="flex-grow">
+            <div className="flex-grow hidden sm:block">
               <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground/70 line-clamp-2">
                 <span className="font-semibold text-muted-foreground mr-1">LOGLINE:</span>
                 {displayText}
@@ -378,13 +378,13 @@ export function ScreenplayListCard({
         {/* Footer: Edge-to-edge divider */}
         <div className="mt-auto border-t border-border/40">
           <div className={cn(
-            'px-4 sm:px-5 md:px-6 py-3 flex items-center justify-between text-xs sm:text-sm text-muted-foreground',
-            isCompact && 'px-3 sm:px-4'
+            'px-2.5 sm:px-5 md:px-6 py-2 sm:py-3 flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground',
+            isCompact && 'px-2 sm:px-4'
           )}>
             {/* Left: Project badge and/or word count */}
             <div className="flex items-center gap-2">
               {showProject && screenplay.project && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded border border-border/50 bg-muted/50 uppercase tracking-wider font-bold text-[10px] sm:text-xs truncate max-w-[100px]">
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded border border-border/50 bg-muted/50 uppercase tracking-wider font-bold text-[10px] sm:text-xs truncate max-w-[100px]">
                   {screenplay.project.name}
                 </span>
               )}
@@ -418,10 +418,10 @@ export function ScreenplayListCardSkeleton({ variant = 'default' }: { variant?: 
       suppressHydrationWarning
       className={cn(
         'relative bg-card rounded-lg border border-border/60',
-        isCompact ? 'min-h-[120px] sm:min-h-[140px]' : 'min-h-[180px] sm:min-h-[200px] md:min-h-[220px]'
+        isCompact ? 'min-h-[90px] sm:min-h-[120px]' : 'min-h-[110px] sm:min-h-[180px] md:min-h-[200px]'
       )}
     >
-      <div className={cn('p-4 sm:p-5 md:p-6 flex flex-col h-full font-mono', isCompact && 'p-3 sm:p-4')}>
+      <div className={cn('p-2.5 sm:p-4 md:p-5 flex flex-col h-full font-mono', isCompact && 'p-2 sm:p-3')}>
         {/* Header skeleton */}
         <div className="flex items-start justify-between mb-2">
           <div className="flex-1">

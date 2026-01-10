@@ -157,10 +157,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <EditorPanelProvider>
               <main
                 ref={focusContainerRef}
-                className={cn(
-                  "flex-1 overflow-hidden transition-all duration-300 ease-out",
-                  !focusMode && "pb-14 md:pb-0"
-                )}
+                className="flex-1 overflow-hidden transition-all duration-300 ease-out"
               >
                 {children}
               </main>
@@ -172,10 +169,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <>
               <main
                 ref={focusContainerRef}
-                className={cn(
-                  "flex-1 overflow-hidden transition-all duration-300 ease-out",
-                  !focusMode && "pb-14 md:pb-0"
-                )}
+                className="flex-1 overflow-hidden transition-all duration-300 ease-out"
               >
                 {children}
               </main>

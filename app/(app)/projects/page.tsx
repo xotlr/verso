@@ -246,7 +246,7 @@ export default function ProjectsPage() {
         {/* Content Grid/List */}
         {isLoading ? (
           viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
               {[1, 2, 3].map((i) => (
                 <ProjectFolderCardSkeleton key={i} />
               ))}
@@ -272,7 +272,7 @@ export default function ProjectsPage() {
             } : undefined}
           />
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
             {filteredProjects.map((project) => (
               <ProjectFolderCard
                 key={project.id}
