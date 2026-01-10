@@ -17,9 +17,12 @@ import {
   FilePlus,
   FolderInput,
   Pencil,
+  Users,
+  Unlink,
+  Archive,
 } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
-import { cn, createMenuHandler } from '@/lib/utils';
+import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
 import { ProfileHoverCard } from '@/components/profile-hover-card';
 
 // ============================================================================
@@ -55,6 +58,9 @@ export interface ProjectFolderCardData {
   updatedAt: string;
   roles?: ProjectRole[];
   screenplays?: ScreenplayPreview[];
+  teamId?: string | null;
+  team?: { id: string; name: string } | null;
+  isArchived?: boolean;
   _count?: {
     screenplays: number;
     notes: number;
@@ -87,6 +93,9 @@ interface ProjectFolderCardProps {
   onAddExistingScreenplay?: () => void;
   onRename?: () => void;
   onSettings?: () => void;
+  onMoveToTeam?: () => void;
+  onRemoveFromTeam?: () => void;
+  onArchive?: () => void;
   onDelete?: () => void;
 }
 
@@ -126,10 +135,13 @@ export function ProjectFolderCard({
   onAddExistingScreenplay,
   onRename,
   onSettings,
+  onMoveToTeam,
+  onRemoveFromTeam,
+  onArchive,
 }: ProjectFolderCardProps) {
   const linkHref = href || `/project/${project.id}`;
   const screenplayCount = project._count?.screenplays || project.screenplays?.length || 0;
-  const hasActions = onDelete || onOpen || onNewScreenplay || onAddExistingScreenplay || onRename || onSettings;
+  const hasActions = onDelete || onOpen || onNewScreenplay || onAddExistingScreenplay || onRename || onSettings || onMoveToTeam || onRemoveFromTeam || onArchive;
 
   // Get key roles (Director, Writer, Producer) - only show filled roles
   const keyRoles = React.useMemo(() => {
@@ -207,94 +219,114 @@ export function ProjectFolderCard({
           cardHeight
         )}
       >
+        {/* Dropdown Menu - positioned absolutely, OUTSIDE the Link */}
+        {hasActions && (
+          <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  onClick={createMenuHandler()}
+                  onPointerDown={stopPointerPropagation}
+                  className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {onOpen && (
+                  <DropdownMenuItem onClick={createMenuHandler(onOpen)}>
+                    <RiFolder6Line className="mr-2 h-4 w-4" />
+                    Open Project
+                  </DropdownMenuItem>
+                )}
+                {(onNewScreenplay || onAddExistingScreenplay) && onOpen && (
+                  <DropdownMenuSeparator />
+                )}
+                {onNewScreenplay && (
+                  <DropdownMenuItem onClick={createMenuHandler(onNewScreenplay)}>
+                    <FilePlus className="mr-2 h-4 w-4" />
+                    New Screenplay
+                  </DropdownMenuItem>
+                )}
+                {onAddExistingScreenplay && (
+                  <DropdownMenuItem onClick={createMenuHandler(onAddExistingScreenplay)}>
+                    <FolderInput className="mr-2 h-4 w-4" />
+                    Add Existing Screenplay
+                  </DropdownMenuItem>
+                )}
+                {(onRename || onSettings) && (
+                  <DropdownMenuSeparator />
+                )}
+                {onRename && (
+                  <DropdownMenuItem onClick={createMenuHandler(onRename)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Rename Project
+                  </DropdownMenuItem>
+                )}
+                {onSettings && (
+                  <DropdownMenuItem onClick={createMenuHandler(onSettings)}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Project Settings
+                  </DropdownMenuItem>
+                )}
+                {onMoveToTeam && (
+                  <DropdownMenuItem onClick={createMenuHandler(onMoveToTeam)}>
+                    <Users className="mr-2 h-4 w-4" />
+                    Move to Team
+                  </DropdownMenuItem>
+                )}
+                {onRemoveFromTeam && (
+                  <DropdownMenuItem onClick={createMenuHandler(onRemoveFromTeam)}>
+                    <Unlink className="mr-2 h-4 w-4" />
+                    Remove from Team
+                  </DropdownMenuItem>
+                )}
+                {onArchive && (
+                  <DropdownMenuItem onClick={createMenuHandler(onArchive)}>
+                    <Archive className="mr-2 h-4 w-4" />
+                    {project.isArchived ? 'Unarchive' : 'Archive'}
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={createMenuHandler(onDelete)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Project
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
         <Link href={linkHref} className="flex-1 flex flex-col">
           <div className="p-2.5 sm:p-4 md:p-5 flex flex-col h-full font-mono">
-            {/* Header: Type Badge + Status + Title + Menu */}
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex-1 min-w-0">
-                {/* Type & Status badges */}
-                <div className="flex items-center gap-1.5 mb-1">
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-                    <RiFolder6Line className="h-2.5 w-2.5" />
-                    {project.type ? TYPE_CONFIG[project.type].label : 'Project'}
+            {/* Header: Type Badge + Status + Title */}
+            <div className={cn('mb-2', hasActions && 'pr-10 sm:pr-8')}>
+              {/* Type & Status badges */}
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                  <RiFolder6Line className="h-2.5 w-2.5" />
+                  {project.type ? TYPE_CONFIG[project.type].label : 'Project'}
+                </span>
+                {project.status && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_CONFIG[project.status].color)} />
+                    {STATUS_CONFIG[project.status].label}
                   </span>
-                  {project.status && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
-                      <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_CONFIG[project.status].color)} />
-                      {STATUS_CONFIG[project.status].label}
-                    </span>
-                  )}
-                </div>
-
-                {/* Title */}
-                <h3 className="font-bold uppercase tracking-tight line-clamp-1 text-foreground group-hover/folder:text-primary group-hover/folder:underline transition-colors text-sm sm:text-base md:text-lg">
-                  {project.name}
-                </h3>
+                )}
               </div>
 
-              {hasActions && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      onClick={createMenuHandler()}
-                      className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
-                      aria-label="More options"
-                    >
-                      <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    {onOpen && (
-                      <DropdownMenuItem onClick={createMenuHandler(onOpen)}>
-                        <RiFolder6Line className="mr-2 h-4 w-4" />
-                        Open Project
-                      </DropdownMenuItem>
-                    )}
-                    {(onNewScreenplay || onAddExistingScreenplay) && onOpen && (
-                      <DropdownMenuSeparator />
-                    )}
-                    {onNewScreenplay && (
-                      <DropdownMenuItem onClick={createMenuHandler(onNewScreenplay)}>
-                        <FilePlus className="mr-2 h-4 w-4" />
-                        New Screenplay
-                      </DropdownMenuItem>
-                    )}
-                    {onAddExistingScreenplay && (
-                      <DropdownMenuItem onClick={createMenuHandler(onAddExistingScreenplay)}>
-                        <FolderInput className="mr-2 h-4 w-4" />
-                        Add Existing Screenplay
-                      </DropdownMenuItem>
-                    )}
-                    {(onRename || onSettings) && (
-                      <DropdownMenuSeparator />
-                    )}
-                    {onRename && (
-                      <DropdownMenuItem onClick={createMenuHandler(onRename)}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Rename Project
-                      </DropdownMenuItem>
-                    )}
-                    {onSettings && (
-                      <DropdownMenuItem onClick={createMenuHandler(onSettings)}>
-                        <Settings className="mr-2 h-4 w-4" />
-                        Project Settings
-                      </DropdownMenuItem>
-                    )}
-                    {onDelete && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={createMenuHandler(onDelete)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Project
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+              {/* Title */}
+              <h3 className="font-bold uppercase tracking-tight line-clamp-1 text-foreground group-hover/folder:text-primary group-hover/folder:underline transition-colors text-sm sm:text-base md:text-lg">
+                {project.name}
+              </h3>
             </div>
 
             {/* Roles Section - hidden on tiny screens */}

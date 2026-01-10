@@ -76,7 +76,7 @@ export function TeamSettingsDialog({
           <DialogTitle>Team Settings</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 -mx-6 px-6">
+        <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="general" className="gap-2">

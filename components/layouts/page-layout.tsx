@@ -5,8 +5,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface PageLayoutProps {
   children: React.ReactNode;
-  /** Page title displayed in header */
-  title?: string;
+  /** Page title displayed in header - string or custom element */
+  title?: React.ReactNode;
   /** Page description/subtitle */
   description?: string;
   /** Action buttons/elements for the header */
@@ -47,9 +47,13 @@ export function PageLayout({
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 {title && (
-                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-                    {title}
-                  </h1>
+                  typeof title === 'string' ? (
+                    <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+                      {title}
+                    </h1>
+                  ) : (
+                    title
+                  )
                 )}
                 {description && (
                   <p className="mt-1 text-sm sm:text-base text-muted-foreground">

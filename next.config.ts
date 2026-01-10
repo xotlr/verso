@@ -41,7 +41,7 @@ const nextConfig: NextConfig = {
               // Styles: self + inline for Tailwind/styled components
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               // Images: self + data URIs + Supabase storage + Google/GitHub avatars
-              "img-src 'self' data: blob: https://akqcitwkiabfyyqukzus.supabase.co https://lh3.googleusercontent.com https://avatars.githubusercontent.com",
+              "img-src 'self' data: blob: https://akqcitwkiabfyyqukzus.supabase.co https://*.googleusercontent.com https://avatars.githubusercontent.com",
               // Fonts: self + Google Fonts
               "font-src 'self' https://fonts.gstatic.com",
               // Connect: self + Supabase + Stripe
@@ -102,7 +102,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
+        hostname: '*.googleusercontent.com',
       },
       {
         protocol: 'https',

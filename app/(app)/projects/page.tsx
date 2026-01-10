@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,6 @@ import { NewProjectDialog } from '@/components/project/new-project-dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { ListPageToolbar, SORT_OPTIONS } from '@/components/ui/list-page-toolbar';
-import { ListWithPreview } from '@/components/ui/list-preview-panel';
 import { ProjectFolderCard, ProjectFolderCardSkeleton } from '@/components/project/project-folder-card';
 import { ProjectListRow, ProjectListRowSkeleton } from '@/components/project/project-list-row';
 import { RenameProjectDialog } from '@/components/project/rename-project-dialog';
@@ -23,12 +22,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
 import { useSession } from 'next-auth/react';
-import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
+import { ImportDropZoneOverlay, useFileImport } from '@/components/import-drop-zone';
 import type { ImportResult } from '@/components/import-drop-zone/types';
 import { getImportQuipShort } from '@/lib/import-quips';
+import { getAcceptString } from '@/lib/parsers';
 
 interface ProjectRole {
   id: string;
@@ -72,14 +72,9 @@ export default function ProjectsPage() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [viewMode, setViewMode] = useViewMode('projects');
-  const [hoveredProject, setHoveredProject] = useState<ProjectItem | null>(null);
   const [renameTarget, setRenameTarget] = useState<ProjectItem | null>(null);
 
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await fetch('/api/projects');
@@ -93,7 +88,11 @@ export default function ProjectsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
   const handleProjectCreated = (project: ProjectItem) => {
     setProjects((prev) => [project, ...prev]);
@@ -144,6 +143,30 @@ export default function ProjectsPage() {
       toast.error('Failed to import screenplay');
     }
   };
+
+  // File import hook for button-based import
+  const { importFile } = useFileImport({
+    onSuccess: handleImportComplete,
+    onError: (error) => toast.error(error),
+  });
+
+  // File input ref for button-based import
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleImportClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        importFile(file);
+      }
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    },
+    [importFile]
+  );
 
   const filteredProjects = useMemo(() => {
     return projects
@@ -214,14 +237,39 @@ export default function ProjectsPage() {
         />
       )}
 
+      {/* Hidden file input for import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={getAcceptString()}
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
       <PageLayout
         title="Projects"
         description={`${filteredProjects.length} project${filteredProjects.length !== 1 ? 's' : ''}${searchQuery ? ' (filtered)' : ''}`}
         actions={
-          <Button onClick={() => setNewProjectOpen(true)} size="sm" className="gap-2">
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">New Project</span>
-          </Button>
+          <>
+            <Button
+              onClick={handleImportClick}
+              variant="secondary"
+              size="sm"
+              className="touch-manipulation"
+            >
+              <Upload className="h-4 w-4" />
+              <span className="hidden md:inline">Import</span>
+            </Button>
+            <Button
+              onClick={() => setNewProjectOpen(true)}
+              variant="secondary"
+              size="sm"
+              className="touch-manipulation"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">New Project</span>
+            </Button>
+          </>
         }
       >
         {/* Search and Sort */}
@@ -294,48 +342,25 @@ export default function ProjectsPage() {
             ))}
           </div>
         ) : (
-          <ListWithPreview
-            preview={
-              hoveredProject ? (
-                <ProjectFolderCard
-                  project={{
-                    id: hoveredProject.id,
-                    name: hoveredProject.name,
-                    description: hoveredProject.description,
-                    type: hoveredProject.type ?? undefined,
-                    status: hoveredProject.status ?? undefined,
-                    updatedAt: hoveredProject.updatedAt,
-                    roles: hoveredProject.roles,
-                    screenplays: hoveredProject.screenplays,
-                    _count: hoveredProject._count,
-                  }}
-                />
-              ) : null
-            }
-          >
-            <div className="space-y-2">
-              {filteredProjects.map((project) => (
-                <ProjectListRow
-                  key={project.id}
-                  project={{
-                    id: project.id,
-                    name: project.name,
-                    description: project.description,
-                    updatedAt: project.updatedAt,
-                    roles: project.roles,
-                    screenplays: project.screenplays,
-                    _count: project._count,
-                  }}
-                  onOpen={() => router.push(`/project/${project.id}`)}
-                  onDelete={() => setDeleteTarget(project.id)}
-                  onRename={() => setRenameTarget(project)}
-                  isHovered={hoveredProject?.id === project.id}
-                  onHover={() => setHoveredProject(project)}
-                  onLeave={() => setHoveredProject(null)}
-                />
-              ))}
-            </div>
-          </ListWithPreview>
+          <div className="space-y-2">
+            {filteredProjects.map((project) => (
+              <ProjectListRow
+                key={project.id}
+                project={{
+                  id: project.id,
+                  name: project.name,
+                  description: project.description,
+                  updatedAt: project.updatedAt,
+                  roles: project.roles,
+                  screenplays: project.screenplays,
+                  _count: project._count,
+                }}
+                onOpen={() => router.push(`/project/${project.id}`)}
+                onDelete={() => setDeleteTarget(project.id)}
+                onRename={() => setRenameTarget(project)}
+              />
+            ))}
+          </div>
         )}
       </PageLayout>
     </>

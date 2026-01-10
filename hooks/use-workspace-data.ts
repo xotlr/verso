@@ -12,8 +12,11 @@ export interface ScreenplayItem {
   wordCount: number;
   genre?: string | null;
   isFavorite?: boolean;
+  isArchived?: boolean;
   projectId: string | null;
   project?: { id: string; name: string } | null;
+  teamId?: string | null;
+  team?: { id: string; name: string } | null;
   author?: string | null;
   user?: { id: string; name: string | null } | null;
   // Series/TV fields
@@ -43,6 +46,9 @@ export interface ProjectItem {
   banner: string | null;
   logo: string | null;
   updatedAt: string;
+  isArchived?: boolean;
+  teamId?: string | null;
+  team?: { id: string; name: string } | null;
   roles?: ProjectRole[];
   screenplays?: { id: string; title: string }[];
   _count: {
@@ -60,6 +66,9 @@ export interface SeriesItem {
   genre?: string | null;
   format?: string | null;
   updatedAt: string;
+  isArchived?: boolean;
+  projectId?: string | null;
+  project?: { id: string; name: string } | null;
   _count?: { episodes: number };
 }
 

@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Clock, MoreVertical, Edit3, Trash2, Folder } from 'lucide-react';
 import { HiRectangleGroup, HiOutlineRectangleGroup } from 'react-icons/hi2';
-import { cn, createMenuHandler } from '@/lib/utils';
+import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
 import { cardStyles, textStyles, layoutStyles, skeletonStyles } from '@/lib/ui/styles';
 import type { StackCardData } from '@/components/stack-card';
 
@@ -151,6 +151,7 @@ export function StackListRow({
           <DropdownMenuTrigger asChild>
             <button
               onClick={createMenuHandler()}
+              onPointerDown={stopPointerPropagation}
               className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center flex-shrink-0"
               aria-label="More options"
             >

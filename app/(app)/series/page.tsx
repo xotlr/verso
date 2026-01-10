@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { toast } from 'sonner';
@@ -18,7 +18,6 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { ListPageToolbar } from '@/components/ui/list-page-toolbar';
-import { ListWithPreview } from '@/components/ui/list-preview-panel';
 import {
   SeriesCard,
   SeriesCardSkeleton,
@@ -27,10 +26,11 @@ import {
   CreateSeriesDialog,
 } from '@/components/series';
 import { useViewMode } from '@/hooks/use-view-mode';
-import { Plus, Tv } from 'lucide-react';
-import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
+import { Plus, Tv, Upload } from 'lucide-react';
+import { ImportDropZoneOverlay, useFileImport } from '@/components/import-drop-zone';
 import type { ImportResult } from '@/components/import-drop-zone/types';
 import { getImportQuipShort } from '@/lib/import-quips';
+import { getAcceptString } from '@/lib/parsers';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -51,7 +51,6 @@ export default function SeriesListPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useViewMode('series');
-  const [hoveredSeries, setHoveredSeries] = useState<Series | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
@@ -102,6 +101,30 @@ export default function SeriesListPage() {
       toast.error('Failed to import screenplay');
     }
   };
+
+  // File import hook for button-based import
+  const { importFile } = useFileImport({
+    onSuccess: handleImportComplete,
+    onError: (error) => toast.error(error),
+  });
+
+  // File input ref for button-based import
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleImportClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        importFile(file);
+      }
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    },
+    [importFile]
+  );
 
   // Filter series by search query
   const filteredSeries = seriesList?.filter(series =>
@@ -161,14 +184,39 @@ export default function SeriesListPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Hidden file input for import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={getAcceptString()}
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
       <PageLayout
         title="Series"
         description={`${filteredSeries.length} series${searchQuery ? ' (filtered)' : ''}`}
         actions={
-          <Button onClick={() => setIsCreating(true)} size="sm" className="gap-2">
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">New Series</span>
-          </Button>
+          <>
+            <Button
+              onClick={handleImportClick}
+              variant="secondary"
+              size="sm"
+              className="touch-manipulation"
+            >
+              <Upload className="h-4 w-4" />
+              <span className="hidden md:inline">Import</span>
+            </Button>
+            <Button
+              onClick={() => setIsCreating(true)}
+              variant="secondary"
+              size="sm"
+              className="touch-manipulation"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">New Series</span>
+            </Button>
+          </>
         }
       >
         {/* Search and View Toggle */}
@@ -233,45 +281,24 @@ export default function SeriesListPage() {
             ))}
           </div>
         ) : (
-          <ListWithPreview
-            preview={
-              hoveredSeries ? (
-                <SeriesCard
-                  series={{
-                    id: hoveredSeries.id,
-                    title: hoveredSeries.title,
-                    logline: hoveredSeries.logline,
-                    genre: hoveredSeries.genre,
-                    format: hoveredSeries.format,
-                    updatedAt: hoveredSeries.updatedAt,
-                    _count: hoveredSeries._count,
-                  }}
-                />
-              ) : null
-            }
-          >
-            <div className="space-y-2">
-              {filteredSeries.map((series) => (
-                <SeriesListRow
-                  key={series.id}
-                  series={{
-                    id: series.id,
-                    title: series.title,
-                    logline: series.logline,
-                    genre: series.genre,
-                    format: series.format,
-                    updatedAt: series.updatedAt,
-                    _count: series._count,
-                  }}
-                  isHovered={hoveredSeries?.id === series.id}
-                  onHover={() => setHoveredSeries(series)}
-                  onLeave={() => setHoveredSeries(null)}
-                  onEdit={() => router.push(`/series/${series.id}`)}
-                  onDelete={() => setDeleteTarget(series.id)}
-                />
-              ))}
-            </div>
-          </ListWithPreview>
+          <div className="space-y-2">
+            {filteredSeries.map((series) => (
+              <SeriesListRow
+                key={series.id}
+                series={{
+                  id: series.id,
+                  title: series.title,
+                  logline: series.logline,
+                  genre: series.genre,
+                  format: series.format,
+                  updatedAt: series.updatedAt,
+                  _count: series._count,
+                }}
+                onEdit={() => router.push(`/series/${series.id}`)}
+                onDelete={() => setDeleteTarget(series.id)}
+              />
+            ))}
+          </div>
         )}
       </PageLayout>
     </>

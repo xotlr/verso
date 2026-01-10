@@ -60,7 +60,7 @@ interface NewProjectDialogProps {
 }
 
 export function NewProjectDialog({ isOpen, onClose, onCreated }: NewProjectDialogProps) {
-  const { teams, currentTeam } = useTeam();
+  const { teams } = useTeam();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedTeamId, setSelectedTeamId] = useState<string>('personal');
@@ -68,14 +68,12 @@ export function NewProjectDialog({ isOpen, onClose, onCreated }: NewProjectDialo
   const [selectedRole, setSelectedRole] = useState<string>('writer');
   const { isLoading, error, setIsLoading, setError, reset } = useDialogState();
 
-  // Set default to current team when dialog opens
+  // Reset to personal when dialog opens
   React.useEffect(() => {
-    if (isOpen && currentTeam) {
-      setSelectedTeamId(currentTeam.id);
-    } else if (isOpen) {
+    if (isOpen) {
       setSelectedTeamId('personal');
     }
-  }, [isOpen, currentTeam]);
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

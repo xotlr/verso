@@ -13,6 +13,7 @@ import {
   BookOpen,
   LayoutTemplate,
   HelpCircle,
+  Users,
 } from "lucide-react";
 import { TbHome, TbHomeFilled } from 'react-icons/tb';
 import { PiFilmScript, PiFilmScriptFill } from 'react-icons/pi';
@@ -51,6 +52,7 @@ import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts";
 import { FormattingGuideDialog } from "@/components/formatting-guide-dialog";
 import { TemplateSelector } from "@/components/template-selector";
 import { NewProjectDialog } from "@/components/project/new-project-dialog";
+import { CreateTeamDialog } from "@/components/team/create-team-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 interface AppSidebarProps {
@@ -131,6 +133,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   const [formattingGuideOpen, setFormattingGuideOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [newTeamOpen, setNewTeamOpen] = useState(false);
 
   // Panel state (synced via events with EditorPanelContext)
   const [activePanel, setActivePanel] = useState<EditorPanelType | null>(null);
@@ -223,10 +226,10 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
     <Sidebar className="bg-sidebar sidebar-animated">
       {/* Header */}
       <SidebarHeader className="gap-1.5 p-0">
-        {/* Logo - matches header height for alignment */}
-        <div className="flex h-11 items-center justify-center">
+        {/* Logo */}
+        <div className="flex h-11 items-center justify-center px-2">
           <Link href="/home" className="flex items-center justify-center">
-            <Logo size={28} className="text-primary" />
+            <Logo size={22} className="text-primary hover:opacity-80 transition-opacity" />
           </Link>
         </div>
 
@@ -254,6 +257,10 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                 <DropdownMenuItem onClick={() => setNewProjectOpen(true)}>
                   <FolderOpen className="mr-2 h-4 w-4" />
                   New Project
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setNewTeamOpen(true)}>
+                  <Users className="mr-2 h-4 w-4" />
+                  New Team
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -440,6 +447,10 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
           setNewProjectOpen(false);
           router.push(`/project/${project.id}`);
         }}
+      />
+      <CreateTeamDialog
+        open={newTeamOpen}
+        onOpenChange={setNewTeamOpen}
       />
     </Sidebar>
   );

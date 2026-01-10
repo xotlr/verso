@@ -9,8 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Clock, MoreVertical, Edit3, Trash2, Layers } from 'lucide-react';
-import { cn, createMenuHandler } from '@/lib/utils';
+import { Clock, MoreVertical, Edit3, Pencil, FolderInput, Unlink, Trash2, Layers, Archive } from 'lucide-react';
+import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
 import { cardStyles, textStyles, layoutStyles, skeletonStyles, badgeStyles } from '@/lib/ui/styles';
 import type { SeriesCardData } from './series-card';
 
@@ -40,6 +40,10 @@ interface SeriesListRowProps {
   onHover?: () => void;
   onLeave?: () => void;
   onEdit?: () => void;
+  onRename?: () => void;
+  onMoveToProject?: () => void;
+  onRemoveFromProject?: () => void;
+  onArchive?: () => void;
   onDelete?: () => void;
 }
 
@@ -47,11 +51,15 @@ export function SeriesListRow({
   series,
   href,
   onEdit,
+  onRename,
+  onMoveToProject,
+  onRemoveFromProject,
+  onArchive,
   onDelete,
 }: SeriesListRowProps) {
   const linkHref = href || `/series/${series.id}`;
   const episodeCount = series._count?.episodes || 0;
-  const hasActions = onEdit || onDelete;
+  const hasActions = onEdit || onRename || onMoveToProject || onRemoveFromProject || onArchive || onDelete;
 
   return (
     <div
@@ -141,6 +149,7 @@ export function SeriesListRow({
           <DropdownMenuTrigger asChild>
             <button
               onClick={createMenuHandler()}
+              onPointerDown={stopPointerPropagation}
               className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center flex-shrink-0"
               aria-label="More options"
             >
@@ -152,6 +161,33 @@ export function SeriesListRow({
               <DropdownMenuItem onClick={createMenuHandler(onEdit)}>
                 <Edit3 className="mr-2 h-4 w-4" />
                 Edit
+              </DropdownMenuItem>
+            )}
+            {onRename && (
+              <DropdownMenuItem onClick={createMenuHandler(onRename)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Rename
+              </DropdownMenuItem>
+            )}
+            {(onMoveToProject || onRemoveFromProject) && (onEdit || onRename) && (
+              <DropdownMenuSeparator />
+            )}
+            {onMoveToProject && (
+              <DropdownMenuItem onClick={createMenuHandler(onMoveToProject)}>
+                <FolderInput className="mr-2 h-4 w-4" />
+                Move to Project
+              </DropdownMenuItem>
+            )}
+            {onRemoveFromProject && (
+              <DropdownMenuItem onClick={createMenuHandler(onRemoveFromProject)}>
+                <Unlink className="mr-2 h-4 w-4" />
+                Remove from Project
+              </DropdownMenuItem>
+            )}
+            {onArchive && (
+              <DropdownMenuItem onClick={createMenuHandler(onArchive)}>
+                <Archive className="mr-2 h-4 w-4" />
+                {series.isArchived ? 'Unarchive' : 'Archive'}
               </DropdownMenuItem>
             )}
             {onDelete && (

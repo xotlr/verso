@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TemplateSelector } from '@/components/template-selector';
 import { MoveToProjectDialog } from '@/components/move-to-project-dialog';
+import { MoveToTeamDialog } from '@/components/move-to-team-dialog';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { ListPageToolbar, FilterPill } from '@/components/ui/list-page-toolbar';
 import { ListWithPreview } from '@/components/ui/list-preview-panel';
@@ -39,9 +40,16 @@ import {
   Plus,
   ChevronDown,
   Clock,
+  Users,
+  Upload,
 } from 'lucide-react';
 import { PiFilmScript } from 'react-icons/pi';
 import { RiFolder6Line } from 'react-icons/ri';
+import { useTeam } from '@/contexts/team-context';
+import { useScreenplayDataRefresh } from '@/contexts/screenplay-actions-context';
+import { useFileImport } from '@/components/import-drop-zone';
+import { getImportQuipShort } from '@/lib/import-quips';
+import { getAcceptString } from '@/lib/parsers';
 
 interface Screenplay {
   id: string;
@@ -53,6 +61,7 @@ interface Screenplay {
   projectId: string | null;
   teamId: string | null;
   isFavorite: boolean;
+  isArchived?: boolean;
   lastOpenedAt: string | null;
   genre: string | null;
   wordCount: number;
@@ -62,6 +71,13 @@ interface Screenplay {
   user?: { id: string; name: string | null } | null;
   stackId?: string | null;
   content?: string;
+  // Type-specific fields
+  type?: 'FILM' | 'TV' | 'STAGE' | null;
+  season?: number | null;
+  episode?: number | null;
+  episodeTitle?: string | null;
+  seriesId?: string | null;
+  series?: { id: string; title: string } | null;
 }
 
 interface Filters {
@@ -70,11 +86,13 @@ interface Filters {
   standalone: boolean;
   hasProject: boolean;
   genre: string | null;
+  workspace: 'all' | 'personal' | string; // string = teamId
 }
 
 function ScreenplaysContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { teams } = useTeam();
 
   const [screenplays, setScreenplays] = useState<Screenplay[]>([]);
   const [stacks, setStacks] = useState<StackItem[]>([]);
@@ -83,6 +101,7 @@ function ScreenplaysContent() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: 'screenplay' | 'stack' } | null>(null);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [moveTarget, setMoveTarget] = useState<Screenplay | null>(null);
+  const [teamMoveTarget, setTeamMoveTarget] = useState<Screenplay | null>(null);
   const [viewMode, setViewMode] = useViewMode('screenplays');
   const [hoveredScreenplay, setHoveredScreenplay] = useState<Screenplay | null>(null);
   const [selectedStack, setSelectedStack] = useState<StackItem | null>(null);
@@ -96,6 +115,7 @@ function ScreenplaysContent() {
     standalone: searchParams.get('standalone') === 'true',
     hasProject: searchParams.get('hasProject') === 'true',
     genre: searchParams.get('genre'),
+    workspace: (searchParams.get('workspace') as Filters['workspace']) || 'all',
   }));
 
   const loadData = useCallback(async () => {
@@ -124,6 +144,54 @@ function ScreenplaysContent() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Listen for screenplay data changes from context actions
+  useScreenplayDataRefresh(loadData);
+
+  // File import handler
+  const handleImportSuccess = useCallback(async (result: { success: boolean; title?: string; content?: string }) => {
+    if (!result.success || !result.content) return;
+    try {
+      const response = await fetch('/api/screenplays', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: result.title || 'Imported Screenplay',
+          content: result.content,
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to create screenplay');
+      const screenplay = await response.json();
+      toast.success(getImportQuipShort(result.title || screenplay.title));
+      router.push(`/editor/${screenplay.id}`);
+    } catch (error) {
+      console.error('Error importing screenplay:', error);
+      toast.error('Failed to import screenplay');
+    }
+  }, [router]);
+
+  const { importFile } = useFileImport({
+    onSuccess: handleImportSuccess,
+    onError: (error) => toast.error(error),
+  });
+
+  // File input ref for button-based import
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleImportClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        importFile(file);
+      }
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    },
+    [importFile]
+  );
 
   // Stack operations
   const createStackFromDrop = useCallback(async (draggedId: string, targetId: string): Promise<StackItem | null> => {
@@ -419,6 +487,14 @@ function ScreenplaysContent() {
       result = result.filter((s) => s.genre === filters.genre);
     }
 
+    // Workspace filter
+    if (filters.workspace === 'personal') {
+      result = result.filter((s) => !s.teamId);
+    } else if (filters.workspace !== 'all') {
+      // Filter by specific team
+      result = result.filter((s) => s.teamId === filters.workspace);
+    }
+
     return result;
   }, [screenplays, searchQuery, filters]);
 
@@ -441,6 +517,7 @@ function ScreenplaysContent() {
     if (filters.standalone) params.set('standalone', 'true');
     if (filters.hasProject) params.set('hasProject', 'true');
     if (filters.genre) params.set('genre', filters.genre);
+    if (filters.workspace !== 'all') params.set('workspace', filters.workspace);
 
     const newUrl = params.toString()
       ? `${window.location.pathname}?${params.toString()}`
@@ -456,6 +533,7 @@ function ScreenplaysContent() {
     if (filters.standalone) count++;
     if (filters.hasProject) count++;
     if (filters.genre) count++;
+    if (filters.workspace !== 'all') count++;
     return count;
   }, [filters]);
 
@@ -466,6 +544,7 @@ function ScreenplaysContent() {
       standalone: false,
       hasProject: false,
       genre: null,
+      workspace: 'all',
     });
   };
 
@@ -515,6 +594,17 @@ function ScreenplaysContent() {
         />
       )}
 
+      {teamMoveTarget && (
+        <MoveToTeamDialog
+          open={!!teamMoveTarget}
+          onOpenChange={(open) => !open && setTeamMoveTarget(null)}
+          screenplayId={teamMoveTarget.id}
+          screenplayTitle={teamMoveTarget.title}
+          currentTeamId={teamMoveTarget.team?.id}
+          onSuccess={loadData}
+        />
+      )}
+
       <StackDialog
         stack={selectedStack}
         open={stackDialogOpen}
@@ -528,14 +618,39 @@ function ScreenplaysContent() {
         onRemoveFromStack={removeFromStack}
       />
 
+      {/* Hidden file input for import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={getAcceptString()}
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
       <PageLayout
         title="Screenplays"
         description={`${filteredScreenplays.length} screenplay${filteredScreenplays.length !== 1 ? 's' : ''}${searchQuery || activeFilterCount > 0 ? ' (filtered)' : ''}`}
         actions={
-          <Button onClick={() => setTemplateOpen(true)} size="sm" className="gap-2">
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">New Screenplay</span>
-          </Button>
+          <>
+            <Button
+              onClick={handleImportClick}
+              variant="secondary"
+              size="sm"
+              className="touch-manipulation"
+            >
+              <Upload className="h-4 w-4" />
+              <span className="hidden md:inline">Import</span>
+            </Button>
+            <Button
+              onClick={() => setTemplateOpen(true)}
+              variant="secondary"
+              size="sm"
+              className="touch-manipulation"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">New Screenplay</span>
+            </Button>
+          </>
         }
       >
         {/* Search and Filters */}
@@ -575,6 +690,59 @@ function ScreenplaysContent() {
                 label="In Project"
                 activeColor="purple"
               />
+
+              {/* Workspace dropdown */}
+              {teams.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                        filters.workspace !== 'all'
+                          ? 'bg-primary/20 text-primary border-primary/30'
+                          : 'bg-muted hover:bg-muted/80 text-muted-foreground border-transparent'
+                      }`}
+                    >
+                      <Users className="h-3.5 w-3.5" />
+                      {filters.workspace === 'all'
+                        ? 'All'
+                        : filters.workspace === 'personal'
+                          ? 'Personal'
+                          : teams.find((t) => t.id === filters.workspace)?.name || 'Team'}
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-1" align="start">
+                    <button
+                      onClick={() => setFilters({ ...filters, workspace: 'all' })}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
+                        filters.workspace === 'all' ? 'bg-accent' : 'hover:bg-accent'
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setFilters({ ...filters, workspace: 'personal' })}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
+                        filters.workspace === 'personal' ? 'bg-accent' : 'hover:bg-accent'
+                      }`}
+                    >
+                      Personal
+                    </button>
+                    <div className="h-px bg-border my-1" />
+                    {teams.map((team) => (
+                      <button
+                        key={team.id}
+                        onClick={() => setFilters({ ...filters, workspace: team.id })}
+                        className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
+                          filters.workspace === team.id ? 'bg-accent' : 'hover:bg-accent'
+                        }`}
+                      >
+                        {team.name}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              )}
 
               {/* Genre dropdown */}
               {genres.length > 0 && (
@@ -707,19 +875,46 @@ function ScreenplaysContent() {
                     wordCount: screenplay.wordCount,
                     genre: screenplay.genre,
                     isFavorite: screenplay.isFavorite,
+                    isArchived: screenplay.isArchived,
                     project: screenplay.project,
+                    team: screenplay.team,
                     author: screenplay.author,
                     user: screenplay.user,
+                    type: screenplay.type || undefined,
+                    season: screenplay.season,
+                    episode: screenplay.episode,
+                    episodeTitle: screenplay.episodeTitle,
+                    series: screenplay.series,
                   }}
-                  href={`/screenplay/${screenplay.id}`}
+                  href={`/editor/${screenplay.id}`}
                   showFavorite={true}
                   showGenre={true}
-                  showProject={false}
+                  showProject={true}
+                  showTeam={true}
                   showWordCount={true}
-                  onEdit={() => router.push(`/screenplay/${screenplay.id}`)}
+                  showType={true}
+                  onEdit={() => router.push(`/editor/${screenplay.id}`)}
                   onExport={() => exportScreenplay(screenplay)}
                   onMoveToProject={() => setMoveTarget(screenplay)}
                   onCreateProject={() => createProjectFromScreenplay(screenplay)}
+                  onMoveToTeam={() => setTeamMoveTarget(screenplay)}
+                  onRemoveFromTeam={screenplay.team ? async () => {
+                    try {
+                      const response = await fetch(`/api/screenplays/${screenplay.id}/move`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ teamId: null }),
+                      });
+                      if (response.ok) {
+                        toast.success('Removed from team');
+                        loadData();
+                      } else {
+                        throw new Error('Failed to remove from team');
+                      }
+                    } catch {
+                      toast.error('Failed to remove from team');
+                    }
+                  } : undefined}
                   onDelete={() => setDeleteTarget({ id: screenplay.id, type: 'screenplay' })}
                 />
               ))}
@@ -739,15 +934,24 @@ function ScreenplaysContent() {
                     wordCount: hoveredScreenplay.wordCount,
                     genre: hoveredScreenplay.genre,
                     isFavorite: hoveredScreenplay.isFavorite,
+                    isArchived: hoveredScreenplay.isArchived,
                     project: hoveredScreenplay.project,
+                    team: hoveredScreenplay.team,
                     author: hoveredScreenplay.author,
                     user: hoveredScreenplay.user,
+                    type: hoveredScreenplay.type || undefined,
+                    season: hoveredScreenplay.season,
+                    episode: hoveredScreenplay.episode,
+                    episodeTitle: hoveredScreenplay.episodeTitle,
+                    series: hoveredScreenplay.series,
                   }}
-                  href={`/screenplay/${hoveredScreenplay.id}`}
+                  href={`/editor/${hoveredScreenplay.id}`}
                   showFavorite={true}
                   showGenre={true}
                   showProject={true}
+                  showTeam={true}
                   showWordCount={true}
+                  showType={true}
                 />
               ) : null
             }
@@ -777,13 +981,40 @@ function ScreenplaysContent() {
                     wordCount: screenplay.wordCount,
                     genre: screenplay.genre,
                     isFavorite: screenplay.isFavorite,
+                    isArchived: screenplay.isArchived,
                     project: screenplay.project,
+                    team: screenplay.team,
                     author: screenplay.author,
                     user: screenplay.user,
+                    type: screenplay.type || undefined,
+                    season: screenplay.season,
+                    episode: screenplay.episode,
+                    episodeTitle: screenplay.episodeTitle,
+                    series: screenplay.series,
                   }}
-                  href={`/screenplay/${screenplay.id}`}
-                  onEdit={() => router.push(`/screenplay/${screenplay.id}`)}
+                  href={`/editor/${screenplay.id}`}
+                  onEdit={() => router.push(`/editor/${screenplay.id}`)}
                   onExport={() => exportScreenplay(screenplay)}
+                  onMoveToProject={() => setMoveTarget(screenplay)}
+                  onCreateProject={() => createProjectFromScreenplay(screenplay)}
+                  onMoveToTeam={() => setTeamMoveTarget(screenplay)}
+                  onRemoveFromTeam={screenplay.team ? async () => {
+                    try {
+                      const response = await fetch(`/api/screenplays/${screenplay.id}/move`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ teamId: null }),
+                      });
+                      if (response.ok) {
+                        toast.success('Removed from team');
+                        loadData();
+                      } else {
+                        throw new Error('Failed to remove from team');
+                      }
+                    } catch {
+                      toast.error('Failed to remove from team');
+                    }
+                  } : undefined}
                   onDelete={() => setDeleteTarget({ id: screenplay.id, type: 'screenplay' })}
                   isHovered={hoveredScreenplay?.id === screenplay.id}
                   onHover={() => setHoveredScreenplay(screenplay)}

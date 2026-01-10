@@ -20,10 +20,13 @@ import {
   FolderPlus,
   Layers,
   Unlink,
+  Users,
+  Pencil,
+  Archive,
 } from 'lucide-react';
 import { PiFilmScript } from 'react-icons/pi';
 import { HiOutlineRectangleGroup } from 'react-icons/hi2';
-import { cn, createMenuHandler } from '@/lib/utils';
+import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
 import type { DisplayScreenplayType } from '@/types/templates';
 
 export interface ScreenplayListCardData {
@@ -35,7 +38,9 @@ export interface ScreenplayListCardData {
   wordCount?: number;
   genre?: string | null;
   isFavorite?: boolean;
+  isArchived?: boolean;
   project?: { id: string; name: string } | null;
+  team?: { id: string; name: string } | null;
   author?: string | null;
   user?: { id: string; name: string | null } | null;
   // Type-specific fields
@@ -52,10 +57,12 @@ export interface ScreenplayListCardProps {
   showFavorite?: boolean;
   showGenre?: boolean;
   showProject?: boolean;
+  showTeam?: boolean;
   showWordCount?: boolean;
   showType?: boolean;
   href?: string;
   onEdit?: () => void;
+  onRename?: () => void;
   onExport?: () => void;
   onDelete?: () => void;
   onToggleFavorite?: () => void;
@@ -63,6 +70,9 @@ export interface ScreenplayListCardProps {
   onRemoveFromProject?: () => void;
   onCreateProject?: () => void;
   onAddToStack?: () => void;
+  onMoveToTeam?: () => void;
+  onRemoveFromTeam?: () => void;
+  onArchive?: () => void;
 }
 
 // Helper to calculate stacked paper count based on word count
@@ -146,10 +156,12 @@ export function ScreenplayListCard({
   showFavorite = true,
   showGenre = true,
   showProject = true,
+  showTeam = true,
   showWordCount = true,
   showType = true,
   href,
   onEdit,
+  onRename,
   onExport,
   onDelete,
   onToggleFavorite,
@@ -157,13 +169,16 @@ export function ScreenplayListCard({
   onRemoveFromProject,
   onCreateProject,
   onAddToStack,
+  onMoveToTeam,
+  onRemoveFromTeam,
+  onArchive,
 }: ScreenplayListCardProps) {
   const linkHref = href || `/screenplay/${screenplay.id}`;
   const displayText = screenplay.logline || screenplay.synopsis;
   const isCompact = variant === 'compact';
   const isSeries = screenplay.type === 'TV';
 
-  const hasActions = onEdit || onExport || onDelete || onToggleFavorite || onMoveToProject || onRemoveFromProject || onCreateProject || onAddToStack;
+  const hasActions = onEdit || onRename || onExport || onDelete || onToggleFavorite || onMoveToProject || onRemoveFromProject || onCreateProject || onAddToStack || onMoveToTeam || onRemoveFromTeam || onArchive;
 
   // Get author display name - prefer custom author field, then user name
   const authorName = screenplay.author || screenplay.user?.name;
@@ -232,15 +247,111 @@ export function ScreenplayListCard({
           cardHeight
         )}
       >
+        {/* Dropdown Menu - positioned absolutely, OUTSIDE the Link */}
+        {hasActions && (
+          <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  onClick={createMenuHandler()}
+                  onPointerDown={stopPointerPropagation}
+                  className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {onEdit && (
+                  <DropdownMenuItem onClick={createMenuHandler(onEdit)}>
+                    <Edit3 className="mr-2 h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                )}
+                {onRename && (
+                  <DropdownMenuItem onClick={createMenuHandler(onRename)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Rename
+                  </DropdownMenuItem>
+                )}
+                {onToggleFavorite && (
+                  <DropdownMenuItem onClick={createMenuHandler(onToggleFavorite)}>
+                    <Star className={cn('mr-2 h-4 w-4', screenplay.isFavorite && 'fill-current')} />
+                    {screenplay.isFavorite ? 'Unfavorite' : 'Favorite'}
+                  </DropdownMenuItem>
+                )}
+                {onExport && (
+                  <DropdownMenuItem onClick={createMenuHandler(onExport)}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export
+                  </DropdownMenuItem>
+                )}
+                {onMoveToProject && (
+                  <DropdownMenuItem onClick={createMenuHandler(onMoveToProject)}>
+                    <FolderInput className="mr-2 h-4 w-4" />
+                    Move to Project
+                  </DropdownMenuItem>
+                )}
+                {onRemoveFromProject && (
+                  <DropdownMenuItem onClick={createMenuHandler(onRemoveFromProject)}>
+                    <Unlink className="mr-2 h-4 w-4" />
+                    Unlink
+                  </DropdownMenuItem>
+                )}
+                {onCreateProject && (
+                  <DropdownMenuItem onClick={createMenuHandler(onCreateProject)}>
+                    <FolderPlus className="mr-2 h-4 w-4" />
+                    Create Project
+                  </DropdownMenuItem>
+                )}
+                {onMoveToTeam && (
+                  <DropdownMenuItem onClick={createMenuHandler(onMoveToTeam)}>
+                    <Users className="mr-2 h-4 w-4" />
+                    Move to Team
+                  </DropdownMenuItem>
+                )}
+                {onRemoveFromTeam && (
+                  <DropdownMenuItem onClick={createMenuHandler(onRemoveFromTeam)}>
+                    <Unlink className="mr-2 h-4 w-4" />
+                    Remove from Team
+                  </DropdownMenuItem>
+                )}
+                {onAddToStack && (
+                  <DropdownMenuItem onClick={createMenuHandler(onAddToStack)}>
+                    <HiOutlineRectangleGroup className="mr-2 h-4 w-4" />
+                    Add to Stack
+                  </DropdownMenuItem>
+                )}
+                {onArchive && (
+                  <DropdownMenuItem onClick={createMenuHandler(onArchive)}>
+                    <Archive className="mr-2 h-4 w-4" />
+                    {screenplay.isArchived ? 'Unarchive' : 'Archive'}
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={createMenuHandler(onDelete)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
 
-      <Link href={linkHref} className="flex-1 flex flex-col">
-        <div className={cn(
-          'p-2.5 sm:p-4 md:p-5 flex flex-col h-full font-mono',
-          isCompact && 'p-2 sm:p-3'
-        )}>
-          {/* Header: Type Badge + Title + Menu */}
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex-1 min-w-0">
+        <Link href={linkHref} className="flex-1 flex flex-col">
+          <div className={cn(
+            'p-2.5 sm:p-4 md:p-5 flex flex-col h-full font-mono',
+            isCompact && 'p-2 sm:p-3'
+          )}>
+            {/* Header: Type Badge + Title */}
+            <div className={cn('mb-2', hasActions && 'pr-10 sm:pr-8')}>
               {/* Type badge and title row */}
               <div className="flex items-center gap-2 mb-1">
                 {showType && screenplay.type && (
@@ -293,117 +404,51 @@ export function ScreenplayListCard({
               )}
             </div>
 
-            {hasActions && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    onClick={createMenuHandler()}
-                    className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
-                    aria-label="More options"
-                  >
-                    <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {onEdit && (
-                    <DropdownMenuItem onClick={createMenuHandler(onEdit)}>
-                      <Edit3 className="mr-2 h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
-                  )}
-                  {onToggleFavorite && (
-                    <DropdownMenuItem onClick={createMenuHandler(onToggleFavorite)}>
-                      <Star className={cn('mr-2 h-4 w-4', screenplay.isFavorite && 'fill-current')} />
-                      {screenplay.isFavorite ? 'Unfavorite' : 'Favorite'}
-                    </DropdownMenuItem>
-                  )}
-                  {onExport && (
-                    <DropdownMenuItem onClick={createMenuHandler(onExport)}>
-                      <Download className="mr-2 h-4 w-4" />
-                      Export
-                    </DropdownMenuItem>
-                  )}
-                  {onMoveToProject && (
-                    <DropdownMenuItem onClick={createMenuHandler(onMoveToProject)}>
-                      <FolderInput className="mr-2 h-4 w-4" />
-                      Move to Project
-                    </DropdownMenuItem>
-                  )}
-                  {onRemoveFromProject && (
-                    <DropdownMenuItem onClick={createMenuHandler(onRemoveFromProject)}>
-                      <Unlink className="mr-2 h-4 w-4" />
-                      Unlink
-                    </DropdownMenuItem>
-                  )}
-                  {onCreateProject && (
-                    <DropdownMenuItem onClick={createMenuHandler(onCreateProject)}>
-                      <FolderPlus className="mr-2 h-4 w-4" />
-                      Create Project
-                    </DropdownMenuItem>
-                  )}
-                  {onAddToStack && (
-                    <DropdownMenuItem onClick={createMenuHandler(onAddToStack)}>
-                      <HiOutlineRectangleGroup className="mr-2 h-4 w-4" />
-                      Add to Stack
-                    </DropdownMenuItem>
-                  )}
-                  {onDelete && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={createMenuHandler(onDelete)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+            {/* Logline/Synopsis - hidden on tiny screens */}
+            {displayText && !isCompact && (
+              <div className="flex-grow hidden sm:block">
+                <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wide line-clamp-2">
+                  <span className="font-semibold text-muted-foreground mr-1">LOGLINE:</span>
+                  {displayText}
+                </p>
+              </div>
             )}
           </div>
 
-          {/* Logline/Synopsis - hidden on tiny screens */}
-          {displayText && !isCompact && (
-            <div className="flex-grow hidden sm:block">
-              <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground/70 line-clamp-2">
-                <span className="font-semibold text-muted-foreground mr-1">LOGLINE:</span>
-                {displayText}
-              </p>
-            </div>
-          )}
-        </div>
+          {/* Footer: Edge-to-edge divider */}
+          <div className="mt-auto border-t border-border/40">
+            <div className={cn(
+              'px-2.5 sm:px-5 md:px-6 py-2 sm:py-3 flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground',
+              isCompact && 'px-2 sm:px-4'
+            )}>
+              {/* Left: Team/Project badges and/or word count */}
+              <div className="flex items-center gap-2">
+                {showTeam && screenplay.team && (
+                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded border border-primary/30 bg-primary/10 text-primary text-[10px] sm:text-xs truncate max-w-[100px]">
+                    <Users className="h-3 w-3" />
+                    {screenplay.team.name}
+                  </span>
+                )}
+                {showProject && screenplay.project && (
+                  <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded border border-border/50 bg-muted/50 uppercase tracking-wider font-bold text-[10px] sm:text-xs truncate max-w-[100px]">
+                    {screenplay.project.name}
+                  </span>
+                )}
+                {showWordCount && screenplay.wordCount !== undefined && (
+                  <span className="px-2 py-0.5 rounded border border-border/50 bg-muted/50 uppercase tracking-wider font-bold text-[10px] sm:text-xs">
+                    {formatWordCount(screenplay.wordCount)}
+                  </span>
+                )}
+              </div>
 
-        {/* Footer: Edge-to-edge divider */}
-        <div className="mt-auto border-t border-border/40">
-          <div className={cn(
-            'px-2.5 sm:px-5 md:px-6 py-2 sm:py-3 flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground',
-            isCompact && 'px-2 sm:px-4'
-          )}>
-            {/* Left: Project badge and/or word count */}
-            <div className="flex items-center gap-2">
-              {showProject && screenplay.project && (
-                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded border border-border/50 bg-muted/50 uppercase tracking-wider font-bold text-[10px] sm:text-xs truncate max-w-[100px]">
-                  {screenplay.project.name}
-                </span>
-              )}
-              {showWordCount && screenplay.wordCount !== undefined && (
-                <span className="px-2 py-0.5 rounded border border-border/50 bg-muted/50 uppercase tracking-wider font-bold text-[10px] sm:text-xs">
-                  {formatWordCount(screenplay.wordCount)}
-                </span>
-              )}
-            </div>
-
-            {/* Right: Timestamp */}
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              <span>{formatTimeCompact(new Date(screenplay.updatedAt))}</span>
+              {/* Right: Timestamp */}
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                <span>{formatTimeCompact(new Date(screenplay.updatedAt))}</span>
+              </div>
             </div>
           </div>
-        </div>
-      </Link>
-
+        </Link>
       </div>
     </div>
   );

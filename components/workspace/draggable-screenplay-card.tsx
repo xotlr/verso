@@ -12,13 +12,20 @@ interface DraggableScreenplayCardProps {
   showFavorite?: boolean;
   showGenre?: boolean;
   showProject?: boolean;
+  showTeam?: boolean;
   showWordCount?: boolean;
   onEdit?: () => void;
+  onRename?: () => void;
   onExport?: () => void;
+  onToggleFavorite?: () => void;
   onDelete?: () => void;
   onMoveToProject?: () => void;
+  onRemoveFromProject?: () => void;
   onCreateProject?: () => void;
   onAddToStack?: () => void;
+  onMoveToTeam?: () => void;
+  onRemoveFromTeam?: () => void;
+  onArchive?: () => void;
 }
 
 export function DraggableScreenplayCard({
@@ -28,13 +35,20 @@ export function DraggableScreenplayCard({
   showFavorite,
   showGenre,
   showProject,
+  showTeam,
   showWordCount,
   onEdit,
+  onRename,
   onExport,
+  onToggleFavorite,
   onDelete,
   onMoveToProject,
+  onRemoveFromProject,
   onCreateProject,
   onAddToStack,
+  onMoveToTeam,
+  onRemoveFromTeam,
+  onArchive,
 }: DraggableScreenplayCardProps) {
   const { activeId, activeType } = useWorkspaceDndState();
 
@@ -88,6 +102,7 @@ export function DraggableScreenplayCard({
           showFavorite={showFavorite}
           showGenre={showGenre}
           showProject={showProject}
+          showTeam={showTeam}
           showWordCount={showWordCount}
         />
       </div>
@@ -115,13 +130,20 @@ export function DraggableScreenplayCard({
         showFavorite={showFavorite}
         showGenre={showGenre}
         showProject={showProject}
+        showTeam={showTeam}
         showWordCount={showWordCount}
         onEdit={onEdit}
+        onRename={onRename}
         onExport={onExport}
+        onToggleFavorite={onToggleFavorite}
         onDelete={onDelete}
         onMoveToProject={onMoveToProject}
+        onRemoveFromProject={onRemoveFromProject}
         onCreateProject={onCreateProject}
         onAddToStack={onAddToStack}
+        onMoveToTeam={onMoveToTeam}
+        onRemoveFromTeam={onRemoveFromTeam}
+        onArchive={onArchive}
       />
     </div>
   );

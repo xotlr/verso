@@ -57,7 +57,9 @@ export const GET = createApiHandler({
           updatedAt: true,
           projectId: true,
           teamId: true,
+          stackId: true,
           isFavorite: true,
+          isArchived: true,
           lastOpenedAt: true,
           genre: true,
           author: true,
@@ -93,6 +95,7 @@ export const GET = createApiHandler({
           updatedAt: true,
           teamId: true,
           team: { select: { id: true, name: true } },
+          isArchived: true,
           roles: {
             select: {
               id: true,
@@ -122,6 +125,7 @@ export const GET = createApiHandler({
           format: true,
           createdAt: true,
           updatedAt: true,
+          isArchived: true,
           projectId: true,
           project: { select: { id: true, name: true } },
           episodes: {

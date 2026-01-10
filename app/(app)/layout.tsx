@@ -16,6 +16,9 @@ import { EditorSceneProvider } from "@/contexts/editor-scene-context";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { cn } from "@/lib/utils";
 import { ProductivityProvider } from "@/contexts/productivity-context";
+import { ScreenplayActionsProvider } from "@/contexts/screenplay-actions-context";
+import { SeriesActionsProvider } from "@/contexts/series-actions-context";
+import { ProjectActionsProvider } from "@/contexts/project-actions-context";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -118,6 +121,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <ProductivityProvider>
+      <ScreenplayActionsProvider>
+      <SeriesActionsProvider>
+      <ProjectActionsProvider>
       <EditorSceneProvider>
         <SidebarProvider>
           {/* Sidebar - slides out in focus mode */}
@@ -191,6 +197,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <InstallPrompt />
         </SidebarProvider>
       </EditorSceneProvider>
+      </ProjectActionsProvider>
+      </SeriesActionsProvider>
+      </ScreenplayActionsProvider>
     </ProductivityProvider>
   );
 }

@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { TemplateSelector } from '@/components/template-selector';
+import { MoveToTeamDialog } from '@/components/move-to-team-dialog';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
 import { ScreenplayListCard } from '@/components/screenplay/screenplay-list-card';
 import {
@@ -171,6 +172,7 @@ export default function ProjectPage() {
   const [addLinkDialogOpen, setAddLinkDialogOpen] = useState(false);
   const [addExistingDialogOpen, setAddExistingDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: TabValue | 'link' } | null>(null);
+  const [teamMoveTarget, setTeamMoveTarget] = useState<Screenplay | null>(null);
   const [externalLinks, setExternalLinks] = useState<ExternalLinkData[]>([]);
   const [resourceFilter, setResourceFilter] = useState<ResourceFilter>('all');
 
@@ -482,6 +484,42 @@ export default function ProjectPage() {
     }
   };
 
+  const handleExportScreenplay = async (screenplay: Screenplay) => {
+    try {
+      const response = await fetch(`/api/screenplays/${screenplay.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        const blob = new Blob([data.content || ''], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${screenplay.title}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Error exporting screenplay:', error);
+      toast.error('Failed to export screenplay');
+    }
+  };
+
+  const handleToggleFavorite = async (screenplay: Screenplay) => {
+    try {
+      const response = await fetch(`/api/screenplays/${screenplay.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isFavorite: !screenplay.isFavorite }),
+      });
+      if (response.ok) {
+        toast.success(screenplay.isFavorite ? 'Removed from favorites' : 'Added to favorites');
+        loadProject();
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast.error('Failed to update favorite status');
+    }
+  };
+
   const handleImportComplete = async (result: ImportResult) => {
     if (!result.success || !result.content) return;
 
@@ -535,12 +573,22 @@ export default function ProjectPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <ScrollArea className="h-full">
       <TemplateSelector
         isOpen={templateSelectorOpen}
         onClose={() => setTemplateSelectorOpen(false)}
         projectId={projectId}
       />
+
+      {teamMoveTarget && (
+        <MoveToTeamDialog
+          open={!!teamMoveTarget}
+          onOpenChange={(open) => !open && setTeamMoveTarget(null)}
+          screenplayId={teamMoveTarget.id}
+          screenplayTitle={teamMoveTarget.title}
+          onSuccess={loadProject}
+        />
+      )}
 
       <AddLinkDialog
         isOpen={addLinkDialogOpen}
@@ -627,7 +675,7 @@ export default function ProjectPage() {
       </AlertDialog>
 
       {/* Banner */}
-      <div className="relative h-48 md:h-56 flex-shrink-0">
+      <div className="relative h-48 md:h-56">
         {project.banner ? (
           <img
             src={project.banner}
@@ -678,8 +726,7 @@ export default function ProjectPage() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Meta info */}
           <div className="mb-6">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -923,8 +970,11 @@ export default function ProjectPage() {
                       }}
                       href={`/screenplay/${screenplay.id}`}
                       onEdit={() => router.push(`/screenplay/${screenplay.id}`)}
+                      onExport={() => handleExportScreenplay(screenplay)}
+                      onToggleFavorite={() => handleToggleFavorite(screenplay)}
                       onDelete={() => setDeleteTarget({ id: screenplay.id, type: 'screenplays' })}
                       onRemoveFromProject={() => handleUnlinkScreenplay(screenplay.id)}
+                      onMoveToTeam={() => setTeamMoveTarget(screenplay)}
                       showProject={false}
                       showWordCount={true}
                     />
@@ -1188,9 +1238,8 @@ export default function ProjectPage() {
               </ProGate>
             </TabsContent>
           </Tabs>
-        </div>
-      </ScrollArea>
-    </div>
+      </div>
+    </ScrollArea>
   );
 }
 

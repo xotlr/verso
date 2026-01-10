@@ -9,8 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Layers, Clock, MoreVertical, Edit3, Trash2 } from 'lucide-react';
-import { cn, createMenuHandler } from '@/lib/utils';
+import { Layers, Clock, MoreVertical, Edit3, Pencil, FolderInput, Unlink, Trash2, Archive } from 'lucide-react';
+import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
 
 export interface SeriesCardData {
   id: string;
@@ -19,6 +19,9 @@ export interface SeriesCardData {
   genre?: string | null;
   format?: string | null;
   updatedAt: string;
+  projectId?: string | null;
+  project?: { id: string; name: string } | null;
+  isArchived?: boolean;
   _count?: { episodes: number };
 }
 
@@ -53,14 +56,18 @@ interface SeriesCardProps {
   series: SeriesCardData;
   href?: string;
   onEdit?: () => void;
+  onRename?: () => void;
+  onMoveToProject?: () => void;
+  onRemoveFromProject?: () => void;
+  onArchive?: () => void;
   onDelete?: () => void;
 }
 
-export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) {
+export function SeriesCard({ series, href, onEdit, onRename, onMoveToProject, onRemoveFromProject, onArchive, onDelete }: SeriesCardProps) {
   const linkHref = href || `/series/${series.id}`;
   const episodeCount = series._count?.episodes || 0;
   const seasonCount = estimateSeasonCount(episodeCount);
-  const hasActions = onEdit || onDelete;
+  const hasActions = onEdit || onRename || onMoveToProject || onRemoveFromProject || onArchive || onDelete;
 
   // Calculate stack layers based on season count (min 1, max 3)
   const stackLayers = Math.min(Math.max(seasonCount, 1), 3);
@@ -118,84 +125,113 @@ export function SeriesCard({ series, href, onEdit, onDelete }: SeriesCardProps) 
           cardHeight
         )}
       >
+        {/* Dropdown Menu - positioned absolutely, OUTSIDE the Link */}
+        {hasActions && (
+          <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  onClick={createMenuHandler()}
+                  onPointerDown={stopPointerPropagation}
+                  className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {onEdit && (
+                  <DropdownMenuItem onClick={createMenuHandler(onEdit)}>
+                    <Edit3 className="mr-2 h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                )}
+                {onRename && (
+                  <DropdownMenuItem onClick={createMenuHandler(onRename)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Rename
+                  </DropdownMenuItem>
+                )}
+                {(onMoveToProject || onRemoveFromProject) && (onEdit || onRename) && (
+                  <DropdownMenuSeparator />
+                )}
+                {onMoveToProject && (
+                  <DropdownMenuItem onClick={createMenuHandler(onMoveToProject)}>
+                    <FolderInput className="mr-2 h-4 w-4" />
+                    Move to Project
+                  </DropdownMenuItem>
+                )}
+                {onRemoveFromProject && (
+                  <DropdownMenuItem onClick={createMenuHandler(onRemoveFromProject)}>
+                    <Unlink className="mr-2 h-4 w-4" />
+                    Remove from Project
+                  </DropdownMenuItem>
+                )}
+                {onArchive && (
+                  <DropdownMenuItem onClick={createMenuHandler(onArchive)}>
+                    <Archive className="mr-2 h-4 w-4" />
+                    {series.isArchived ? 'Unarchive' : 'Archive'}
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={createMenuHandler(onDelete)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
         <Link href={linkHref} className="flex-1 flex flex-col">
           <div className="p-2.5 sm:p-4 md:p-5 flex flex-col h-full font-mono">
-            {/* Header: Type Badge + Title + Menu */}
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex-1 min-w-0">
-                {/* Type badge */}
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-                    <Layers className="h-2.5 w-2.5" />
-                    SERIES
-                  </span>
-                </div>
-
-                {/* Title */}
-                <h3 className="font-bold uppercase tracking-tight line-clamp-1 text-foreground group-hover/stack:text-primary group-hover/stack:underline transition-colors text-base sm:text-lg md:text-xl">
-                  {series.title}
-                </h3>
-
-                {/* Season/Episode info - compact on mobile */}
-                <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide flex items-center gap-1.5">
-                  <span className="font-semibold">
-                    <span className="sm:hidden">S{seasonCount}</span>
-                    <span className="hidden sm:inline">{seasonCount} {seasonCount === 1 ? 'Season' : 'Seasons'}</span>
-                  </span>
-                  <span className="text-muted-foreground/50">·</span>
-                  <span>
-                    <span className="sm:hidden">{episodeCount} EPs</span>
-                    <span className="hidden sm:inline">{episodeCount} {episodeCount === 1 ? 'Episode' : 'Episodes'}</span>
-                  </span>
-                  {series.genre && (
-                    <>
-                      <span className="text-muted-foreground/50">·</span>
-                      <span>{series.genre}</span>
-                    </>
-                  )}
-                </div>
+            {/* Header: Type Badge + Title */}
+            <div className={cn('mb-2', hasActions && 'pr-10 sm:pr-8')}>
+              {/* Type badge */}
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                  <Layers className="h-2.5 w-2.5" />
+                  SERIES
+                </span>
               </div>
 
-              {hasActions && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      onClick={createMenuHandler()}
-                      className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
-                      aria-label="More options"
-                    >
-                      <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {onEdit && (
-                      <DropdownMenuItem onClick={createMenuHandler(onEdit)}>
-                        <Edit3 className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                    )}
-                    {onDelete && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={createMenuHandler(onDelete)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+              {/* Title */}
+              <h3 className="font-bold uppercase tracking-tight line-clamp-1 text-foreground group-hover/stack:text-primary group-hover/stack:underline transition-colors text-base sm:text-lg md:text-xl">
+                {series.title}
+              </h3>
+
+              {/* Season/Episode info - compact on mobile */}
+              <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide flex items-center gap-1.5">
+                <span className="font-semibold">
+                  <span className="sm:hidden">S{seasonCount}</span>
+                  <span className="hidden sm:inline">{seasonCount} {seasonCount === 1 ? 'Season' : 'Seasons'}</span>
+                </span>
+                <span className="text-muted-foreground/50">·</span>
+                <span>
+                  <span className="sm:hidden">{episodeCount} EPs</span>
+                  <span className="hidden sm:inline">{episodeCount} {episodeCount === 1 ? 'Episode' : 'Episodes'}</span>
+                </span>
+                {series.genre && (
+                  <>
+                    <span className="text-muted-foreground/50">·</span>
+                    <span>{series.genre}</span>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Logline - hidden on tiny screens */}
             {series.logline && (
               <div className="flex-grow hidden sm:block">
-                <p className="text-xs sm:text-sm leading-relaxed text-muted-foreground line-clamp-2">
-                  <span className="font-bold text-foreground mr-1">LOGLINE:</span>
+                <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wide line-clamp-2">
+                  <span className="font-semibold text-muted-foreground mr-1">LOGLINE:</span>
                   {series.logline}
                 </p>
               </div>

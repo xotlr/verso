@@ -35,6 +35,7 @@ const updateProjectSchema = z.object({
     ])
     .optional(),
   budget: z.number().min(0).optional().nullable(),
+  teamId: z.string().nullable().optional(),
 })
 
 export const GET = createApiHandler({
@@ -138,6 +139,16 @@ export const PUT = createApiHandler({
     const hasAccess = await hasProjectAccess(id, user.id)
     if (!hasAccess) {
       throw new NotFoundError("Project")
+    }
+
+    // Validate team membership if moving to a team
+    if (data.teamId !== undefined && data.teamId !== null) {
+      const teamMembership = await prisma.teamMember.findUnique({
+        where: { teamId_userId: { teamId: data.teamId, userId: user.id } },
+      })
+      if (!teamMembership) {
+        throw new ForbiddenError("You must be a team member to move a project to that team")
+      }
     }
 
     const project = await prisma.project.update({

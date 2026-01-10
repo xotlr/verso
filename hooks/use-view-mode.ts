@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 export type ViewMode = 'grid' | 'list';
-export type PageType = 'screenplays' | 'projects' | 'series' | 'home' | 'shared';
+export type PageType = 'screenplays' | 'projects' | 'series' | 'home' | 'shared' | 'teams';
 
 const STORAGE_KEY = 'viewModePreferences';
 

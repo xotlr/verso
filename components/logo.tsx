@@ -13,7 +13,7 @@ export function Logo({
     <svg
       width={size}
       height={size}
-      viewBox="0 0 1000 1000"
+      viewBox="140 344 720 312"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}

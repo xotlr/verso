@@ -8,7 +8,6 @@ import { SettingsPanel } from '@/components/settings-panel';
 import { CommandPalette } from '@/components/command-palette';
 import { TemplateSelector } from '@/components/template-selector';
 import { NewProjectDialog } from '@/components/project/new-project-dialog';
-import { MoveToProjectDialog } from '@/components/move-to-project-dialog';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -32,10 +31,11 @@ import { ImportResult, ImportDropZoneOverlay, useFileImport } from '@/components
 import { getImportQuipShort } from '@/lib/import-quips';
 
 import { useGreeting } from '@/hooks/use-greeting';
-import { useWorkspaceData, type ProjectItem, type ScreenplayItem } from '@/hooks/use-workspace-data';
+import { useWorkspaceData, type ProjectItem } from '@/hooks/use-workspace-data';
 import { useStackOperations } from '@/hooks/use-stack-operations';
 import { WorkspaceHeader, WorkspaceContentGrid, type TabValue } from '@/components/workspace';
 import { useViewMode } from '@/hooks/use-view-mode';
+import { useScreenplayDataRefresh } from '@/contexts/screenplay-actions-context';
 
 function WorkspacePageContent() {
   const router = useRouter();
@@ -70,6 +70,9 @@ function WorkspacePageContent() {
     loadData,
   });
 
+  // Listen for screenplay data changes from context actions
+  useScreenplayDataRefresh(loadData);
+
   // Contextual greeting via custom hook
   const greeting = useGreeting({
     userName: session?.user?.name,
@@ -91,6 +94,7 @@ function WorkspacePageContent() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
+  const [newScreenplayProjectId, setNewScreenplayProjectId] = useState<string | undefined>(undefined);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newSeriesOpen, setNewSeriesOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -99,7 +103,6 @@ function WorkspacePageContent() {
   } | null>(null);
   const [activeTab, setActiveTab] = useState<TabValue>('screenplays');
   const [showFavorites, setShowFavorites] = useState(false);
-  const [moveTarget, setMoveTarget] = useState<ScreenplayItem | null>(null);
   const [viewMode, setViewMode] = useViewMode('home');
 
   // File import hook for the Import button
@@ -133,7 +136,18 @@ function WorkspacePageContent() {
 
   // Handlers
   const createNewScreenplay = () => {
+    setNewScreenplayProjectId(undefined);
     setTemplateSelectorOpen(true);
+  };
+
+  const createNewScreenplayInProject = (projectId: string) => {
+    setNewScreenplayProjectId(projectId);
+    setTemplateSelectorOpen(true);
+  };
+
+  const closeTemplateSelector = () => {
+    setTemplateSelectorOpen(false);
+    setNewScreenplayProjectId(undefined);
   };
 
   const createNewProject = () => {
@@ -163,52 +177,6 @@ function WorkspacePageContent() {
       console.error('Error deleting:', error);
     } finally {
       setDeleteTarget(null);
-    }
-  };
-
-  const exportScreenplay = (screenplay: ScreenplayItem) => {
-    const blob = new Blob([screenplay.content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${screenplay.title}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const createProjectFromScreenplay = async (screenplay: ScreenplayItem) => {
-    try {
-      const projectResponse = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: screenplay.title,
-          description: screenplay.synopsis || screenplay.logline || null,
-        }),
-      });
-
-      if (!projectResponse.ok) {
-        const data = await projectResponse.json();
-        throw new Error(data.error || 'Failed to create project');
-      }
-
-      const project = await projectResponse.json();
-
-      const moveResponse = await fetch(`/api/screenplays/${screenplay.id}/move`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: project.id }),
-      });
-
-      if (!moveResponse.ok) {
-        throw new Error('Failed to add screenplay to project');
-      }
-
-      toast.success('Project created');
-      router.push(`/project/${project.id}`);
-    } catch (error) {
-      console.error('Error creating project:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create project');
     }
   };
 
@@ -274,7 +242,8 @@ function WorkspacePageContent() {
       <SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <TemplateSelector
         isOpen={templateSelectorOpen}
-        onClose={() => setTemplateSelectorOpen(false)}
+        onClose={closeTemplateSelector}
+        projectId={newScreenplayProjectId}
       />
       <NewProjectDialog
         isOpen={newProjectOpen}
@@ -322,18 +291,6 @@ function WorkspacePageContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Move to Project Dialog */}
-      {moveTarget && (
-        <MoveToProjectDialog
-          open={!!moveTarget}
-          onOpenChange={(open) => !open && setMoveTarget(null)}
-          screenplayId={moveTarget.id}
-          screenplayTitle={moveTarget.title}
-          currentProjectId={moveTarget.project?.id}
-          onSuccess={loadData}
-        />
-      )}
 
       {/* Main Content */}
       <PageLayout>
@@ -420,19 +377,19 @@ function WorkspacePageContent() {
             searchQuery={searchQuery}
             showFavorites={showFavorites}
             viewMode={viewMode}
+            userId={session?.user?.id}
             onDelete={handleDelete}
-            onExport={exportScreenplay}
             onImportComplete={handleImportComplete}
             onCreateScreenplay={createNewScreenplay}
             onCreateProject={createNewProject}
             onCreateSeries={createNewSeries}
-            onMoveToProject={(screenplay) => setMoveTarget(screenplay)}
-            onCreateProjectFromScreenplay={createProjectFromScreenplay}
+            onDataRefresh={loadData}
             onCreateStack={createStackFromDrop}
             onAddToStack={addToStack}
             onDissolveStack={dissolveStack}
             onRenameStack={renameStack}
             onRemoveFromStack={removeFromStack}
+            onNewScreenplayInProject={createNewScreenplayInProject}
           />
         </div>
 

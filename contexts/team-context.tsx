@@ -40,10 +40,8 @@ interface CreateTeamInput {
 
 interface TeamContextType {
   teams: Team[];
-  currentTeam: Team | null;
   isLoading: boolean;
   error: string | null;
-  setCurrentTeam: (team: Team | null) => void;
   refreshTeams: () => Promise<void>;
   createTeam: (input: CreateTeamInput) => Promise<Team | null>;
 }
@@ -52,7 +50,6 @@ const TeamContext = createContext<TeamContextType | undefined>(undefined);
 
 export function TeamProvider({ children }: { children: React.ReactNode }) {
   const [teams, setTeams] = useState<Team[]>([]);
-  const [currentTeam, setCurrentTeam] = useState<Team | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,15 +63,6 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
       }
       const data = await response.json();
       setTeams(data);
-
-      // Restore last selected team from localStorage
-      const savedTeamId = localStorage.getItem("currentTeamId");
-      if (savedTeamId && data.length > 0) {
-        const savedTeam = data.find((t: Team) => t.id === savedTeamId);
-        if (savedTeam) {
-          setCurrentTeam(savedTeam);
-        }
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load teams");
     } finally {
@@ -103,15 +91,6 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const handleSetCurrentTeam = useCallback((team: Team | null) => {
-    setCurrentTeam(team);
-    if (team) {
-      localStorage.setItem("currentTeamId", team.id);
-    } else {
-      localStorage.removeItem("currentTeamId");
-    }
-  }, []);
-
   useEffect(() => {
     refreshTeams();
   }, [refreshTeams]);
@@ -120,10 +99,8 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     <TeamContext.Provider
       value={{
         teams,
-        currentTeam,
         isLoading,
         error,
-        setCurrentTeam: handleSetCurrentTeam,
         refreshTeams,
         createTeam,
       }}

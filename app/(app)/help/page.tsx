@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/collapsible';
 import { KeyboardShortcutsDialog } from '@/components/keyboard-shortcuts';
 import { FormattingGuideDialog } from '@/components/formatting-guide-dialog';
+import { GettingStartedDialog } from '@/components/onboarding/getting-started-dialog';
 import { PageLayout } from '@/components/layouts/page-layout';
 import { toast } from 'sonner';
 
@@ -161,6 +162,7 @@ export default function HelpPage() {
   const [expandedTopics, setExpandedTopics] = useState<string[]>(['writing']);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [formattingOpen, setFormattingOpen] = useState(false);
+  const [gettingStartedOpen, setGettingStartedOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState('bug');
   const [feedbackText, setFeedbackText] = useState('');
   const [includeSystemInfo, setIncludeSystemInfo] = useState(true);
@@ -293,13 +295,15 @@ export default function HelpPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-border/60 opacity-60">
+                <Card
+                  className="cursor-pointer hover:bg-accent/50 transition-colors border-border/60"
+                  onClick={() => setGettingStartedOpen(true)}
+                >
                   <CardContent className="p-4 flex flex-col items-center text-center">
                     <div className="p-2 rounded-lg bg-green-500/10 mb-2">
                       <Rocket className="h-5 w-5 text-green-500" />
                     </div>
                     <span className="text-sm font-medium">Getting Started</span>
-                    <span className="text-xs text-muted-foreground">Coming soon</span>
                   </CardContent>
                 </Card>
 
@@ -457,6 +461,7 @@ export default function HelpPage() {
       {/* Dialogs */}
       <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <FormattingGuideDialog open={formattingOpen} onOpenChange={setFormattingOpen} />
+      <GettingStartedDialog open={gettingStartedOpen} onOpenChange={setGettingStartedOpen} />
     </PageLayout>
   );
 }

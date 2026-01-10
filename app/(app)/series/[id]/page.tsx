@@ -422,7 +422,7 @@ export default function SeriesPage() {
   const totalEpisodes = series.seasons.reduce((sum, s) => sum + s._count.episodes, 0) || series._count.episodes;
 
   return (
-    <div className="flex flex-col h-full">
+    <ScrollArea className="h-full">
       {/* Drag-drop import overlay */}
       <ImportDropZoneOverlay
         enabled={true}
@@ -431,7 +431,7 @@ export default function SeriesPage() {
       />
 
       {/* Banner */}
-      <div className="relative h-48 md:h-56 flex-shrink-0">
+      <div className="relative h-48 md:h-56">
         {series.banner ? (
           <img
             src={series.banner}
@@ -485,9 +485,8 @@ export default function SeriesPage() {
         </div>
       </div>
 
-      {/* Content Wrapper */}
-      <ScrollArea className="flex-1">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Content */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Meta info */}
           <div className="mb-6">
             {/* Logline */}
@@ -603,8 +602,7 @@ export default function SeriesPage() {
               <SeriesResourcesTab seriesId={seriesId} />
             </TabsContent>
           </Tabs>
-        </div>
-      </ScrollArea>
+      </div>
 
       {/* Add Season Dialog */}
       <Dialog open={isAddingSeason} onOpenChange={setIsAddingSeason}>
@@ -867,7 +865,7 @@ export default function SeriesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </ScrollArea>
   );
 }
 

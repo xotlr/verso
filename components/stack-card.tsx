@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Clock, MoreVertical, Edit3, Trash2 } from 'lucide-react';
 import { HiRectangleGroup, HiOutlineRectangleGroup } from 'react-icons/hi2';
-import { cn } from '@/lib/utils';
+import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
 
 export interface StackCardData {
   id: string;
@@ -113,96 +113,82 @@ export function StackCard({ stack, onClick, onEdit, onUngroup, onDelete }: Stack
           cardHeight
         )}
       >
+        {/* Dropdown Menu - positioned absolutely, OUTSIDE the button */}
+        {hasActions && (
+          <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onPointerDown={stopPointerPropagation}
+                  className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {onEdit && (
+                  <DropdownMenuItem onClick={createMenuHandler(onEdit)}>
+                    <Edit3 className="mr-2 h-4 w-4" />
+                    Rename
+                  </DropdownMenuItem>
+                )}
+                {onUngroup && (
+                  <DropdownMenuItem onClick={createMenuHandler(onUngroup)}>
+                    <HiOutlineRectangleGroup className="mr-2 h-4 w-4" />
+                    Ungroup
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={createMenuHandler(onDelete)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
         <button onClick={onClick} className="flex-1 flex flex-col text-left w-full">
           <div className="p-4 sm:p-5 md:p-6 flex flex-col h-full font-mono">
-            {/* Header: Type Badge + Title + Menu */}
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex-1 min-w-0">
-                {/* Type badge */}
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-secondary/80 text-secondary-foreground border border-border/40">
-                    <HiRectangleGroup className="h-2.5 w-2.5" />
-                    STACK
-                  </span>
-                </div>
-
-                {/* Title */}
-                <h3 className="font-bold uppercase tracking-tight line-clamp-1 text-foreground group-hover/stack:text-primary group-hover/stack:underline transition-colors text-base sm:text-lg md:text-xl">
-                  {stack.name}
-                </h3>
-
-                {/* Script count and project info */}
-                <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide flex items-center gap-1.5">
-                  <span className="font-semibold">
-                    {screenplayCount} {screenplayCount === 1 ? 'Script' : 'Scripts'}
-                  </span>
-                  {stack.project && (
-                    <>
-                      <span className="text-muted-foreground/50">·</span>
-                      <span className="truncate">{stack.project.name}</span>
-                    </>
-                  )}
-                </div>
+            {/* Header: Type Badge + Title */}
+            <div className={cn('mb-2', hasActions && 'pr-10 sm:pr-8')}>
+              {/* Type badge */}
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-secondary/80 text-secondary-foreground border border-border/40">
+                  <HiRectangleGroup className="h-2.5 w-2.5" />
+                  STACK
+                </span>
               </div>
 
-              {hasActions && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
-                      aria-label="More options"
-                    >
-                      <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {onEdit && (
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          onEdit();
-                        }}
-                      >
-                        <Edit3 className="mr-2 h-4 w-4" />
-                        Rename
-                      </DropdownMenuItem>
-                    )}
-                    {onUngroup && (
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          onUngroup();
-                        }}
-                      >
-                        <HiOutlineRectangleGroup className="mr-2 h-4 w-4" />
-                        Ungroup
-                      </DropdownMenuItem>
-                    )}
-                    {onDelete && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            onDelete();
-                          }}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+              {/* Title */}
+              <h3 className="font-bold uppercase tracking-tight line-clamp-1 text-foreground group-hover/stack:text-primary group-hover/stack:underline transition-colors text-base sm:text-lg md:text-xl">
+                {stack.name}
+              </h3>
+
+              {/* Script count and project info */}
+              <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide flex items-center gap-1.5">
+                <span className="font-semibold">
+                  {screenplayCount} {screenplayCount === 1 ? 'Script' : 'Scripts'}
+                </span>
+                {stack.project && (
+                  <>
+                    <span className="text-muted-foreground/50">·</span>
+                    <span className="truncate">{stack.project.name}</span>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Preview of contained scripts */}

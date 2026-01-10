@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import useSWR from 'swr';
-import { Download, Upload, RotateCcw, Palette, Type, Keyboard, LogOut, Accessibility, CreditCard, User } from 'lucide-react';
+import { Download, Upload, RotateCcw, Palette, Type, Keyboard, LogOut, Accessibility, CreditCard, User, Users } from 'lucide-react';
 import { useSettings } from '@/contexts/settings-context';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -17,6 +17,7 @@ import { EditorSection } from './EditorSection';
 import { KeyboardSection } from './KeyboardSection';
 import { AccessibilitySection } from './AccessibilitySection';
 import { BillingSection } from './BillingSection';
+import { TeamsSection } from './TeamsSection';
 
 interface SettingsContentProps {
   defaultTab?: string;
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { value: 'accessibility', icon: Accessibility, label: 'Accessibility' },
   { value: 'shortcuts', icon: Keyboard, label: 'Shortcuts' },
   { value: 'billing', icon: CreditCard, label: 'Billing' },
+  { value: 'teams', icon: Users, label: 'Teams' },
 ] as const;
 
 export function SettingsContent({ defaultTab = 'profile', onDone, showDoneButton = false }: SettingsContentProps) {
@@ -346,6 +348,11 @@ export function SettingsContent({ defaultTab = 'profile', onDone, showDoneButton
           <TabsContent value="billing" className="m-0">
             <BillingSection currentPlan={currentPlan} />
           </TabsContent>
+
+          {/* Teams Settings */}
+          <TabsContent value="teams" className="m-0">
+            <TeamsSection />
+          </TabsContent>
         </div>
       </div>
 
@@ -396,3 +403,4 @@ export { EditorSection } from './EditorSection';
 export { AccessibilitySection } from './AccessibilitySection';
 export { KeyboardSection } from './KeyboardSection';
 export { BillingSection } from './BillingSection';
+export { TeamsSection } from './TeamsSection';

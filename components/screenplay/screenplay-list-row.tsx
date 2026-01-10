@@ -2,7 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Star, Clock, Folder, Layers, MoreVertical, Edit3, Download, Trash2 } from 'lucide-react';
+import { Star, Clock, Folder, Layers, MoreVertical, Edit3, Download, Trash2, FolderInput, FolderPlus, Users, Unlink, Pencil, Archive } from 'lucide-react';
+import { HiOutlineRectangleGroup } from 'react-icons/hi2';
 import { PiFilmScript } from 'react-icons/pi';
 import {
   DropdownMenu,
@@ -11,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { cn, createMenuHandler } from '@/lib/utils';
+import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
 import { cardStyles, textStyles, badgeStyles, layoutStyles, skeletonStyles } from '@/lib/ui/styles';
 import type { ScreenplayListCardData } from './screenplay-list-card';
 import type { DisplayScreenplayType } from '@/types/templates';
@@ -59,9 +60,17 @@ interface ScreenplayListRowProps {
   screenplay: ScreenplayListCardData;
   href?: string;
   onEdit?: () => void;
+  onRename?: () => void;
   onExport?: () => void;
   onToggleFavorite?: () => void;
   onDelete?: () => void;
+  onMoveToProject?: () => void;
+  onRemoveFromProject?: () => void;
+  onCreateProject?: () => void;
+  onMoveToTeam?: () => void;
+  onRemoveFromTeam?: () => void;
+  onAddToStack?: () => void;
+  onArchive?: () => void;
   // Keep these for backwards compatibility but they're no longer used
   isHovered?: boolean;
   onHover?: () => void;
@@ -74,15 +83,23 @@ export function ScreenplayListRow({
   screenplay,
   href,
   onEdit,
+  onRename,
   onExport,
   onToggleFavorite,
   onDelete,
+  onMoveToProject,
+  onRemoveFromProject,
+  onCreateProject,
+  onMoveToTeam,
+  onRemoveFromTeam,
+  onAddToStack,
+  onArchive,
 }: ScreenplayListRowProps) {
   const linkHref = href || `/screenplay/${screenplay.id}`;
   const isSeries = screenplay.type === 'TV';
   const displayText = screenplay.logline || screenplay.synopsis;
   const title = isSeries && screenplay.episodeTitle ? screenplay.episodeTitle : screenplay.title;
-  const hasActions = onEdit || onExport || onToggleFavorite || onDelete;
+  const hasActions = onEdit || onRename || onExport || onToggleFavorite || onDelete || onMoveToProject || onRemoveFromProject || onCreateProject || onMoveToTeam || onRemoveFromTeam || onAddToStack || onArchive;
 
   return (
     <div
@@ -144,6 +161,14 @@ export function ScreenplayListRow({
             </span>
           )}
 
+          {/* Team */}
+          {screenplay.team && (
+            <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded border border-primary/30 bg-primary/10 text-primary text-xs">
+              <Users className="h-2.5 w-2.5" />
+              <span className="truncate max-w-[60px]">{screenplay.team.name}</span>
+            </span>
+          )}
+
           {/* Project */}
           {screenplay.project && (
             <span className={cn(badgeStyles.secondary, 'hidden md:inline-flex items-center gap-1')}>
@@ -176,6 +201,14 @@ export function ScreenplayListRow({
           </span>
         )}
 
+        {/* Team */}
+        {screenplay.team && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-primary/30 bg-primary/10 text-primary text-xs">
+            <Users className="h-2.5 w-2.5" />
+            <span className="truncate max-w-[60px]">{screenplay.team.name}</span>
+          </span>
+        )}
+
         {/* Project */}
         {screenplay.project && (
           <span className={cn(badgeStyles.secondary, 'inline-flex items-center gap-1')}>
@@ -205,6 +238,7 @@ export function ScreenplayListRow({
           <DropdownMenuTrigger asChild>
             <button
               onClick={createMenuHandler()}
+              onPointerDown={stopPointerPropagation}
               className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center flex-shrink-0"
               aria-label="More options"
             >
@@ -218,6 +252,12 @@ export function ScreenplayListRow({
                 Edit
               </DropdownMenuItem>
             )}
+            {onRename && (
+              <DropdownMenuItem onClick={createMenuHandler(onRename)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Rename
+              </DropdownMenuItem>
+            )}
             {onToggleFavorite && (
               <DropdownMenuItem onClick={createMenuHandler(onToggleFavorite)}>
                 <Star className={cn("mr-2 h-4 w-4", screenplay.isFavorite && "fill-yellow-500 text-yellow-500")} />
@@ -228,6 +268,48 @@ export function ScreenplayListRow({
               <DropdownMenuItem onClick={createMenuHandler(onExport)}>
                 <Download className="mr-2 h-4 w-4" />
                 Export
+              </DropdownMenuItem>
+            )}
+            {onMoveToProject && (
+              <DropdownMenuItem onClick={createMenuHandler(onMoveToProject)}>
+                <FolderInput className="mr-2 h-4 w-4" />
+                Move to Project
+              </DropdownMenuItem>
+            )}
+            {onRemoveFromProject && (
+              <DropdownMenuItem onClick={createMenuHandler(onRemoveFromProject)}>
+                <Unlink className="mr-2 h-4 w-4" />
+                Remove from Project
+              </DropdownMenuItem>
+            )}
+            {onCreateProject && (
+              <DropdownMenuItem onClick={createMenuHandler(onCreateProject)}>
+                <FolderPlus className="mr-2 h-4 w-4" />
+                Create Project
+              </DropdownMenuItem>
+            )}
+            {onMoveToTeam && (
+              <DropdownMenuItem onClick={createMenuHandler(onMoveToTeam)}>
+                <Users className="mr-2 h-4 w-4" />
+                Move to Team
+              </DropdownMenuItem>
+            )}
+            {onRemoveFromTeam && (
+              <DropdownMenuItem onClick={createMenuHandler(onRemoveFromTeam)}>
+                <Unlink className="mr-2 h-4 w-4" />
+                Remove from Team
+              </DropdownMenuItem>
+            )}
+            {onAddToStack && (
+              <DropdownMenuItem onClick={createMenuHandler(onAddToStack)}>
+                <HiOutlineRectangleGroup className="mr-2 h-4 w-4" />
+                Add to Stack
+              </DropdownMenuItem>
+            )}
+            {onArchive && (
+              <DropdownMenuItem onClick={createMenuHandler(onArchive)}>
+                <Archive className="mr-2 h-4 w-4" />
+                {screenplay.isArchived ? 'Unarchive' : 'Archive'}
               </DropdownMenuItem>
             )}
             {onDelete && (

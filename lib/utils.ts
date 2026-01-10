@@ -18,6 +18,14 @@ export function createMenuHandler(callback?: () => void) {
 }
 
 /**
+ * Stops pointer event propagation to prevent parent drag handlers from capturing.
+ * Use on interactive elements inside draggable containers (e.g., dropdown triggers).
+ */
+export function stopPointerPropagation(e: React.PointerEvent) {
+  e.stopPropagation();
+}
+
+/**
  * Sanitize text for safe SVG/HTML rendering.
  * Prevents XSS attacks by escaping dangerous characters.
  */

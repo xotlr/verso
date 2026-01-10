@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Clock, MoreVertical, FilePlus, FolderInput, Pencil, Settings, Trash2 } from 'lucide-react';
+import { Clock, MoreVertical, FilePlus, FolderInput, Pencil, Settings, Trash2, Users, Unlink, Archive } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { cn, createMenuHandler } from '@/lib/utils';
+import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
 import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient';
 import { cardStyles, textStyles, layoutStyles, skeletonStyles } from '@/lib/ui/styles';
 import type { ProjectFolderCardData } from './project-folder-card';
@@ -43,6 +43,9 @@ interface ProjectListRowProps {
   onAddExistingScreenplay?: () => void;
   onRename?: () => void;
   onSettings?: () => void;
+  onMoveToTeam?: () => void;
+  onRemoveFromTeam?: () => void;
+  onArchive?: () => void;
   onDelete?: () => void;
   // Keep for backwards compatibility but no longer used
   isHovered?: boolean;
@@ -60,11 +63,14 @@ export function ProjectListRow({
   onAddExistingScreenplay,
   onRename,
   onSettings,
+  onMoveToTeam,
+  onRemoveFromTeam,
+  onArchive,
   onDelete,
 }: ProjectListRowProps) {
   const linkHref = href || `/project/${project.id}`;
   const screenplayCount = project._count?.screenplays || project.screenplays?.length || 0;
-  const hasActions = onOpen || onNewScreenplay || onAddExistingScreenplay || onRename || onSettings || onDelete;
+  const hasActions = onOpen || onNewScreenplay || onAddExistingScreenplay || onRename || onSettings || onMoveToTeam || onRemoveFromTeam || onArchive || onDelete;
 
   // Get unique team members with avatars
   const teamMembers = project.roles
@@ -185,6 +191,7 @@ export function ProjectListRow({
           <DropdownMenuTrigger asChild>
             <button
               onClick={createMenuHandler()}
+              onPointerDown={stopPointerPropagation}
               className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center flex-shrink-0"
               aria-label="More options"
             >
@@ -226,6 +233,24 @@ export function ProjectListRow({
               <DropdownMenuItem onClick={createMenuHandler(onSettings)}>
                 <Settings className="mr-2 h-4 w-4" />
                 Project Settings
+              </DropdownMenuItem>
+            )}
+            {onMoveToTeam && (
+              <DropdownMenuItem onClick={createMenuHandler(onMoveToTeam)}>
+                <Users className="mr-2 h-4 w-4" />
+                Move to Team
+              </DropdownMenuItem>
+            )}
+            {onRemoveFromTeam && (
+              <DropdownMenuItem onClick={createMenuHandler(onRemoveFromTeam)}>
+                <Unlink className="mr-2 h-4 w-4" />
+                Remove from Team
+              </DropdownMenuItem>
+            )}
+            {onArchive && (
+              <DropdownMenuItem onClick={createMenuHandler(onArchive)}>
+                <Archive className="mr-2 h-4 w-4" />
+                {project.isArchived ? 'Unarchive' : 'Archive'}
               </DropdownMenuItem>
             )}
             {onDelete && (
