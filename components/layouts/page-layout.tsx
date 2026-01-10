@@ -31,7 +31,7 @@ export function PageLayout({
   const hasHeader = title || description || actions;
 
   return (
-    <ScrollArea className="h-full bg-background">
+    <ScrollArea className="h-full bg-background" fadeEdges="bottom" fadeHeight="3rem">
       <div
         className={cn(
           'mx-auto',

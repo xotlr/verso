@@ -32,7 +32,7 @@ export function PanelContent({
   }
 
   return (
-    <ScrollArea className={cn('flex-1 min-h-0', className)}>
+    <ScrollArea className={cn('flex-1 min-h-0', className)} fadeEdges fadeHeight="1.5rem">
       <div className={padding}>
         {children}
       </div>

@@ -8,29 +8,59 @@ interface ScrollAreaProps extends React.ComponentPropsWithoutRef<typeof ScrollAr
   viewportRef?: React.Ref<HTMLDivElement>;
   /** Additional className for the viewport */
   viewportClassName?: string;
+  /** Add fade effect at edges - true for both, or 'top'/'bottom' for one side */
+  fadeEdges?: boolean | 'top' | 'bottom';
+  /** Height of the fade gradient (default: 2rem) */
+  fadeHeight?: string;
+}
+
+/** Generate CSS mask for fade edges effect */
+function getFadeMaskStyle(
+  fadeEdges: boolean | 'top' | 'bottom' | undefined,
+  fadeHeight: string = '2rem'
+): React.CSSProperties {
+  if (!fadeEdges) return {};
+
+  const fadeTop = fadeEdges === true || fadeEdges === 'top';
+  const fadeBottom = fadeEdges === true || fadeEdges === 'bottom';
+
+  const gradient = `linear-gradient(to bottom, ${fadeTop ? 'transparent' : 'black'} 0%, black ${fadeTop ? fadeHeight : '0'}, black calc(100% - ${fadeBottom ? fadeHeight : '0'}), ${fadeBottom ? 'transparent' : 'black'} 100%)`;
+
+  return {
+    maskImage: gradient,
+    WebkitMaskImage: gradient,
+  };
 }
 
 const ScrollArea = React.forwardRef<
   React.ElementRef<typeof ScrollAreaPrimitive.Root>,
   ScrollAreaProps
->(({ className, children, viewportRef, viewportClassName, ...props }, ref) => (
-  <ScrollAreaPrimitive.Root
-    ref={ref}
-    type="always"
-    scrollHideDelay={0}
-    className={cn("relative overflow-hidden min-h-0", className)}
-    {...props}
-  >
-    <ScrollAreaPrimitive.Viewport
-      ref={viewportRef}
-      className={cn("h-full w-full rounded-[inherit] [&>div]:!block", viewportClassName)}
+>(({ className, children, viewportRef, viewportClassName, fadeEdges, fadeHeight, ...props }, ref) => {
+  const fadeMaskStyle = React.useMemo(
+    () => getFadeMaskStyle(fadeEdges, fadeHeight),
+    [fadeEdges, fadeHeight]
+  );
+
+  return (
+    <ScrollAreaPrimitive.Root
+      ref={ref}
+      type="always"
+      scrollHideDelay={0}
+      className={cn("relative overflow-hidden min-h-0", className)}
+      {...props}
     >
-      {children}
-    </ScrollAreaPrimitive.Viewport>
-    <ScrollBar />
-    <ScrollAreaPrimitive.Corner />
-  </ScrollAreaPrimitive.Root>
-))
+      <ScrollAreaPrimitive.Viewport
+        ref={viewportRef}
+        className={cn("h-full w-full rounded-[inherit] [&>div]:!block", viewportClassName)}
+        style={fadeMaskStyle}
+      >
+        {children}
+      </ScrollAreaPrimitive.Viewport>
+      <ScrollBar />
+      <ScrollAreaPrimitive.Corner />
+    </ScrollAreaPrimitive.Root>
+  );
+})
 ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName
 
 const ScrollBar = React.forwardRef<
