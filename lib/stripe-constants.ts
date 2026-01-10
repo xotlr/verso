@@ -71,8 +71,8 @@ export const STRIPE_PLANS = {
   max: {
     name: "Max",
     description: "Production-ready",
-    monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_MAX_MONTHLY_PRICE_ID || "",
-    yearlyPriceId: process.env.NEXT_PUBLIC_STRIPE_MAX_YEARLY_PRICE_ID || "",
+    monthlyPriceId: process.env.NEXT_PUBLIC_STRIPE_MAX_MONTHLY_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_TEAM_MONTHLY_PRICE_ID || "",
+    yearlyPriceId: process.env.NEXT_PUBLIC_STRIPE_MAX_YEARLY_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_TEAM_YEARLY_PRICE_ID || "",
     monthlyPrice: 99.99,
     yearlyPrice: 899.99,
     yearlyDiscount: "Save $300",

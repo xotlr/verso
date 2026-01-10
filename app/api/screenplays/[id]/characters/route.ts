@@ -1,96 +1,56 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
-import { z } from "zod"
 
-// GET /api/screenplays/[id]/characters - Get character roles for a screenplay
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+const updateRolesSchema = z.object({
+  roles: z.record(z.string(), z.string()),
+})
 
-    const { id } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
+
+    const access = await checkScreenplayAccess(id, user.id)
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
-    // Fetch all character metadata for this screenplay
     const characterMetas = await prisma.characterMeta.findMany({
       where: { screenplayId: id },
     })
 
-    // Convert to a roles map { characterName: role }
     const roles: Record<string, string> = {}
     for (const meta of characterMetas) {
       roles[meta.characterName] = meta.role
     }
 
-    return NextResponse.json({ roles })
-  } catch (error) {
-    console.error("Error fetching character roles:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch character roles" },
-      { status: 500 }
-    )
-  }
-}
-
-// Schema for updating character roles
-const updateRolesSchema = z.object({
-  roles: z.record(z.string(), z.string()),
+    return { roles }
+  },
 })
 
-// PUT /api/screenplays/[id]/characters - Update character roles
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const PUT = createApiHandler({
+  auth: "required",
+  schema: updateRolesSchema,
+  handler: async ({ user, params, data }) => {
+    const { id } = params
 
-    const { id } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
+    const access = await checkScreenplayAccess(id, user.id)
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
-    const body = await request.json()
-    const result = updateRolesSchema.safeParse(body)
+    const { roles } = data
 
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
-    }
-
-    const { roles } = result.data
-
-    // Upsert each character role
     const operations = Object.entries(roles).map(([characterName, role]) =>
       prisma.characterMeta.upsert({
         where: {
@@ -110,12 +70,6 @@ export async function PUT(
 
     await prisma.$transaction(operations)
 
-    return NextResponse.json({ success: true, roles })
-  } catch (error) {
-    console.error("Error updating character roles:", error)
-    return NextResponse.json(
-      { error: "Failed to update character roles" },
-      { status: 500 }
-    )
-  }
-}
+    return { success: true, roles }
+  },
+})

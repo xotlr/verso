@@ -11,6 +11,7 @@ import {
   User,
   Users,
   Mail,
+  Crown,
 } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,6 +28,16 @@ import { Badge } from "@/components/ui/badge";
 import { PendingInvitesDialog } from "@/components/pending-invites-dialog";
 import { UpgradeDialog } from "@/components/upgrade-dialog";
 import { usePendingInvites } from "@/hooks/use-pending-invites";
+import type { PlanType } from "@/lib/stripe";
+
+// Plan display order for upgrade suggestions
+const PLAN_ORDER: PlanType[] = ['FREE', 'PLUS', 'PRO', 'MAX'];
+
+function getNextPlan(currentPlan: PlanType): PlanType | null {
+  const currentIndex = PLAN_ORDER.indexOf(currentPlan);
+  if (currentIndex === -1 || currentIndex >= PLAN_ORDER.length - 1) return null;
+  return PLAN_ORDER[currentIndex + 1];
+}
 
 interface UserAvatarMenuProps {
   className?: string;
@@ -35,6 +46,11 @@ interface UserAvatarMenuProps {
 export function UserAvatarMenu({ className }: UserAvatarMenuProps) {
   const { data: session } = useSession();
   const user = session?.user;
+
+  // Current plan
+  const currentPlan = (user?.plan as PlanType) || 'FREE';
+  const nextPlan = getNextPlan(currentPlan);
+  const isPaidPlan = currentPlan !== 'FREE';
 
   // Pending invites
   const { count: inviteCount } = usePendingInvites();
@@ -92,7 +108,14 @@ export function UserAvatarMenu({ className }: UserAvatarMenuProps) {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm truncate">{user.name || "User"}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="font-semibold text-sm truncate">{user.name || "User"}</p>
+                  {isPaidPlan && (
+                    <Badge variant="secondary" className="h-4 px-1 text-[10px] font-medium shrink-0">
+                      {currentPlan}
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               </div>
             </div>
@@ -120,10 +143,12 @@ export function UserAvatarMenu({ className }: UserAvatarMenuProps) {
                 </Badge>
               )}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setUpgradeOpen(true)} className="cursor-pointer">
-              <Sparkles className="mr-2 h-4 w-4" />
-              Upgrade to Pro
-            </DropdownMenuItem>
+            {nextPlan && (
+              <DropdownMenuItem onClick={() => setUpgradeOpen(true)} className="cursor-pointer">
+                <Sparkles className="mr-2 h-4 w-4" />
+                Upgrade to {nextPlan.charAt(0) + nextPlan.slice(1).toLowerCase()}
+              </DropdownMenuItem>
+            )}
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>

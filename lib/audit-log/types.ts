@@ -1,5 +1,6 @@
-import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+/**
+ * Audit log types and constants - safe for client-side imports
+ */
 
 // Team audit action types
 export type TeamAuditAction =
@@ -18,41 +19,6 @@ export type TeamAuditAction =
 
 // Target types for audit logs
 export type AuditTargetType = "member" | "invite" | "settings" | "billing";
-
-export interface LogTeamActionParams {
-  teamId: string;
-  actorId: string;
-  action: TeamAuditAction;
-  targetType?: AuditTargetType;
-  targetId?: string;
-  metadata?: Record<string, unknown>;
-  ipAddress?: string;
-}
-
-/**
- * Log a team action for audit purposes.
- * This is fire-and-forget - errors are logged but don't throw.
- */
-export async function logTeamAction(params: LogTeamActionParams): Promise<void> {
-  const { teamId, actorId, action, targetType, targetId, metadata, ipAddress } = params;
-
-  try {
-    await prisma.teamAuditLog.create({
-      data: {
-        teamId,
-        actorId,
-        action,
-        targetType,
-        targetId,
-        metadata: metadata as Prisma.InputJsonValue ?? Prisma.JsonNull,
-        ipAddress,
-      },
-    });
-  } catch (error) {
-    // Log error but don't throw - audit logging shouldn't break the main operation
-    console.error("Failed to create audit log:", error);
-  }
-}
 
 /**
  * Human-readable labels for audit actions.

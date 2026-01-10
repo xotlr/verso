@@ -51,6 +51,7 @@ import { KeyboardShortcutsDialog } from "@/components/keyboard-shortcuts";
 import { FormattingGuideDialog } from "@/components/formatting-guide-dialog";
 import { TemplateSelector } from "@/components/template-selector";
 import { NewProjectDialog } from "@/components/project/new-project-dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface AppSidebarProps {
   screenplayId?: string;
@@ -398,9 +399,12 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
         )}
       </SidebarContent>
 
-      {/* Footer - Settings */}
+      {/* Footer - Theme Toggle & Settings */}
       <SidebarFooter className="px-2 py-2">
         <SidebarMenu className="px-0">
+          <SidebarMenuItem>
+            <ThemeToggle />
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild

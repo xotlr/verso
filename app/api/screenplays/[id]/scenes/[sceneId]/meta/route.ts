@@ -1,31 +1,27 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
-import { z } from "zod"
 
-// GET /api/screenplays/[id]/scenes/[sceneId]/meta - Get scene metadata
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string; sceneId: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+const sceneMetaSchema = z.object({
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
+  notes: z.string().nullable().optional(),
+  mood: z.string().nullable().optional(),
+  act: z.string().nullable().optional(),
+})
 
-    const { id, sceneId } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id, sceneId } = params
+
+    const access = await checkScreenplayAccess(id, user.id)
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
     const sceneMeta = await prisma.sceneMeta.findUnique({
@@ -37,60 +33,26 @@ export async function GET(
       },
     })
 
-    // Return empty object if no metadata exists yet
-    return NextResponse.json(sceneMeta || { sceneId, color: null, notes: null, mood: null, act: null })
-  } catch (error) {
-    console.error("Error fetching scene meta:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch scene metadata" },
-      { status: 500 }
-    )
-  }
-}
-
-// Validation schema for scene metadata
-const sceneMetaSchema = z.object({
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullable().optional(),
-  notes: z.string().nullable().optional(),
-  mood: z.string().nullable().optional(),
-  act: z.string().nullable().optional(), // Dynamic act ID (any string)
+    return sceneMeta || { sceneId, color: null, notes: null, mood: null, act: null }
+  },
 })
 
-// PUT /api/screenplays/[id]/scenes/[sceneId]/meta - Update scene metadata
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string; sceneId: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const PUT = createApiHandler({
+  auth: "required",
+  schema: sceneMetaSchema,
+  handler: async ({ user, params, data }) => {
+    const { id, sceneId } = params
 
-    const { id, sceneId } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
+    const access = await checkScreenplayAccess(id, user.id)
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
-    const body = await request.json()
-    const result = sceneMetaSchema.safeParse(body)
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
-    }
-
-    const { color, notes, mood, act } = result.data
+    const { color, notes, mood, act } = data
 
     const sceneMeta = await prisma.sceneMeta.upsert({
       where: {
@@ -115,12 +77,6 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json(sceneMeta)
-  } catch (error) {
-    console.error("Error updating scene meta:", error)
-    return NextResponse.json(
-      { error: "Failed to update scene metadata" },
-      { status: 500 }
-    )
-  }
-}
+    return sceneMeta
+  },
+})

@@ -12,6 +12,8 @@ function SettingsPageContent() {
   const [mounted, setMounted] = useState(false);
 
   // Prevent hydration mismatch from Radix UI ID generation
+  // This is a standard Next.js pattern for client-only rendering
+   
   useEffect(() => {
     setMounted(true);
   }, []);

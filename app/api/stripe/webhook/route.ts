@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { Plan } from "@prisma/client"
 import Stripe from "stripe"
 import { updateTeamSubscription, cancelTeamSubscription } from "@/lib/stripe-helpers"
+import { logger } from "@/lib/logger"
 
 export const dynamic = "force-dynamic"
 
@@ -43,13 +44,13 @@ export async function POST(request: Request) {
     const signature = headersList.get("stripe-signature")
 
     if (!signature) {
-      console.warn("Webhook received without signature")
+      logger.warn("Webhook received without signature")
       return NextResponse.json({ error: "No signature" }, { status: 400 })
     }
 
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
     if (!webhookSecret) {
-      console.error("STRIPE_WEBHOOK_SECRET is not configured")
+      logger.error("STRIPE_WEBHOOK_SECRET is not configured")
       return NextResponse.json(
         { error: "Webhook secret not configured" },
         { status: 500 }
@@ -61,17 +62,17 @@ export async function POST(request: Request) {
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
     } catch (err) {
-      console.error("Webhook signature verification failed:", err)
+      logger.error("Webhook signature verification failed", err instanceof Error ? err : undefined)
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
     }
 
     // Check for duplicate event processing (database-backed idempotency)
     if (await isEventProcessed(event.id)) {
-      console.log(`Webhook event already processed, skipping: ${event.id}`)
+      logger.info("Webhook event already processed, skipping", { eventId: event.id })
       return NextResponse.json({ received: true, duplicate: true })
     }
 
-    console.log(`Processing webhook event: ${event.type} (${event.id})`)
+    logger.info("Processing webhook event", { eventType: event.type, eventId: event.id })
 
     // Process event based on type
     try {
@@ -118,20 +119,26 @@ export async function POST(request: Request) {
           break
         }
         default:
-          console.log(`Unhandled webhook event type: ${event.type}`)
+          logger.debug("Unhandled webhook event type", { eventType: event.type })
       }
 
       // Mark as processed in database
       await markEventProcessed(event.id, event.type)
 
       const processingTime = Date.now() - startTime
-      console.log(
-        `Webhook processed successfully in ${processingTime}ms: ${event.type}`
-      )
+      logger.info("Webhook processed successfully", {
+        eventType: event.type,
+        eventId: event.id,
+        processingTimeMs: processingTime,
+      })
 
       return NextResponse.json({ received: true, eventId: event.id })
     } catch (handlerError) {
-      console.error(`Error processing webhook event ${event.type}:`, handlerError)
+      logger.error(
+        "Error processing webhook event",
+        handlerError instanceof Error ? handlerError : undefined,
+        { eventType: event.type, eventId: event.id }
+      )
       // Return 500 to tell Stripe to retry
       return NextResponse.json(
         {
@@ -143,7 +150,7 @@ export async function POST(request: Request) {
       )
     }
   } catch (error) {
-    console.error("Webhook processing failed:", error)
+    logger.error("Webhook processing failed", error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: "Webhook processing failed" },
       { status: 500 }
@@ -166,7 +173,7 @@ async function handleCheckoutCompleted(
       : session.customer?.toString()
 
   if (!userId) {
-    console.warn("Checkout session completed without userId in metadata", {
+    logger.warn("Checkout session completed without userId in metadata", {
       sessionId: session.id,
     })
     return
@@ -179,15 +186,14 @@ async function handleCheckoutCompleted(
       : session.subscription?.toString()
 
   if (!subscriptionId) {
-    console.warn("No subscription ID in checkout session", {
+    logger.warn("No subscription ID in checkout session", {
       sessionId: session.id,
     })
     return
   }
 
   // Fetch subscription details
-  const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId)
-  const subscription = subscriptionResponse as unknown as Stripe.Subscription & { current_period_end: number }
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
   const plan = (planName && VALID_PLANS.includes(planName.toUpperCase() as Plan))
     ? (planName.toUpperCase() as Plan)
     : "PRO"
@@ -200,11 +206,11 @@ async function handleCheckoutCompleted(
       stripeCustomerId: customerId || undefined,
       stripeSubscriptionId: subscription.id,
       stripePriceId: subscription.items.data[0]?.price?.id || null,
-      stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      stripeCurrentPeriodEnd: getStripeDate(subscription.current_period_end),
     },
   })
 
-  console.log("Subscription activated from checkout", {
+  logger.info("Subscription activated from checkout", {
     userId,
     plan,
     subscriptionId,
@@ -212,11 +218,20 @@ async function handleCheckoutCompleted(
 }
 
 /**
+ * Safely convert Stripe timestamp to Date
+ */
+function getStripeDate(timestamp: number | undefined | null): Date {
+  if (timestamp && typeof timestamp === 'number' && !isNaN(timestamp)) {
+    return new Date(timestamp * 1000)
+  }
+  // Default to 14 days from now for trials
+  return new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+}
+
+/**
  * Handle subscription updates
  */
-async function handleSubscriptionUpdate(subscriptionData: Stripe.Subscription) {
-  // Cast to access properties that may not be in the type definitions
-  const subscription = subscriptionData as Stripe.Subscription & { current_period_end: number }
+async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
   const userId = subscription.metadata?.userId
   const planName = subscription.metadata?.plan
 
@@ -229,7 +244,7 @@ async function handleSubscriptionUpdate(subscriptionData: Stripe.Subscription) {
     })
 
     if (!user) {
-      console.warn("Subscription update: cannot find user", {
+      logger.warn("Subscription update: cannot find user", {
         customerId,
         subscriptionId: subscription.id,
       })
@@ -250,13 +265,11 @@ async function handleSubscriptionUpdate(subscriptionData: Stripe.Subscription) {
         plan,
         stripeSubscriptionId: subscription.id,
         stripePriceId: subscription.items.data[0]?.price?.id || null,
-        stripeCurrentPeriodEnd: new Date(
-          subscription.current_period_end * 1000
-        ),
+        stripeCurrentPeriodEnd: getStripeDate(subscription.current_period_end),
       },
     })
 
-    console.log("Subscription updated (by customer ID)", {
+    logger.info("Subscription updated (by customer ID)", {
       userId: user.id,
       plan,
       status: subscription.status,
@@ -278,11 +291,11 @@ async function handleSubscriptionUpdate(subscriptionData: Stripe.Subscription) {
       plan,
       stripeSubscriptionId: subscription.id,
       stripePriceId: subscription.items.data[0]?.price?.id || null,
-      stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      stripeCurrentPeriodEnd: getStripeDate(subscription.current_period_end),
     },
   })
 
-  console.log("Subscription updated", {
+  logger.info("Subscription updated", {
     userId,
     plan,
     status: subscription.status,
@@ -308,7 +321,7 @@ async function handleSubscriptionCancellation(
         stripeCurrentPeriodEnd: null,
       },
     })
-    console.log("Subscription canceled", { userId })
+    logger.info("Subscription canceled", { userId })
   } else {
     // Update by customer ID
     await prisma.user.updateMany({
@@ -320,7 +333,7 @@ async function handleSubscriptionCancellation(
         stripeCurrentPeriodEnd: null,
       },
     })
-    console.log("Subscription canceled (by customer ID)", { customerId })
+    logger.info("Subscription canceled (by customer ID)", { customerId })
   }
 }
 
@@ -365,7 +378,7 @@ async function handlePaymentSucceeded(invoiceData: Stripe.Invoice) {
       },
     })
 
-    console.log("Subscription reactivated after payment", {
+    logger.info("Subscription reactivated after payment", {
       userId: user.id,
       plan,
     })
@@ -379,7 +392,7 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
   const customerId = invoice.customer as string
 
   // Log the failure - could add email notification here
-  console.warn("Payment failed", {
+  logger.warn("Payment failed", {
     customerId,
     invoiceId: invoice.id,
     attemptCount: invoice.attempt_count,
@@ -407,7 +420,7 @@ async function handleTeamCheckoutCompleted(
       : session.customer?.toString()
 
   if (!teamId) {
-    console.warn("Team checkout session completed without teamId in metadata", {
+    logger.warn("Team checkout session completed without teamId in metadata", {
       sessionId: session.id,
     })
     return
@@ -420,15 +433,14 @@ async function handleTeamCheckoutCompleted(
       : session.subscription?.toString()
 
   if (!subscriptionId) {
-    console.warn("No subscription ID in team checkout session", {
+    logger.warn("No subscription ID in team checkout session", {
       sessionId: session.id,
     })
     return
   }
 
   // Fetch subscription details
-  const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId)
-  const subscription = subscriptionResponse as unknown as Stripe.Subscription & { current_period_end: number }
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 
   // Determine maxSeats based on price/product (can be configured in Stripe product metadata)
   // Default: Team plan = 10 seats
@@ -441,12 +453,12 @@ async function handleTeamCheckoutCompleted(
       stripeCustomerId: customerId || undefined,
       stripeSubscriptionId: subscription.id,
       stripePriceId: subscription.items.data[0]?.price?.id || null,
-      stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      stripeCurrentPeriodEnd: getStripeDate(subscription.current_period_end),
       maxSeats,
     },
   })
 
-  console.log("Team subscription activated from checkout", {
+  logger.info("Team subscription activated from checkout", {
     teamId,
     subscriptionId,
     maxSeats,
@@ -469,7 +481,7 @@ async function handleTeamSubscriptionUpdate(subscriptionData: Stripe.Subscriptio
     })
 
     if (!team) {
-      console.warn("Team subscription update: cannot find team", {
+      logger.warn("Team subscription update: cannot find team", {
         customerId,
         subscriptionId: subscription.id,
       })
@@ -490,7 +502,7 @@ async function handleTeamSubscriptionUpdate(subscriptionData: Stripe.Subscriptio
       maxSeats
     )
 
-    console.log("Team subscription updated (by customer ID)", {
+    logger.info("Team subscription updated (by customer ID)", {
       teamId: team.id,
       status: subscription.status,
       maxSeats,
@@ -512,7 +524,7 @@ async function handleTeamSubscriptionUpdate(subscriptionData: Stripe.Subscriptio
     maxSeats
   )
 
-  console.log("Team subscription updated", {
+  logger.info("Team subscription updated", {
     teamId,
     status: subscription.status,
     maxSeats,
@@ -530,7 +542,7 @@ async function handleTeamSubscriptionCancellation(
 
   if (teamId) {
     await cancelTeamSubscription(teamId)
-    console.log("Team subscription canceled", { teamId })
+    logger.info("Team subscription canceled", { teamId })
   } else {
     // Cancel by customer ID
     const team = await prisma.team.findFirst({
@@ -540,7 +552,7 @@ async function handleTeamSubscriptionCancellation(
 
     if (team) {
       await cancelTeamSubscription(team.id)
-      console.log("Team subscription canceled (by customer ID)", { teamId: team.id })
+      logger.info("Team subscription canceled (by customer ID)", { teamId: team.id })
     }
   }
 }

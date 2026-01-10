@@ -1,62 +1,32 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { getTeamBillingStatus } from "@/lib/stripe-helpers";
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
+import { getTeamBillingStatus } from "@/lib/stripe-helpers"
 
-// GET /api/teams/[id]/billing/status - Get team billing status
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    const { id } = await params;
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // Check if user is a member (any member can view billing status)
     const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId: id,
-          userId: session.user.id,
-        },
-      },
-    });
+      where: { teamId_userId: { teamId: id, userId: user.id } },
+    })
 
     const team = await prisma.team.findUnique({
       where: { id },
       select: { ownerId: true },
-    });
+    })
 
     if (!team) {
-      return NextResponse.json(
-        { error: "Team not found" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Team")
     }
 
-    const isMember = membership || team.ownerId === session.user.id;
+    const isMember = membership || team.ownerId === user.id
     if (!isMember) {
-      return NextResponse.json(
-        { error: "Access denied" },
-        { status: 403 }
-      );
+      throw new ForbiddenError("Access denied")
     }
 
-    const billingStatus = await getTeamBillingStatus(id);
+    const billingStatus = await getTeamBillingStatus(id)
 
-    return NextResponse.json(billingStatus);
-  } catch (error) {
-    console.error("Error fetching billing status:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch billing status" },
-      { status: 500 }
-    );
-  }
-}
+    return billingStatus
+  },
+})

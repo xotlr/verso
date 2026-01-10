@@ -97,7 +97,7 @@ export function VersoAnalysis({ isOpen, screenplay, onClose }: VersoAnalysisProp
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] p-0 gap-0 overflow-hidden">
         <DialogHeader className="border-b border-border px-6 py-4">
-          <DialogTitle className="text-xl">Verso AI Analysis</DialogTitle>
+          <DialogTitle className="text-xl">Script Check</DialogTitle>
         </DialogHeader>
 
         {/* Content */}
@@ -229,7 +229,7 @@ export function VersoAnalysis({ isOpen, screenplay, onClose }: VersoAnalysisProp
         {analysis && (
           <div className="border-t border-border px-6 py-4 flex items-center justify-between bg-muted/30">
             <p className="text-sm text-muted-foreground">
-              Analysis powered by Verso AI
+              Powered by Verso
             </p>
             <Button
               variant="outline"

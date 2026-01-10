@@ -131,7 +131,7 @@ const fetcher = async (url: string): Promise<WorkspaceData> => {
  */
 export function useWorkspaceData(): UseWorkspaceDataReturn {
   // SWR for data fetching with caching
-  const { data, error, isLoading: swrLoading, mutate } = useSWR<WorkspaceData>(
+  const { data, isLoading: swrLoading, mutate } = useSWR<WorkspaceData>(
     '/api/workspace-data',
     fetcher,
     {

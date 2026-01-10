@@ -83,7 +83,7 @@ function parseSceneHeadingText(text: string): { type: string; location: string; 
   // Normalize EXT/INT to INT/EXT
   if (type === 'EXT/INT') type = 'INT/EXT';
 
-  let remainder = text.slice(prefixMatch[0].length);
+  const remainder = text.slice(prefixMatch[0].length);
 
   // Remove parenthetical content (flashbacks, etc.) for time detection
   const withoutParens = remainder.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
@@ -101,7 +101,7 @@ function parseSceneHeadingText(text: string): { type: string; location: string; 
   // Extract location - everything before the time segment
   // Split by " - " and find where the time starts
   const segments = remainder.split(/\s+-\s+/);
-  let locationSegments: string[] = [];
+  const locationSegments: string[] = [];
 
   for (const segment of segments) {
     // Check if this segment contains a time pattern or day number like "DAY 4"

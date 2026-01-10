@@ -1,10 +1,9 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { NextResponse } from "next/server"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { generateCallsheetHTML, generateCallsheetText } from "@/lib/export/callsheet"
 import { CallsheetData } from "@/types/callsheet"
 
-// Helper to check callsheet access
 async function checkCallsheetAccess(callsheetId: string, userId: string) {
   const callsheet = await prisma.callsheet.findUnique({
     where: { id: callsheetId },
@@ -12,11 +11,7 @@ async function checkCallsheetAccess(callsheetId: string, userId: string) {
       project: {
         include: {
           team: {
-            include: {
-              members: {
-                where: { userId },
-              },
-            },
+            include: { members: { where: { userId } } },
           },
         },
       },
@@ -24,67 +19,48 @@ async function checkCallsheetAccess(callsheetId: string, userId: string) {
   })
 
   if (!callsheet) {
-    return { allowed: false, error: "Callsheet not found", status: 404 }
+    return { allowed: false, notFound: true, callsheet: null }
   }
 
   if (callsheet.userId === userId) {
-    return { allowed: true, callsheet }
+    return { allowed: true, notFound: false, callsheet }
   }
 
   if (callsheet.project?.team && callsheet.project.team.members.length > 0) {
-    return { allowed: true, callsheet }
+    return { allowed: true, notFound: false, callsheet }
   }
 
-  return { allowed: false, error: "Access denied", status: 403 }
+  return { allowed: false, notFound: false, callsheet: null }
 }
 
-// GET /api/callsheets/[id]/export?format=html|txt|pdf
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params, searchParams }) => {
+    const { id } = params
 
-    const { id } = await params
-    const access = await checkCallsheetAccess(id, session.user.id)
+    const access = await checkCallsheetAccess(id, user.id)
+
+    if (access.notFound) {
+      throw new NotFoundError("Callsheet")
+    }
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      throw new ForbiddenError("Access denied")
     }
 
-    const { searchParams } = new URL(request.url)
     const format = searchParams.get("format") || "html"
 
     const callsheet = await prisma.callsheet.findUnique({
       where: { id },
       include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        project: { select: { id: true, name: true } },
       },
     })
 
     if (!callsheet) {
-      return NextResponse.json(
-        { error: "Callsheet not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Callsheet")
     }
 
-    // Prepare callsheet data for export
     const callsheetForExport = {
       ...callsheet,
       data: callsheet.data as CallsheetData | null,
@@ -96,19 +72,17 @@ export async function GET(
         return new NextResponse(textContent, {
           headers: {
             "Content-Type": "text/plain; charset=utf-8",
-            "Content-Disposition": `attachment; filename="${callsheet.title.replace(/[^a-zA-Z0-9]/g, '_')}_callsheet.txt"`,
+            "Content-Disposition": `attachment; filename="${callsheet.title.replace(/[^a-zA-Z0-9]/g, "_")}_callsheet.txt"`,
           },
         })
       }
 
       case "pdf": {
-        // For PDF, we return HTML that can be printed/saved as PDF client-side
-        // or used with a PDF generation service
         const htmlContent = generateCallsheetHTML(callsheetForExport, true)
         return new NextResponse(htmlContent, {
           headers: {
             "Content-Type": "text/html; charset=utf-8",
-            "Content-Disposition": `inline; filename="${callsheet.title.replace(/[^a-zA-Z0-9]/g, '_')}_callsheet.html"`,
+            "Content-Disposition": `inline; filename="${callsheet.title.replace(/[^a-zA-Z0-9]/g, "_")}_callsheet.html"`,
           },
         })
       }
@@ -119,16 +93,10 @@ export async function GET(
         return new NextResponse(htmlContent, {
           headers: {
             "Content-Type": "text/html; charset=utf-8",
-            "Content-Disposition": `inline; filename="${callsheet.title.replace(/[^a-zA-Z0-9]/g, '_')}_callsheet.html"`,
+            "Content-Disposition": `inline; filename="${callsheet.title.replace(/[^a-zA-Z0-9]/g, "_")}_callsheet.html"`,
           },
         })
       }
     }
-  } catch (error) {
-    console.error("Error exporting callsheet:", error)
-    return NextResponse.json(
-      { error: "Failed to export callsheet" },
-      { status: 500 }
-    )
-  }
-}
+  },
+})

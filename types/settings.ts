@@ -194,6 +194,8 @@ export interface EditorSettings {
   yjsCollaboration: boolean; // Enable Yjs CRDT real-time collaboration
   readingMode: boolean; // Reading mode - read-only with minimal UI
   showBeginnerTips: boolean; // Show contextual tips for screenwriting beginners
+  spellcheck: boolean; // Browser spellcheck (red underlines)
+  autoCapitalize: boolean; // Auto-capitalize character names and scene headings
 }
 
 export interface InterfaceSettings {
@@ -360,6 +362,8 @@ export const defaultSettings: AppSettings = {
     yjsCollaboration: false, // Yjs CRDT collaboration disabled by default
     readingMode: false, // Reading mode - read-only with minimal UI
     showBeginnerTips: false, // Beginner tips disabled by default
+    spellcheck: true, // Browser spellcheck enabled by default
+    autoCapitalize: true, // Auto-capitalize screenplay elements enabled by default
   },
   interface: {
     showStatsBar: true,

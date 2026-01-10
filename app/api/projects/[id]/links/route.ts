@@ -1,23 +1,13 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { createApiHandler, NotFoundError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 
-interface RouteParams {
-  params: Promise<{ id: string }>
-}
-
-// Helper to check project access
 async function hasProjectAccess(projectId: string, userId: string): Promise<boolean> {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
       team: {
-        include: {
-          members: {
-            where: { userId },
-          },
-        },
+        include: { members: { where: { userId } } },
       },
     },
   })
@@ -29,43 +19,6 @@ async function hasProjectAccess(projectId: string, userId: string): Promise<bool
   return false
 }
 
-// GET /api/projects/[id]/links - List all external links for a project
-export async function GET(request: Request, { params }: RouteParams) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
-    const { id: projectId } = await params
-
-    const hasAccess = await hasProjectAccess(projectId, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      )
-    }
-
-    const links = await prisma.externalLink.findMany({
-      where: { projectId },
-      orderBy: { createdAt: "desc" },
-    })
-
-    return NextResponse.json(links)
-  } catch (error) {
-    console.error("Error fetching links:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch links" },
-      { status: 500 }
-    )
-  }
-}
-
-// Validation schema for creating a link
 const createLinkSchema = z.object({
   url: z.string().url("Invalid URL"),
   title: z.string().optional().nullable(),
@@ -74,7 +27,6 @@ const createLinkSchema = z.object({
   image: z.string().optional().nullable(),
   siteName: z.string().optional().nullable(),
   category: z.string().optional().nullable(),
-  // Enhanced embed fields
   embedType: z.string().optional().nullable(),
   embedId: z.string().optional().nullable(),
   embedUrl: z.string().optional().nullable(),
@@ -83,50 +35,44 @@ const createLinkSchema = z.object({
   notes: z.string().optional().nullable(),
 })
 
-// POST /api/projects/[id]/links - Create a new external link
-export async function POST(request: Request, { params }: RouteParams) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id: projectId } = params
 
-    const { id: projectId } = await params
-    const body = await request.json()
-    const result = createLinkSchema.safeParse(body)
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
-    }
-
-    const hasAccess = await hasProjectAccess(projectId, session.user.id)
+    const hasAccess = await hasProjectAccess(projectId, user.id)
     if (!hasAccess) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Project")
+    }
+
+    const links = await prisma.externalLink.findMany({
+      where: { projectId },
+      orderBy: { createdAt: "desc" },
+    })
+
+    return links
+  },
+})
+
+export const POST = createApiHandler({
+  auth: "required",
+  schema: createLinkSchema,
+  handler: async ({ user, params, data }) => {
+    const { id: projectId } = params
+
+    const hasAccess = await hasProjectAccess(projectId, user.id)
+    if (!hasAccess) {
+      throw new NotFoundError("Project")
     }
 
     const link = await prisma.externalLink.create({
       data: {
-        ...result.data,
-        userId: session.user.id,
+        ...data,
+        userId: user.id,
         projectId,
       },
     })
 
-    return NextResponse.json(link, { status: 201 })
-  } catch (error) {
-    console.error("Error creating link:", error)
-    return NextResponse.json(
-      { error: "Failed to create link" },
-      { status: 500 }
-    )
-  }
-}
+    return link
+  },
+})

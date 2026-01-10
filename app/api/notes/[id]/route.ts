@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 
-// Helper to check note access
 async function checkNoteAccess(noteId: string, userId: string) {
   const note = await prisma.note.findUnique({
     where: { id: noteId },
@@ -12,9 +10,7 @@ async function checkNoteAccess(noteId: string, userId: string) {
         include: {
           team: {
             include: {
-              members: {
-                where: { userId },
-              },
+              members: { where: { userId } },
             },
           },
         },
@@ -23,52 +19,18 @@ async function checkNoteAccess(noteId: string, userId: string) {
   })
 
   if (!note) {
-    return { allowed: false, error: "Note not found", status: 404 }
+    return { allowed: false, note: null, reason: "not_found" as const }
   }
 
   if (note.userId === userId) {
-    return { allowed: true, note }
+    return { allowed: true, note, reason: null }
   }
 
   if (note.project?.team && note.project.team.members.length > 0) {
-    return { allowed: true, note }
+    return { allowed: true, note, reason: null }
   }
 
-  return { allowed: false, error: "Access denied", status: 403 }
-}
-
-// GET /api/notes/[id]
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
-    const { id } = await params
-    const access = await checkNoteAccess(id, session.user.id)
-
-    if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
-    }
-
-    return NextResponse.json(access.note)
-  } catch (error) {
-    console.error("Error fetching note:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch note" },
-      { status: 500 }
-    )
-  }
+  return { allowed: false, note: null, reason: "forbidden" as const }
 }
 
 const updateNoteSchema = z.object({
@@ -77,89 +39,55 @@ const updateNoteSchema = z.object({
   category: z.string().optional().nullable(),
 })
 
-// PUT /api/notes/[id]
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
-    const { id } = await params
-    const access = await checkNoteAccess(id, session.user.id)
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
+    const access = await checkNoteAccess(id, user.id)
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.reason === "not_found") throw new NotFoundError("Note")
+      throw new ForbiddenError()
     }
 
-    const body = await request.json()
-    const result = updateNoteSchema.safeParse(body)
+    return access.note
+  },
+})
 
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
+export const PUT = createApiHandler({
+  auth: "required",
+  schema: updateNoteSchema,
+  handler: async ({ user, params, data }) => {
+    const { id } = params
+    const access = await checkNoteAccess(id, user.id)
+
+    if (!access.allowed) {
+      if (access.reason === "not_found") throw new NotFoundError("Note")
+      throw new ForbiddenError()
     }
 
     const note = await prisma.note.update({
       where: { id },
-      data: result.data,
+      data,
     })
 
-    return NextResponse.json(note)
-  } catch (error) {
-    console.error("Error updating note:", error)
-    return NextResponse.json(
-      { error: "Failed to update note" },
-      { status: 500 }
-    )
-  }
-}
+    return note
+  },
+})
 
-// DELETE /api/notes/[id]
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
-    const { id } = await params
-    const access = await checkNoteAccess(id, session.user.id)
+export const DELETE = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
+    const access = await checkNoteAccess(id, user.id)
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.reason === "not_found") throw new NotFoundError("Note")
+      throw new ForbiddenError()
     }
 
-    await prisma.note.delete({
-      where: { id },
-    })
+    await prisma.note.delete({ where: { id } })
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Error deleting note:", error)
-    return NextResponse.json(
-      { error: "Failed to delete note" },
-      { status: 500 }
-    )
-  }
-}
+    return { success: true }
+  },
+})

@@ -1,14 +1,10 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { createApiHandler, NotFoundError, GoneError, ForbiddenError, BadRequestError, UnauthorizedError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 
-// GET /api/project-role-invites/[token] - Get invite details (public)
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ token: string }> }
-) {
-  try {
-    const { token } = await params
+export const GET = createApiHandler({
+  auth: "none",
+  handler: async ({ params }) => {
+    const { token } = params
 
     const invite = await prisma.projectRoleInvite.findUnique({
       where: { token },
@@ -38,45 +34,25 @@ export async function GET(
     })
 
     if (!invite) {
-      return NextResponse.json(
-        { error: "Invite not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Invite")
     }
 
-    // Check if expired
     if (new Date() > invite.expiresAt) {
-      return NextResponse.json(
-        { error: "Invite has expired", expired: true },
-        { status: 410 }
-      )
+      throw new GoneError("Invite has expired")
     }
 
-    return NextResponse.json(invite)
-  } catch (error) {
-    console.error("Error fetching invite:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch invite" },
-      { status: 500 }
-    )
-  }
-}
+    return invite
+  },
+})
 
-// POST /api/project-role-invites/[token] - Accept invite
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ token: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id || !session.user.email) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
+export const POST = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { token } = params
+
+    if (!user.email) {
+      throw new UnauthorizedError("Email required")
     }
-
-    const { token } = await params
 
     const invite = await prisma.projectRoleInvite.findUnique({
       where: { token },
@@ -91,57 +67,38 @@ export async function POST(
     })
 
     if (!invite) {
-      return NextResponse.json(
-        { error: "Invite not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Invite")
     }
 
-    // Check if expired
     if (new Date() > invite.expiresAt) {
-      // Clean up expired invite
       await prisma.projectRoleInvite.delete({ where: { id: invite.id } })
-      return NextResponse.json(
-        { error: "Invite has expired" },
-        { status: 410 }
-      )
+      throw new GoneError("Invite has expired")
     }
 
-    // Check email matches
-    if (invite.email.toLowerCase() !== session.user.email.toLowerCase()) {
-      return NextResponse.json(
-        { error: "This invite is for a different email address" },
-        { status: 403 }
-      )
+    if (invite.email.toLowerCase() !== user.email.toLowerCase()) {
+      throw new ForbiddenError("This invite is for a different email address")
     }
 
-    // Check if user already has this role
     const existingRole = await prisma.projectRole.findFirst({
       where: {
         projectId: invite.projectId,
         role: invite.role,
-        userId: session.user.id,
+        userId: user.id,
       },
     })
 
     if (existingRole) {
-      // Clean up invite since they already have the role
       await prisma.projectRoleInvite.delete({ where: { id: invite.id } })
-      return NextResponse.json(
-        { error: "You already have this role on the project" },
-        { status: 400 }
-      )
+      throw new BadRequestError("You already have this role on the project")
     }
 
-    // Accept invite: create role and delete invite in transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Create the project role
       const role = await tx.projectRole.create({
         data: {
           projectId: invite.projectId,
           role: invite.role,
-          name: session.user.name || session.user.email!,
-          userId: session.user.id,
+          name: user.name || user.email!,
+          userId: user.id,
         },
         select: {
           id: true,
@@ -157,70 +114,42 @@ export async function POST(
         },
       })
 
-      // Delete the invite
       await tx.projectRoleInvite.delete({ where: { id: invite.id } })
 
       return role
     })
 
-    return NextResponse.json({
+    return {
       success: true,
       role: result,
       project: result.project,
-    })
-  } catch (error) {
-    console.error("Error accepting invite:", error)
-    return NextResponse.json(
-      { error: "Failed to accept invite" },
-      { status: 500 }
-    )
-  }
-}
-
-// DELETE /api/project-role-invites/[token] - Decline invite
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ token: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id || !session.user.email) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
     }
+  },
+})
 
-    const { token } = await params
+export const DELETE = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { token } = params
+
+    if (!user.email) {
+      throw new UnauthorizedError("Email required")
+    }
 
     const invite = await prisma.projectRoleInvite.findUnique({
       where: { token },
     })
 
     if (!invite) {
-      return NextResponse.json(
-        { error: "Invite not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Invite")
     }
 
-    // Check email matches (only the invitee can decline)
-    if (invite.email.toLowerCase() !== session.user.email.toLowerCase()) {
-      return NextResponse.json(
-        { error: "This invite is for a different email address" },
-        { status: 403 }
-      )
+    if (invite.email.toLowerCase() !== user.email.toLowerCase()) {
+      throw new ForbiddenError("This invite is for a different email address")
     }
 
-    // Delete the invite
     await prisma.projectRoleInvite.delete({ where: { id: invite.id } })
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Error declining invite:", error)
-    return NextResponse.json(
-      { error: "Failed to decline invite" },
-      { status: 500 }
-    )
-  }
-}
+    return { success: true }
+  },
+})

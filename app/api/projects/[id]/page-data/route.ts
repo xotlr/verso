@@ -1,35 +1,12 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { NextResponse } from "next/server"
+import { createApiHandler, NotFoundError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 
-/**
- * GET /api/projects/[id]/page-data
- *
- * Combined endpoint that returns all data needed for the project page:
- * - Project with screenplays, notes, schedules, budgets, roles
- * - External links
- * - Callsheets
- *
- * This eliminates 3 separate API calls and their duplicate auth/access checks,
- * reducing TTFB by ~60%.
- */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id: projectId } = params
 
-    const { id: projectId } = await params
-    const userId = session.user.id
-
-    // Single access check that also fetches project data
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       select: {
@@ -52,7 +29,7 @@ export async function GET(
             id: true,
             name: true,
             members: {
-              where: { userId },
+              where: { userId: user.id },
               select: { userId: true },
             },
           },
@@ -107,46 +84,27 @@ export async function GET(
             role: true,
             name: true,
             userId: true,
-            user: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              },
-            },
+            user: { select: { id: true, name: true, image: true } },
           },
           orderBy: { role: "asc" },
         },
         _count: {
-          select: {
-            screenplays: true,
-            notes: true,
-            schedules: true,
-            budgets: true,
-          },
+          select: { screenplays: true, notes: true, schedules: true, budgets: true },
         },
       },
     })
 
     if (!project) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Project")
     }
 
-    // Check access: owner or team member
-    const isOwner = project.userId === userId
+    const isOwner = project.userId === user.id
     const isTeamMember = project.team?.members && project.team.members.length > 0
 
     if (!isOwner && !isTeamMember) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Project")
     }
 
-    // Fetch links and callsheets in parallel
     const [links, callsheets] = await Promise.all([
       prisma.externalLink.findMany({
         where: { projectId },
@@ -171,7 +129,6 @@ export async function GET(
       }),
     ])
 
-    // Clean up team.members from response (was only for access check)
     const { team, ...projectData } = project
     const cleanProject = {
       ...projectData,
@@ -186,11 +143,5 @@ export async function GET(
 
     response.headers.set("Cache-Control", "private, max-age=30")
     return response
-  } catch (error) {
-    console.error("Error fetching project page data:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch project data" },
-      { status: 500 }
-    )
-  }
-}
+  },
+})

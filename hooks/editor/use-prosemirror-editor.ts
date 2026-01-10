@@ -59,6 +59,8 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
     showSceneNumbers = false,
     sceneNumberPosition = 'both',
     timelapseMode = false,
+    spellcheck = true,
+    autoCapitalize = true,
     // Yjs CRDT collaboration options
     yXmlFragment,
     awareness,
@@ -191,6 +193,11 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
         onLatencyMeasured: onKeystrokeLatency,
         onTransactionProcessed: onTransactionTime,
       },
+      // Auto-capitalize character names and scene headings
+      autoCapitalize,
+      autoCapitalizeOptions: {
+        enabled: autoCapitalize,
+      },
     });
 
     // Create state
@@ -236,6 +243,10 @@ export function useProseMirrorEditor(options: UseProseMirrorEditorOptions): UseP
       state,
       editable: () => editable,
       dispatchTransaction,
+      attributes: {
+        spellcheck: spellcheck ? 'true' : 'false',
+        autocapitalize: autoCapitalize ? 'sentences' : 'off',
+      },
     });
 
     viewRef.current = view;

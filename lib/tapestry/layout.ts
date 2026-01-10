@@ -38,7 +38,8 @@ export function computeLayout(input: LayoutInput): LayoutResult {
 
   // Build connection lookup for quick access
   const connectionsBySource = buildConnectionLookup(connections, 'source');
-  const connectionsByTarget = buildConnectionLookup(connections, 'target');
+  // connectionsByTarget reserved for future bidirectional edge routing
+  void buildConnectionLookup(connections, 'target');
 
   // Compute scene positions first (needed for barycenter calculation)
   const { actLanes, scenes } = computeActLanesAndScenes(

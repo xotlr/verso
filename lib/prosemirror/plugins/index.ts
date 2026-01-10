@@ -18,6 +18,7 @@ import { createPaginationChangeTracker } from './pagination-change-tracker';
 import { createYjsCollaborationPlugins, type YjsCollaborationPluginOptions } from './yjs-collaboration';
 import { createTypingMetricsPlugin, type TypingMetricsOptions } from './typing-metrics';
 import { createMinimumStructurePlugin } from './minimum-structure';
+import { createAutoCapitalizePlugin, type AutoCapitalizeOptions } from './auto-capitalize';
 
 export interface CreatePluginsOptions {
   // Enable input rules for auto-formatting
@@ -66,6 +67,10 @@ export interface CreatePluginsOptions {
   typingMetrics?: boolean;
   // Typing metrics options
   typingMetricsOptions?: TypingMetricsOptions;
+  // Enable auto-capitalize for character names and scene headings
+  autoCapitalize?: boolean;
+  // Auto-capitalize options
+  autoCapitalizeOptions?: AutoCapitalizeOptions;
 }
 
 const defaultOptions: CreatePluginsOptions = {
@@ -84,6 +89,7 @@ const defaultOptions: CreatePluginsOptions = {
   shotMarkers: true, // Enabled by default for shot-to-text linking
   paginationChangeTracker: true, // Enabled by default for incremental pagination
   typingMetrics: process.env.NODE_ENV === 'development', // Dev-only
+  autoCapitalize: true, // Uppercase character names and scene headings
 };
 
 /**
@@ -183,6 +189,11 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
   // Minimum structure enforcement (title page + first content block always exist)
   plugins.push(createMinimumStructurePlugin());
 
+  // Auto-capitalize (uppercase character names and scene headings)
+  if (opts.autoCapitalize) {
+    plugins.push(createAutoCapitalizePlugin(opts.autoCapitalizeOptions || {}));
+  }
+
   return plugins;
 }
 
@@ -264,3 +275,11 @@ export type { TypingMetricsOptions, TypingMetricsState } from './typing-metrics'
 
 // Minimum structure plugin exports
 export { createMinimumStructurePlugin, minimumStructurePluginKey, updateDraftField } from './minimum-structure';
+
+// Auto-capitalize plugin exports
+export {
+  createAutoCapitalizePlugin,
+  autoCapitalizePluginKey,
+  updateAutoCapitalizeSettings,
+} from './auto-capitalize';
+export type { AutoCapitalizeOptions, AutoCapitalizeState } from './auto-capitalize';

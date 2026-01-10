@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 
-// Helper to check callsheet access
 async function checkCallsheetAccess(callsheetId: string, userId: string) {
   const callsheet = await prisma.callsheet.findUnique({
     where: { id: callsheetId },
@@ -11,11 +9,7 @@ async function checkCallsheetAccess(callsheetId: string, userId: string) {
       project: {
         include: {
           team: {
-            include: {
-              members: {
-                where: { userId },
-              },
-            },
+            include: { members: { where: { userId } } },
           },
         },
       },
@@ -23,57 +17,18 @@ async function checkCallsheetAccess(callsheetId: string, userId: string) {
   })
 
   if (!callsheet) {
-    return { allowed: false, error: "Callsheet not found", status: 404 }
+    return { allowed: false, notFound: true, callsheet: null }
   }
 
   if (callsheet.userId === userId) {
-    return { allowed: true, callsheet }
+    return { allowed: true, notFound: false, callsheet }
   }
 
   if (callsheet.project?.team && callsheet.project.team.members.length > 0) {
-    return { allowed: true, callsheet }
+    return { allowed: true, notFound: false, callsheet }
   }
 
-  return { allowed: false, error: "Access denied", status: 403 }
-}
-
-// GET /api/callsheets/[id]/checkin - List all check-ins
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
-    const { id } = await params
-    const access = await checkCallsheetAccess(id, session.user.id)
-
-    if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
-    }
-
-    const checkIns = await prisma.crewCheckIn.findMany({
-      where: { callsheetId: id },
-      orderBy: { checkedInAt: "desc" },
-    })
-
-    return NextResponse.json({ checkIns })
-  } catch (error) {
-    console.error("Error fetching check-ins:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch check-ins" },
-      { status: 500 }
-    )
-  }
+  return { allowed: false, notFound: false, callsheet: null }
 }
 
 const checkInSchema = z.object({
@@ -82,154 +37,121 @@ const checkInSchema = z.object({
   notes: z.string().max(500).optional().nullable(),
 })
 
-// POST /api/callsheets/[id]/checkin - Check in a crew member
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
-    const { id } = await params
-    const access = await checkCallsheetAccess(id, session.user.id)
+    const access = await checkCallsheetAccess(id, user.id)
+
+    if (access.notFound) {
+      throw new NotFoundError("Callsheet")
+    }
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      throw new ForbiddenError("Access denied")
     }
 
-    const body = await request.json()
-    const result = checkInSchema.safeParse(body)
+    const checkIns = await prisma.crewCheckIn.findMany({
+      where: { callsheetId: id },
+      orderBy: { checkedInAt: "desc" },
+    })
 
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
+    return { checkIns }
+  },
+})
+
+export const POST = createApiHandler({
+  auth: "required",
+  schema: checkInSchema,
+  handler: async ({ user, params, data }) => {
+    const { id } = params
+
+    const access = await checkCallsheetAccess(id, user.id)
+
+    if (access.notFound) {
+      throw new NotFoundError("Callsheet")
     }
 
-    const { crewName, department, notes } = result.data
+    if (!access.allowed) {
+      throw new ForbiddenError("Access denied")
+    }
 
-    // Check if this is a new check-in
     const existingCheckIn = await prisma.crewCheckIn.findUnique({
       where: {
-        callsheetId_crewName: {
-          callsheetId: id,
-          crewName,
-        },
+        callsheetId_crewName: { callsheetId: id, crewName: data.crewName },
       },
     })
     const isNewCheckIn = !existingCheckIn
 
-    // Upsert to handle re-check-ins
     const checkIn = await prisma.crewCheckIn.upsert({
       where: {
-        callsheetId_crewName: {
-          callsheetId: id,
-          crewName,
-        },
+        callsheetId_crewName: { callsheetId: id, crewName: data.crewName },
       },
       update: {
         checkedInAt: new Date(),
-        checkedInBy: session.user.id,
-        notes,
+        checkedInBy: user.id,
+        notes: data.notes,
       },
       create: {
         callsheetId: id,
-        crewName,
-        department,
-        checkedInBy: session.user.id,
-        notes,
+        crewName: data.crewName,
+        department: data.department,
+        checkedInBy: user.id,
+        notes: data.notes,
       },
     })
 
-    // Notify project owner on new check-ins
     if (isNewCheckIn && access.callsheet) {
       const callsheetOwnerId = access.callsheet.userId
-      if (callsheetOwnerId !== session.user.id) {
+      if (callsheetOwnerId !== user.id) {
         await prisma.notification.create({
           data: {
             userId: callsheetOwnerId,
             type: "checkin",
-            title: `${crewName} checked in`,
-            body: `${department}`,
+            title: `${data.crewName} checked in`,
+            body: `${data.department}`,
             data: {
               callsheetId: id,
-              crewName,
-              department,
+              crewName: data.crewName,
+              department: data.department,
             },
           },
         })
       }
     }
 
-    return NextResponse.json({ checkIn })
-  } catch (error) {
-    console.error("Error checking in crew:", error)
-    return NextResponse.json(
-      { error: "Failed to check in crew member" },
-      { status: 500 }
-    )
-  }
-}
+    return { checkIn }
+  },
+})
 
-// DELETE /api/callsheets/[id]/checkin - Remove a check-in
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
+export const DELETE = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params, searchParams }) => {
+    const { id } = params
+
+    const access = await checkCallsheetAccess(id, user.id)
+
+    if (access.notFound) {
+      throw new NotFoundError("Callsheet")
     }
-
-    const { id } = await params
-    const access = await checkCallsheetAccess(id, session.user.id)
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      throw new ForbiddenError("Access denied")
     }
 
-    const { searchParams } = new URL(request.url)
     const crewName = searchParams.get("crewName")
 
     if (!crewName) {
-      return NextResponse.json(
-        { error: "crewName query parameter required" },
-        { status: 400 }
-      )
+      throw new BadRequestError("crewName query parameter required")
     }
 
     await prisma.crewCheckIn.delete({
       where: {
-        callsheetId_crewName: {
-          callsheetId: id,
-          crewName,
-        },
+        callsheetId_crewName: { callsheetId: id, crewName },
       },
     })
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Error removing check-in:", error)
-    return NextResponse.json(
-      { error: "Failed to remove check-in" },
-      { status: 500 }
-    )
-  }
-}
+    return { success: true }
+  },
+})

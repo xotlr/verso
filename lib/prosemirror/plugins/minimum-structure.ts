@@ -4,54 +4,8 @@ import { screenplaySchema } from '../schema';
 
 export const minimumStructurePluginKey = new PluginKey('minimumStructure');
 
-// Import pagination meta key for allowing those transactions through
-const PAGINATION_UPDATE_META = 'paginationUpdate';
-
-/**
- * Check if a transaction modifies the title_page_draft node.
- * Used to prevent user edits to the draft field (it's auto-generated).
- */
-function modifiesDraftField(tr: Transaction, oldDoc: ProseMirrorNode): boolean {
-  // Allow programmatic updates (marked with meta)
-  if (tr.getMeta('draftUpdate') || tr.getMeta('timelapse') || tr.getMeta(PAGINATION_UPDATE_META)) {
-    return false;
-  }
-
-  // Find the draft node position in the old document
-  const titlePage = oldDoc.firstChild;
-  if (!titlePage || titlePage.type.name !== 'title_page') {
-    return false;
-  }
-
-  let draftPos = -1;
-  let draftEnd = -1;
-  let pos = 1; // Start after title_page opening
-
-  titlePage.forEach((child) => {
-    if (child.type.name === 'title_page_draft') {
-      draftPos = pos;
-      draftEnd = pos + child.nodeSize;
-    }
-    pos += child.nodeSize;
-  });
-
-  if (draftPos === -1) return false;
-
-  // Check if any step in the transaction touches the draft node
-  for (const step of tr.steps) {
-    const stepMap = step.getMap();
-    // Check if the step affects positions within the draft node
-    let affectsDraft = false;
-    stepMap.forEach((oldStart, oldEnd) => {
-      if (oldStart < draftEnd && oldEnd > draftPos) {
-        affectsDraft = true;
-      }
-    });
-    if (affectsDraft) return true;
-  }
-
-  return false;
-}
+// Note: modifiesDraftField function removed - filterTransaction that used it is disabled
+// See commented filterTransaction in createMinimumStructurePlugin for reference
 
 /**
  * Plugin that ensures the document maintains minimum required structure:

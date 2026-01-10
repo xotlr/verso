@@ -1,24 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
-import { z } from 'zod'
-import { validateUsername, normalizeUsername } from '@/lib/username'
+import { z } from "zod"
+import { createApiHandler, UnauthorizedError, ForbiddenError, NotFoundError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
+import { validateUsername, normalizeUsername } from "@/lib/username"
 
-// Helper to create optional URL field that treats empty strings as null
 const optionalUrl = z.preprocess(
-  (val) => (val === '' ? null : val),
+  (val) => (val === "" ? null : val),
   z.string().url().nullable().optional()
 )
 
-// Helper to create optional string field that treats empty strings as null
-const optionalNullableString = (maxLen: number) => z.preprocess(
-  (val) => (val === '' ? null : val),
-  z.string().max(maxLen).nullable().optional()
-)
+const optionalNullableString = (maxLen: number) =>
+  z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().max(maxLen).nullable().optional()
+  )
 
-// Helper for optional CUID that treats empty strings as null
 const optionalCuid = z.preprocess(
-  (val) => (val === '' ? null : val),
+  (val) => (val === "" ? null : val),
   z.string().cuid().nullable().optional()
 )
 
@@ -33,116 +30,96 @@ const updateProfileSchema = z.object({
   linkedin: optionalNullableString(100),
   imdb: optionalNullableString(50),
   isPublic: z.boolean().optional(),
-
-  // Core Profile (NEW)
   oneLiner: optionalNullableString(100),
   roles: z.array(z.string().max(50)).max(5).optional(),
   reelUrl: z.preprocess(
-    (val) => (val === '' ? null : val),
+    (val) => (val === "" ? null : val),
     z.string().url().max(500).nullable().optional()
   ),
-  availability: z.enum(['AVAILABLE', 'BUSY', 'NOT_LOOKING']).optional(),
-
-  // The Work
+  availability: z.enum(["AVAILABLE", "BUSY", "NOT_LOOKING"]).optional(),
   featuredProjectId: optionalCuid,
   showcaseTimelapse: z.preprocess(
-    (val) => (val === '' ? null : val),
+    (val) => (val === "" ? null : val),
     z.string().nullable().optional()
   ),
-
-  // Trust Layer
-  responseRate: z.enum(['UNKNOWN', 'WITHIN_HOURS', 'WITHIN_DAY', 'WITHIN_WEEK', 'SLOW']).optional(),
-
-  // The Vibe
+  responseRate: z
+    .enum(["UNKNOWN", "WITHIN_HOURS", "WITHIN_DAY", "WITHIN_WEEK", "SLOW"])
+    .optional(),
   influences: z.array(z.string().max(50)).max(3).optional(),
   lookingFor: optionalNullableString(500),
   gear: optionalNullableString(500),
   languages: z.array(z.string().max(30)).max(10).optional(),
-
-  // LEGACY - keeping for backwards compatibility during migration
   bio: optionalNullableString(500),
   title: optionalNullableString(100),
   interests: z.array(z.string().max(50)).max(20).optional(),
   skills: z.array(z.string().max(50)).max(20).optional(),
 })
 
-// GET /api/users/[id] - Get user profile
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params
-    const session = await auth()
-    const isOwnProfile = session?.user?.id === id
+const profileSelect = {
+  id: true,
+  name: true,
+  username: true,
+  emailVerified: true,
+  image: true,
+  banner: true,
+  location: true,
+  website: true,
+  twitter: true,
+  linkedin: true,
+  imdb: true,
+  isPublic: true,
+  createdAt: true,
+  plan: true,
+  oneLiner: true,
+  roles: true,
+  reelUrl: true,
+  availability: true,
+  featuredProjectId: true,
+  featuredProject: {
+    select: {
+      id: true,
+      name: true,
+      coverImage: true,
+      description: true,
+    },
+  },
+  showcaseTimelapse: true,
+  credits: {
+    orderBy: [{ displayOrder: "asc" as const }, { year: "desc" as const }],
+    take: 10,
+    select: {
+      id: true,
+      title: true,
+      role: true,
+      year: true,
+      projectId: true,
+      isManual: true,
+      displayOrder: true,
+    },
+  },
+  responseRate: true,
+  projectsCompleted: true,
+  influences: true,
+  lookingFor: true,
+  gear: true,
+  languages: true,
+  bio: true,
+  title: true,
+  interests: true,
+  skills: true,
+}
 
-    const user = await prisma.user.findUnique({
+export const GET = createApiHandler({
+  auth: "optional",
+  handler: async ({ user, params }) => {
+    const { id } = params
+    const isOwnProfile = user?.id === id
+
+    const userData = await prisma.user.findUnique({
       where: { id },
       select: {
-        id: true,
-        name: true,
-        username: true,
-        email: isOwnProfile, // Only show email for own profile
-        emailVerified: true, // For verified badge
-        image: true,
-        banner: true,
-        location: true,
-        website: true,
-        twitter: true,
-        linkedin: true,
-        imdb: true,
-        isPublic: true,
-        createdAt: true,
-        plan: true,
-
-        // Core Profile (NEW)
-        oneLiner: true,
-        roles: true,
-        reelUrl: true,
-        availability: true,
-
-        // The Work
-        featuredProjectId: true,
-        featuredProject: {
-          select: {
-            id: true,
-            name: true,
-            coverImage: true,
-            description: true,
-          },
-        },
-        showcaseTimelapse: true,
-        credits: {
-          orderBy: [{ displayOrder: 'asc' }, { year: 'desc' }],
-          take: 10,
-          select: {
-            id: true,
-            title: true,
-            role: true,
-            year: true,
-            projectId: true,
-            isManual: true,
-            displayOrder: true,
-          },
-        },
-
-        // Trust Layer
-        responseRate: true,
-        projectsCompleted: true,
-
-        // The Vibe
-        influences: true,
-        lookingFor: true,
-        gear: true,
-        languages: true,
-
-        // LEGACY - keeping for migration
-        bio: true,
-        title: true,
-        interests: true,
-        skills: true,
-
-        // Projects (for dropdown selections, reduced)
+        ...profileSelect,
+        email: isOwnProfile,
         projects: {
           where: isOwnProfile ? {} : { team: null },
           select: {
@@ -151,16 +128,15 @@ export async function GET(
             description: true,
             coverImage: true,
             createdAt: true,
-            _count: {
-              select: { screenplays: true },
-            },
+            _count: { select: { screenplays: true } },
           },
-          orderBy: { updatedAt: 'desc' },
+          orderBy: { updatedAt: "desc" },
           take: 12,
         },
-        // Screenplays with timelapse for dropdown
         screenplays: {
-          where: isOwnProfile ? { timelapseShareId: { not: null } } : { team: null, timelapseShareId: { not: null } },
+          where: isOwnProfile
+            ? { timelapseShareId: { not: null } }
+            : { team: null, timelapseShareId: { not: null } },
           select: {
             id: true,
             title: true,
@@ -169,97 +145,71 @@ export async function GET(
             createdAt: true,
             updatedAt: true,
           },
-          orderBy: { updatedAt: 'desc' },
+          orderBy: { updatedAt: "desc" },
           take: 20,
         },
-        _count: {
-          select: {
-            projects: true,
-            screenplays: true,
-          },
-        },
+        _count: { select: { projects: true, screenplays: true } },
       },
     })
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    if (!userData) {
+      throw new NotFoundError("User")
     }
 
-    // Check if profile is public (unless it's own profile)
-    if (!isOwnProfile && !user.isPublic) {
-      return NextResponse.json({ error: 'Profile is private' }, { status: 403 })
+    if (!isOwnProfile && !userData.isPublic) {
+      throw new ForbiddenError("Profile is private")
     }
 
-    return NextResponse.json(user)
-  } catch (error) {
-    console.error('Error fetching user:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
+    return userData
+  },
+})
 
-// PATCH /api/users/[id] - Update user profile
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params
-    const session = await auth()
+export const PATCH = createApiHandler({
+  auth: "required",
+  schema: updateProfileSchema,
+  handler: async ({ user, params, data }) => {
+    const { id } = params
 
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (user.id !== id) {
+      throw new ForbiddenError()
     }
 
-    // Can only update own profile
-    if (session.user.id !== id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    const body = await request.json()
-    const validatedData = updateProfileSchema.parse(body)
-
-    // Handle username separately - needs validation
     let usernameToSet: string | null | undefined = undefined
-    if ('username' in validatedData) {
-      const usernameValue = validatedData.username
-      if (usernameValue === null || usernameValue === '' || usernameValue === undefined) {
+    if ("username" in data) {
+      const usernameValue = data.username
+      if (
+        usernameValue === null ||
+        usernameValue === "" ||
+        usernameValue === undefined
+      ) {
         usernameToSet = null
       } else {
         const validation = validateUsername(usernameValue)
         if (!validation.valid) {
-          return NextResponse.json({ error: validation.error }, { status: 400 })
+          throw new UnauthorizedError(validation.error)
         }
         const normalized = normalizeUsername(usernameValue)
 
-        // Check if taken by someone else
         const existing = await prisma.user.findFirst({
-          where: {
-            username: normalized,
-            NOT: { id },
-          },
+          where: { username: normalized, NOT: { id } },
           select: { id: true },
         })
         if (existing) {
-          return NextResponse.json({ error: 'Username is already taken' }, { status: 400 })
+          throw new ForbiddenError("Username is already taken")
         }
         usernameToSet = normalized
       }
     }
 
-    // Clean up empty strings to null (excluding username which we handle separately)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { username: _username, ...restData } = validatedData
+    const { username: _username, ...restData } = data
     const cleanedData = Object.fromEntries(
       Object.entries(restData).map(([key, value]) => [
         key,
-        value === '' ? null : value,
+        value === "" ? null : value,
       ])
     )
 
-    // Add username if it was processed
     if (usernameToSet !== undefined) {
       ;(cleanedData as Record<string, unknown>).username = usernameToSet
     }
@@ -268,57 +218,11 @@ export async function PATCH(
       where: { id },
       data: cleanedData,
       select: {
-        id: true,
-        name: true,
-        username: true,
+        ...profileSelect,
         email: true,
-        image: true,
-        banner: true,
-        location: true,
-        website: true,
-        twitter: true,
-        linkedin: true,
-        imdb: true,
-        isPublic: true,
-        createdAt: true,
-        plan: true,
-        // Core Profile (NEW)
-        oneLiner: true,
-        roles: true,
-        reelUrl: true,
-        availability: true,
-        // The Work
-        featuredProjectId: true,
-        showcaseTimelapse: true,
-        // Trust Layer
-        responseRate: true,
-        projectsCompleted: true,
-        // The Vibe
-        influences: true,
-        lookingFor: true,
-        gear: true,
-        languages: true,
-        // LEGACY
-        bio: true,
-        title: true,
-        interests: true,
-        skills: true,
       },
     })
 
-    return NextResponse.json(updatedUser)
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid data', details: error.flatten() },
-        { status: 400 }
-      )
-    }
-
-    console.error('Error updating user:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
+    return updatedUser
+  },
+})

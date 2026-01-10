@@ -1,65 +1,44 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { canUseProduction, type PlanType } from "@/lib/stripe"
-import { z } from "zod"
 
-// Validation schema for take note
 const takeNoteSchema = z.object({
   rating: z.enum(["good", "bad", "circle", "print"]).optional().nullable(),
   notes: z.string().optional().nullable(),
   timecode: z.string().optional().nullable(),
 })
 
-// PUT /api/screenplays/[id]/shots/[shotId]/takes/[takeNum] - Create/update take note
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string; shotId: string; takeNum: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
-    // Check plan access
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { plan: true },
-    })
-    const plan = (user?.plan as PlanType) || "FREE"
-
-    if (!canUseProduction(plan)) {
-      return NextResponse.json(
-        { error: "Production features require PRO plan", upgradeRequired: true },
-        { status: 403 }
-      )
-    }
-
-    const { id: screenplayId, shotId, takeNum: takeNumStr } = await params
+export const PUT = createApiHandler({
+  auth: "required",
+  schema: takeNoteSchema,
+  handler: async ({ user, params, data }) => {
+    const { id: screenplayId, shotId, takeNum: takeNumStr } = params
     const takeNum = parseInt(takeNumStr, 10)
 
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { plan: true },
+    })
+    const plan = (dbUser?.plan as PlanType) || "FREE"
+
+    if (!canUseProduction(plan)) {
+      throw new ForbiddenError("Production features require PRO plan")
+    }
+
     if (isNaN(takeNum) || takeNum < 1) {
-      return NextResponse.json(
-        { error: "Invalid take number" },
-        { status: 400 }
-      )
+      throw new BadRequestError("Invalid take number")
     }
 
-    // Check access - require EDITOR role for take notes
-    const access = await checkScreenplayAccess(screenplayId, session.user.id, 'EDITOR')
+    const access = await checkScreenplayAccess(screenplayId, user.id, "EDITOR")
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
-    // Verify shot exists and belongs to this screenplay
     const existingShot = await prisma.shot.findFirst({
       where: {
         id: shotId,
@@ -68,34 +47,15 @@ export async function PUT(
     })
 
     if (!existingShot) {
-      return NextResponse.json(
-        { error: "Shot not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Shot")
     }
 
-    // Validate take number against shot's takeCount
     if (takeNum > existingShot.takeCount) {
-      return NextResponse.json(
-        { error: "Take number exceeds shot take count" },
-        { status: 400 }
-      )
+      throw new BadRequestError("Take number exceeds shot take count")
     }
 
-    // Parse and validate request body
-    const body = await request.json()
-    const validation = takeNoteSchema.safeParse(body)
+    const { rating, notes, timecode } = data
 
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: "Invalid request", details: validation.error.flatten() },
-        { status: 400 }
-      )
-    }
-
-    const { rating, notes, timecode } = validation.data
-
-    // Upsert the take note
     const takeNote = await prisma.takeNote.upsert({
       where: {
         shotId_takeNum: {
@@ -114,51 +74,30 @@ export async function PUT(
         rating,
         notes,
         timecode,
-        createdBy: session.user.id,
+        createdBy: user.id,
       },
     })
 
-    return NextResponse.json({ takeNote })
-  } catch (error) {
-    console.error("Error updating take note:", error)
-    return NextResponse.json(
-      { error: "Failed to update take note" },
-      { status: 500 }
-    )
-  }
-}
+    return { takeNote }
+  },
+})
 
-// GET /api/screenplays/[id]/shots/[shotId]/takes/[takeNum] - Get take note
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string; shotId: string; takeNum: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
-    const { id: screenplayId, shotId, takeNum: takeNumStr } = await params
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id: screenplayId, shotId, takeNum: takeNumStr } = params
     const takeNum = parseInt(takeNumStr, 10)
 
     if (isNaN(takeNum) || takeNum < 1) {
-      return NextResponse.json(
-        { error: "Invalid take number" },
-        { status: 400 }
-      )
+      throw new BadRequestError("Invalid take number")
     }
 
-    // Check access
-    const screenplay = await checkScreenplayAccess(screenplayId, session.user.id)
-    if (!screenplay) {
-      return NextResponse.json(
-        { error: "Screenplay not found or access denied" },
-        { status: 404 }
-      )
+    const access = await checkScreenplayAccess(screenplayId, user.id)
+    if (!access.allowed) {
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
     const takeNote = await prisma.takeNote.findUnique({
@@ -170,12 +109,6 @@ export async function GET(
       },
     })
 
-    return NextResponse.json({ takeNote })
-  } catch (error) {
-    console.error("Error fetching take note:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch take note" },
-      { status: 500 }
-    )
-  }
-}
+    return { takeNote }
+  },
+})

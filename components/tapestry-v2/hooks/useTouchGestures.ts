@@ -203,14 +203,11 @@ export function useTouchGestures({
         updateTransformRef(newTransform);
         applyTransform(newTransform);
       }
-      // Single finger pan (optional)
+      // Single finger pan (optional) - reserved for future implementation
       else if (touchCount === 1 && singleFingerPan) {
-        const points = Array.from(touchPointsRef.current.values());
-        const point = points[0];
-
-        // Simple pan by movement delta
         // Note: This needs previous position tracking for delta
         // For now, we'll skip single-finger pan in favor of two-finger
+        void Array.from(touchPointsRef.current.values());
       }
     },
     [

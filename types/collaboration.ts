@@ -19,7 +19,7 @@ export interface CollaborationOperation {
   operationType: OperationType;
   position: number | null;
   content: string | null;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   timestamp: Date;
   sequenceNumber: number;
 }
@@ -67,7 +67,7 @@ export interface BroadcastChangePayload {
   position?: number;
   content?: string;
   cursorPosition?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PresencePayload {

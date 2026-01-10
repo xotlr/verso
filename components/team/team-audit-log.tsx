@@ -23,7 +23,7 @@ import {
   AUDIT_ACTION_LABELS,
   AUDIT_ACTION_ICONS,
   type TeamAuditAction,
-} from '@/lib/audit-log'
+} from '@/lib/audit-log/types'
 
 interface AuditLogEntry {
   id: string

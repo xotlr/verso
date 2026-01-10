@@ -7,7 +7,7 @@
  * with debouncing to prevent excessive re-renders during pan/zoom.
  */
 
-import { useCallback, useRef, useEffect, useState, useMemo } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 import type { Viewport } from '@/lib/tapestry/virtualization';
 import { hasViewportChanged } from '@/lib/tapestry/virtualization';
 import type { Transform } from '../state/TapestryContext';

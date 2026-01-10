@@ -218,10 +218,9 @@ export default function ProjectsPage() {
         title="Projects"
         description={`${filteredProjects.length} project${filteredProjects.length !== 1 ? 's' : ''}${searchQuery ? ' (filtered)' : ''}`}
         actions={
-          <Button onClick={() => setNewProjectOpen(true)} className="gap-2">
+          <Button onClick={() => setNewProjectOpen(true)} size="sm" className="gap-2">
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">New Project</span>
-            <span className="sm:hidden">New</span>
           </Button>
         }
       >

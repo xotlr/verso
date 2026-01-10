@@ -1,20 +1,15 @@
-import { NextRequest, NextResponse } from "next/server"
+import { createApiHandler, NotFoundError, RATE_LIMITS } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
+import { logger } from "@/lib/logger"
 
-// GET /api/explore/[id] - Get a public screenplay and increment views
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params
+export const GET = createApiHandler({
+  auth: "none",
+  rateLimit: RATE_LIMITS.API,
+  handler: async ({ params }) => {
+    const { id } = params
 
-    // Get the screenplay if it's public
     const screenplay = await prisma.screenplay.findFirst({
-      where: {
-        id,
-        isPublic: true,
-      },
+      where: { id, isPublic: true },
       select: {
         id: true,
         title: true,
@@ -23,36 +18,18 @@ export async function GET(
         genre: true,
         views: true,
         publishedAt: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            bio: true,
-          },
-        },
+        user: { select: { id: true, name: true, image: true, bio: true } },
       },
     })
 
     if (!screenplay) {
-      return NextResponse.json(
-        { error: "Screenplay not found or not public" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Screenplay not found or not public")
     }
 
-    // Increment view count (fire and forget)
-    prisma.screenplay.update({
-      where: { id },
-      data: { views: { increment: 1 } },
-    }).catch(console.error)
+    prisma.screenplay
+      .update({ where: { id }, data: { views: { increment: 1 } } })
+      .catch((err) => logger.error("Failed to increment view count", err instanceof Error ? err : undefined))
 
-    return NextResponse.json(screenplay)
-  } catch (error) {
-    console.error("Error fetching public screenplay:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch screenplay" },
-      { status: 500 }
-    )
-  }
-}
+    return screenplay
+  },
+})

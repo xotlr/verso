@@ -15,7 +15,7 @@ export function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <div className="flex items-center bg-muted rounded-md p-0.5 border border-border/60 h-7 w-[84px]" />
+      <div className="flex flex-col bg-muted rounded-md p-0.5 border border-border/60 h-[84px] w-7" />
     );
   }
 
@@ -27,7 +27,7 @@ export function ThemeToggle() {
 
   return (
     <div
-      className="flex items-center bg-muted rounded-md p-0.5 border border-border/60"
+      className="flex flex-col bg-muted rounded-md p-0.5 border border-border/60"
       role="radiogroup"
       aria-label="Theme selection"
     >

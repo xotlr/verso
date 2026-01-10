@@ -1,37 +1,25 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
-// GET /api/screenplays/[id]/scenes/meta - Get all scene metadata for a screenplay
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
-    const { id } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
+    const access = await checkScreenplayAccess(id, user.id)
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
     const sceneMetas = await prisma.sceneMeta.findMany({
       where: { screenplayId: id },
     })
 
-    // Return as a map keyed by sceneId for easy lookup
     const metaMap: Record<string, {
       color: string | null
       notes: string | null
@@ -48,12 +36,6 @@ export async function GET(
       }
     }
 
-    return NextResponse.json(metaMap)
-  } catch (error) {
-    console.error("Error fetching scene metas:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch scene metadata" },
-      { status: 500 }
-    )
-  }
-}
+    return metaMap
+  },
+})

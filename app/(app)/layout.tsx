@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useMounted } from "@/hooks/use-mobile";
+import { toast } from "sonner";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
@@ -21,11 +23,40 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { update: updateSession } = useSession();
   const mounted = useMounted();
   const [focusMode, setFocusMode] = useState(false);
 
   // Check if we're on a screenplay editor page (but not timelapse)
   const isEditorPage = pathname.startsWith("/screenplay/") && !pathname.includes("/timelapse");
+
+  // Show success toast after Stripe checkout and refresh session
+  useEffect(() => {
+    const success = searchParams.get("success");
+    const plan = searchParams.get("plan");
+
+    if (success === "true" && plan) {
+      // Give webhook a moment to process, then refresh session
+      const refreshSession = async () => {
+        // Small delay to allow Stripe webhook to update the database
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        await updateSession();
+      };
+      refreshSession();
+
+      toast.success(`Welcome to ${plan.charAt(0) + plan.slice(1).toLowerCase()}!`, {
+        description: "Your subscription is now active.",
+        duration: 5000,
+      });
+
+      // Clean up URL params without navigation
+      const url = new URL(window.location.href);
+      url.searchParams.delete("success");
+      url.searchParams.delete("plan");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [searchParams, updateSession]);
 
   // Ref for keyboard accessibility
   const focusContainerRef = useRef<HTMLDivElement>(null);

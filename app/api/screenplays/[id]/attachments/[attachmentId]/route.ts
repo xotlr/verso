@@ -1,121 +1,68 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { logger } from "@/lib/logger"
-import { z } from "zod"
 
-// Validation schema for updating attachment
 const updateAttachmentSchema = z.object({
   caption: z.string().nullable().optional(),
   displayOrder: z.number().int().min(0).optional(),
 })
 
-// PATCH /api/screenplays/[id]/attachments/[attachmentId] - Update attachment
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string; attachmentId: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const PATCH = createApiHandler({
+  auth: "required",
+  schema: updateAttachmentSchema,
+  handler: async ({ user, params, data }) => {
+    const { id, attachmentId } = params
 
-    const { id, attachmentId } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
-
+    const access = await checkScreenplayAccess(id, user.id)
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) throw new NotFoundError("Screenplay")
+      throw new ForbiddenError(access.error)
     }
 
-    // Verify attachment belongs to screenplay
     const attachment = await prisma.sceneAttachment.findUnique({
       where: { id: attachmentId },
     })
 
     if (!attachment || attachment.screenplayId !== id) {
-      return NextResponse.json(
-        { error: "Attachment not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Attachment")
     }
-
-    const body = await request.json()
-    const result = updateAttachmentSchema.safeParse(body)
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
-    }
-
-    const { caption, displayOrder } = result.data
 
     const updated = await prisma.sceneAttachment.update({
       where: { id: attachmentId },
       data: {
-        ...(caption !== undefined && { caption }),
-        ...(displayOrder !== undefined && { displayOrder }),
+        ...(data.caption !== undefined && { caption: data.caption }),
+        ...(data.displayOrder !== undefined && { displayOrder: data.displayOrder }),
       },
     })
 
     logger.audit('update', 'sceneAttachment', attachmentId, {
       screenplayId: id,
-      fields: Object.keys(result.data),
+      fields: Object.keys(data),
     })
 
-    return NextResponse.json(updated)
-  } catch (error) {
-    logger.error("Failed to update attachment", error as Error)
-    return NextResponse.json(
-      { error: "Failed to update attachment" },
-      { status: 500 }
-    )
-  }
-}
+    return updated
+  },
+})
 
-// DELETE /api/screenplays/[id]/attachments/[attachmentId] - Delete attachment
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string; attachmentId: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const DELETE = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id, attachmentId } = params
 
-    const { id, attachmentId } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
-
+    const access = await checkScreenplayAccess(id, user.id)
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) throw new NotFoundError("Screenplay")
+      throw new ForbiddenError(access.error)
     }
 
-    // Verify attachment belongs to screenplay
     const attachment = await prisma.sceneAttachment.findUnique({
       where: { id: attachmentId },
     })
 
     if (!attachment || attachment.screenplayId !== id) {
-      return NextResponse.json(
-        { error: "Attachment not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Attachment")
     }
 
     await prisma.sceneAttachment.delete({
@@ -127,12 +74,6 @@ export async function DELETE(
       sceneId: attachment.sceneId,
     })
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    logger.error("Failed to delete attachment", error as Error)
-    return NextResponse.json(
-      { error: "Failed to delete attachment" },
-      { status: 500 }
-    )
-  }
-}
+    return { success: true }
+  },
+})

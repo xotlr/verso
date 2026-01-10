@@ -7,7 +7,7 @@
  * to match the D3 version's grouping and edge-crossing minimization.
  */
 
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTapestryHistory } from '@/hooks/tapestry/use-tapestry-history';
 import {
   TapestryNode,
@@ -28,12 +28,12 @@ import { safeGetItem, safeSetItem } from '@/lib/storage';
 import { Scene, Location } from '@/types/screenplay';
 import type { IndexCard } from '@/components/index-cards';
 import type { CharacterInfo } from '@/hooks/editor/types';
-import { useSettings } from '@/contexts/settings-context';
+// Settings available via TapestryCanvas props if needed
 import '@/styles/tapestry.css';
 
 // Layout engine
 import { computeLayout } from '@/lib/tapestry/layout';
-import type { LayoutResult, HighlightState } from '@/lib/tapestry/types';
+import type { HighlightState } from '@/lib/tapestry/types';
 import { INITIAL_HIGHLIGHT_STATE } from '@/lib/tapestry/types';
 
 import { TapestryCanvas, type TapestryCanvasHandle } from './TapestryCanvas';
@@ -239,17 +239,15 @@ function SimpleToolbar({
 
 export function Tapestry({
   screenplayId,
-  screenplayTitle,
+  screenplayTitle: _screenplayTitle,
   scenes = [],
   characters = [],
-  locations = [],
+  locations: _locations = [],
   onSceneClick,
 }: TapestryProps) {
   const canvasRef = useRef<TapestryCanvasHandle>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Settings for theme
-  const { settings } = useSettings();
 
   // State management with undo/redo
   const {
@@ -306,7 +304,7 @@ export function Tapestry({
     });
 
     // Create scene nodes
-    scenes.forEach((scene, i) => {
+    scenes.forEach((scene, _i) => {
       const card = cardMap.get(scene.id);
       nodes.push(createNode({
         type: 'scene',

@@ -148,7 +148,7 @@ function InnerCanvas({
   showMinimap = true,
   gridSize = 0,
   onNodesChange,
-  onConnectionsChange,
+  onConnectionsChange: _onConnectionsChange,
   onGroupsChange,
   onTransformChange,
   onNodeSelect,
@@ -156,8 +156,8 @@ function InnerCanvas({
   onNodeDelete,
   onNodesDelete,
   onOpenProfile,
-  onAddNode,
-  onStartConnect,
+  onAddNode: _onAddNode,
+  onStartConnect: _onStartConnect,
   onConnectionLabelEdit,
   renderContextMenu,
   onRegisterHandle,
@@ -193,7 +193,8 @@ function InnerCanvas({
 
   // Use external highlight state if provided, otherwise context
   const highlightState = externalHighlightState ?? contextHighlightState;
-  const setHighlightState = useCallback((state: HighlightState | ((prev: HighlightState) => HighlightState)) => {
+  // Reserved for future highlight state management
+  void useCallback((state: HighlightState | ((prev: HighlightState) => HighlightState)) => {
     if (onHighlightChange) {
       const newState = typeof state === 'function' ? state(highlightState) : state;
       onHighlightChange(newState);
@@ -437,8 +438,8 @@ function InnerCanvas({
     [selectNodes, onNodeSelect]
   );
 
-  // Handle node double-click (for profile panel on characters)
-  const handleNodeDoubleClick = useCallback(
+  // Reserved for future double-click handling (profile panel on characters)
+  void useCallback(
     (nodeId: string) => {
       const node = nodes.find(n => n.id === nodeId);
       if (node?.type === 'character' && onOpenProfile) {

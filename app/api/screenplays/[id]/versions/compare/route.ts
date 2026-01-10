@@ -1,45 +1,28 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
-// GET /api/screenplays/[id]/versions/compare?from=versionId&to=versionId
-// Compare two versions
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params, searchParams }) => {
+    const { id } = params
 
-    const { id } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
+    const access = await checkScreenplayAccess(id, user.id)
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
-    const { searchParams } = new URL(request.url)
     const fromId = searchParams.get("from")
     const toId = searchParams.get("to")
 
     if (!fromId || !toId) {
-      return NextResponse.json(
-        { error: "Both 'from' and 'to' version IDs are required" },
-        { status: 400 }
-      )
+      throw new BadRequestError("Both 'from' and 'to' version IDs are required")
     }
 
-    // Fetch both versions
     const [fromVersion, toVersion] = await Promise.all([
       prisma.screenplayVersion.findUnique({
         where: { id: fromId },
@@ -60,34 +43,23 @@ export async function GET(
     ])
 
     if (!fromVersion) {
-      return NextResponse.json(
-        { error: "'from' version not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("'from' version")
     }
 
     if (!toVersion) {
-      return NextResponse.json(
-        { error: "'to' version not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("'to' version")
     }
 
-    // Verify both versions belong to this screenplay
     if (fromVersion.screenplayId !== id || toVersion.screenplayId !== id) {
-      return NextResponse.json(
-        { error: "Versions do not belong to this screenplay" },
-        { status: 400 }
-      )
+      throw new BadRequestError("Versions do not belong to this screenplay")
     }
 
-    // Calculate diff stats
     const wordsAdded = Math.max(0, toVersion.wordCount - fromVersion.wordCount)
     const wordsRemoved = Math.max(0, fromVersion.wordCount - toVersion.wordCount)
     const scenesAdded = Math.max(0, toVersion.sceneCount - fromVersion.sceneCount)
     const scenesRemoved = Math.max(0, fromVersion.sceneCount - toVersion.sceneCount)
 
-    return NextResponse.json({
+    return {
       from: fromVersion,
       to: toVersion,
       diffStats: {
@@ -96,12 +68,6 @@ export async function GET(
         scenesAdded,
         scenesRemoved,
       },
-    })
-  } catch (error) {
-    console.error("Error comparing versions:", error)
-    return NextResponse.json(
-      { error: "Failed to compare versions" },
-      { status: 500 }
-    )
-  }
-}
+    }
+  },
+})

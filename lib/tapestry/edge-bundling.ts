@@ -224,7 +224,7 @@ export function generateSpinePath(bundle: EdgeBundle, layout: LayoutResult): str
 export function generateBranchPath(
   bundle: EdgeBundle,
   edge: BundledEdge,
-  layout: LayoutResult
+  _layout: LayoutResult
 ): string {
   // Branch point on spine
   const branchX = bundle.spineX;

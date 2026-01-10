@@ -1,13 +1,11 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { fetchUrlMetadata, detectLinkCategory } from "@/lib/url-metadata"
 import { z } from "zod"
 import { promises as dns } from "dns"
+import { createApiHandler, BadRequestError, RateLimitError } from "@/lib/api"
+import { fetchUrlMetadata, detectLinkCategory } from "@/lib/url-metadata"
 
-// Rate limiting (simple in-memory)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
-const RATE_LIMIT = 30 // requests per minute
-const RATE_WINDOW = 60 * 1000 // 1 minute
+const RATE_LIMIT = 30
+const RATE_WINDOW = 60 * 1000
 
 function checkRateLimit(userId: string): boolean {
   const now = Date.now()
@@ -26,171 +24,92 @@ function checkRateLimit(userId: string): boolean {
   return true
 }
 
-// SSRF protection - block internal/dangerous URLs
 const BLOCKED_HOSTNAMES = [
   "localhost",
   "127.0.0.1",
   "0.0.0.0",
   "[::1]",
   "metadata.google.internal",
-  "169.254.169.254", // AWS/GCP metadata endpoint
+  "169.254.169.254",
 ]
 
 const BLOCKED_HOSTNAME_PATTERNS = [
-  /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/, // 10.x.x.x
-  /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/, // 172.16-31.x.x
-  /^192\.168\.\d{1,3}\.\d{1,3}$/, // 192.168.x.x
-  /\.local$/i, // .local domains
-  /\.internal$/i, // .internal domains
+  /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/,
+  /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/,
+  /^192\.168\.\d{1,3}\.\d{1,3}$/,
+  /\.local$/i,
+  /\.internal$/i,
 ]
 
-/**
- * Check if an IP address is private/internal
- */
 function isPrivateIP(ip: string): boolean {
-  // Loopback
-  if (ip === "127.0.0.1" || ip === "::1" || ip.startsWith("127.")) {
-    return true
-  }
-  // Link-local (AWS/GCP metadata)
-  if (ip.startsWith("169.254.")) {
-    return true
-  }
-  // Private ranges
-  if (ip.startsWith("10.")) {
-    return true
-  }
-  if (ip.startsWith("192.168.")) {
-    return true
-  }
-  // 172.16.0.0 - 172.31.255.255
+  if (ip === "127.0.0.1" || ip === "::1" || ip.startsWith("127.")) return true
+  if (ip.startsWith("169.254.")) return true
+  if (ip.startsWith("10.")) return true
+  if (ip.startsWith("192.168.")) return true
+
   const parts = ip.split(".")
   if (parts[0] === "172") {
     const second = parseInt(parts[1], 10)
-    if (second >= 16 && second <= 31) {
-      return true
-    }
+    if (second >= 16 && second <= 31) return true
   }
-  // IPv6 private
-  if (ip.startsWith("fc") || ip.startsWith("fd") || ip.startsWith("fe80")) {
-    return true
-  }
+
+  if (ip.startsWith("fc") || ip.startsWith("fd") || ip.startsWith("fe80")) return true
+
   return false
 }
 
-/**
- * SSRF protection with DNS rebinding defense.
- * Resolves hostname to IP and checks BOTH the hostname AND resolved IPs.
- */
 async function isBlockedUrl(urlString: string): Promise<boolean> {
   try {
     const url = new URL(urlString)
     const hostname = url.hostname.toLowerCase()
 
-    // Check protocol - only allow http and https
-    if (!["http:", "https:"].includes(url.protocol)) {
-      return true
-    }
+    if (!["http:", "https:"].includes(url.protocol)) return true
+    if (BLOCKED_HOSTNAMES.includes(hostname)) return true
+    if (BLOCKED_HOSTNAME_PATTERNS.some((pattern) => pattern.test(hostname))) return true
 
-    // Check against blocked hostnames
-    if (BLOCKED_HOSTNAMES.includes(hostname)) {
-      return true
-    }
-
-    // Check against blocked patterns
-    if (BLOCKED_HOSTNAME_PATTERNS.some((pattern) => pattern.test(hostname))) {
-      return true
-    }
-
-    // DNS rebinding defense: resolve hostname and check resolved IPs
-    // This prevents attacks where DNS returns a safe IP initially,
-    // then a private IP on subsequent lookups
     try {
       const addresses = await dns.resolve4(hostname)
       for (const ip of addresses) {
-        if (isPrivateIP(ip)) {
-          return true
-        }
+        if (isPrivateIP(ip)) return true
       }
     } catch {
-      // DNS resolution failed - could be IPv6 only, let it through
-      // but check IPv6 as well
       try {
         const addresses = await dns.resolve6(hostname)
         for (const ip of addresses) {
-          if (isPrivateIP(ip)) {
-            return true
-          }
+          if (isPrivateIP(ip)) return true
         }
       } catch {
-        // No DNS records at all - block to be safe
         return true
       }
     }
 
     return false
   } catch {
-    return true // Invalid URL, block it
+    return true
   }
 }
 
-// Validation schema
 const fetchMetadataSchema = z.object({
   url: z.string().url("Invalid URL"),
 })
 
-// POST /api/links/fetch-metadata - Fetch metadata for a URL
-export async function POST(request: Request) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
+export const POST = createApiHandler({
+  auth: "required",
+  schema: fetchMetadataSchema,
+  handler: async ({ user, data }) => {
+    if (!checkRateLimit(user.id)) {
+      throw new RateLimitError()
     }
 
-    // Rate limit check
-    if (!checkRateLimit(session.user.id)) {
-      return NextResponse.json(
-        { error: "Rate limit exceeded. Please wait a moment." },
-        { status: 429 }
-      )
-    }
+    const { url } = data
 
-    const body = await request.json()
-    const result = fetchMetadataSchema.safeParse(body)
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
-    }
-
-    const { url } = result.data
-
-    // SSRF protection - block internal/dangerous URLs (with DNS rebinding defense)
     if (await isBlockedUrl(url)) {
-      return NextResponse.json(
-        { error: "URL not allowed" },
-        { status: 400 }
-      )
+      throw new BadRequestError("URL not allowed")
     }
 
-    // Fetch metadata
     const metadata = await fetchUrlMetadata(url)
     const category = detectLinkCategory(url)
 
-    return NextResponse.json({
-      ...metadata,
-      category,
-    })
-  } catch (error) {
-    console.error("Error fetching metadata:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch URL metadata" },
-      { status: 500 }
-    )
-  }
-}
+    return { ...metadata, category }
+  },
+})

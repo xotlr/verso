@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useMemo, useCallback } from 'react';
+import { useRef, useCallback } from 'react';
 import { useVirtualizer, VirtualItem } from '@tanstack/react-virtual';
 
 export interface UsePanelVirtualizationOptions<T> {

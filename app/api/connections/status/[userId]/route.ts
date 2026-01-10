@@ -1,35 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { createApiHandler } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 
 export type ConnectionStatusResponse = {
-  status: 'none' | 'pending_sent' | 'pending_received' | 'connected'
+  status: "none" | "pending_sent" | "pending_received" | "connected"
   connectionId: string | null
 }
 
-// GET /api/connections/status/[userId] - Check connection status with a specific user
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { userId: targetUserId } = params
+    const currentUserId = user.id
 
-    const { userId: targetUserId } = await params
-    const currentUserId = session.user.id
-
-    // Can't check connection with yourself
     if (currentUserId === targetUserId) {
-      return NextResponse.json<ConnectionStatusResponse>({
-        status: 'none',
-        connectionId: null,
-      })
+      return { status: "none", connectionId: null } as ConnectionStatusResponse
     }
 
-    // Find any connection between the two users
     const connection = await prisma.connection.findFirst({
       where: {
         OR: [
@@ -40,34 +26,19 @@ export async function GET(
     })
 
     if (!connection) {
-      return NextResponse.json<ConnectionStatusResponse>({
-        status: 'none',
-        connectionId: null,
-      })
+      return { status: "none", connectionId: null } as ConnectionStatusResponse
     }
 
-    let status: ConnectionStatusResponse['status']
+    let status: ConnectionStatusResponse["status"]
 
-    if (connection.status === 'ACCEPTED') {
-      status = 'connected'
-    } else if (connection.status === 'PENDING') {
-      // Who sent the request?
-      if (connection.requesterId === currentUserId) {
-        status = 'pending_sent'
-      } else {
-        status = 'pending_received'
-      }
+    if (connection.status === "ACCEPTED") {
+      status = "connected"
+    } else if (connection.status === "PENDING") {
+      status = connection.requesterId === currentUserId ? "pending_sent" : "pending_received"
     } else {
-      // DECLINED - treat as no connection
-      status = 'none'
+      status = "none"
     }
 
-    return NextResponse.json<ConnectionStatusResponse>({
-      status,
-      connectionId: connection.id,
-    })
-  } catch (error) {
-    console.error('Error checking connection status:', error)
-    return NextResponse.json({ error: 'Failed to check connection status' }, { status: 500 })
-  }
-}
+    return { status, connectionId: connection.id } as ConnectionStatusResponse
+  },
+})

@@ -132,7 +132,7 @@ interface Channel {
  */
 export function allocateChannels(
   bundles: EdgeBundle[],
-  layout: LayoutResult
+  _layout: LayoutResult
 ): Map<string, number> {
   const channelMap = new Map<string, number>();
   const channels: Channel[] = [];
@@ -181,7 +181,7 @@ function findOrCreateChannel(
   const maxX = Math.max(x1, x2);
 
   // Try to find a channel at the preferred Y that doesn't conflict
-  let bestChannel = channels.find(ch => {
+  const bestChannel = channels.find(ch => {
     if (Math.abs(ch.y - preferredY) > 20) return false;
 
     // Check for overlap with existing ranges

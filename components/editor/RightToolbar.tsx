@@ -12,6 +12,7 @@ import {
   Pencil,
   Highlighter,
   Eraser,
+  Gauge,
 } from 'lucide-react';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -61,6 +62,9 @@ interface RightToolbarProps {
   isEraserActive?: boolean;
   onEraserToggle?: () => void;
 
+  // Script Check
+  onScriptCheck?: () => void;
+
   // Layout
   className?: string;
 }
@@ -88,6 +92,7 @@ export function RightToolbar({
   onHighlightColorChange,
   isEraserActive = false,
   onEraserToggle,
+  onScriptCheck,
   className,
 }: RightToolbarProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -225,6 +230,16 @@ export function RightToolbar({
               label={isEraserActive ? 'Eraser on' : 'Remove highlights'}
               onClick={onEraserToggle}
               isActive={isEraserActive}
+              tooltipSide="left"
+            />
+          )}
+
+          {/* Script Check button */}
+          {onScriptCheck && (
+            <ToolbarButton
+              icon={<Gauge className="h-4 w-4" />}
+              label="Script Check"
+              onClick={onScriptCheck}
               tooltipSide="left"
             />
           )}

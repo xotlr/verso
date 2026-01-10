@@ -1,19 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import { useMounted } from '@/hooks/use-mobile';
 import {
   PenTool,
-  BarChart3,
-  Rows3,
-  LayoutGrid,
-  TrendingUp,
+  Search,
   Plus,
   FolderPlus,
   FileText,
+  Settings,
 } from 'lucide-react';
 import { TbHome, TbHomeFilled } from 'react-icons/tb';
 import { PiFilmScript, PiFilmScriptFill } from 'react-icons/pi';
@@ -25,26 +22,21 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer';
-import { ProfileAvatar } from '@/components/profile/profile-avatar';
 
 // Note: We use Drawer (vaul) for bottom sheets with swipe-to-dismiss support
 
 export function BottomNav() {
   const router = useRouter();
   const pathname = usePathname();
-  const { data: session } = useSession();
   const mounted = useMounted();
-  const [lastScreenplayId, setLastScreenplayId] = useState<string | null>(null);
-  const [toolsOpen, setToolsOpen] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
 
-  // Get last screenplay ID from localStorage
-  useEffect(() => {
-    const stored = localStorage.getItem('lastScreenplayId');
-    if (stored) {
-      setLastScreenplayId(stored);
-    }
-  }, []);
+  // Get last screenplay ID from localStorage (lazy initializer avoids effect)
+  const [lastScreenplayId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('lastScreenplayId');
+  });
+
+  const [createOpen, setCreateOpen] = useState(false);
 
   // Extract screenplay ID from current path if on a screenplay route
   const currentScreenplayId = (() => {
@@ -75,11 +67,6 @@ export function BottomNav() {
     }, 150);
   };
 
-  const handleToolClick = (path: string) => {
-    setToolsOpen(false);
-    router.push(path);
-  };
-
   // Check if route is active
   const isActive = (path: string) => {
     if (path === '/home') return pathname === '/home';
@@ -88,14 +75,13 @@ export function BottomNav() {
     return false;
   };
 
-  const isToolsActive = pathname.startsWith('/board/') ||
-                        pathname.startsWith('/cards/') ||
-                        pathname.startsWith('/visualization/') ||
-                        pathname.startsWith('/graph/');
+  const openSearch = () => {
+    window.dispatchEvent(new CustomEvent('command-palette-open'));
+  };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background/95 backdrop-blur-lg border-t border-border safe-area-bottom">
-      <div className="relative flex items-center justify-around h-14 px-2">
+    <nav className="fixed bottom-4 left-4 right-4 z-50 md:hidden safe-area-bottom">
+      <div className="flex items-center justify-evenly h-14 bg-background/90 backdrop-blur-xl rounded-2xl shadow-lg border border-border/30">
         {/* Home */}
         <Link
           href="/home"
@@ -216,129 +202,19 @@ export function BottomNav() {
           </button>
         )}
 
-        {/* Tools */}
-        {/* Render static button during SSR, Drawer only after mount to avoid hydration mismatch */}
-        {mounted ? (
-          <Drawer open={toolsOpen} onOpenChange={setToolsOpen}>
-            <DrawerTrigger asChild>
-              <button
-                className={cn(
-                  "group flex items-center justify-center p-3 rounded-xl min-w-[48px] touch-manipulation relative tap-bounce",
-                  "transition-colors duration-200",
-                  isToolsActive || toolsOpen
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <BarChart3 className={cn(
-                  "h-6 w-6 transition-all duration-300",
-                  (isToolsActive || toolsOpen)
-                    ? "fill-primary stroke-primary scale-105"
-                    : "fill-none stroke-current",
-                  "group-active:scale-90"
-                )} />
-                {(isToolsActive || toolsOpen) && (
-                  <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
-                )}
-              </button>
-            </DrawerTrigger>
-            <DrawerContent className="pb-safe">
-              <DrawerHeader className="pb-4 px-5">
-                <DrawerTitle className="text-left">Screenplay Tools</DrawerTitle>
-              </DrawerHeader>
-              <div className="grid grid-cols-2 gap-3 px-4 pb-6">
-                <button
-                  onClick={() => screenplayId && handleToolClick(`/board/${screenplayId}`)}
-                  disabled={!screenplayId}
-                  className={cn(
-                    "flex items-center gap-3 p-4 rounded-lg border transition-colors",
-                    screenplayId
-                      ? "hover:bg-accent cursor-pointer"
-                      : "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  <div className="p-2 rounded-md bg-muted">
-                    <Rows3 className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-sm">Beat Board</p>
-                    <p className="text-xs text-muted-foreground">Story structure</p>
-                  </div>
-                </button>
+        {/* Search */}
+        <button
+          onClick={openSearch}
+          className={cn(
+            "group flex items-center justify-center p-3 rounded-xl min-w-[48px] touch-manipulation relative tap-bounce",
+            "transition-colors duration-200",
+            "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Search className="h-6 w-6 transition-all duration-300 group-active:scale-90" />
+        </button>
 
-                <button
-                  onClick={() => screenplayId && handleToolClick(`/cards/${screenplayId}`)}
-                  disabled={!screenplayId}
-                  className={cn(
-                    "flex items-center gap-3 p-4 rounded-lg border transition-colors",
-                    screenplayId
-                      ? "hover:bg-accent cursor-pointer"
-                      : "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  <div className="p-2 rounded-md bg-muted">
-                    <LayoutGrid className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-sm">Index Cards</p>
-                    <p className="text-xs text-muted-foreground">Scene overview</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => screenplayId && handleToolClick(`/graph/${screenplayId}`)}
-                  disabled={!screenplayId}
-                  className={cn(
-                    "flex items-center gap-3 p-4 rounded-lg border transition-colors",
-                    screenplayId
-                      ? "hover:bg-accent cursor-pointer"
-                      : "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  <div className="p-2 rounded-md bg-muted">
-                    <TrendingUp className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-sm">Story Graph</p>
-                    <p className="text-xs text-muted-foreground">Visual analysis</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => screenplayId && handleToolClick(`/visualization/${screenplayId}`)}
-                  disabled={!screenplayId}
-                  className={cn(
-                    "flex items-center gap-3 p-4 rounded-lg border transition-colors",
-                    screenplayId
-                      ? "hover:bg-accent cursor-pointer"
-                      : "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  <div className="p-2 rounded-md bg-muted">
-                    <BarChart3 className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-medium text-sm">Reports</p>
-                    <p className="text-xs text-muted-foreground">Stats & insights</p>
-                  </div>
-                </button>
-              </div>
-              {!screenplayId && (
-                <p className="text-center text-sm text-muted-foreground pb-4">
-                  Open a screenplay to use these tools
-                </p>
-              )}
-            </DrawerContent>
-          </Drawer>
-        ) : (
-          <button
-            className="group flex items-center justify-center p-3 rounded-xl min-w-[48px] touch-manipulation relative text-muted-foreground"
-          >
-            <BarChart3 className="h-6 w-6" />
-          </button>
-        )}
-
-        {/* Profile */}
+        {/* Settings */}
         <Link
           href="/settings"
           className={cn(
@@ -349,18 +225,11 @@ export function BottomNav() {
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          <div className={cn(
-            "transition-all duration-300",
+          <Settings className={cn(
+            "h-6 w-6 transition-all duration-300",
             isActive('/settings') && "scale-105",
             "group-active:scale-90"
-          )}>
-            <ProfileAvatar
-              userId={session?.user?.id || ''}
-              imageUrl={session?.user?.image}
-              name={session?.user?.name}
-              size="sm"
-            />
-          </div>
+          )} />
           {isActive('/settings') && (
             <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full" />
           )}

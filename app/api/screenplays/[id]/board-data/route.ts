@@ -1,43 +1,23 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { NextResponse } from "next/server"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { DEFAULT_ACTS } from "@/types/beat-board"
 
-/**
- * GET /api/screenplays/[id]/board-data
- *
- * Combined endpoint for the beat board page that returns:
- * - Screenplay (title, content, acts config)
- * - Scene metadata (colors, notes, mood, act assignments)
- *
- * This eliminates 3 separate API calls and their duplicate auth/access checks,
- * reducing TTFB by ~60%.
- */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
-    const { id } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
+    const access = await checkScreenplayAccess(id, user.id)
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
-    // Fetch screenplay and scene metas in parallel
     const [screenplay, sceneMetas] = await Promise.all([
       prisma.screenplay.findUnique({
         where: { id },
@@ -54,13 +34,9 @@ export async function GET(
     ])
 
     if (!screenplay) {
-      return NextResponse.json(
-        { error: "Screenplay not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Screenplay")
     }
 
-    // Convert scene metas to a map keyed by sceneId
     const sceneMetaMap: Record<string, {
       color: string | null
       notes: string | null
@@ -89,11 +65,5 @@ export async function GET(
 
     response.headers.set("Cache-Control", "private, max-age=30")
     return response
-  } catch (error) {
-    console.error("Error fetching board data:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch board data" },
-      { status: 500 }
-    )
-  }
-}
+  },
+})

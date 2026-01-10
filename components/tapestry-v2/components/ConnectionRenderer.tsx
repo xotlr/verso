@@ -66,7 +66,8 @@ function generateCurvedPath(
   target: { x: number; y: number }
 ): string {
   const dx = target.x - source.x;
-  const dy = target.y - source.y;
+  // dy calculated for potential future vertical curvature adjustments
+  void (target.y - source.y);
 
   // Control points for smooth bezier curve
   // Offset control points horizontally for a nice curve

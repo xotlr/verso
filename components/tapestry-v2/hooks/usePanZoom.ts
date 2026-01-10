@@ -77,7 +77,7 @@ const ZOOM_STEP = 1.25;
 export function usePanZoom({
   containerRef,
   contentRef,
-  transform,
+  transform: _transform,
   transformRef,
   updateTransformRef,
   setTransform,

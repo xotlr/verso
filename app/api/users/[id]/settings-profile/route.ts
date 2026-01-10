@@ -1,30 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { createApiHandler, UnauthorizedError, NotFoundError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 
-/**
- * GET /api/users/[id]/settings-profile
- *
- * Lightweight endpoint for the settings page that returns only the fields
- * needed for profile editing. This is much faster than the full /api/users/[id]
- * endpoint which fetches credits, projects, screenplays, etc.
- *
- * Reduces TTFB by ~70% compared to the full profile endpoint.
- */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params
-    const session = await auth()
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
-    // Only allow fetching own settings profile
-    if (!session?.user?.id || session.user.id !== id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (user.id !== id) {
+      throw new UnauthorizedError()
     }
 
-    const user = await prisma.user.findUnique({
+    const userData = await prisma.user.findUnique({
       where: { id },
       select: {
         id: true,
@@ -37,22 +23,15 @@ export async function GET(
         title: true,
         isPublic: true,
         plan: true,
-        // Only include fields actually used by settings
         location: true,
         website: true,
       },
     })
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    if (!userData) {
+      throw new NotFoundError("User")
     }
 
-    return NextResponse.json(user)
-  } catch (error) {
-    console.error('Error fetching settings profile:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
+    return userData
+  },
+})

@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useMemo } from 'react';
 import { motion, type Variants } from 'framer-motion';
-import { X, MessageSquare, Film, Users, FileText, Pin, PinOff, Edit3, User } from 'lucide-react';
+import { X, Film, Users, FileText, Pin, PinOff, Edit3, User } from 'lucide-react';
 import { cn, getInitials } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';

@@ -205,7 +205,7 @@ describe('useDialogState', () => {
         name: string;
       }
 
-      let user: User | null;
+      let user: User | null = null;
       await act(async () => {
         user = await result.current.execute<User>(async () => {
           return { id: 1, name: 'John' };

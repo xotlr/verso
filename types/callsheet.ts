@@ -179,7 +179,7 @@ export interface CallsheetCreateInput {
   weatherTemp?: number;
 }
 
-export interface CallsheetUpdateInput extends Partial<CallsheetCreateInput> {}
+export type CallsheetUpdateInput = Partial<CallsheetCreateInput>;
 
 // Callsheet with relations (for API responses)
 export interface CallsheetWithDetails {

@@ -47,6 +47,7 @@ import {
   ValidationError,
   RateLimitError,
   InternalError,
+  CsrfError,
 } from './errors';
 import {
   logger,
@@ -200,7 +201,50 @@ export function createApiHandler<
       let statusCode = 200;
 
       try {
-        // 1. Authentication
+        // 1. CSRF Protection for state-changing methods
+        const method = request.method.toUpperCase();
+        if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+          const origin = request.headers.get('origin');
+          const host = request.headers.get('host');
+
+          if (origin && host) {
+            // Parse origin to get hostname
+            let originHost: string;
+            try {
+              originHost = new URL(origin).host;
+            } catch {
+              logger.security('CSRF: Invalid origin header', {
+                origin,
+                host,
+                method,
+              });
+              throw new CsrfError('Invalid origin');
+            }
+
+            // Validate origin matches host (allow subdomains)
+            const hostBase = host.split(':')[0]; // Remove port
+            const originBase = originHost.split(':')[0];
+
+            // Check exact match or subdomain match (e.g., app.example.com vs example.com)
+            const isValidOrigin =
+              originBase === hostBase ||
+              originBase.endsWith(`.${hostBase}`) ||
+              hostBase.endsWith(`.${originBase}`);
+
+            if (!isValidOrigin) {
+              logger.security('CSRF: Origin mismatch', {
+                origin: originBase,
+                host: hostBase,
+                method,
+              });
+              throw new CsrfError('Origin mismatch');
+            }
+          }
+          // Note: If no origin header, browser might be same-origin or non-browser client
+          // We allow this but rely on auth for protection. Consider stricter policy if needed.
+        }
+
+        // 2. Authentication
         let user: SessionUser | undefined;
 
         if (authMode !== 'none') {
@@ -217,7 +261,7 @@ export function createApiHandler<
           }
         }
 
-        // 2. Rate Limiting
+        // 3. Rate Limiting
         if (rateLimitConfig) {
           const identifier = user?.id || getClientIp(request);
           const result = await rateLimit(identifier, rateLimitConfig);
@@ -228,16 +272,17 @@ export function createApiHandler<
               limit: rateLimitConfig.maxRequests,
               windowMs: rateLimitConfig.windowMs,
             });
-            throw new RateLimitError(result.resetAt);
+            const retryAfter = Math.ceil((result.resetAt - Date.now()) / 1000);
+            throw new RateLimitError('Rate limit exceeded', retryAfter);
           }
         }
 
-        // 3. Parse route params
+        // 4. Parse route params
         const params = routeContext?.params
           ? ((await routeContext.params) as TParams)
           : ({} as TParams);
 
-        // 4. Parse and validate request body
+        // 5. Parse and validate request body
         let data: TData = undefined as TData;
 
         if (schema) {
@@ -261,10 +306,10 @@ export function createApiHandler<
           }
         }
 
-        // 5. Parse search params
+        // 6. Parse search params
         const searchParams = new URL(request.url).searchParams;
 
-        // 6. Call handler
+        // 7. Call handler
         const context = {
           user,
           data,
@@ -276,7 +321,7 @@ export function createApiHandler<
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const result = await (handler as any)(context);
 
-        // 7. Return response
+        // 8. Return response
         const durationMs = Math.round(performance.now() - startTime);
         let response: NextResponse;
 
@@ -319,6 +364,9 @@ export function createApiHandler<
 
           const response = NextResponse.json(error.toJSON(), { status: error.status });
           response.headers.set(CORRELATION_ID_HEADER, correlationId);
+          if (error instanceof RateLimitError && error.retryAfter) {
+            response.headers.set('Retry-After', String(error.retryAfter));
+          }
           return response;
         }
 

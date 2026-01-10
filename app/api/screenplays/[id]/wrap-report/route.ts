@@ -1,109 +1,90 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { checkScreenplayAccess } from "@/lib/auth-utils";
-import { Prisma } from "@prisma/client";
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
+import { checkScreenplayAccess } from "@/lib/auth-utils"
+import { Prisma } from "@prisma/client"
 
-/** Scene reference in callsheet data */
 interface CallsheetScene {
-  sceneId?: string;
-  id?: string;
+  sceneId?: string
+  id?: string
 }
 
-/** Callsheet JSON data structure */
 interface CallsheetData {
-  scenes?: CallsheetScene[];
+  scenes?: CallsheetScene[]
 }
 
-/** ProseMirror node structure for scene headings */
 interface SceneHeadingNode {
-  type: string;
-  attrs?: { sceneId?: string };
-  content?: Array<{ text?: string }>;
+  type: string
+  attrs?: { sceneId?: string }
+  content?: Array<{ text?: string }>
 }
 
-/** Screenplay content JSON structure */
 interface ScreenplayContent {
-  content?: SceneHeadingNode[];
+  content?: SceneHeadingNode[]
 }
 
 interface ShotWithNotes {
-  id: string;
-  sceneId: string;
-  shotNumber: number;
-  description: string;
-  shotType: string | null;
-  status: string;
-  takeCount: number;
-  circledTake: number | null;
-  quickNotes: string | null;
-  supervisorNotes: string | null;
-  continuityNotes: string | null;
-  isFlagged: boolean;
-  statusChangedAt: Date | null;
+  id: string
+  sceneId: string
+  shotNumber: number
+  description: string
+  shotType: string | null
+  status: string
+  takeCount: number
+  circledTake: number | null
+  quickNotes: string | null
+  supervisorNotes: string | null
+  continuityNotes: string | null
+  isFlagged: boolean
+  statusChangedAt: Date | null
   takeNotes: {
-    takeNum: number;
-    rating: string | null;
-    notes: string | null;
-    timecode: string | null;
-  }[];
+    takeNum: number
+    rating: string | null
+    notes: string | null
+    timecode: string | null
+  }[]
 }
 
 interface SceneGroup {
-  sceneId: string;
-  sceneName: string;
-  shots: ShotWithNotes[];
-  totalTakes: number;
-  completedShots: number;
+  sceneId: string
+  sceneName: string
+  shots: ShotWithNotes[]
+  totalTakes: number
+  completedShots: number
 }
 
-// GET /api/screenplays/[id]/wrap-report - Generate wrap report
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params, searchParams }) => {
+    const { id } = params
 
-    const { id } = await params;
-    const access = await checkScreenplayAccess(id, session.user.id);
+    const access = await checkScreenplayAccess(id, user.id)
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      );
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
-    const screenplay = access.screenplay!;
-    const { searchParams } = new URL(request.url);
-    const date = searchParams.get("date"); // YYYY-MM-DD format
-    const callsheetId = searchParams.get("callsheetId");
+    const screenplay = access.screenplay!
+    const date = searchParams.get("date")
+    const callsheetId = searchParams.get("callsheetId")
 
-    // Build query for shots
     const whereClause: Prisma.ShotWhereInput = {
       screenplayId: id,
       status: { in: ["shot", "approved"] },
-    };
+    }
 
-    // Filter by date if provided
     if (date) {
-      const startDate = new Date(`${date}T00:00:00.000Z`);
-      const endDate = new Date(`${date}T23:59:59.999Z`);
+      const startDate = new Date(`${date}T00:00:00.000Z`)
+      const endDate = new Date(`${date}T23:59:59.999Z`)
       whereClause.statusChangedAt = {
         gte: startDate,
         lte: endDate,
-      };
+      }
     }
 
-    // If callsheetId is provided, get scenes from that callsheet
-    let callsheet = null;
+    let callsheet = null
     if (callsheetId) {
       callsheet = await prisma.callsheet.findUnique({
         where: { id: callsheetId },
@@ -115,19 +96,17 @@ export async function GET(
           wrapTime: true,
           data: true,
         },
-      });
+      })
 
-      // Extract scene IDs from callsheet data
-      const callsheetData = callsheet?.data as CallsheetData | null;
+      const callsheetData = callsheet?.data as CallsheetData | null
       if (callsheetData?.scenes) {
         const sceneIds = callsheetData.scenes
           .map((s) => s.sceneId || s.id)
-          .filter((id): id is string => id !== undefined);
-        whereClause.sceneId = { in: sceneIds };
+          .filter((id): id is string => id !== undefined)
+        whereClause.sceneId = { in: sceneIds }
       }
     }
 
-    // Get all completed shots with take notes
     const shots = await prisma.shot.findMany({
       where: whereClause,
       include: {
@@ -142,25 +121,22 @@ export async function GET(
         },
       },
       orderBy: [{ sceneId: "asc" }, { shotNumber: "asc" }],
-    });
+    })
 
-    // Extract scenes from screenplay content to get scene names
-    const screenplayContent = screenplay.content as ScreenplayContent | null;
-    const sceneMap = new Map<string, string>();
+    const screenplayContent = screenplay.content as ScreenplayContent | null
+    const sceneMap = new Map<string, string>()
 
     if (screenplayContent?.content) {
       for (const node of screenplayContent.content) {
         if (node.type === "scene_heading" && node.attrs?.sceneId) {
-          // Get scene text from first child
           const sceneText =
-            node.content?.[0]?.text || `Scene ${node.attrs.sceneId}`;
-          sceneMap.set(node.attrs.sceneId, sceneText);
+            node.content?.[0]?.text || `Scene ${node.attrs.sceneId}`
+          sceneMap.set(node.attrs.sceneId, sceneText)
         }
       }
     }
 
-    // Group shots by scene
-    const sceneGroups = new Map<string, SceneGroup>();
+    const sceneGroups = new Map<string, SceneGroup>()
 
     for (const shot of shots) {
       if (!sceneGroups.has(shot.sceneId)) {
@@ -170,10 +146,10 @@ export async function GET(
           shots: [],
           totalTakes: 0,
           completedShots: 0,
-        });
+        })
       }
 
-      const group = sceneGroups.get(shot.sceneId)!;
+      const group = sceneGroups.get(shot.sceneId)!
       group.shots.push({
         id: shot.id,
         sceneId: shot.sceneId,
@@ -189,22 +165,19 @@ export async function GET(
         isFlagged: shot.isFlagged,
         statusChangedAt: shot.statusChangedAt,
         takeNotes: shot.takeNotes,
-      });
-      group.totalTakes += shot.takeCount;
-      group.completedShots += 1;
+      })
+      group.totalTakes += shot.takeCount
+      group.completedShots += 1
     }
 
-    // Calculate totals
-    const totalShots = shots.length;
-    const totalTakes = shots.reduce((sum, s) => sum + s.takeCount, 0);
-    const approvedShots = shots.filter((s) => s.status === "approved").length;
-    const flaggedShots = shots.filter((s) => s.isFlagged).length;
-    const avgTakesPerShot = totalShots > 0 ? totalTakes / totalShots : 0;
+    const totalShots = shots.length
+    const totalTakes = shots.reduce((sum, s) => sum + s.takeCount, 0)
+    const approvedShots = shots.filter((s) => s.status === "approved").length
+    const flaggedShots = shots.filter((s) => s.isFlagged).length
+    const avgTakesPerShot = totalShots > 0 ? totalTakes / totalShots : 0
+    const shotsWithCircled = shots.filter((s) => s.circledTake !== null).length
 
-    // Calculate circled takes ratio
-    const shotsWithCircled = shots.filter((s) => s.circledTake !== null).length;
-
-    return NextResponse.json({
+    return {
       screenplay: {
         id: screenplay.id,
         title: screenplay.title,
@@ -230,12 +203,6 @@ export async function GET(
         scenesWorked: sceneGroups.size,
       },
       scenes: Array.from(sceneGroups.values()),
-    });
-  } catch (error) {
-    console.error("Error generating wrap report:", error);
-    return NextResponse.json(
-      { error: "Failed to generate wrap report" },
-      { status: 500 }
-    );
-  }
-}
+    }
+  },
+})

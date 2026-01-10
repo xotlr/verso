@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import type { PlanType } from "@/lib/stripe";
 import {
   Dialog,
   DialogContent,
@@ -22,16 +23,29 @@ interface UpgradeDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const paidPlans = [
+const allPaidPlans = [
   { key: "PLUS" as const, ...STRIPE_PLANS.plus },
   { key: "PRO" as const, ...STRIPE_PLANS.pro },
   { key: "MAX" as const, ...STRIPE_PLANS.max },
 ];
 
+const PLAN_ORDER: PlanType[] = ['FREE', 'PLUS', 'PRO', 'MAX'];
+
 export function UpgradeDialog({ open, onOpenChange }: UpgradeDialogProps) {
   const { data: session } = useSession();
   const [isYearly, setIsYearly] = useState(true);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  // Get current plan and filter to only show higher tiers
+  const currentPlan = (session?.user?.plan as PlanType) || 'FREE';
+  const currentPlanIndex = PLAN_ORDER.indexOf(currentPlan);
+
+  const paidPlans = useMemo(() => {
+    return allPaidPlans.filter(plan => {
+      const planIndex = PLAN_ORDER.indexOf(plan.key);
+      return planIndex > currentPlanIndex;
+    });
+  }, [currentPlanIndex]);
 
   const handleUpgrade = async (planKey: string) => {
     if (!session?.user) {
@@ -39,7 +53,7 @@ export function UpgradeDialog({ open, onOpenChange }: UpgradeDialogProps) {
       return;
     }
 
-    const plan = paidPlans.find(p => p.key === planKey);
+    const plan = allPaidPlans.find(p => p.key === planKey);
     if (!plan) return;
 
     const priceId = isYearly ? plan.yearlyPriceId : plan.monthlyPriceId;
@@ -52,10 +66,12 @@ export function UpgradeDialog({ open, onOpenChange }: UpgradeDialogProps) {
     setLoadingPlan(planKey);
 
     try {
+      // Pass current path so user returns here after checkout
+      const returnUrl = window.location.pathname + window.location.search;
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceId }),
+        body: JSON.stringify({ priceId, returnUrl }),
       });
 
       if (!response.ok) {
@@ -121,31 +137,44 @@ export function UpgradeDialog({ open, onOpenChange }: UpgradeDialogProps) {
         </div>
 
         {/* Plans Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-6 pb-6">
-          {paidPlans.map((plan) => {
-            const isHighlighted = 'highlighted' in plan && plan.highlighted;
-            const perUser = 'perUser' in plan && plan.perUser;
-            const price = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
-            const period = isYearly
-              ? `/year${perUser ? '/user' : ''}`
-              : `/month${perUser ? '/user' : ''}`;
+        {paidPlans.length === 0 ? (
+          <div className="px-6 pb-6 text-center">
+            <p className="text-muted-foreground">
+              You're on the highest tier. Thank you for your support!
+            </p>
+          </div>
+        ) : (
+          <div className={cn(
+            "grid grid-cols-1 gap-4 px-6 pb-6",
+            paidPlans.length === 1 && "md:grid-cols-1 max-w-md mx-auto",
+            paidPlans.length === 2 && "md:grid-cols-2 max-w-2xl mx-auto",
+            paidPlans.length >= 3 && "md:grid-cols-3"
+          )}>
+            {paidPlans.map((plan) => {
+              const isHighlighted = 'highlighted' in plan && plan.highlighted;
+              const perUser = 'perUser' in plan && plan.perUser;
+              const price = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
+              const period = isYearly
+                ? `/year${perUser ? '/user' : ''}`
+                : `/month${perUser ? '/user' : ''}`;
 
-            return (
-              <PricingCard
-                key={plan.key}
-                name={plan.name}
-                price={`$${price}`}
-                period={period}
-                description={plan.description}
-                features={[...plan.features]}
-                cta={plan.cta}
-                highlighted={isHighlighted}
-                isLoading={loadingPlan === plan.key}
-                onClick={() => handleUpgrade(plan.key)}
-              />
-            );
-          })}
-        </div>
+              return (
+                <PricingCard
+                  key={plan.key}
+                  name={plan.name}
+                  price={`$${price}`}
+                  period={period}
+                  description={plan.description}
+                  features={[...plan.features]}
+                  cta={plan.cta}
+                  highlighted={isHighlighted}
+                  isLoading={loadingPlan === plan.key}
+                  onClick={() => handleUpgrade(plan.key)}
+                />
+              );
+            })}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="bg-muted/50 px-6 py-4 text-center">

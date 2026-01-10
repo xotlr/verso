@@ -1,13 +1,7 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { createApiHandler, NotFoundError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 
-interface RouteParams {
-  params: Promise<{ id: string }>
-}
-
-// Helper to check link access (owner or team member of project)
 async function hasLinkAccess(linkId: string, userId: string): Promise<boolean> {
   const link = await prisma.externalLink.findUnique({
     where: { id: linkId },
@@ -16,9 +10,7 @@ async function hasLinkAccess(linkId: string, userId: string): Promise<boolean> {
         include: {
           team: {
             include: {
-              members: {
-                where: { userId },
-              },
+              members: { where: { userId } },
             },
           },
         },
@@ -34,42 +26,6 @@ async function hasLinkAccess(linkId: string, userId: string): Promise<boolean> {
   return false
 }
 
-// GET /api/links/[id] - Get a single link
-export async function GET(request: Request, { params }: RouteParams) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
-    const { id } = await params
-
-    const hasAccess = await hasLinkAccess(id, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json(
-        { error: "Link not found" },
-        { status: 404 }
-      )
-    }
-
-    const link = await prisma.externalLink.findUnique({
-      where: { id },
-    })
-
-    return NextResponse.json(link)
-  } catch (error) {
-    console.error("Error fetching link:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch link" },
-      { status: 500 }
-    )
-  }
-}
-
-// Validation schema for updating a link
 const updateLinkSchema = z.object({
   title: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
@@ -77,82 +33,56 @@ const updateLinkSchema = z.object({
   notes: z.string().optional().nullable(),
 })
 
-// PATCH /api/links/[id] - Update a link
-export async function PATCH(request: Request, { params }: RouteParams) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
-    const { id } = await params
-    const body = await request.json()
-    const result = updateLinkSchema.safeParse(body)
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
-    }
-
-    const hasAccess = await hasLinkAccess(id, session.user.id)
+    const hasAccess = await hasLinkAccess(id, user.id)
     if (!hasAccess) {
-      return NextResponse.json(
-        { error: "Link not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Link")
+    }
+
+    const link = await prisma.externalLink.findUnique({
+      where: { id },
+    })
+
+    return link
+  },
+})
+
+export const PATCH = createApiHandler({
+  auth: "required",
+  schema: updateLinkSchema,
+  handler: async ({ user, params, data }) => {
+    const { id } = params
+
+    const hasAccess = await hasLinkAccess(id, user.id)
+    if (!hasAccess) {
+      throw new NotFoundError("Link")
     }
 
     const link = await prisma.externalLink.update({
       where: { id },
-      data: result.data,
+      data,
     })
 
-    return NextResponse.json(link)
-  } catch (error) {
-    console.error("Error updating link:", error)
-    return NextResponse.json(
-      { error: "Failed to update link" },
-      { status: 500 }
-    )
-  }
-}
+    return link
+  },
+})
 
-// DELETE /api/links/[id] - Delete a link
-export async function DELETE(request: Request, { params }: RouteParams) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const DELETE = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
-    const { id } = await params
-
-    const hasAccess = await hasLinkAccess(id, session.user.id)
+    const hasAccess = await hasLinkAccess(id, user.id)
     if (!hasAccess) {
-      return NextResponse.json(
-        { error: "Link not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Link")
     }
 
-    await prisma.externalLink.delete({
-      where: { id },
-    })
+    await prisma.externalLink.delete({ where: { id } })
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Error deleting link:", error)
-    return NextResponse.json(
-      { error: "Failed to delete link" },
-      { status: 500 }
-    )
-  }
-}
+    return { success: true }
+  },
+})

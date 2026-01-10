@@ -1,8 +1,7 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-import { logTeamAction } from "@/lib/audit-log";
+import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
+import { logTeamAction } from "@/lib/audit-log"
 
 const updateTeamSchema = z.object({
   name: z.string().min(1).max(50).optional(),
@@ -11,23 +10,12 @@ const updateTeamSchema = z.object({
   description: z.string().max(500).nullable().optional(),
   website: z.string().max(200).nullable().optional(),
   isPublic: z.boolean().optional(),
-});
+})
 
-// GET /api/teams/[id] - Get team details
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    const { id } = await params;
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
     const team = await prisma.team.findUnique({
       where: { id },
@@ -56,11 +44,9 @@ export async function GET(
             description: true,
             coverImage: true,
             createdAt: true,
-            _count: {
-              select: { screenplays: true },
-            },
+            _count: { select: { screenplays: true } },
           },
-          orderBy: { updatedAt: 'desc' },
+          orderBy: { updatedAt: "desc" },
           take: 20,
         },
         invites: {
@@ -71,95 +57,50 @@ export async function GET(
             expiresAt: true,
           },
         },
-        _count: {
-          select: {
-            projects: true,
-            members: true,
-            invites: true,
-          },
-        },
+        _count: { select: { projects: true, members: true, invites: true } },
       },
-    });
+    })
 
     if (!team) {
-      return NextResponse.json(
-        { error: "Team not found" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Team")
     }
 
-    // Check if user is a member
-    const isMember = team.members.some((m) => m.userId === session.user.id);
-    if (!isMember && team.ownerId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Access denied" },
-        { status: 403 }
-      );
+    const isMember = team.members.some((m) => m.userId === user.id)
+    if (!isMember && team.ownerId !== user.id) {
+      throw new ForbiddenError("Access denied")
     }
 
-    return NextResponse.json(team);
-  } catch (error) {
-    console.error("Error fetching team:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch team" },
-      { status: 500 }
-    );
-  }
-}
+    return team
+  },
+})
 
-// PUT /api/teams/[id] - Update team
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    const { id } = await params;
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+export const PUT = createApiHandler({
+  auth: "required",
+  schema: updateTeamSchema,
+  handler: async ({ user, params, data }) => {
+    const { id } = params
 
     const team = await prisma.team.findUnique({
       where: { id },
       include: { members: true },
-    });
+    })
 
     if (!team) {
-      return NextResponse.json(
-        { error: "Team not found" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Team")
     }
 
-    // Check if user is owner or admin
-    const membership = team.members.find((m) => m.userId === session.user.id);
-    const canEdit = team.ownerId === session.user.id ||
-      (membership && (membership.role === "OWNER" || membership.role === "ADMIN"));
+    const membership = team.members.find((m) => m.userId === user.id)
+    const canEdit =
+      team.ownerId === user.id ||
+      (membership && (membership.role === "OWNER" || membership.role === "ADMIN"))
 
     if (!canEdit) {
-      return NextResponse.json(
-        { error: "Access denied" },
-        { status: 403 }
-      );
-    }
-
-    const body = await request.json();
-    const validatedData = updateTeamSchema.safeParse(body);
-
-    if (!validatedData.success) {
-      return NextResponse.json(
-        { error: "Invalid input", details: validatedData.error.flatten() },
-        { status: 400 }
-      );
+      throw new ForbiddenError("Access denied")
     }
 
     const updatedTeam = await prisma.team.update({
       where: { id },
-      data: validatedData.data,
+      data,
       include: {
         owner: {
           select: { id: true, name: true, email: true, image: true },
@@ -171,84 +112,50 @@ export async function PUT(
             },
           },
         },
-        _count: {
-          select: { projects: true, members: true, invites: true },
-        },
+        _count: { select: { projects: true, members: true, invites: true } },
       },
-    });
+    })
 
-    // Log audit event
     await logTeamAction({
       teamId: id,
-      actorId: session.user.id,
+      actorId: user.id,
       action: "team_updated",
       targetType: "settings",
-      metadata: { changes: validatedData.data },
-    });
+      metadata: { changes: data },
+    })
 
-    return NextResponse.json(updatedTeam);
-  } catch (error) {
-    console.error("Error updating team:", error);
-    return NextResponse.json(
-      { error: "Failed to update team" },
-      { status: 500 }
-    );
-  }
-}
+    return updatedTeam
+  },
+})
 
-// DELETE /api/teams/[id] - Delete team
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    const { id } = await params;
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+export const DELETE = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
     const team = await prisma.team.findUnique({
       where: { id },
-    });
+    })
 
     if (!team) {
-      return NextResponse.json(
-        { error: "Team not found" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Team")
     }
 
-    // Only owner can delete team
-    if (team.ownerId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Only the team owner can delete the team" },
-        { status: 403 }
-      );
+    if (team.ownerId !== user.id) {
+      throw new ForbiddenError("Only the team owner can delete the team")
     }
 
-    // Log audit event before deletion (can't log after team is gone)
     await logTeamAction({
       teamId: id,
-      actorId: session.user.id,
+      actorId: user.id,
       action: "team_deleted",
       metadata: { teamName: team.name },
-    });
+    })
 
     await prisma.team.delete({
       where: { id },
-    });
+    })
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting team:", error);
-    return NextResponse.json(
-      { error: "Failed to delete team" },
-      { status: 500 }
-    );
-  }
-}
+    return { success: true }
+  },
+})

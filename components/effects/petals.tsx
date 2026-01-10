@@ -322,7 +322,7 @@ class AirPocketSystem {
   pockets: AirPocket[] = [];
   private maxPockets = 8;
 
-  update(time: number): void {
+  update(_time: number): void {
     if (this.pockets.length < this.maxPockets && Math.random() < 0.005) {
       this.pockets.push({
         position: new THREE.Vector3(

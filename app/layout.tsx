@@ -65,17 +65,17 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 const bodoniModa = Bodoni_Moda({
-  weight: ['400', '700'],
+  weight: ['400', '500', '700'],
   variable: "--font-bodoni-moda",
   subsets: ["latin"],
-  preload: false,
+  display: 'swap',
 });
 
 const plaster = Plaster({
   weight: '400',
   variable: "--font-plaster",
   subsets: ["latin"],
-  preload: false,
+  display: 'swap',
 });
 
 const montserrat = Montserrat({

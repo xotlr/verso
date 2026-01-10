@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { EditorState } from 'prosemirror-state';
+import type { InputRule } from 'prosemirror-inputrules';
 import { screenplaySchema } from '@/lib/prosemirror/schema';
 import {
   createInputRulesPlugin,
@@ -7,6 +8,14 @@ import {
   transitionRules,
   shotRules,
 } from '@/lib/prosemirror/plugins/input-rules';
+
+// InputRule has an internal `match` property that's not exposed in types
+// We extend the type for testing purposes
+interface InputRuleWithMatch extends InputRule {
+  match: RegExp;
+}
+
+const asRuleWithMatch = (rule: InputRule): InputRuleWithMatch => rule as InputRuleWithMatch;
 
 /**
  * Helper to create an EditorState with input rules plugin
@@ -48,49 +57,49 @@ describe('sceneHeadingRules', () => {
     // Check that at least one rule exists for INT.
     const hasIntRule = sceneHeadingRules.some((rule) => {
       // InputRule has a 'match' property which is the regex
-      return rule.match.source.includes('INT');
+      return asRuleWithMatch(rule).match.source.includes('INT');
     });
     expect(hasIntRule).toBe(true);
   });
 
   it('should have rule for EXT.', () => {
     const hasExtRule = sceneHeadingRules.some((rule) => {
-      return rule.match.source.includes('EXT');
+      return asRuleWithMatch(rule).match.source.includes('EXT');
     });
     expect(hasExtRule).toBe(true);
   });
 
   it('should have rule for INT/EXT.', () => {
     const hasIntExtRule = sceneHeadingRules.some((rule) => {
-      return rule.match.source.includes('INT/EXT') || rule.match.source.includes('INT\\/EXT');
+      return asRuleWithMatch(rule).match.source.includes('INT/EXT') || asRuleWithMatch(rule).match.source.includes('INT\\/EXT');
     });
     expect(hasIntExtRule).toBe(true);
   });
 
   it('should have rule for I/E.', () => {
     const hasIERule = sceneHeadingRules.some((rule) => {
-      return rule.match.source.includes('I/E') || rule.match.source.includes('I\\/E');
+      return asRuleWithMatch(rule).match.source.includes('I/E') || asRuleWithMatch(rule).match.source.includes('I\\/E');
     });
     expect(hasIERule).toBe(true);
   });
 
   describe('pattern matching', () => {
     it('should match "INT. " pattern', () => {
-      const rule = sceneHeadingRules.find((r) => r.match.source.includes('INT') && !r.match.source.includes('/'));
+      const rule = sceneHeadingRules.find((r) => asRuleWithMatch(r).match.source.includes('INT') && !asRuleWithMatch(r).match.source.includes('/'));
       expect(rule).toBeDefined();
-      expect(rule!.match.test('INT. ')).toBe(true);
+      expect(asRuleWithMatch(rule!).match.test('INT. ')).toBe(true);
     });
 
     it('should match "EXT. " pattern', () => {
-      const rule = sceneHeadingRules.find((r) => r.match.source.includes('EXT') && !r.match.source.includes('/'));
+      const rule = sceneHeadingRules.find((r) => asRuleWithMatch(r).match.source.includes('EXT') && !asRuleWithMatch(r).match.source.includes('/'));
       expect(rule).toBeDefined();
-      expect(rule!.match.test('EXT. ')).toBe(true);
+      expect(asRuleWithMatch(rule!).match.test('EXT. ')).toBe(true);
     });
 
     it('should be case insensitive for INT.', () => {
-      const rule = sceneHeadingRules.find((r) => r.match.source.includes('INT') && !r.match.source.includes('/'));
-      expect(rule!.match.test('int. ')).toBe(true);
-      expect(rule!.match.test('Int. ')).toBe(true);
+      const rule = sceneHeadingRules.find((r) => asRuleWithMatch(r).match.source.includes('INT') && !asRuleWithMatch(r).match.source.includes('/'));
+      expect(asRuleWithMatch(rule!).match.test('int. ')).toBe(true);
+      expect(asRuleWithMatch(rule!).match.test('Int. ')).toBe(true);
     });
   });
 });
@@ -102,56 +111,56 @@ describe('transitionRules', () => {
 
   it('should have rule for CUT TO:', () => {
     const hasCutToRule = transitionRules.some((rule) => {
-      return rule.match.source.includes('CUT TO');
+      return asRuleWithMatch(rule).match.source.includes('CUT TO');
     });
     expect(hasCutToRule).toBe(true);
   });
 
   it('should have rule for FADE TO:', () => {
     const hasFadeToRule = transitionRules.some((rule) => {
-      return rule.match.source.includes('FADE TO');
+      return asRuleWithMatch(rule).match.source.includes('FADE TO');
     });
     expect(hasFadeToRule).toBe(true);
   });
 
   it('should have rule for DISSOLVE TO:', () => {
     const hasDissolveRule = transitionRules.some((rule) => {
-      return rule.match.source.includes('DISSOLVE');
+      return asRuleWithMatch(rule).match.source.includes('DISSOLVE');
     });
     expect(hasDissolveRule).toBe(true);
   });
 
   it('should have rule for FADE IN:', () => {
     const hasFadeInRule = transitionRules.some((rule) => {
-      return rule.match.source.includes('FADE IN');
+      return asRuleWithMatch(rule).match.source.includes('FADE IN');
     });
     expect(hasFadeInRule).toBe(true);
   });
 
   it('should have rule for FADE OUT.', () => {
     const hasFadeOutRule = transitionRules.some((rule) => {
-      return rule.match.source.includes('FADE OUT');
+      return asRuleWithMatch(rule).match.source.includes('FADE OUT');
     });
     expect(hasFadeOutRule).toBe(true);
   });
 
   describe('pattern matching', () => {
     it('should match "CUT TO: " pattern', () => {
-      const rule = transitionRules.find((r) => r.match.source.includes('CUT TO:'));
+      const rule = transitionRules.find((r) => asRuleWithMatch(r).match.source.includes('CUT TO:'));
       expect(rule).toBeDefined();
-      expect(rule!.match.test('CUT TO: ')).toBe(true);
+      expect(asRuleWithMatch(rule!).match.test('CUT TO: ')).toBe(true);
     });
 
     it('should match "FADE TO: " pattern', () => {
-      const rule = transitionRules.find((r) => r.match.source.includes('FADE TO:'));
+      const rule = transitionRules.find((r) => asRuleWithMatch(r).match.source.includes('FADE TO:'));
       expect(rule).toBeDefined();
-      expect(rule!.match.test('FADE TO: ')).toBe(true);
+      expect(asRuleWithMatch(rule!).match.test('FADE TO: ')).toBe(true);
     });
 
     it('should be case insensitive', () => {
-      const rule = transitionRules.find((r) => r.match.source.includes('CUT TO:'));
-      expect(rule!.match.test('cut to: ')).toBe(true);
-      expect(rule!.match.test('Cut To: ')).toBe(true);
+      const rule = transitionRules.find((r) => asRuleWithMatch(r).match.source.includes('CUT TO:'));
+      expect(asRuleWithMatch(rule!).match.test('cut to: ')).toBe(true);
+      expect(asRuleWithMatch(rule!).match.test('Cut To: ')).toBe(true);
     });
   });
 });
@@ -163,56 +172,56 @@ describe('shotRules', () => {
 
   it('should have rule for WIDE SHOT', () => {
     const hasWideRule = shotRules.some((rule) => {
-      return rule.match.source.includes('WIDE');
+      return asRuleWithMatch(rule).match.source.includes('WIDE');
     });
     expect(hasWideRule).toBe(true);
   });
 
   it('should have rule for CLOSE-UP', () => {
     const hasCloseUpRule = shotRules.some((rule) => {
-      return rule.match.source.includes('CLOSE');
+      return asRuleWithMatch(rule).match.source.includes('CLOSE');
     });
     expect(hasCloseUpRule).toBe(true);
   });
 
   it('should have rule for POV', () => {
     const hasPovRule = shotRules.some((rule) => {
-      return rule.match.source.includes('POV');
+      return asRuleWithMatch(rule).match.source.includes('POV');
     });
     expect(hasPovRule).toBe(true);
   });
 
   it('should have rule for INSERT', () => {
     const hasInsertRule = shotRules.some((rule) => {
-      return rule.match.source.includes('INSERT');
+      return asRuleWithMatch(rule).match.source.includes('INSERT');
     });
     expect(hasInsertRule).toBe(true);
   });
 
   it('should have rule for MEDIUM SHOT', () => {
     const hasMediumRule = shotRules.some((rule) => {
-      return rule.match.source.includes('MEDIUM');
+      return asRuleWithMatch(rule).match.source.includes('MEDIUM');
     });
     expect(hasMediumRule).toBe(true);
   });
 
   describe('pattern matching', () => {
     it('should match "WIDE SHOT " pattern', () => {
-      const rule = shotRules.find((r) => r.match.source.includes('WIDE SHOT'));
+      const rule = shotRules.find((r) => asRuleWithMatch(r).match.source.includes('WIDE SHOT'));
       expect(rule).toBeDefined();
-      expect(rule!.match.test('WIDE SHOT ')).toBe(true);
+      expect(asRuleWithMatch(rule!).match.test('WIDE SHOT ')).toBe(true);
     });
 
     it('should match "CU " shorthand', () => {
-      const rule = shotRules.find((r) => r.match.source.includes('CU'));
+      const rule = shotRules.find((r) => asRuleWithMatch(r).match.source.includes('CU'));
       expect(rule).toBeDefined();
-      expect(rule!.match.test('CU ')).toBe(true);
+      expect(asRuleWithMatch(rule!).match.test('CU ')).toBe(true);
     });
 
     it('should match "POV " pattern', () => {
-      const rule = shotRules.find((r) => r.match.source.includes('POV'));
+      const rule = shotRules.find((r) => asRuleWithMatch(r).match.source.includes('POV'));
       expect(rule).toBeDefined();
-      expect(rule!.match.test('POV ')).toBe(true);
+      expect(asRuleWithMatch(rule!).match.test('POV ')).toBe(true);
     });
   });
 });
@@ -353,7 +362,7 @@ describe('rule coverage', () => {
     const prefixes = ['INT', 'EXT', 'INT/EXT', 'I/E'];
     prefixes.forEach((prefix) => {
       const hasRule = sceneHeadingRules.some((rule) => {
-        return rule.match.source.toLowerCase().includes(prefix.toLowerCase().replace('/', '\\/'));
+        return asRuleWithMatch(rule).match.source.toLowerCase().includes(prefix.toLowerCase().replace('/', '\\/'));
       });
       expect(hasRule).toBe(true);
     });
@@ -364,7 +373,7 @@ describe('rule coverage', () => {
     const transitionKeywords = ['CUT', 'FADE', 'DISSOLVE'];
     transitionKeywords.forEach((keyword) => {
       const hasRule = transitionRules.some((rule) => {
-        return rule.match.source.includes(keyword);
+        return asRuleWithMatch(rule).match.source.includes(keyword);
       });
       expect(hasRule).toBe(true);
     });
@@ -374,7 +383,7 @@ describe('rule coverage', () => {
     const shots = ['WIDE', 'CLOSE', 'MEDIUM', 'POV', 'INSERT'];
     shots.forEach((shot) => {
       const hasRule = shotRules.some((rule) => {
-        return rule.match.source.toUpperCase().includes(shot);
+        return asRuleWithMatch(rule).match.source.toUpperCase().includes(shot);
       });
       expect(hasRule).toBe(true);
     });

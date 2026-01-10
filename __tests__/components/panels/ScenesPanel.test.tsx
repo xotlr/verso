@@ -44,6 +44,21 @@ vi.mock('@/components/editor/panels/use-panel-dnd', () => ({
   usePanelDndSensors: () => [],
 }));
 
+// Mock EditorView for tests that need to bypass skeleton state
+const createMockView = () => ({
+  state: {
+    doc: {
+      forEach: vi.fn(),
+    },
+    tr: {
+      setSelection: vi.fn().mockReturnThis(),
+      scrollIntoView: vi.fn().mockReturnThis(),
+    },
+  },
+  dispatch: vi.fn(),
+  focus: vi.fn(),
+}) as unknown as import('prosemirror-view').EditorView;
+
 vi.mock('@/components/editor/panels/use-scene-selection', () => ({
   useSceneSelection: () => ({
     selectedScenes: new Set(),
@@ -109,12 +124,15 @@ describe('ScenesPanel', () => {
 
   describe('rendering', () => {
     it('should show empty state when no scenes', () => {
-      render(<ScenesPanel scenes={[]} view={null} />);
+      // Need to provide a mock view to bypass the skeleton state
+      const mockView = createMockView();
+      render(<ScenesPanel scenes={[]} view={mockView} />);
       expect(screen.getByText('No scenes yet')).toBeInTheDocument();
     });
 
     it('should show description in empty state', () => {
-      render(<ScenesPanel scenes={[]} view={null} />);
+      const mockView = createMockView();
+      render(<ScenesPanel scenes={[]} view={mockView} />);
       expect(screen.getByText('Start writing to see your story structure.')).toBeInTheDocument();
     });
 
@@ -135,18 +153,22 @@ describe('ScenesPanel', () => {
     });
   });
 
-  describe('act grouping', () => {
-    it('should group scenes into acts', () => {
+  describe('scene list', () => {
+    it('should render all scenes in a flat list', () => {
       const scenes = createMockScenes(15);
       render(<ScenesPanel scenes={scenes} view={null} />);
-      expect(screen.getByText('Act 1')).toBeInTheDocument();
-      expect(screen.getByText('Act 2')).toBeInTheDocument();
+      // The panel shows scenes in a flat list (no act grouping)
+      // Use exact text to avoid matching LOCATION 10-15
+      expect(screen.getByText(/INT\. LOCATION 1$/)).toBeInTheDocument();
+      expect(screen.getByText(/INT\. LOCATION 15$/)).toBeInTheDocument();
     });
 
-    it('should show Act 1 for small number of scenes', () => {
+    it('should show scene numbers', () => {
       const scenes = createMockScenes(5);
       render(<ScenesPanel scenes={scenes} view={null} />);
-      expect(screen.getByText('Act 1')).toBeInTheDocument();
+      // Scene numbers are displayed - getAllByText since there may be multiple matching scenes
+      const sceneNumbers = screen.getAllByText(/^[1-5]$/);
+      expect(sceneNumbers.length).toBeGreaterThanOrEqual(2);
     });
   });
 
@@ -166,9 +188,10 @@ describe('ScenesPanel', () => {
     it('should have scene type filter buttons', () => {
       const scenes = createMockScenes(6);
       render(<ScenesPanel scenes={scenes} view={null} />);
-      // FilterPill in compact mode shows icon only, label is in title
-      expect(screen.getByTitle('INT')).toBeInTheDocument();
-      expect(screen.getByTitle('EXT')).toBeInTheDocument();
+      // SceneFilters shows filter buttons with exact text (not scene headings)
+      // Use exact match to distinguish from scene items like "INT. LOCATION"
+      expect(screen.getByRole('button', { name: /^INT$/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^EXT$/ })).toBeInTheDocument();
     });
   });
 

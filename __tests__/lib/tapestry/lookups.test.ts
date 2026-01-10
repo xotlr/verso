@@ -33,6 +33,7 @@ const createTestConnection = (
   sourceId,
   targetId,
   type: 'references',
+  directed: true,
   ...overrides,
 });
 

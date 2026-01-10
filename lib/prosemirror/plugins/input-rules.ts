@@ -1,5 +1,5 @@
 import { InputRule, inputRules } from 'prosemirror-inputrules';
-import { NodeType, Fragment } from 'prosemirror-model';
+import { NodeType } from 'prosemirror-model';
 import { Plugin, TextSelection } from 'prosemirror-state';
 import { screenplaySchema } from '../schema';
 import { detectShot } from '@/lib/screenplay/patterns';
@@ -466,7 +466,7 @@ const intercutRules = [
 const dualDialogueRule = new InputRule(
   // Match ^ at end of character name (with optional trailing space)
   /\s*\^\s*$/,
-  (state, match, start, end) => {
+  (state, _match, _start, _end) => {
     const { $head } = state.selection;
 
     // Must be in a character block

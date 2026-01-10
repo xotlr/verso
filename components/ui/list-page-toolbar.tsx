@@ -76,24 +76,24 @@ export function ListPageToolbar({
   return (
     <div
       className={cn(
-        'flex flex-row flex-wrap items-start gap-3 sm:gap-4',
+        'flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-start gap-3 sm:gap-4 w-full',
         className
       )}
     >
       {/* Tabs - render placeholder during SSR, actual Tabs after mount to avoid hydration mismatch */}
       {tabs && (
         mounted ? (
-          <Tabs value={tabs.value} onValueChange={tabs.onChange}>
-            <TabsList className="w-auto inline-flex">
+          <Tabs value={tabs.value} onValueChange={tabs.onChange} className="w-full sm:w-auto">
+            <TabsList className="w-full sm:w-auto inline-flex">
               {tabs.items.map((tab) => {
                 const isActive = tabs.value === tab.value;
                 const icon = isActive && tab.activeIcon ? tab.activeIcon : tab.icon;
                 return (
-                  <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
+                  <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5 flex-1 sm:flex-none px-2 sm:px-3">
                     {icon}
                     <span className="hidden sm:inline">{tab.label}</span>
                     {tab.count !== undefined && (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="secondary" className="text-xs hidden sm:inline">
                         {tab.count}
                       </Badge>
                     )}
@@ -110,10 +110,10 @@ export function ListPageToolbar({
 
       {/* Unified Search Bar: Search + Filters + Sort in one container */}
       {hasSearchBar && (
-        <div className="flex items-center gap-1 flex-1 sm:flex-none bg-muted/50 rounded-lg p-1 border border-border/50">
+        <div className="flex items-center gap-1 w-full sm:w-auto sm:flex-none bg-muted/50 rounded-xl p-1 border border-border/50 overflow-x-auto">
           {/* Search */}
           {search && (
-            <div className="relative flex-1 min-w-0 sm:flex-none sm:w-[160px] md:w-[200px]">
+            <div className="relative flex-1 min-w-[120px] sm:flex-none sm:w-[160px] md:w-[200px]">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
               <Input
                 type="text"

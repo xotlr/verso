@@ -216,8 +216,9 @@ export function useDragNode({
         if (moved) {
           // Multi-node drag
           if (isSelected && selectedNodeIds.size > 1 && onMultiDragEnd) {
-            const dx = currentX - dragStateRef.current.startX;
-            const dy = currentY - dragStateRef.current.startY;
+            // Delta values reserved for future multi-node drag implementation
+            void (currentX - dragStateRef.current.startX);
+            void (currentY - dragStateRef.current.startY);
 
             // TODO: Collect all selected node positions and apply delta
             // For now, just update the dragged node

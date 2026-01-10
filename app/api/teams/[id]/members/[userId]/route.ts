@@ -1,217 +1,129 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-import { logTeamAction } from "@/lib/audit-log";
+import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
+import { logTeamAction } from "@/lib/audit-log"
 
 const updateRoleSchema = z.object({
   role: z.enum(["ADMIN", "MEMBER"]),
-});
+})
 
-// PUT /api/teams/[id]/members/[userId] - Update member role
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string; userId: string }> }
-) {
-  try {
-    const session = await auth();
-    const { id, userId } = await params;
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+export const PUT = createApiHandler({
+  auth: "required",
+  schema: updateRoleSchema,
+  handler: async ({ user, params, data }) => {
+    const { id, userId: targetUserId } = params
 
     const team = await prisma.team.findUnique({
       where: { id },
-    });
+    })
 
     if (!team) {
-      return NextResponse.json(
-        { error: "Team not found" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Team")
     }
 
-    // Check if current user is owner or admin
     const currentMembership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId: id,
-          userId: session.user.id,
-        },
-      },
-    });
+      where: { teamId_userId: { teamId: id, userId: user.id } },
+    })
 
-    const canManage = team.ownerId === session.user.id ||
-      (currentMembership && (currentMembership.role === "OWNER" || currentMembership.role === "ADMIN"));
+    const canManage =
+      team.ownerId === user.id ||
+      (currentMembership &&
+        (currentMembership.role === "OWNER" || currentMembership.role === "ADMIN"))
 
     if (!canManage) {
-      return NextResponse.json(
-        { error: "Only owners and admins can update roles" },
-        { status: 403 }
-      );
+      throw new ForbiddenError("Only owners and admins can update roles")
     }
 
-    // Can't change owner's role
-    if (userId === team.ownerId) {
-      return NextResponse.json(
-        { error: "Cannot change the team owner's role" },
-        { status: 400 }
-      );
+    if (targetUserId === team.ownerId) {
+      throw new BadRequestError("Cannot change the team owner's role")
     }
 
-    const body = await request.json();
-    const validatedData = updateRoleSchema.safeParse(body);
-
-    if (!validatedData.success) {
-      return NextResponse.json(
-        { error: "Invalid input", details: validatedData.error.flatten() },
-        { status: 400 }
-      );
-    }
-
-    const { role } = validatedData.data;
-
-    // Get old role for audit log
     const existingMember = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: id, userId } },
+      where: { teamId_userId: { teamId: id, userId: targetUserId } },
       include: { user: { select: { name: true, email: true } } },
-    });
+    })
 
     const updatedMember = await prisma.teamMember.update({
-      where: {
-        teamId_userId: {
-          teamId: id,
-          userId,
-        },
-      },
-      data: { role },
+      where: { teamId_userId: { teamId: id, userId: targetUserId } },
+      data: { role: data.role },
       include: {
         user: {
           select: { id: true, name: true, email: true, image: true },
         },
       },
-    });
+    })
 
-    // Log audit event
     await logTeamAction({
       teamId: id,
-      actorId: session.user.id,
+      actorId: user.id,
       action: "member_role_changed",
       targetType: "member",
-      targetId: userId,
+      targetId: targetUserId,
       metadata: {
         oldRole: existingMember?.role,
-        newRole: role,
+        newRole: data.role,
         userName: existingMember?.user?.name,
       },
-    });
+    })
 
-    return NextResponse.json(updatedMember);
-  } catch (error) {
-    console.error("Error updating member role:", error);
-    return NextResponse.json(
-      { error: "Failed to update member role" },
-      { status: 500 }
-    );
-  }
-}
+    return updatedMember
+  },
+})
 
-// DELETE /api/teams/[id]/members/[userId] - Remove member
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string; userId: string }> }
-) {
-  try {
-    const session = await auth();
-    const { id, userId } = await params;
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+export const DELETE = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id, userId: targetUserId } = params
 
     const team = await prisma.team.findUnique({
       where: { id },
-    });
+    })
 
     if (!team) {
-      return NextResponse.json(
-        { error: "Team not found" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Team")
     }
 
-    // Can't remove owner
-    if (userId === team.ownerId) {
-      return NextResponse.json(
-        { error: "Cannot remove the team owner" },
-        { status: 400 }
-      );
+    if (targetUserId === team.ownerId) {
+      throw new BadRequestError("Cannot remove the team owner")
     }
 
-    // Check if current user is owner, admin, or removing themselves
     const currentMembership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId: id,
-          userId: session.user.id,
-        },
-      },
-    });
+      where: { teamId_userId: { teamId: id, userId: user.id } },
+    })
 
-    const isSelf = userId === session.user.id;
-    const canRemove = isSelf ||
-      team.ownerId === session.user.id ||
-      (currentMembership && (currentMembership.role === "OWNER" || currentMembership.role === "ADMIN"));
+    const isSelf = targetUserId === user.id
+    const canRemove =
+      isSelf ||
+      team.ownerId === user.id ||
+      (currentMembership &&
+        (currentMembership.role === "OWNER" || currentMembership.role === "ADMIN"))
 
     if (!canRemove) {
-      return NextResponse.json(
-        { error: "Access denied" },
-        { status: 403 }
-      );
+      throw new ForbiddenError("Access denied")
     }
 
-    // Get member info for audit log before deletion
     const memberToRemove = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: id, userId } },
+      where: { teamId_userId: { teamId: id, userId: targetUserId } },
       include: { user: { select: { name: true, email: true } } },
-    });
+    })
 
     await prisma.teamMember.delete({
-      where: {
-        teamId_userId: {
-          teamId: id,
-          userId,
-        },
-      },
-    });
+      where: { teamId_userId: { teamId: id, userId: targetUserId } },
+    })
 
-    // Log audit event
     await logTeamAction({
       teamId: id,
-      actorId: session.user.id,
+      actorId: user.id,
       action: "member_removed",
       targetType: "member",
-      targetId: userId,
+      targetId: targetUserId,
       metadata: {
         userName: memberToRemove?.user?.name,
         email: memberToRemove?.user?.email,
         wasSelfRemoval: isSelf,
       },
-    });
+    })
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error removing member:", error);
-    return NextResponse.json(
-      { error: "Failed to remove member" },
-      { status: 500 }
-    );
-  }
-}
+    return { success: true }
+  },
+})

@@ -1,16 +1,14 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { checkScreenplayAccess } from "@/lib/auth-utils";
-import { z } from "zod";
+import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
+import { checkScreenplayAccess } from "@/lib/auth-utils"
 import {
   SHOT_TYPES,
   CAMERA_ANGLES,
   CAMERA_MOVEMENTS,
   SHOT_STATUSES,
-} from "@/types/shotlist";
+} from "@/types/shotlist"
 
-// Validation schema for creating a shot
 const createShotSchema = z.object({
   sceneId: z.string().min(1, "Scene ID is required"),
   description: z.string().min(1, "Description is required"),
@@ -26,92 +24,48 @@ const createShotSchema = z.object({
   status: z.enum(SHOT_STATUSES).optional().default("planned"),
   thumbnailUrl: z.string().url().nullable().optional(),
   thumbnailType: z.enum(["upload", "url"]).nullable().optional(),
-});
+})
 
-// GET /api/screenplays/[id]/shots - List all shots for screenplay
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id: screenplayId } = params
 
-    const { id: screenplayId } = await params;
-
-    // Check access
-    const access = await checkScreenplayAccess(screenplayId, session.user.id);
+    const access = await checkScreenplayAccess(screenplayId, user.id)
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      );
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
-    // Get all shots for this screenplay, ordered by scene and shot number
     const shots = await prisma.shot.findMany({
       where: { screenplayId },
       orderBy: [
         { sceneId: "asc" },
         { shotNumber: "asc" },
       ],
-    });
+    })
 
-    return NextResponse.json({ shots });
-  } catch (error) {
-    console.error("Error fetching shots:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch shots" },
-      { status: 500 }
-    );
-  }
-}
+    return { shots }
+  },
+})
 
-// POST /api/screenplays/[id]/shots - Create a new shot
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+export const POST = createApiHandler({
+  auth: "required",
+  schema: createShotSchema,
+  handler: async ({ user, params, data }) => {
+    const { id: screenplayId } = params
 
-    const { id: screenplayId } = await params;
-
-    // Check access - require EDITOR role for creating shots
-    const access = await checkScreenplayAccess(screenplayId, session.user.id, 'EDITOR');
+    const access = await checkScreenplayAccess(screenplayId, user.id, "EDITOR")
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      );
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
-    const body = await request.json();
-    const result = createShotSchema.safeParse(body);
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    const data = result.data;
-
-    // Use transaction to prevent race condition on shot number assignment
     const shot = await prisma.$transaction(async (tx) => {
-      // Get the next shot number for this scene (within transaction for atomicity)
       const lastShot = await tx.shot.findFirst({
         where: {
           screenplayId,
@@ -119,11 +73,10 @@ export async function POST(
         },
         orderBy: { shotNumber: "desc" },
         select: { shotNumber: true },
-      });
+      })
 
-      const shotNumber = (lastShot?.shotNumber ?? 0) + 1;
+      const shotNumber = (lastShot?.shotNumber ?? 0) + 1
 
-      // Create the shot within the same transaction
       return tx.shot.create({
         data: {
           screenplayId,
@@ -143,15 +96,9 @@ export async function POST(
           thumbnailUrl: data.thumbnailUrl ?? null,
           thumbnailType: data.thumbnailType ?? null,
         },
-      });
-    });
+      })
+    })
 
-    return NextResponse.json(shot, { status: 201 });
-  } catch (error) {
-    console.error("Error creating shot:", error);
-    return NextResponse.json(
-      { error: "Failed to create shot" },
-      { status: 500 }
-    );
-  }
-}
+    return shot
+  },
+})

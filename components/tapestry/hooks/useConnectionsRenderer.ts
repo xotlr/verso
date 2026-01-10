@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
-import type { TapestryConnection, TapestryNode, TapestryGroup } from '@/types/tapestry';
+import type { TapestryConnection, TapestryNode } from '@/types/tapestry';
 import { getNodeDimensions, DEFAULT_NOTE_WIDTH, DEFAULT_NOTE_HEIGHT } from '@/types/tapestry';
 import type { TapestryLookups } from '@/lib/tapestry/lookups';
 import type { GSelection } from './types';
@@ -262,7 +262,7 @@ export function useConnectionsRenderer({
         const sourceMatches = sourceNode ? nodeMatchesFilters(sourceNode) : false;
         const targetMatches = targetNode ? nodeMatchesFilters(targetNode) : false;
         const shouldShow = showAllLines || isHighlighted;
-        let opacity = shouldShow && sourceMatches && targetMatches
+        const opacity = shouldShow && sourceMatches && targetMatches
           ? (isHighlighted ? 1 : 0.25)
           : 0.05;
         d3.select(this).attr('opacity', opacity);

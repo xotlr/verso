@@ -33,3 +33,5 @@ export { usePagination } from './use-pagination';
 // Other hooks
 export { useResponsiveScale } from './use-responsive-scale';
 export { useEditorZoom } from './use-editor-zoom';
+export { useEditorSettings } from './use-editor-settings';
+export { useEditorHighlighting } from './use-editor-highlighting';

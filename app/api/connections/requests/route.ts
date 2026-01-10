@@ -1,22 +1,13 @@
-import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { createApiHandler } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 
-// GET /api/connections/requests - Get pending connection requests received by current user
-export async function GET() {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
-
-    const userId = session.user.id
-
-    // Get pending requests where current user is the addressee (they received the request)
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user }) => {
     const requests = await prisma.connection.findMany({
       where: {
-        addresseeId: userId,
-        status: 'PENDING',
+        addresseeId: user.id,
+        status: "PENDING",
       },
       include: {
         requester: {
@@ -31,18 +22,15 @@ export async function GET() {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     })
 
-    return NextResponse.json({
+    return {
       requests: requests.map((req) => ({
         id: req.id,
         createdAt: req.createdAt,
         user: req.requester,
       })),
-    })
-  } catch (error) {
-    console.error('Error fetching connection requests:', error)
-    return NextResponse.json({ error: 'Failed to fetch requests' }, { status: 500 })
-  }
-}
+    }
+  },
+})

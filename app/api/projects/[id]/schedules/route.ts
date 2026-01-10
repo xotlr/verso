@@ -1,19 +1,13 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { createApiHandler, NotFoundError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 
-// Helper to check project access
 async function hasProjectAccess(projectId: string, userId: string): Promise<boolean> {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
       team: {
-        include: {
-          members: {
-            where: { userId },
-          },
-        },
+        include: { members: { where: { userId } } },
       },
     },
   })
@@ -25,45 +19,6 @@ async function hasProjectAccess(projectId: string, userId: string): Promise<bool
   return false
 }
 
-// GET /api/projects/[id]/schedules
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
-    const { id: projectId } = await params
-
-    const hasAccess = await hasProjectAccess(projectId, session.user.id)
-    if (!hasAccess) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      )
-    }
-
-    const schedules = await prisma.schedule.findMany({
-      where: { projectId },
-      orderBy: { createdAt: "desc" },
-    })
-
-    return NextResponse.json(schedules)
-  } catch (error) {
-    console.error("Error fetching schedules:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch schedules" },
-      { status: 500 }
-    )
-  }
-}
-
 const createScheduleSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
   startDate: z.string().datetime().optional().nullable(),
@@ -71,59 +26,47 @@ const createScheduleSchema = z.object({
   data: z.any().optional(),
 })
 
-// POST /api/projects/[id]/schedules
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id: projectId } = params
 
-    const { id: projectId } = await params
-
-    const hasAccess = await hasProjectAccess(projectId, session.user.id)
+    const hasAccess = await hasProjectAccess(projectId, user.id)
     if (!hasAccess) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Project")
     }
 
-    const body = await request.json()
-    const result = createScheduleSchema.safeParse(body)
+    const schedules = await prisma.schedule.findMany({
+      where: { projectId },
+      orderBy: { createdAt: "desc" },
+    })
 
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
+    return schedules
+  },
+})
+
+export const POST = createApiHandler({
+  auth: "required",
+  schema: createScheduleSchema,
+  handler: async ({ user, params, data }) => {
+    const { id: projectId } = params
+
+    const hasAccess = await hasProjectAccess(projectId, user.id)
+    if (!hasAccess) {
+      throw new NotFoundError("Project")
     }
-
-    const { title, startDate, endDate, data } = result.data
 
     const schedule = await prisma.schedule.create({
       data: {
-        title,
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
-        data,
-        userId: session.user.id,
+        title: data.title,
+        startDate: data.startDate ? new Date(data.startDate) : null,
+        endDate: data.endDate ? new Date(data.endDate) : null,
+        data: data.data,
+        userId: user.id,
         projectId,
       },
     })
 
-    return NextResponse.json(schedule, { status: 201 })
-  } catch (error) {
-    console.error("Error creating schedule:", error)
-    return NextResponse.json(
-      { error: "Failed to create schedule" },
-      { status: 500 }
-    )
-  }
-}
+    return schedule
+  },
+})

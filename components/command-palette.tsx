@@ -38,6 +38,11 @@ import {
 } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
+import {
+  useScreenplayCache,
+  setSharedCacheInvalidator,
+  invalidateScreenplayCache,
+} from '@/hooks/use-screenplay-cache';
 
 interface CommandItemData {
   id: string;
@@ -55,11 +60,6 @@ interface CommandPaletteProps {
   onClose: () => void;
   onOpenSettings?: () => void;
 }
-
-// Cache for screenplays - persists across palette opens
-let screenplayCache: Array<{ id: string; title: string }> | null = null;
-let cacheTimestamp = 0;
-const CACHE_DURATION = 60000; // 1 minute
 
 // Recent commands storage key
 const RECENT_COMMANDS_KEY = 'verso-recent-commands';
@@ -92,39 +92,25 @@ function saveRecentCommand(commandId: string) {
 export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPaletteProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const [screenplays, setScreenplays] = useState<Array<{ id: string; title: string }>>([]);
+  const { screenplays, fetchScreenplays, invalidateCache } = useScreenplayCache();
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
+
+  // Register the cache invalidator for use from other components
+  useEffect(() => {
+    setSharedCacheInvalidator(invalidateCache);
+    return () => setSharedCacheInvalidator(null);
+  }, [invalidateCache]);
 
   // Load recent commands on mount, reset search when closed
   useEffect(() => {
     if (isOpen) {
       setRecentIds(getRecentCommands());
+      fetchScreenplays();
     } else {
       setSearch('');
     }
-  }, [isOpen]);
-
-  // Load screenplays with caching
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const now = Date.now();
-    if (screenplayCache && (now - cacheTimestamp) < CACHE_DURATION) {
-      setScreenplays(screenplayCache);
-      return;
-    }
-
-    fetch('/api/screenplays')
-      .then(res => res.ok ? res.json() : [])
-      .then((screenplayList: Array<{ id: string; title: string }>) => {
-        const mapped = screenplayList.map(s => ({ id: s.id, title: s.title }));
-        screenplayCache = mapped;
-        cacheTimestamp = now;
-        setScreenplays(mapped);
-      })
-      .catch(() => setScreenplays([]));
-  }, [isOpen]);
+  }, [isOpen, fetchScreenplays]);
 
   // Execute command and track in recent
   const runCommand = useCallback((commandId: string, action: () => void) => {
@@ -156,7 +142,7 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
           });
           if (response.ok) {
             const project = await response.json();
-            screenplayCache = null;
+            invalidateScreenplayCache();
             router.push(`/screenplay/${project.id}`);
           }
         } catch (error) {

@@ -1,50 +1,32 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { canUseProduction, type PlanType } from "@/lib/stripe"
 import type { ProductionProgress, SceneProgress, ShotProgress, ShotStatus } from "@/types/production-tracking"
 
-// GET /api/screenplays/[id]/shots/progress - Get production progress stats
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id: screenplayId } = params
 
-    // Check plan access
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
       select: { plan: true },
     })
-    const plan = (user?.plan as PlanType) || "FREE"
+    const plan = (dbUser?.plan as PlanType) || "FREE"
 
     if (!canUseProduction(plan)) {
-      return NextResponse.json(
-        { error: "Production features require PRO plan", upgradeRequired: true },
-        { status: 403 }
-      )
+      throw new ForbiddenError("Production features require PRO plan")
     }
 
-    const { id: screenplayId } = await params
-
-    // Check access
-    const access = await checkScreenplayAccess(screenplayId, session.user.id)
+    const access = await checkScreenplayAccess(screenplayId, user.id)
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
-    // Get all shots for this screenplay
     const shots = await prisma.shot.findMany({
       where: { screenplayId },
       select: {
@@ -58,7 +40,6 @@ export async function GET(
       ],
     })
 
-    // Calculate overall progress
     const statusCounts = {
       planned: 0,
       setup: 0,
@@ -79,7 +60,6 @@ export async function GET(
       ? Math.round((completedShots / totalShots) * 100)
       : 0
 
-    // Group shots by scene for scene-level progress
     const sceneMap = new Map<string, { shots: typeof shots }>()
     shots.forEach((shot) => {
       if (!sceneMap.has(shot.sceneId)) {
@@ -120,7 +100,7 @@ export async function GET(
       scenes.push({
         sceneId,
         sceneNumber,
-        heading: `Scene ${sceneNumber}`, // Could be enhanced with actual scene heading
+        heading: `Scene ${sceneNumber}`,
         shotProgress,
         isComplete: scenePercent === 100,
       })
@@ -136,12 +116,6 @@ export async function GET(
       scenes,
     }
 
-    return NextResponse.json({ progress })
-  } catch (error) {
-    console.error("Error fetching production progress:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch production progress" },
-      { status: 500 }
-    )
-  }
-}
+    return { progress }
+  },
+})

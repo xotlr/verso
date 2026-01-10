@@ -403,7 +403,7 @@ export const GroupRenderer = memo(function GroupRenderer({
   onGroupClick,
   onToggleCollapse,
   onGroupDragEnd,
-  onGroupDelete,
+  onGroupDelete: _onGroupDelete,
   onGroupDragStart,
   onGroupDragMove,
   getCardTransforms,

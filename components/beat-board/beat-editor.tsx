@@ -43,7 +43,9 @@ export function BeatEditor({
   // Check if current color is a custom color (not in the preset list)
   const isCustomColor = color && !beatColors.includes(color);
 
-  // Reset form when beat changes
+  // Reset form when beat changes (controlled component pattern)
+  // This is the standard React pattern for forms controlled by props
+   
   useEffect(() => {
     setTitle(beat?.title || '');
     setDescription(beat?.description || '');

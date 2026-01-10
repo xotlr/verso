@@ -10,7 +10,7 @@
 import { memo, useCallback, useMemo } from 'react';
 import type { TapestryNode } from '@/types/tapestry';
 import type { Viewport } from '@/lib/tapestry/virtualization';
-import { getVisibleNodes, getVisibleNodeIds } from '@/lib/tapestry/virtualization';
+import { getVisibleNodes } from '@/lib/tapestry/virtualization';
 import type { HighlightState } from '@/lib/tapestry/types';
 
 import { BaseNode } from '../nodes/BaseNode';

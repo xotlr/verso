@@ -1,10 +1,9 @@
-import { NextResponse } from "next/server"
+import { z } from "zod"
+import { createApiHandler, BadRequestError, RateLimitError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { hashPassword } from "@/lib/auth"
-import { z } from "zod"
 import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit"
 
-// Validation schema for signup
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name is too long"),
   email: z.string().email("Invalid email format").max(255, "Email is too long"),
@@ -17,73 +16,44 @@ const signupSchema = z.object({
     .regex(/[0-9]/, "Password must contain at least one number"),
 })
 
-export async function POST(request: Request) {
-  try {
-    // Rate limiting - prevent brute force signup attempts
+export const POST = createApiHandler({
+  auth: "none",
+  schema: signupSchema,
+  handler: async ({ request, data }) => {
     const clientIp = getClientIp(request)
     const rateLimitResult = await rateLimit(`signup:${clientIp}`, RATE_LIMITS.AUTH)
 
     if (!rateLimitResult.success) {
-      return NextResponse.json(
-        { error: "Too many signup attempts. Please try again later." },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000)),
-          },
-        }
+      throw new RateLimitError(
+        "Too many signup attempts. Please try again later.",
+        Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000)
       )
     }
 
-    const body = await request.json()
-
-    // Validate input
-    const result = signupSchema.safeParse(body)
-    if (!result.success) {
-      const firstError = result.error.issues[0]
-      return NextResponse.json(
-        { error: firstError.message },
-        { status: 400 }
-      )
-    }
-
-    const { name, email, password } = result.data
-
-    // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: data.email },
     })
 
     if (existingUser) {
-      return NextResponse.json(
-        { error: "An account with this email already exists" },
-        { status: 400 }
-      )
+      throw new BadRequestError("An account with this email already exists")
     }
 
-    // Hash password and create user
-    const hashedPassword = await hashPassword(password)
+    const hashedPassword = await hashPassword(data.password)
 
     const user = await prisma.user.create({
       data: {
-        name,
-        email,
+        name: data.name,
+        email: data.email,
         password: hashedPassword,
       },
     })
 
-    return NextResponse.json({
+    return {
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
       },
-    })
-  } catch (error) {
-    console.error("Signup error:", error)
-    return NextResponse.json(
-      { error: "Something went wrong" },
-      { status: 500 }
-    )
-  }
-}
+    }
+  },
+})

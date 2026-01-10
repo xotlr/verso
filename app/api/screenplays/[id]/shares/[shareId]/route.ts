@@ -1,10 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 import { ShareRole } from "@prisma/client"
 
-// Helper to check if user can manage shares (owner or ADMIN share role)
 async function canManageShares(screenplayId: string, userId: string) {
   const screenplay = await prisma.screenplay.findUnique({
     where: { id: screenplayId },
@@ -19,12 +17,10 @@ async function canManageShares(screenplayId: string, userId: string) {
     return { allowed: false, error: "Screenplay not found", status: 404 }
   }
 
-  // Owner can always manage shares
   if (screenplay.userId === userId) {
     return { allowed: true, isOwner: true }
   }
 
-  // Check if user has ADMIN share role
   const share = await prisma.screenplayShare.findUnique({
     where: {
       screenplayId_userId: {
@@ -38,7 +34,6 @@ async function canManageShares(screenplayId: string, userId: string) {
     return { allowed: true, isOwner: false }
   }
 
-  // Check team admin access
   const teamId = screenplay.teamId || screenplay.project?.teamId
   if (teamId) {
     const membership = await prisma.teamMember.findUnique({
@@ -58,62 +53,34 @@ async function canManageShares(screenplayId: string, userId: string) {
   return { allowed: false, error: "Access denied", status: 403 }
 }
 
-// Validation schema for updating a share
 const updateShareSchema = z.object({
   role: z.enum(["VIEWER", "COMMENTER", "EDITOR", "ADMIN"]),
 })
 
-// PATCH /api/screenplays/[id]/shares/[shareId] - Update share permission
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string; shareId: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const PATCH = createApiHandler({
+  auth: "required",
+  schema: updateShareSchema,
+  handler: async ({ user, params, data }) => {
+    const { id, shareId } = params
 
-    const { id, shareId } = await params
-    const access = await canManageShares(id, session.user.id)
-
+    const access = await canManageShares(id, user.id)
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) throw new NotFoundError("Screenplay")
+      throw new ForbiddenError(access.error)
     }
 
-    const body = await request.json()
-    const result = updateShareSchema.safeParse(body)
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
-    }
-
-    // Check if this is a share or invite
     const share = await prisma.screenplayShare.findUnique({
       where: { id: shareId },
     })
 
     if (share) {
-      // Can't demote yourself if you're not the owner
-      if (share.userId === session.user.id && !access.isOwner) {
-        return NextResponse.json(
-          { error: "Cannot change your own permissions" },
-          { status: 400 }
-        )
+      if (share.userId === user.id && !access.isOwner) {
+        throw new BadRequestError("Cannot change your own permissions")
       }
 
       const updatedShare = await prisma.screenplayShare.update({
         where: { id: shareId },
-        data: { role: result.data.role as ShareRole },
+        data: { role: data.role as ShareRole },
         select: {
           id: true,
           role: true,
@@ -128,10 +95,9 @@ export async function PATCH(
         },
       })
 
-      return NextResponse.json(updatedShare)
+      return updatedShare
     }
 
-    // Check if it's an invite
     const invite = await prisma.shareInvite.findUnique({
       where: { id: shareId },
     })
@@ -139,7 +105,7 @@ export async function PATCH(
     if (invite && invite.screenplayId === id) {
       const updatedInvite = await prisma.shareInvite.update({
         where: { id: shareId },
-        data: { role: result.data.role as ShareRole },
+        data: { role: data.role as ShareRole },
         select: {
           id: true,
           email: true,
@@ -148,47 +114,24 @@ export async function PATCH(
         },
       })
 
-      return NextResponse.json({ type: "invite", invite: updatedInvite })
+      return { type: "invite", invite: updatedInvite }
     }
 
-    return NextResponse.json(
-      { error: "Share not found" },
-      { status: 404 }
-    )
-  } catch (error) {
-    console.error("Error updating share:", error)
-    return NextResponse.json(
-      { error: "Failed to update share" },
-      { status: 500 }
-    )
-  }
-}
+    throw new NotFoundError("Share")
+  },
+})
 
-// DELETE /api/screenplays/[id]/shares/[shareId] - Revoke share or cancel invite
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string; shareId: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const DELETE = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id, shareId } = params
 
-    const { id, shareId } = await params
-    const access = await canManageShares(id, session.user.id)
-
+    const access = await canManageShares(id, user.id)
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) throw new NotFoundError("Screenplay")
+      throw new ForbiddenError(access.error)
     }
 
-    // Try to delete share first
     const share = await prisma.screenplayShare.findUnique({
       where: { id: shareId },
     })
@@ -197,11 +140,9 @@ export async function DELETE(
       await prisma.screenplayShare.delete({
         where: { id: shareId },
       })
-
-      return NextResponse.json({ success: true })
+      return { success: true }
     }
 
-    // Try to delete invite
     const invite = await prisma.shareInvite.findUnique({
       where: { id: shareId },
     })
@@ -210,19 +151,9 @@ export async function DELETE(
       await prisma.shareInvite.delete({
         where: { id: shareId },
       })
-
-      return NextResponse.json({ success: true })
+      return { success: true }
     }
 
-    return NextResponse.json(
-      { error: "Share not found" },
-      { status: 404 }
-    )
-  } catch (error) {
-    console.error("Error deleting share:", error)
-    return NextResponse.json(
-      { error: "Failed to delete share" },
-      { status: 500 }
-    )
-  }
-}
+    throw new NotFoundError("Share")
+  },
+})

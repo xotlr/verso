@@ -172,21 +172,12 @@ describe('calculatePageCount', () => {
 });
 
 describe('extractScenes', () => {
-  it('should extract scenes with attributes', () => {
+  it('should extract scenes from text content', () => {
+    // extractScenes parses text content as the source of truth
     const doc = createDoc(
-      createSceneHeading('', {
-        id: 'scene-1',
-        type: 'INT',
-        location: 'OFFICE',
-        timeOfDay: 'DAY',
-      }),
+      createSceneHeading('INT. OFFICE - DAY', { id: 'scene-1' }),
       createAction('Some action.'),
-      createSceneHeading('', {
-        id: 'scene-2',
-        type: 'EXT',
-        location: 'BEACH',
-        timeOfDay: 'NIGHT',
-      })
+      createSceneHeading('EXT. BEACH - NIGHT', { id: 'scene-2' })
     );
 
     const scenes = extractScenes(doc);

@@ -6,7 +6,7 @@ import * as d3 from 'd3';
 import type { TapestryNode, TapestryConnection, TapestryGroup } from '@/types/tapestry';
 import type { TapestryLookups } from '@/lib/tapestry/lookups';
 import type { GroupBounds } from '@/lib/tapestry/bounds';
-import type { LayoutResult, EdgeBundle, HighlightState } from '@/lib/tapestry';
+// EdgeBundle and HighlightState exported for consumers of these hooks
 
 /**
  * D3 Selection types for type safety

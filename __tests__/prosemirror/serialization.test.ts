@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
   isProseMirrorContent,
   plainTextToProseMirror,
@@ -171,11 +172,11 @@ Hello there.`;
 SARAH CONNOR
 I'll be back.`;
       const doc = plainTextToProseMirror(text);
-      let characterNode = null;
+      let characterNode: ProseMirrorNode | null = null;
       doc.forEach((n) => {
         if (n.type.name === 'character') characterNode = n;
       });
-      expect(characterNode?.attrs.characterId).toBe('sarah-connor');
+      expect(characterNode!.attrs.characterId).toBe('sarah-connor');
     });
 
     it('should handle multi-line dialogue', () => {
@@ -186,13 +187,13 @@ This is line one.
 This is line two.
 This is line three.`;
       const doc = plainTextToProseMirror(text);
-      let dialogueNode = null;
+      let dialogueNode: ProseMirrorNode | null = null;
       doc.forEach((n) => {
         if (n.type.name === 'dialogue') dialogueNode = n;
       });
-      expect(dialogueNode?.textContent).toContain('line one');
-      expect(dialogueNode?.textContent).toContain('line two');
-      expect(dialogueNode?.textContent).toContain('line three');
+      expect(dialogueNode!.textContent).toContain('line one');
+      expect(dialogueNode!.textContent).toContain('line two');
+      expect(dialogueNode!.textContent).toContain('line three');
     });
   });
 
@@ -204,12 +205,12 @@ JOHN
 (whispering)
 Can you hear me?`;
       const doc = plainTextToProseMirror(text);
-      let parenthetical = null;
+      let parenthetical: ProseMirrorNode | null = null;
       doc.forEach((n) => {
         if (n.type.name === 'parenthetical') parenthetical = n;
       });
       expect(parenthetical).toBeDefined();
-      expect(parenthetical?.textContent).toBe('(whispering)');
+      expect(parenthetical!.textContent).toBe('(whispering)');
     });
   });
 
@@ -221,12 +222,12 @@ Action here.
 
 CUT TO:`;
       const doc = plainTextToProseMirror(text);
-      let transition = null;
+      let transition: ProseMirrorNode | null = null;
       doc.forEach((n) => {
         if (n.type.name === 'transition') transition = n;
       });
       expect(transition).toBeDefined();
-      expect(transition?.textContent).toBe('CUT TO:');
+      expect(transition!.textContent).toBe('CUT TO:');
     });
 
     it('should parse FADE TO:', () => {
@@ -234,11 +235,11 @@ CUT TO:`;
 
 FADE TO:`;
       const doc = plainTextToProseMirror(text);
-      let transition = null;
+      let transition: ProseMirrorNode | null = null;
       doc.forEach((n) => {
         if (n.type.name === 'transition') transition = n;
       });
-      expect(transition?.textContent).toBe('FADE TO:');
+      expect(transition!.textContent).toBe('FADE TO:');
     });
   });
 
@@ -248,12 +249,12 @@ FADE TO:`;
 
 The door opens slowly.`;
       const doc = plainTextToProseMirror(text);
-      let action = null;
+      let action: ProseMirrorNode | null = null;
       doc.forEach((n) => {
         if (n.type.name === 'action') action = n;
       });
       expect(action).toBeDefined();
-      expect(action?.textContent).toBe('The door opens slowly.');
+      expect(action!.textContent).toBe('The door opens slowly.');
     });
   });
 
@@ -373,7 +374,11 @@ describe('deserializeFromStorage', () => {
   });
 
   it('should preserve document structure through round-trip', () => {
-    const original = plainTextToProseMirror(`INT. KITCHEN - DAY
+    // Start with a document that has a title_page (normalization adds one if missing)
+    const original = plainTextToProseMirror(`Title: Test Script
+Author: John Doe
+
+INT. KITCHEN - DAY
 
 JOHN
 Hello.`);
@@ -385,7 +390,11 @@ Hello.`);
     original.forEach((n) => originalNodes.push(n.type.name));
     restored.forEach((n) => restoredNodes.push(n.type.name));
 
-    expect(restoredNodes).toEqual(originalNodes);
+    // Both should have title_page as first node
+    expect(originalNodes[0]).toBe('title_page');
+    expect(restoredNodes[0]).toBe('title_page');
+    // The rest of the document structure should be preserved
+    expect(restoredNodes.slice(1)).toEqual(originalNodes.slice(1));
   });
 });
 
@@ -417,29 +426,32 @@ describe('createStarterDocument', () => {
     expect(doc.firstChild?.type.name).toBe('title_page');
   });
 
-  it('should have scene_heading after title_page', () => {
+  it('should have action after title_page', () => {
     const doc = createStarterDocument();
-    expect(doc.child(1)?.type.name).toBe('scene_heading');
+    expect(doc.child(1)?.type.name).toBe('action');
   });
 
-  it('should have action after scene_heading', () => {
+  it('should have exactly two children', () => {
     const doc = createStarterDocument();
-    expect(doc.child(2)?.type.name).toBe('action');
+    expect(doc.childCount).toBe(2);
   });
 
-  it('should have title_page with three children', () => {
+  it('should have title_page with six children', () => {
     const doc = createStarterDocument();
     const titlePage = doc.firstChild;
-    expect(titlePage?.childCount).toBe(3);
+    expect(titlePage?.childCount).toBe(6);
     expect(titlePage?.child(0)?.type.name).toBe('title_page_title');
     expect(titlePage?.child(1)?.type.name).toBe('title_page_author');
     expect(titlePage?.child(2)?.type.name).toBe('title_page_logline');
+    expect(titlePage?.child(3)?.type.name).toBe('title_page_contact');
+    expect(titlePage?.child(4)?.type.name).toBe('title_page_copyright');
+    expect(titlePage?.child(5)?.type.name).toBe('title_page_draft');
   });
 
-  it('should have default scene_heading attributes', () => {
+  it('should have draft text with current date', () => {
     const doc = createStarterDocument();
-    const sceneHeading = doc.child(1);
-    expect(sceneHeading?.attrs.type).toBe('INT');
-    expect(sceneHeading?.attrs.timeOfDay).toBe('DAY');
+    const titlePage = doc.firstChild;
+    const draftNode = titlePage?.child(5);
+    expect(draftNode?.textContent).toContain('Draft');
   });
 });

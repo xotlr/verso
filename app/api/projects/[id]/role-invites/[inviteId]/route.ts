@@ -1,24 +1,11 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 
-// DELETE /api/projects/[id]/role-invites/[inviteId] - Revoke an invite
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string; inviteId: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const DELETE = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id: projectId, inviteId } = params
 
-    const { id: projectId, inviteId } = await params
-
-    // Verify user owns the project or is the inviter
     const invite = await prisma.projectRoleInvite.findFirst({
       where: {
         id: inviteId,
@@ -31,7 +18,7 @@ export async function DELETE(
             team: {
               select: {
                 members: {
-                  where: { userId: session.user.id },
+                  where: { userId: user.id },
                   select: { role: true },
                 },
               },
@@ -42,36 +29,23 @@ export async function DELETE(
     })
 
     if (!invite) {
-      return NextResponse.json(
-        { error: "Invite not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Invite")
     }
 
-    // Check if user can revoke (project owner, team admin, or original inviter)
-    const isProjectOwner = invite.project.userId === session.user.id
+    const isProjectOwner = invite.project.userId === user.id
     const isTeamAdmin = invite.project.team?.members.some(
       (m) => m.role === "OWNER" || m.role === "ADMIN"
     )
-    const isInviter = invite.invitedBy === session.user.id
+    const isInviter = invite.invitedBy === user.id
 
     if (!isProjectOwner && !isTeamAdmin && !isInviter) {
-      return NextResponse.json(
-        { error: "Not authorized to revoke this invite" },
-        { status: 403 }
-      )
+      throw new ForbiddenError("Not authorized to revoke this invite")
     }
 
     await prisma.projectRoleInvite.delete({
       where: { id: inviteId },
     })
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Error revoking project role invite:", error)
-    return NextResponse.json(
-      { error: "Failed to revoke invite" },
-      { status: 500 }
-    )
-  }
-}
+    return { success: true }
+  },
+})

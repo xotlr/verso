@@ -1,10 +1,7 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
 import { z } from "zod"
-import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit"
+import { createApiHandler, ForbiddenError, RATE_LIMITS } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 
-// Plan limits for stack creation
 const PLAN_LIMITS: Record<string, number> = {
   FREE: 10,
   PLUS: 50,
@@ -12,19 +9,17 @@ const PLAN_LIMITS: Record<string, number> = {
   MAX: 500,
 }
 
-// GET /api/stacks - List all stacks for the user
-export async function GET() {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+const createStackSchema = z.object({
+  name: z.string().min(1, "Name is required").max(255),
+  projectId: z.string().optional(),
+  screenplayIds: z.array(z.string()).optional(),
+})
 
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user }) => {
     const stacks = await prisma.stack.findMany({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,
@@ -32,9 +27,7 @@ export async function GET() {
         createdAt: true,
         updatedAt: true,
         projectId: true,
-        project: {
-          select: { id: true, name: true },
-        },
+        project: { select: { id: true, name: true } },
         screenplays: {
           select: {
             id: true,
@@ -46,137 +39,61 @@ export async function GET() {
           },
           orderBy: { updatedAt: "desc" },
         },
-        _count: {
-          select: { screenplays: true },
-        },
+        _count: { select: { screenplays: true } },
       },
     })
 
-    return NextResponse.json(stacks)
-  } catch (error) {
-    console.error("Error fetching stacks:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch stacks" },
-      { status: 500 }
-    )
-  }
-}
-
-// Validation schema for creating a stack
-const createStackSchema = z.object({
-  name: z.string().min(1, "Name is required").max(255),
-  projectId: z.string().optional(),
-  screenplayIds: z.array(z.string()).optional(),
+    return stacks
+  },
 })
 
-// POST /api/stacks - Create a new stack
-export async function POST(request: Request) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const POST = createApiHandler({
+  auth: "required",
+  schema: createStackSchema,
+  rateLimit: RATE_LIMITS.PROJECT_CREATE,
+  handler: async ({ user, data }) => {
+    const { name, projectId, screenplayIds } = data
 
-    // Rate limiting
-    const rateLimitResult = await rateLimit(
-      `stack-create:${session.user.id}`,
-      RATE_LIMITS.PROJECT_CREATE
-    )
-
-    if (!rateLimitResult.success) {
-      return NextResponse.json(
-        {
-          error: "Too many requests. Please try again later.",
-          retryAfter: Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000),
-        },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000)),
-          },
-        }
-      )
-    }
-
-    const body = await request.json()
-    const result = createStackSchema.safeParse(body)
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
-    }
-
-    const { name, projectId, screenplayIds } = result.data
-
-    // Enforce plan limits
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    const userData = await prisma.user.findUnique({
+      where: { id: user.id },
       select: { plan: true },
     })
 
-    const plan = user?.plan || "FREE"
+    const plan = userData?.plan || "FREE"
     const limit = PLAN_LIMITS[plan]
 
     const stackCount = await prisma.stack.count({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
     })
 
     if (stackCount >= limit) {
-      return NextResponse.json(
-        {
-          error: `You've reached the limit of ${limit} stacks on the ${plan} plan. Upgrade to create more.`,
-          code: "PLAN_LIMIT_EXCEEDED",
-          limit,
-          current: stackCount,
-        },
-        { status: 403 }
+      throw new ForbiddenError(
+        `You've reached the limit of ${limit} stacks on the ${plan} plan. Upgrade to create more.`
       )
     }
 
-    // If projectId provided, verify user owns the project
     if (projectId) {
       const project = await prisma.project.findFirst({
-        where: {
-          id: projectId,
-          userId: session.user.id,
-        },
+        where: { id: projectId, userId: user.id },
       })
-
       if (!project) {
-        return NextResponse.json(
-          { error: "Project not found or access denied" },
-          { status: 403 }
-        )
+        throw new ForbiddenError("Project not found or access denied")
       }
     }
 
-    // If screenplayIds provided, verify user owns them
     if (screenplayIds && screenplayIds.length > 0) {
       const ownedScreenplays = await prisma.screenplay.count({
-        where: {
-          id: { in: screenplayIds },
-          userId: session.user.id,
-        },
+        where: { id: { in: screenplayIds }, userId: user.id },
       })
-
       if (ownedScreenplays !== screenplayIds.length) {
-        return NextResponse.json(
-          { error: "One or more screenplays not found or access denied" },
-          { status: 403 }
-        )
+        throw new ForbiddenError("One or more screenplays not found or access denied")
       }
     }
 
-    // Create stack and optionally add screenplays
     const stack = await prisma.stack.create({
       data: {
         name,
-        userId: session.user.id,
+        userId: user.id,
         projectId: projectId || null,
         screenplays: screenplayIds
           ? { connect: screenplayIds.map((id) => ({ id })) }
@@ -184,38 +101,22 @@ export async function POST(request: Request) {
       },
       include: {
         screenplays: {
-          select: {
-            id: true,
-            title: true,
-            wordCount: true,
-            updatedAt: true,
-          },
+          select: { id: true, title: true, wordCount: true, updatedAt: true },
         },
-        project: {
-          select: { id: true, name: true },
-        },
-        _count: {
-          select: { screenplays: true },
-        },
+        project: { select: { id: true, name: true } },
+        _count: { select: { screenplays: true } },
       },
     })
 
-    // Create activity record
     await prisma.activity.create({
       data: {
-        userId: session.user.id,
+        userId: user.id,
         type: "stack_created",
         entityId: stack.id,
         entityTitle: stack.name,
       },
     })
 
-    return NextResponse.json(stack, { status: 201 })
-  } catch (error) {
-    console.error("Error creating stack:", error)
-    return NextResponse.json(
-      { error: "Failed to create stack" },
-      { status: 500 }
-    )
-  }
-}
+    return stack
+  },
+})

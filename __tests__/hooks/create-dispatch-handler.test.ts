@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { Schema } from 'prosemirror-model';
@@ -52,6 +52,11 @@ vi.mock('@/hooks/editor/document-extractors', () => ({
     { name: 'JOHN', lineCount: 10, sceneAppearances: ['scene-1'] },
   ]),
   extractDetectedShotsFromDocument: vi.fn().mockReturnValue([]),
+  extractAll: vi.fn().mockReturnValue({
+    scenes: [{ id: 'scene-1', number: 1, heading: 'INT. OFFICE - DAY', position: 0, location: 'OFFICE' }],
+    characters: [{ name: 'JOHN', lineCount: 10, sceneAppearances: ['scene-1'] }],
+    detectedShots: [],
+  }),
 }));
 
 // Now import after mocks
@@ -188,8 +193,7 @@ describe('create-dispatch-handler', () => {
       // Fast forward past debounce
       vi.advanceTimersByTime(150);
 
-      expect(extractors.extractScenes).toHaveBeenCalledWith(doc);
-      expect(extractors.extractCharacters).toHaveBeenCalledWith(doc);
+      expect(extractors.extractAll).toHaveBeenCalledWith(doc);
       expect(onScenesChange).toHaveBeenCalled();
     });
 

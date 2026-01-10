@@ -1,25 +1,16 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { z } from "zod"
+import { createApiHandler, NotFoundError, BadRequestError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { getStripe } from "@/lib/stripe"
 import { reconcileUserSubscription } from "@/lib/stripe-helpers"
 
 export const dynamic = "force-dynamic"
 
-/**
- * GET /api/subscriptions
- * Returns the current user's subscription status
- */
-export async function GET() {
-  try {
-    const session = await auth()
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user }) => {
+    const userData = await prisma.user.findUnique({
+      where: { id: user.id },
       select: {
         plan: true,
         stripeCustomerId: true,
@@ -29,123 +20,78 @@ export async function GET() {
       },
     })
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    if (!userData) {
+      throw new NotFoundError("User")
     }
 
-    // Check if subscription is active
     const isActive =
-      user.plan !== "FREE" &&
-      user.stripeSubscriptionId &&
-      user.stripeCurrentPeriodEnd &&
-      user.stripeCurrentPeriodEnd > new Date()
+      userData.plan !== "FREE" &&
+      userData.stripeSubscriptionId &&
+      userData.stripeCurrentPeriodEnd &&
+      userData.stripeCurrentPeriodEnd > new Date()
 
-    return NextResponse.json({
-      plan: user.plan,
+    return {
+      plan: userData.plan,
       isActive,
-      isPremium: user.plan !== "FREE",
-      stripeCustomerId: user.stripeCustomerId,
-      stripeSubscriptionId: user.stripeSubscriptionId,
-      stripePriceId: user.stripePriceId,
-      currentPeriodEnd: user.stripeCurrentPeriodEnd?.toISOString() || null,
-    })
-  } catch (error) {
-    console.error("Error fetching subscription:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch subscription" },
-      { status: 500 }
-    )
-  }
-}
-
-/**
- * POST /api/subscriptions
- * Actions: reconcile, cancel, reactivate
- */
-export async function POST(request: Request) {
-  try {
-    const session = await auth()
-
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      isPremium: userData.plan !== "FREE",
+      stripeCustomerId: userData.stripeCustomerId,
+      stripeSubscriptionId: userData.stripeSubscriptionId,
+      stripePriceId: userData.stripePriceId,
+      currentPeriodEnd: userData.stripeCurrentPeriodEnd?.toISOString() || null,
     }
+  },
+})
 
-    const { action } = await request.json()
+const subscriptionActionSchema = z.object({
+  action: z.enum(["reconcile", "cancel", "reactivate"]),
+})
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        stripeSubscriptionId: true,
-        stripeCustomerId: true,
-      },
+export const POST = createApiHandler({
+  auth: "required",
+  schema: subscriptionActionSchema,
+  handler: async ({ user, data }) => {
+    const { action } = data
+
+    const userData = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { stripeSubscriptionId: true, stripeCustomerId: true },
     })
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    if (!userData) {
+      throw new NotFoundError("User")
     }
 
     const stripe = getStripe()
 
     switch (action) {
       case "reconcile": {
-        // Sync subscription status from Stripe
-        const result = await reconcileUserSubscription(session.user.id)
-        return NextResponse.json({
-          success: true,
-          plan: result.plan,
-          synced: result.synced,
-        })
+        const result = await reconcileUserSubscription(user.id)
+        return { success: true, plan: result.plan, synced: result.synced }
       }
 
       case "cancel": {
-        // Cancel subscription at period end
-        if (!user.stripeSubscriptionId) {
-          return NextResponse.json(
-            { error: "No active subscription" },
-            { status: 400 }
-          )
+        if (!userData.stripeSubscriptionId) {
+          throw new BadRequestError("No active subscription")
         }
 
-        await stripe.subscriptions.update(user.stripeSubscriptionId, {
+        await stripe.subscriptions.update(userData.stripeSubscriptionId, {
           cancel_at_period_end: true,
         })
 
-        return NextResponse.json({
-          success: true,
-          message: "Subscription will cancel at end of billing period",
-        })
+        return { success: true, message: "Subscription will cancel at end of billing period" }
       }
 
       case "reactivate": {
-        // Reactivate a subscription that was set to cancel
-        if (!user.stripeSubscriptionId) {
-          return NextResponse.json(
-            { error: "No subscription to reactivate" },
-            { status: 400 }
-          )
+        if (!userData.stripeSubscriptionId) {
+          throw new BadRequestError("No subscription to reactivate")
         }
 
-        await stripe.subscriptions.update(user.stripeSubscriptionId, {
+        await stripe.subscriptions.update(userData.stripeSubscriptionId, {
           cancel_at_period_end: false,
         })
 
-        return NextResponse.json({
-          success: true,
-          message: "Subscription reactivated",
-        })
+        return { success: true, message: "Subscription reactivated" }
       }
-
-      default:
-        return NextResponse.json(
-          { error: "Invalid action" },
-          { status: 400 }
-        )
     }
-  } catch (error) {
-    console.error("Subscription action error:", error)
-    return NextResponse.json(
-      { error: "Failed to process subscription action" },
-      { status: 500 }
-    )
-  }
-}
+  },
+})

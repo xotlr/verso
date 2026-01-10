@@ -1,19 +1,13 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { createApiHandler, NotFoundError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 
-// Helper to check project access
 async function hasProjectAccess(projectId: string, userId: string): Promise<boolean> {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
       team: {
-        include: {
-          members: {
-            where: { userId },
-          },
-        },
+        include: { members: { where: { userId } } },
       },
     },
   })
@@ -25,28 +19,20 @@ async function hasProjectAccess(projectId: string, userId: string): Promise<bool
   return false
 }
 
-// GET /api/projects/[id]/budgets
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+const createBudgetSchema = z.object({
+  title: z.string().min(1, "Title is required").max(255),
+  total: z.number().default(0),
+  data: z.any().optional(),
+})
 
-    const { id: projectId } = await params
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id: projectId } = params
 
-    const hasAccess = await hasProjectAccess(projectId, session.user.id)
+    const hasAccess = await hasProjectAccess(projectId, user.id)
     if (!hasAccess) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Project")
     }
 
     const budgets = await prisma.budget.findMany({
@@ -54,70 +40,29 @@ export async function GET(
       orderBy: { createdAt: "desc" },
     })
 
-    return NextResponse.json(budgets)
-  } catch (error) {
-    console.error("Error fetching budgets:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch budgets" },
-      { status: 500 }
-    )
-  }
-}
-
-const createBudgetSchema = z.object({
-  title: z.string().min(1, "Title is required").max(255),
-  total: z.number().default(0),
-  data: z.any().optional(),
+    return budgets
+  },
 })
 
-// POST /api/projects/[id]/budgets
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const POST = createApiHandler({
+  auth: "required",
+  schema: createBudgetSchema,
+  handler: async ({ user, params, data }) => {
+    const { id: projectId } = params
 
-    const { id: projectId } = await params
-
-    const hasAccess = await hasProjectAccess(projectId, session.user.id)
+    const hasAccess = await hasProjectAccess(projectId, user.id)
     if (!hasAccess) {
-      return NextResponse.json(
-        { error: "Project not found" },
-        { status: 404 }
-      )
-    }
-
-    const body = await request.json()
-    const result = createBudgetSchema.safeParse(body)
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
+      throw new NotFoundError("Project")
     }
 
     const budget = await prisma.budget.create({
       data: {
-        ...result.data,
-        userId: session.user.id,
+        ...data,
+        userId: user.id,
         projectId,
       },
     })
 
-    return NextResponse.json(budget, { status: 201 })
-  } catch (error) {
-    console.error("Error creating budget:", error)
-    return NextResponse.json(
-      { error: "Failed to create budget" },
-      { status: 500 }
-    )
-  }
-}
+    return budget
+  },
+})

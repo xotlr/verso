@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { NextRequest } from 'next/server'
 
 // Mock dependencies before importing route handlers
 vi.mock('@/lib/auth', () => ({
@@ -29,6 +30,7 @@ vi.mock('@/lib/prisma', () => ({
 
 vi.mock('@/lib/rate-limit', () => ({
   rateLimit: vi.fn(),
+  getClientIp: vi.fn(() => '127.0.0.1'),
   RATE_LIMITS: {
     PROJECT_CREATE: { requests: 10, window: 60 },
   },
@@ -47,14 +49,32 @@ vi.mock('@/lib/prosemirror/schema', () => ({
   },
 }))
 
+vi.mock('@/lib/screenplay', () => ({
+  initializeScreenplayContent: vi.fn(({ title }) => ({
+    content: '{}',
+    wordCount: 0,
+    title,
+  })),
+  validateScreenplayCreationAccess: vi.fn(),
+}))
+
 import { GET, POST } from '@/app/api/screenplays/route'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { rateLimit } from '@/lib/rate-limit'
+import { validateScreenplayCreationAccess } from '@/lib/screenplay'
 
-const mockAuth = vi.mocked(auth)
-const mockPrisma = vi.mocked(prisma)
-const mockRateLimit = vi.mocked(rateLimit)
+// Cast through unknown to avoid complex mock typing - mocks are set up correctly
+const mockAuth = auth as unknown as ReturnType<typeof vi.fn>
+const mockPrisma = prisma as unknown as {
+  screenplay: { findMany: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
+  user: { findUnique: ReturnType<typeof vi.fn> };
+  teamMember: { findUnique: ReturnType<typeof vi.fn> };
+  project: { findUnique: ReturnType<typeof vi.fn> };
+  activity: { create: ReturnType<typeof vi.fn> };
+}
+const mockRateLimit = rateLimit as unknown as ReturnType<typeof vi.fn>
+const mockValidateAccess = validateScreenplayCreationAccess as unknown as ReturnType<typeof vi.fn>
 
 describe('GET /api/screenplays', () => {
   beforeEach(() => {
@@ -64,7 +84,7 @@ describe('GET /api/screenplays', () => {
   it('returns 401 when not authenticated', async () => {
     mockAuth.mockResolvedValue(null)
 
-    const request = new Request('http://localhost/api/screenplays')
+    const request = new NextRequest('http://localhost/api/screenplays')
     const response = await GET(request)
     const data = await response.json()
 
@@ -85,7 +105,7 @@ describe('GET /api/screenplays', () => {
     mockPrisma.screenplay.findMany.mockResolvedValue(mockScreenplays as never)
     mockPrisma.screenplay.count.mockResolvedValue(1)
 
-    const request = new Request('http://localhost/api/screenplays')
+    const request = new NextRequest('http://localhost/api/screenplays')
     const response = await GET(request)
     const data = await response.json()
 
@@ -103,7 +123,7 @@ describe('GET /api/screenplays', () => {
     mockPrisma.screenplay.findMany.mockResolvedValue([])
     mockPrisma.screenplay.count.mockResolvedValue(0)
 
-    const request = new Request('http://localhost/api/screenplays?standalone=true')
+    const request = new NextRequest('http://localhost/api/screenplays?standalone=true')
     const response = await GET(request)
 
     expect(response.status).toBe(200)
@@ -126,7 +146,7 @@ describe('GET /api/screenplays', () => {
     mockPrisma.screenplay.findMany.mockResolvedValue([])
     mockPrisma.screenplay.count.mockResolvedValue(0)
 
-    const request = new Request('http://localhost/api/screenplays?favorites=true')
+    const request = new NextRequest('http://localhost/api/screenplays?favorites=true')
     const response = await GET(request)
 
     expect(response.status).toBe(200)
@@ -148,7 +168,7 @@ describe('GET /api/screenplays', () => {
     mockPrisma.screenplay.findMany.mockResolvedValue([])
     mockPrisma.screenplay.count.mockResolvedValue(100)
 
-    const request = new Request('http://localhost/api/screenplays?limit=10&offset=20')
+    const request = new NextRequest('http://localhost/api/screenplays?limit=10&offset=20')
     const response = await GET(request)
     const data = await response.json()
 
@@ -171,7 +191,7 @@ describe('GET /api/screenplays', () => {
     mockPrisma.screenplay.findMany.mockResolvedValue([])
     mockPrisma.screenplay.count.mockResolvedValue(0)
 
-    const request = new Request('http://localhost/api/screenplays?limit=500')
+    const request = new NextRequest('http://localhost/api/screenplays?limit=500')
     await GET(request)
 
     expect(mockPrisma.screenplay.findMany).toHaveBeenCalledWith(
@@ -186,12 +206,13 @@ describe('POST /api/screenplays', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockRateLimit.mockResolvedValue({ success: true, resetAt: Date.now() + 60000 })
+    mockValidateAccess.mockResolvedValue({ allowed: true })
   })
 
   it('returns 401 when not authenticated', async () => {
     mockAuth.mockResolvedValue(null)
 
-    const request = new Request('http://localhost/api/screenplays', {
+    const request = new NextRequest('http://localhost/api/screenplays', {
       method: 'POST',
       body: JSON.stringify({ title: 'Test' }),
     })
@@ -210,7 +231,7 @@ describe('POST /api/screenplays', () => {
 
     mockRateLimit.mockResolvedValue({ success: false, resetAt: Date.now() + 30000 })
 
-    const request = new Request('http://localhost/api/screenplays', {
+    const request = new NextRequest('http://localhost/api/screenplays', {
       method: 'POST',
       body: JSON.stringify({ title: 'Test' }),
     })
@@ -227,14 +248,14 @@ describe('POST /api/screenplays', () => {
       expires: new Date(Date.now() + 86400000).toISOString(),
     })
 
-    const request = new Request('http://localhost/api/screenplays', {
+    const request = new NextRequest('http://localhost/api/screenplays', {
       method: 'POST',
       body: JSON.stringify({ title: '' }), // Empty title
     })
     const response = await POST(request)
     const data = await response.json()
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(422)
     expect(data.error).toBeDefined()
   })
 
@@ -256,14 +277,14 @@ describe('POST /api/screenplays', () => {
     } as never)
     mockPrisma.activity.create.mockResolvedValue({} as never)
 
-    const request = new Request('http://localhost/api/screenplays', {
+    const request = new NextRequest('http://localhost/api/screenplays', {
       method: 'POST',
       body: JSON.stringify({ title: 'My Screenplay' }),
     })
     const response = await POST(request)
     const data = await response.json()
 
-    expect(response.status).toBe(201)
+    expect(response.status).toBe(200)
     expect(data.title).toBe('My Screenplay')
   })
 
@@ -275,9 +296,13 @@ describe('POST /api/screenplays', () => {
       expires: new Date(Date.now() + 86400000).toISOString(),
     })
 
-    mockPrisma.project.findUnique.mockResolvedValue(null)
+    mockValidateAccess.mockResolvedValue({
+      allowed: false,
+      error: 'Project not found',
+      status: 404,
+    })
 
-    const request = new Request('http://localhost/api/screenplays', {
+    const request = new NextRequest('http://localhost/api/screenplays', {
       method: 'POST',
       body: JSON.stringify({ title: 'My Screenplay', projectId: 'nonexistent' }),
     })
@@ -285,7 +310,7 @@ describe('POST /api/screenplays', () => {
     const data = await response.json()
 
     expect(response.status).toBe(404)
-    expect(data.error).toBe('Project not found')
+    expect(data.error).toContain('not found')
   })
 
   it('creates TV screenplay with metadata', async () => {
@@ -308,7 +333,7 @@ describe('POST /api/screenplays', () => {
     } as never)
     mockPrisma.activity.create.mockResolvedValue({} as never)
 
-    const request = new Request('http://localhost/api/screenplays', {
+    const request = new NextRequest('http://localhost/api/screenplays', {
       method: 'POST',
       body: JSON.stringify({
         title: 'Pilot Episode',
@@ -321,7 +346,7 @@ describe('POST /api/screenplays', () => {
     const response = await POST(request)
     const data = await response.json()
 
-    expect(response.status).toBe(201)
+    expect(response.status).toBe(200)
     expect(data.type).toBe('TV')
     expect(mockPrisma.screenplay.create).toHaveBeenCalledWith(
       expect.objectContaining({

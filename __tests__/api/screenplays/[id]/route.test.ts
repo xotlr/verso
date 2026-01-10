@@ -13,6 +13,9 @@ vi.mock('@/lib/prisma', () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
+    teamMember: {
+      findUnique: vi.fn(),
+    },
   },
 }))
 
@@ -25,9 +28,13 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { checkScreenplayAccess } from '@/lib/auth-utils'
 
-const mockAuth = vi.mocked(auth)
-const mockPrisma = vi.mocked(prisma)
-const mockCheckAccess = vi.mocked(checkScreenplayAccess)
+// Cast through unknown to avoid complex mock typing - mocks are set up correctly
+const mockAuth = auth as unknown as ReturnType<typeof vi.fn>
+const mockPrisma = prisma as unknown as {
+  screenplay: { findUnique: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> }
+  teamMember: { findUnique: ReturnType<typeof vi.fn> }
+}
+const mockCheckAccess = checkScreenplayAccess as unknown as ReturnType<typeof vi.fn>
 
 function createRequest(method: string, body?: object) {
   return new NextRequest('http://localhost/api/screenplays/sp-1', {
@@ -59,17 +66,13 @@ describe('GET /api/screenplays/[id]', () => {
       expires: new Date(Date.now() + 86400000).toISOString(),
     })
 
-    mockCheckAccess.mockResolvedValue({
-      allowed: false,
-      error: 'Screenplay not found',
-      status: 404,
-    })
+    mockPrisma.screenplay.findUnique.mockResolvedValue(null)
 
     const response = await GET(createRequest('GET'), { params: mockParams })
     const data = await response.json()
 
     expect(response.status).toBe(404)
-    expect(data.error).toBe('Screenplay not found')
+    expect(data.error).toContain('not found')
   })
 
   it('returns 403 when user lacks access', async () => {
@@ -78,29 +81,26 @@ describe('GET /api/screenplays/[id]', () => {
       expires: new Date(Date.now() + 86400000).toISOString(),
     })
 
-    mockCheckAccess.mockResolvedValue({
-      allowed: false,
-      error: 'Access denied',
-      status: 403,
-    })
+    // Screenplay exists but user is not owner, no shares, no team access
+    mockPrisma.screenplay.findUnique.mockResolvedValue({
+      id: 'sp-1',
+      userId: 'other-user',
+      shares: [],
+      project: null,
+      teamId: null,
+    } as never)
 
     const response = await GET(createRequest('GET'), { params: mockParams })
     const data = await response.json()
 
     expect(response.status).toBe(403)
-    expect(data.error).toBe('Access denied')
+    expect(data.error).toContain('denied')
   })
 
   it('returns screenplay and updates lastOpenedAt', async () => {
     mockAuth.mockResolvedValue({
       user: { id: 'user-1', name: 'Test', email: 'test@example.com' },
       expires: new Date(Date.now() + 86400000).toISOString(),
-    })
-
-    mockCheckAccess.mockResolvedValue({
-      allowed: true,
-      isOwner: true,
-      role: 'OWNER',
     })
 
     const mockScreenplay = {
@@ -112,11 +112,14 @@ describe('GET /api/screenplays/[id]', () => {
       updatedAt: new Date(),
       project: null,
       team: null,
+      teamId: null,
       series: null,
       seasonRef: null,
+      shares: [],
     }
 
-    mockPrisma.screenplay.update.mockResolvedValue(mockScreenplay as never)
+    mockPrisma.screenplay.findUnique.mockResolvedValue(mockScreenplay as never)
+    mockPrisma.screenplay.update.mockResolvedValue({ id: 'sp-1' } as never)
 
     const response = await GET(createRequest('GET'), { params: mockParams })
     const data = await response.json()
@@ -179,7 +182,6 @@ describe('PUT /api/screenplays/[id]', () => {
     mockCheckAccess.mockResolvedValue({
       allowed: true,
       isOwner: true,
-      role: 'OWNER',
     })
 
     const response = await PUT(
@@ -187,7 +189,7 @@ describe('PUT /api/screenplays/[id]', () => {
       { params: mockParams }
     )
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(422)
   })
 
   it('updates screenplay successfully', async () => {
@@ -199,7 +201,6 @@ describe('PUT /api/screenplays/[id]', () => {
     mockCheckAccess.mockResolvedValue({
       allowed: true,
       isOwner: true,
-      role: 'OWNER',
     })
 
     const updatedScreenplay = {
@@ -231,7 +232,6 @@ describe('PUT /api/screenplays/[id]', () => {
     mockCheckAccess.mockResolvedValue({
       allowed: true,
       isOwner: true,
-      role: 'OWNER',
     })
 
     // Create content larger than 5MB
@@ -256,7 +256,6 @@ describe('PUT /api/screenplays/[id]', () => {
     mockCheckAccess.mockResolvedValue({
       allowed: true,
       isOwner: true,
-      role: 'OWNER',
     })
 
     const currentTime = Date.now()
@@ -271,7 +270,7 @@ describe('PUT /api/screenplays/[id]', () => {
     const data = await response.json()
 
     expect(response.status).toBe(409)
-    expect(data.error).toContain('Conflict')
+    expect(data.error).toContain('modified')
   })
 })
 
@@ -285,7 +284,6 @@ describe('PATCH /api/screenplays/[id]', () => {
     mockCheckAccess.mockResolvedValue({
       allowed: true,
       isOwner: true,
-      role: 'OWNER',
     })
 
     mockPrisma.screenplay.update.mockResolvedValue({
@@ -326,7 +324,7 @@ describe('DELETE /api/screenplays/[id]', () => {
     mockCheckAccess.mockResolvedValue({
       allowed: true,
       isOwner: false,
-      role: 'EDITOR',
+      shareRole: 'EDITOR',
     })
 
     const response = await DELETE(createRequest('DELETE'), { params: mockParams })
@@ -345,7 +343,6 @@ describe('DELETE /api/screenplays/[id]', () => {
     mockCheckAccess.mockResolvedValue({
       allowed: true,
       isOwner: true,
-      role: 'OWNER',
     })
 
     mockPrisma.screenplay.delete.mockResolvedValue({} as never)

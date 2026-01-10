@@ -1,22 +1,16 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { createApiHandler, UnauthorizedError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 
-// GET /api/project-role-invites - List pending project role invites for current user
-export async function GET() {
-  try {
-    const session = await auth()
-    if (!session?.user?.id || !session.user.email) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user }) => {
+    if (!user.email) {
+      throw new UnauthorizedError("Email required")
     }
 
-    // Get pending invites for user's email (not expired)
     const invites = await prisma.projectRoleInvite.findMany({
       where: {
-        email: session.user.email.toLowerCase(),
+        email: user.email.toLowerCase(),
         expiresAt: { gt: new Date() },
       },
       select: {
@@ -45,12 +39,6 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     })
 
-    return NextResponse.json(invites)
-  } catch (error) {
-    console.error("Error fetching project role invites:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch invites" },
-      { status: 500 }
-    )
-  }
-}
+    return invites
+  },
+})

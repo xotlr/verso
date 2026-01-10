@@ -79,45 +79,46 @@ export function WorkspaceHeader({
         {onImportFile && (
           <Button
             onClick={handleImportClick}
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="touch-manipulation"
             disabled={isImporting}
           >
             {isImporting ? (
-              <Loader2 className="h-4 w-4 mr-1.5 sm:mr-2 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Upload className="h-4 w-4 mr-1.5 sm:mr-2" />
+              <Upload className="h-4 w-4" />
             )}
-            <span className="text-xs sm:text-sm">Import</span>
+            <span className="hidden md:inline">Import</span>
           </Button>
         )}
         <Button
           onClick={onCreateProject}
-          variant="outline"
+          variant="secondary"
           size="sm"
           className="touch-manipulation"
           disabled={isCreatingProject}
         >
           {isCreatingProject ? (
-            <Loader2 className="h-4 w-4 mr-1.5 sm:mr-2 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <RiFolder6Line className="h-4 w-4 mr-1.5 sm:mr-2" />
+            <RiFolder6Line className="h-4 w-4" />
           )}
-          <span className="text-xs sm:text-sm">New Project</span>
+          <span className="hidden md:inline">New Project</span>
         </Button>
         <Button
           onClick={onCreateScreenplay}
+          variant="secondary"
           size="sm"
           className="touch-manipulation"
           disabled={isCreatingScreenplay}
         >
           {isCreatingScreenplay ? (
-            <Loader2 className="h-4 w-4 mr-1.5 sm:mr-2 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            <Plus className="h-4 w-4 mr-1.5 sm:mr-2" />
+            <Plus className="h-4 w-4" />
           )}
-          <span className="text-xs sm:text-sm">New Screenplay</span>
+          <span className="hidden sm:inline">New Screenplay</span>
         </Button>
       </div>
     </div>

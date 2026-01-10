@@ -1,6 +1,5 @@
 import { Command, EditorState, TextSelection } from 'prosemirror-state';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
-import { EditorView } from 'prosemirror-view';
 import { screenplaySchema } from '../schema';
 
 // ============================================================================
@@ -274,7 +273,7 @@ export const wrapInDualDialogue: Command = (state, dispatch, view) => {
 
   // Create right column content (current block's nodes)
   // If current block only has CHARACTER, add empty dialogue
-  let rightColumnContent = currentBlock.nodes.map((node) => {
+  const rightColumnContent = currentBlock.nodes.map((node) => {
     if (node.type.name === 'character') {
       return node.type.create({ ...node.attrs, isDual: true }, node.content, node.marks);
     }
@@ -468,7 +467,7 @@ export function createDualDialogueWithCharacter(
   });
 
   // Create right column content (current block's nodes)
-  let rightColumnContent = currentBlock.nodes.map((node) => {
+  const rightColumnContent = currentBlock.nodes.map((node) => {
     if (node.type.name === 'character') {
       return node.type.create({ ...node.attrs, isDual: true }, node.content, node.marks);
     }

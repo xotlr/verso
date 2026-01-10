@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import { ZoomBehavior, ZoomTransform } from 'd3-zoom';
 import { GRID_MINOR_SPACING } from '@/types/tapestry';
-import type { TapestryLayers, GSelection } from './types';
+import type { TapestryLayers } from './types';
 
 export interface LayerSetupOptions {
   dimensions: { width: number; height: number };

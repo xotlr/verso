@@ -37,6 +37,44 @@ export function EditorSection({ settings, updateEditorSettings }: EditorSectionP
         </CardContent>
       </Card>
 
+      {/* Writing Assists Card */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base">Writing Assists</CardTitle>
+          <CardDescription>Text correction and formatting helpers</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between py-0.5">
+            <div>
+              <label className="text-sm font-medium">Spellcheck</label>
+              <p className="text-xs text-muted-foreground">
+                Underline misspelled words
+              </p>
+            </div>
+            <Switch
+              checked={settings.spellcheck ?? true}
+              onCheckedChange={(checked) => updateEditorSettings({
+                spellcheck: checked as boolean
+              })}
+            />
+          </div>
+          <div className="flex items-center justify-between py-0.5">
+            <div>
+              <label className="text-sm font-medium">Auto-Capitalize</label>
+              <p className="text-xs text-muted-foreground">
+                Capitalize character names and scene headings
+              </p>
+            </div>
+            <Switch
+              checked={settings.autoCapitalize ?? true}
+              onCheckedChange={(checked) => updateEditorSettings({
+                autoCapitalize: checked as boolean
+              })}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Learning Card */}
       <Card>
         <CardHeader className="pb-4">

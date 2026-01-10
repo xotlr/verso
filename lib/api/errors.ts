@@ -78,6 +78,16 @@ export class ConflictError extends ApiError {
 }
 
 /**
+ * 410 Gone - Resource no longer available (expired, revoked, etc).
+ */
+export class GoneError extends ApiError {
+  constructor(message = 'Resource no longer available') {
+    super(message, 410, 'GONE');
+    this.name = 'GoneError';
+  }
+}
+
+/**
  * 422 Unprocessable Entity - Validation failed.
  */
 export class ValidationError extends ApiError {
@@ -91,9 +101,22 @@ export class ValidationError extends ApiError {
  * 429 Too Many Requests - Rate limit exceeded.
  */
 export class RateLimitError extends ApiError {
-  constructor(resetAt?: number) {
-    super('Rate limit exceeded', 429, 'RATE_LIMIT_EXCEEDED', { resetAt });
+  public readonly retryAfter?: number;
+
+  constructor(message = 'Rate limit exceeded', retryAfter?: number) {
+    super(message, 429, 'RATE_LIMIT_EXCEEDED', retryAfter ? { retryAfter } : undefined);
     this.name = 'RateLimitError';
+    this.retryAfter = retryAfter;
+  }
+}
+
+/**
+ * 403 CSRF Validation Failed - Origin doesn't match host.
+ */
+export class CsrfError extends ApiError {
+  constructor(message = 'CSRF validation failed') {
+    super(message, 403, 'CSRF_ERROR');
+    this.name = 'CsrfError';
   }
 }
 

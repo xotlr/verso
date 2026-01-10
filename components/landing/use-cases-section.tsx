@@ -53,12 +53,19 @@ export function UseCasesSection() {
                 transition={{ duration: 0.4, ease: easeTransition }}
                 className="relative z-0 flex min-h-[18rem] sm:min-h-[22rem] md:min-h-[26rem] flex-col items-center justify-center p-6 sm:p-8"
               >
-                <h3 className={cn(
-                  "uppercase text-primary/80 text-center",
-                  useCase.name === "Film"
-                    ? "font-bodoni text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-light"
-                    : "font-plaster text-7xl sm:text-8xl md:text-9xl lg:text-[10rem] tracking-wide"
-                )}>
+                <h3
+                  className={cn(
+                    "uppercase text-primary/80 text-center",
+                    useCase.name === "Film"
+                      ? "text-6xl sm:text-7xl md:text-8xl lg:text-9xl"
+                      : "text-7xl sm:text-8xl md:text-9xl lg:text-[10rem] tracking-wide"
+                  )}
+                  style={{
+                    fontFamily: useCase.name === "Film"
+                      ? 'var(--font-bodoni-moda), "Bodoni Moda", Georgia, serif'
+                      : 'var(--font-plaster), Plaster, Impact, sans-serif'
+                  }}
+                >
                   {useCase.name}
                 </h3>
               </motion.div>
@@ -84,12 +91,19 @@ export function UseCasesSection() {
                 className="absolute inset-0 z-20 flex min-h-[18rem] sm:min-h-[22rem] md:min-h-[26rem] items-start justify-center p-6 sm:p-8 md:p-10 text-primary-foreground"
               >
                 <div className="space-y-2 sm:space-y-3 text-left max-w-md pt-6 sm:pt-8">
-                  <p className={cn(
-                    "opacity-90 uppercase",
-                    useCase.name === "Film"
-                      ? "font-bodoni text-2xl sm:text-3xl md:text-4xl font-light"
-                      : "font-plaster text-2xl sm:text-3xl md:text-4xl tracking-wide"
-                  )}>
+                  <p
+                    className={cn(
+                      "opacity-90 uppercase",
+                      useCase.name === "Film"
+                        ? "text-2xl sm:text-3xl md:text-4xl"
+                        : "text-2xl sm:text-3xl md:text-4xl tracking-wide"
+                    )}
+                    style={{
+                      fontFamily: useCase.name === "Film"
+                        ? 'var(--font-bodoni-moda), "Bodoni Moda", Georgia, serif'
+                        : 'var(--font-plaster), Plaster, Impact, sans-serif'
+                    }}
+                  >
                     {useCase.name}
                   </p>
                   <p className="text-sm sm:text-base md:text-lg leading-relaxed opacity-90">

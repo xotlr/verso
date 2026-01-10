@@ -25,6 +25,10 @@ export interface UseProseMirrorEditorOptions {
   sceneNumberPosition?: SceneNumberPosition;
   /** Enable timelapse mode - syncs content without recreating editor (for playback) */
   timelapseMode?: boolean;
+  /** Enable browser spellcheck (red underlines) */
+  spellcheck?: boolean;
+  /** Enable auto-capitalize for character names and scene headings */
+  autoCapitalize?: boolean;
 
   // Yjs CRDT collaboration options
   /** Yjs XmlFragment for collaborative editing */

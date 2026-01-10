@@ -154,23 +154,7 @@ function insertChar(view: EditorView, char: string): number {
   return performance.now() - start;
 }
 
-/**
- * Insert a chunk of text at current cursor position.
- */
-function insertChunk(view: EditorView, text: string): number {
-  if (!isViewValid(view)) {
-    throw new Error('EditorView is no longer valid');
-  }
-
-  const start = performance.now();
-  const { state } = view;
-  const { from } = state.selection;
-
-  const tr = state.tr.insertText(text, from);
-  view.dispatch(tr);
-
-  return performance.now() - start;
-}
+// Note: Chunk insertion function removed - chunk mode uses insertElementBlock instead
 
 /**
  * Set the element type of current block.
@@ -238,7 +222,8 @@ export async function runTypingTest(
 
   // Chunk mode inserts entire elements at once - much faster for large screenplays
   const isChunkMode = cfg.mode === 'chunk';
-  const chunkSize = cfg.chunkSize ?? 5000; // Default 5000 chars per chunk
+  // Reserved for chunk mode implementation
+  void (cfg.chunkSize ?? 5000);
 
   // Burst mode uses minimal delay
   const delayMs = cfg.mode === 'burst' ? 1 : isChunkMode ? 0 : (1000 / cfg.charsPerSecond);

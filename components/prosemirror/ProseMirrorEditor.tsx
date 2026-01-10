@@ -13,6 +13,8 @@ import type * as Y from 'yjs';
 import type { Awareness } from 'y-protocols/awareness';
 import { useResponsiveScale } from '@/hooks/editor/use-responsive-scale';
 import { useEditorZoom } from '@/hooks/editor/use-editor-zoom';
+import { useEditorSettings } from '@/hooks/editor/use-editor-settings';
+import { useEditorHighlighting } from '@/hooks/editor/use-editor-highlighting';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PAGE_WIDTH_PX, PAGE_HEIGHT_PX } from '@/lib/constants';
 import { FloatingToolbar } from './FloatingToolbar';
@@ -20,7 +22,7 @@ import { AutocompleteDropdown } from './AutocompleteDropdown';
 import { EditorContextMenu } from './EditorContextMenu';
 import { ElementToolbar } from './ElementToolbar';
 import { RightToolbar } from '@/components/editor/RightToolbar';
-import type { HighlightColor } from '@/types/settings';
+// HighlightColor type used by setHighlightColor callback
 import { EditorUnifiedToolbar } from '@/components/editor/EditorUnifiedToolbar';
 import { EditorScrollArea, EDITOR_SCROLLBAR_WIDTH } from './EditorScrollArea';
 import { PageFrameRenderer, PageGapRenderer } from './PageFrameRenderer';
@@ -35,10 +37,14 @@ import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
 import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plugins/keymap';
 import { updateTypewriterScrollSettings } from '@/lib/prosemirror/plugins';
 import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
-import { useSettings } from '@/contexts/settings-context';
+// Settings accessed via useEditorSettings hook
 import { useDebugMetrics } from '@/components/analytics/debug-metrics-context';
 import { BeginnerTips } from '@/components/editor/BeginnerTips';
 import { TypingTestPanel } from './dev/TypingTestPanel';
+import { VersoAnalysis } from '@/components/verso-analysis';
+import { UpgradeDialog } from '@/components/upgrade-dialog';
+import { canUseScriptCheck, type PlanType } from '@/lib/stripe';
+import { useSession } from 'next-auth/react';
 import '@/styles/editor/prosemirror.css';
 
 export type ViewMode = 'discrete' | 'continuous';
@@ -185,37 +191,42 @@ export function ProseMirrorEditor({
   awareness,
   yjsUserInfo,
 }: ProseMirrorEditorProps) {
-  const { settings, updateSettings } = useSettings();
-  // Read scroll mode directly from settings
-  // In timelapse mode, always use discrete to show page frames
-  const viewMode = timelapseMode ? 'discrete' : (settings.editor.scrollMode ?? defaultViewMode);
-  // Toolbar layout: 'verso' (separate floating) or 'inverso' (unified header)
-  const toolbarLayout = settings.layout.toolbarLayout ?? 'verso';
-  // Page style: 'themed' uses theme colors, 'plain' uses off-white
-  const pageStyle = settings.editor.pageStyle ?? 'themed';
-  // Show scene numbers even when document has title page
-  const showSceneNumbers = settings.editor.showSceneNumbers ?? true;
-  // Scene number position: left, right, or both (industry standard)
-  const sceneNumberPosition = settings.editor.sceneNumberPosition ?? 'both';
-  // Show placeholder ghost text in empty elements
-  const showPlaceholders = settings.editor.showPlaceholders ?? true;
-  // Reading mode - read-only with minimal UI
-  const isReadingMode = settings.editor.readingMode ?? false;
-  // Effective editable state: prop AND not reading mode
-  const effectiveEditable = editable && !isReadingMode;
-  // Show beginner tips for new screenwriters
-  const showBeginnerTips = settings.editor.showBeginnerTips ?? false;
-  // Paper color from settings
-  const paperColor = settings.editor.paperColor ?? 'white';
-  // Highlight color from settings
-  const highlightColor = settings.editor.highlightColor ?? 'yellow';
+  // Consolidated editor settings hook
+  const {
+    viewMode,
+    isDiscreteMode,
+    toolbarLayout,
+    pageStyle,
+    showSceneNumbers,
+    sceneNumberPosition,
+    showPlaceholders,
+    isReadingMode,
+    effectiveEditable,
+    showBeginnerTips,
+    paperColor,
+    highlightColor,
+    spellcheck,
+    autoCapitalize,
+    toggleReadingMode,
+    setHighlightColor,
+    rawSettings: settings,
+  } = useEditorSettings({
+    defaultViewMode,
+    timelapseMode,
+    editable,
+  });
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_currentSpread, setCurrentSpread] = useState(0);
   const [isInFocusMode, setIsInFocusMode] = useState(false);
   const [scenesSheetOpen, setScenesSheetOpen] = useState(false);
-  const [isHighlightActive, setIsHighlightActive] = useState(false);
-  const [isEraserActive, setIsEraserActive] = useState(false);
+  const [scriptCheckOpen, setScriptCheckOpen] = useState(false);
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const isMobile = useIsMobile();
+
+  // Session for plan checking
+  const { data: session } = useSession();
+  const userPlan = (session?.user?.plan as PlanType) || 'FREE';
 
   // Ref for scroll container (for zoom gestures)
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -241,42 +252,6 @@ export function ProseMirrorEditor({
   // Toggle app-level focus mode (hides sidebar + header)
   const toggleFocusMode = useCallback(() => {
     window.dispatchEvent(new CustomEvent('focus-mode-toggle'));
-  }, []);
-
-  // Toggle reading mode (read-only with minimal UI)
-  const toggleReadingMode = useCallback(() => {
-    updateSettings({
-      editor: {
-        ...settings.editor,
-        readingMode: !isReadingMode,
-      },
-    });
-  }, [updateSettings, settings.editor, isReadingMode]);
-
-  // Handle highlight color change
-  const handleHighlightColorChange = useCallback((color: HighlightColor) => {
-    updateSettings({
-      editor: {
-        ...settings.editor,
-        highlightColor: color,
-      },
-    });
-  }, [updateSettings, settings.editor]);
-
-  // Toggle highlight mode (mutually exclusive with eraser)
-  const toggleHighlight = useCallback(() => {
-    setIsHighlightActive(prev => {
-      if (!prev) setIsEraserActive(false); // Deactivate eraser when activating highlight
-      return !prev;
-    });
-  }, []);
-
-  // Toggle eraser mode (mutually exclusive with highlight)
-  const toggleEraser = useCallback(() => {
-    setIsEraserActive(prev => {
-      if (!prev) setIsHighlightActive(false); // Deactivate highlight when activating eraser
-      return !prev;
-    });
   }, []);
 
   // Listen for focus mode changes to hide view switcher
@@ -331,6 +306,8 @@ export function ProseMirrorEditor({
     showSceneNumbers,
     sceneNumberPosition,
     timelapseMode,
+    spellcheck,
+    autoCapitalize,
     // Yjs CRDT collaboration options
     yXmlFragment,
     awareness,
@@ -338,6 +315,18 @@ export function ProseMirrorEditor({
     // Debug metrics callbacks (dev only)
     onKeystrokeLatency: debugMetrics?.pushKeystrokeLatency,
     onTransactionTime: debugMetrics?.setTransactionTime,
+  });
+
+  // Highlighting system hook - manages highlight/eraser modes and mark application
+  const {
+    isHighlightActive,
+    isEraserActive,
+    toggleHighlight,
+    toggleEraser,
+  } = useEditorHighlighting({
+    view,
+    highlightColor,
+    onHighlightColorChange: setHighlightColor,
   });
 
   // In timelapse mode, use pre-computed cached pagination for accurate page frames
@@ -400,84 +389,6 @@ export function ProseMirrorEditor({
     setWasmReady(true);
   }, [setWasmStats, setWasmReady, paginationResult]);
 
-  // Apply highlight to current selection when in highlight mode
-  const applyHighlight = useCallback(() => {
-    if (!view || !isHighlightActive) return;
-
-    const { state, dispatch } = view;
-    const { selection } = state;
-
-    // Only apply if there's a text selection
-    if (selection.empty) return;
-
-    const highlightMark = state.schema.marks.highlight;
-    if (!highlightMark) return;
-
-    // Create the mark with the selected color
-    const mark = highlightMark.create({ color: highlightColor });
-
-    // Apply the mark to the selection
-    const { from, to } = selection;
-    const tr = state.tr.addMark(from, to, mark);
-    dispatch(tr);
-  }, [view, isHighlightActive, highlightColor]);
-
-  // Listen for mouseup to apply highlights (works in both edit and reading mode)
-  useEffect(() => {
-    if (!view || !isHighlightActive) return;
-
-    const handleMouseUp = () => {
-      // Small delay to ensure selection is finalized
-      requestAnimationFrame(() => {
-        applyHighlight();
-      });
-    };
-
-    const editorDOM = view.dom;
-    editorDOM.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      editorDOM.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [view, isHighlightActive, applyHighlight]);
-
-  // Remove highlight from current selection
-  const removeHighlight = useCallback(() => {
-    if (!view || !isEraserActive) return;
-
-    const { state, dispatch } = view;
-    const { selection } = state;
-
-    // Only apply if there's a text selection
-    if (selection.empty) return;
-
-    const highlightMark = state.schema.marks.highlight;
-    if (!highlightMark) return;
-
-    // Remove the highlight mark from selection
-    const { from, to } = selection;
-    const tr = state.tr.removeMark(from, to, highlightMark);
-    dispatch(tr);
-  }, [view, isEraserActive]);
-
-  // Listen for mouseup to remove highlights when eraser is active
-  useEffect(() => {
-    if (!view || !isEraserActive) return;
-
-    const handleMouseUp = () => {
-      requestAnimationFrame(() => {
-        removeHighlight();
-      });
-    };
-
-    const editorDOM = view.dom;
-    editorDOM.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      editorDOM.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [view, isEraserActive, removeHighlight]);
-
   // Create page frames from WASM pagination result
   // WASM now handles all positioning including title page offset
   // pixel_y values are absolute - no JS offset calculations needed
@@ -497,9 +408,6 @@ export function ProseMirrorEditor({
     // with absolute pixel_y positions - use directly
     return createPageFramesFromWasm(paginationResult);
   }, [paginationResult]);
-
-  // Check if in discrete mode
-  const isDiscreteMode = viewMode === 'discrete';
 
   // Calculate total height for discrete mode (pages + gaps)
   // Uses WASM layout values (single source of truth) with fallbacks
@@ -535,6 +443,21 @@ export function ProseMirrorEditor({
     if (!view) return;
     toggleUnderline(view.state, view.dispatch);
     view.focus();
+  }, [view]);
+
+  // Handle Script Check button click
+  const handleScriptCheck = useCallback(() => {
+    if (canUseScriptCheck(userPlan)) {
+      setScriptCheckOpen(true);
+    } else {
+      setUpgradeDialogOpen(true);
+    }
+  }, [userPlan]);
+
+  // Get screenplay content for analysis
+  const screenplayContent = useMemo(() => {
+    if (!view) return '';
+    return view.state.doc.textContent;
   }, [view]);
 
   // Handle clicks on empty areas - place cursor at nearest position
@@ -691,9 +614,10 @@ export function ProseMirrorEditor({
             isHighlightActive={isHighlightActive}
             highlightColor={highlightColor}
             onHighlightToggle={toggleHighlight}
-            onHighlightColorChange={handleHighlightColorChange}
+            onHighlightColorChange={setHighlightColor}
             isEraserActive={isEraserActive}
             onEraserToggle={toggleEraser}
+            onScriptCheck={handleScriptCheck}
           />
         )
       )}
@@ -885,6 +809,19 @@ export function ProseMirrorEditor({
       {process.env.NODE_ENV === 'development' && isReady && (
         <TypingTestPanel view={view} />
       )}
+
+      {/* Script Check dialog */}
+      <VersoAnalysis
+        isOpen={scriptCheckOpen}
+        screenplay={screenplayContent}
+        onClose={() => setScriptCheckOpen(false)}
+      />
+
+      {/* Upgrade dialog for non-Pro users */}
+      <UpgradeDialog
+        open={upgradeDialogOpen}
+        onOpenChange={setUpgradeDialogOpen}
+      />
 
     </div>
   );

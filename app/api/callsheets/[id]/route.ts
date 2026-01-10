@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 
-// Helper to check callsheet access
 async function checkCallsheetAccess(callsheetId: string, userId: string) {
   const callsheet = await prisma.callsheet.findUnique({
     where: { id: callsheetId },
@@ -11,11 +9,7 @@ async function checkCallsheetAccess(callsheetId: string, userId: string) {
       project: {
         include: {
           team: {
-            include: {
-              members: {
-                where: { userId },
-              },
-            },
+            include: { members: { where: { userId } } },
           },
         },
       },
@@ -23,65 +17,18 @@ async function checkCallsheetAccess(callsheetId: string, userId: string) {
   })
 
   if (!callsheet) {
-    return { allowed: false, error: "Callsheet not found", status: 404 }
+    return { allowed: false, notFound: true, callsheet: null }
   }
 
   if (callsheet.userId === userId) {
-    return { allowed: true, callsheet }
+    return { allowed: true, notFound: false, callsheet }
   }
 
   if (callsheet.project?.team && callsheet.project.team.members.length > 0) {
-    return { allowed: true, callsheet }
+    return { allowed: true, notFound: false, callsheet }
   }
 
-  return { allowed: false, error: "Access denied", status: 403 }
-}
-
-// GET /api/callsheets/[id]
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
-    const { id } = await params
-    const access = await checkCallsheetAccess(id, session.user.id)
-
-    if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
-    }
-
-    // Fetch with project name for display
-    const callsheet = await prisma.callsheet.findUnique({
-      where: { id },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    })
-
-    return NextResponse.json(callsheet)
-  } catch (error) {
-    console.error("Error fetching callsheet:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch callsheet" },
-      { status: 500 }
-    )
-  }
+  return { allowed: false, notFound: false, callsheet: null }
 }
 
 const updateCallsheetSchema = z.object({
@@ -96,86 +43,78 @@ const updateCallsheetSchema = z.object({
   weatherTemp: z.number().optional().nullable(),
 })
 
-// PUT /api/callsheets/[id]
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
-    const { id } = await params
-    const access = await checkCallsheetAccess(id, session.user.id)
+    const access = await checkCallsheetAccess(id, user.id)
+
+    if (access.notFound) {
+      throw new NotFoundError("Callsheet")
+    }
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      throw new ForbiddenError("Access denied")
     }
 
-    const body = await request.json()
-    const result = updateCallsheetSchema.safeParse(body)
+    const callsheet = await prisma.callsheet.findUnique({
+      where: { id },
+      include: {
+        project: { select: { id: true, name: true } },
+      },
+    })
 
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
+    return callsheet
+  },
+})
+
+export const PUT = createApiHandler({
+  auth: "required",
+  schema: updateCallsheetSchema,
+  handler: async ({ user, params, data }) => {
+    const { id } = params
+
+    const access = await checkCallsheetAccess(id, user.id)
+
+    if (access.notFound) {
+      throw new NotFoundError("Callsheet")
     }
 
-    const {
-      title,
-      shootDate,
-      callTime,
-      wrapTime,
-      status,
-      primaryLocation,
-      data,
-      weatherForecast,
-      weatherTemp,
-    } = result.data
+    if (!access.allowed) {
+      throw new ForbiddenError("Access denied")
+    }
 
-    // Get current callsheet to check for status change
     const previousCallsheet = access.callsheet
 
     const callsheet = await prisma.callsheet.update({
       where: { id },
       data: {
-        ...(title !== undefined && { title }),
-        ...(shootDate !== undefined && { shootDate: new Date(shootDate) }),
-        ...(callTime !== undefined && { callTime: new Date(callTime) }),
-        ...(wrapTime !== undefined && { wrapTime: wrapTime ? new Date(wrapTime) : null }),
-        ...(status !== undefined && { status }),
-        ...(primaryLocation !== undefined && { primaryLocation }),
-        ...(data !== undefined && { data }),
-        ...(weatherForecast !== undefined && { weatherForecast }),
-        ...(weatherTemp !== undefined && { weatherTemp }),
+        ...(data.title !== undefined && { title: data.title }),
+        ...(data.shootDate !== undefined && { shootDate: new Date(data.shootDate) }),
+        ...(data.callTime !== undefined && { callTime: new Date(data.callTime) }),
+        ...(data.wrapTime !== undefined && {
+          wrapTime: data.wrapTime ? new Date(data.wrapTime) : null,
+        }),
+        ...(data.status !== undefined && { status: data.status }),
+        ...(data.primaryLocation !== undefined && { primaryLocation: data.primaryLocation }),
+        ...(data.data !== undefined && { data: data.data }),
+        ...(data.weatherForecast !== undefined && { weatherForecast: data.weatherForecast }),
+        ...(data.weatherTemp !== undefined && { weatherTemp: data.weatherTemp }),
       },
       include: {
         project: {
           include: {
-            team: {
-              include: {
-                members: true,
-              },
-            },
+            team: { include: { members: true } },
           },
         },
       },
     })
 
-    // Send notifications if status changed to PUBLISHED
-    if (status === "PUBLISHED" && previousCallsheet?.status !== "PUBLISHED") {
+    if (data.status === "PUBLISHED" && previousCallsheet?.status !== "PUBLISHED") {
       const teamMembers = callsheet.project?.team?.members || []
       const notificationPromises = teamMembers
-        .filter((m) => m.userId !== session.user.id) // Don't notify self
+        .filter((m) => m.userId !== user.id)
         .map((member) =>
           prisma.notification.create({
             data: {
@@ -193,50 +132,29 @@ export async function PUT(
       await Promise.all(notificationPromises)
     }
 
-    return NextResponse.json(callsheet)
-  } catch (error) {
-    console.error("Error updating callsheet:", error)
-    return NextResponse.json(
-      { error: "Failed to update callsheet" },
-      { status: 500 }
-    )
-  }
-}
+    return callsheet
+  },
+})
 
-// DELETE /api/callsheets/[id]
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
+export const DELETE = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
+
+    const access = await checkCallsheetAccess(id, user.id)
+
+    if (access.notFound) {
+      throw new NotFoundError("Callsheet")
     }
 
-    const { id } = await params
-    const access = await checkCallsheetAccess(id, session.user.id)
-
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      throw new ForbiddenError("Access denied")
     }
 
     await prisma.callsheet.delete({
       where: { id },
     })
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Error deleting callsheet:", error)
-    return NextResponse.json(
-      { error: "Failed to delete callsheet" },
-      { status: 500 }
-    )
-  }
-}
+    return { success: true }
+  },
+})

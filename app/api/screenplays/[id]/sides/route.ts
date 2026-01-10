@@ -1,31 +1,28 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
-import { z } from "zod"
 
-// GET /api/screenplays/[id]/sides - List all digital sides for a screenplay
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+const createSideSchema = z.object({
+  filterType: z.enum(["all", "character", "scenes"]).default("all"),
+  filterValue: z.string().optional().nullable(),
+  title: z.string().max(255).optional().nullable(),
+  expiresAt: z.string().datetime().optional().nullable(),
+  callsheetId: z.string().optional().nullable(),
+})
 
-    const { id } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
+
+    const access = await checkScreenplayAccess(id, user.id)
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
     const sides = await prisma.digitalSide.findMany({
@@ -40,74 +37,36 @@ export async function GET(
       },
     })
 
-    return NextResponse.json({ sides })
-  } catch (error) {
-    console.error("[SIDES_GET]", error)
-    return NextResponse.json(
-      { error: "Failed to fetch digital sides" },
-      { status: 500 }
-    )
-  }
-}
-
-const createSideSchema = z.object({
-  filterType: z.enum(["all", "character", "scenes"]).default("all"),
-  filterValue: z.string().optional().nullable(),
-  title: z.string().max(255).optional().nullable(),
-  expiresAt: z.string().datetime().optional().nullable(),
-  callsheetId: z.string().optional().nullable(),
+    return { sides }
+  },
 })
 
-// POST /api/screenplays/[id]/sides - Create a new digital side
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const POST = createApiHandler({
+  auth: "required",
+  schema: createSideSchema,
+  handler: async ({ user, params, data }) => {
+    const { id } = params
 
-    const { id } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
+    const access = await checkScreenplayAccess(id, user.id)
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
-    const body = await request.json()
-    const result = createSideSchema.safeParse(body)
+    const { filterType, filterValue, title, expiresAt, callsheetId } = data
 
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
-    }
-
-    const { filterType, filterValue, title, expiresAt, callsheetId } = result.data
-
-    // Validate callsheet if provided
     if (callsheetId) {
       const callsheet = await prisma.callsheet.findUnique({
         where: { id: callsheetId },
       })
       if (!callsheet) {
-        return NextResponse.json(
-          { error: "Callsheet not found" },
-          { status: 404 }
-        )
+        throw new NotFoundError("Callsheet")
       }
     }
 
-    // Generate title if not provided
     const generatedTitle = title || (
       filterType === "character" && filterValue
         ? `${filterValue}'s Sides`
@@ -119,7 +78,7 @@ export async function POST(
     const side = await prisma.digitalSide.create({
       data: {
         screenplayId: id,
-        userId: session.user.id,
+        userId: user.id,
         filterType,
         filterValue: filterValue || null,
         title: generatedTitle,
@@ -128,12 +87,6 @@ export async function POST(
       },
     })
 
-    return NextResponse.json({ side }, { status: 201 })
-  } catch (error) {
-    console.error("[SIDES_POST]", error)
-    return NextResponse.json(
-      { error: "Failed to create digital side" },
-      { status: 500 }
-    )
-  }
-}
+    return { side }
+  },
+})

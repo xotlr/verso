@@ -55,16 +55,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { email: credentials.email as string },
         })
 
-        if (!user || !user.password) {
-          return null
-        }
+        // SECURITY: Always run bcrypt comparison to prevent timing attacks
+        // that could reveal whether an email exists in the system.
+        // Use a dummy hash when user doesn't exist to maintain constant time.
+        const DUMMY_HASH = "$2a$12$xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        const passwordToCompare = user?.password || DUMMY_HASH
 
         const isValid = await bcrypt.compare(
           credentials.password as string,
-          user.password
+          passwordToCompare
         )
 
-        if (!isValid) {
+        // Only return user if they exist, have a password, AND password is valid
+        if (!user || !user.password || !isValid) {
           return null
         }
 
@@ -103,8 +106,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return url
         }
       } catch {
-        // Invalid URL - check if it's a relative path
-        if (url.startsWith("/")) {
+        // Invalid URL - check if it's a safe relative path
+        // SECURITY: Reject protocol-relative URLs (//evil.com) and other edge cases
+        if (url.startsWith("/") && !url.startsWith("//") && !url.includes("\\")) {
           // Relative paths are safe - avoid login loops
           if (url === "/login" || url === "/signup") {
             return appUrl || `${baseUrl}/home`

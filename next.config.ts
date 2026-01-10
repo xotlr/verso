@@ -24,6 +24,71 @@ const nextConfig: NextConfig = {
   // Explicitly disable source maps in production (defense in depth with post-build removal)
   productionBrowserSourceMaps: false,
 
+  // Security headers
+  async headers() {
+    return [
+      {
+        // Apply security headers to all routes
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              // Default: deny all unless explicitly allowed
+              "default-src 'self'",
+              // Scripts: self + inline for Next.js hydration (unsafe-inline required for Next.js)
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com",
+              // Styles: self + inline for Tailwind/styled components
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              // Images: self + data URIs + Supabase storage + Google/GitHub avatars
+              "img-src 'self' data: blob: https://akqcitwkiabfyyqukzus.supabase.co https://lh3.googleusercontent.com https://avatars.githubusercontent.com",
+              // Fonts: self + Google Fonts
+              "font-src 'self' https://fonts.gstatic.com",
+              // Connect: self + Supabase + Stripe
+              "connect-src 'self' https://akqcitwkiabfyyqukzus.supabase.co wss://akqcitwkiabfyyqukzus.supabase.co https://api.stripe.com",
+              // Frames: Stripe checkout only
+              "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
+              // Object/media restrictions
+              "object-src 'none'",
+              "media-src 'self' blob:",
+              // WASM execution
+              "script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://challenges.cloudflare.com",
+              "worker-src 'self' blob:",
+              // Form submissions
+              "form-action 'self'",
+              // Frame ancestors (clickjacking prevention)
+              "frame-ancestors 'self'",
+              // Base URI restriction
+              "base-uri 'self'",
+              // Upgrade insecure requests in production
+              process.env.NODE_ENV === 'production' ? "upgrade-insecure-requests" : "",
+            ].filter(Boolean).join('; '),
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+          },
+        ],
+      },
+    ];
+  },
+
   // Fix workspace root detection (multiple lockfiles issue)
   outputFileTracingRoot: __dirname,
 

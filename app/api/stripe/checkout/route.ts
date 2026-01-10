@@ -1,105 +1,75 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { z } from "zod"
+import { createApiHandler, BadRequestError } from "@/lib/api"
 import { getStripe } from "@/lib/stripe"
 import { getPlanFromPriceId } from "@/lib/stripe-constants"
 import { getOrCreateStripeCustomer } from "@/lib/stripe-helpers"
+import { logger } from "@/lib/logger"
 
 export const dynamic = "force-dynamic"
 
-export async function POST(request: Request) {
-  try {
-    const session = await auth()
+const checkoutSchema = z.object({
+  priceId: z.string().min(1, "Price ID is required"),
+  returnUrl: z.string().optional(),
+})
 
-    if (!session?.user?.id || !session?.user?.email) {
-      return NextResponse.json(
-        { error: "You must be logged in" },
-        { status: 401 }
-      )
+export const POST = createApiHandler({
+  auth: "required",
+  schema: checkoutSchema,
+  handler: async ({ user, data }) => {
+    if (!user.email) {
+      throw new BadRequestError("Email is required for checkout")
     }
 
-    const { priceId } = await request.json()
-
-    if (!priceId) {
-      return NextResponse.json(
-        { error: "Price ID is required" },
-        { status: 400 }
-      )
-    }
-
-    // Validate price ID matches our configured plans
-    const planDetails = getPlanFromPriceId(priceId)
+    const planDetails = getPlanFromPriceId(data.priceId)
     if (!planDetails) {
-      return NextResponse.json(
-        {
-          error: "Invalid price ID",
-          details: "Price ID does not match any configured plans",
-        },
-        { status: 400 }
-      )
+      throw new BadRequestError("Invalid price ID")
     }
 
-    // Check if Stripe is configured
     if (!process.env.STRIPE_SECRET_KEY) {
-      console.error("STRIPE_SECRET_KEY is not configured")
-      return NextResponse.json(
-        { error: "Payment system not configured" },
-        { status: 500 }
-      )
+      logger.error("STRIPE_SECRET_KEY is not configured")
+      throw new Error("Payment system not configured")
     }
 
     const stripe = getStripe()
 
-    // Get or create Stripe customer
     const customerId = await getOrCreateStripeCustomer(
-      session.user.id,
-      session.user.email,
-      session.user.name || undefined
+      user.id,
+      user.email,
+      user.name || undefined
     )
 
-    // Build success/cancel URLs
     const baseUrl = process.env.NEXTAUTH_URL || "https://verso.ac"
-    const successUrl = `${baseUrl}/home?success=true&plan=${planDetails.planId}`
-    const cancelUrl = `${baseUrl}/pricing?canceled=true`
+    // Return to where user was, or default to home
+    const returnPath = data.returnUrl || "/home"
+    const successUrl = `${baseUrl}${returnPath}${returnPath.includes('?') ? '&' : '?'}success=true&plan=${planDetails.planId}`
+    const cancelUrl = data.returnUrl ? `${baseUrl}${returnPath}` : `${baseUrl}/pricing?canceled=true`
 
-    // Create Stripe Checkout session with best practices
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [
         {
-          price: priceId,
+          price: data.priceId,
           quantity: 1,
         },
       ],
-
-      // URLs
       success_url: successUrl,
       cancel_url: cancelUrl,
-
-      // 14-day free trial
       subscription_data: {
         trial_period_days: 14,
         metadata: {
-          userId: session.user.id,
+          userId: user.id,
           plan: planDetails.planId.toUpperCase(),
           planName: planDetails.planName,
           billingPeriod: planDetails.billingPeriod,
         },
       },
-
-      // Allow promotion codes
       allow_promotion_codes: true,
-
-      // Collect customer information
       customer_update: {
         address: "auto",
         name: "auto",
       },
-
-      // Billing address collection
       billing_address_collection: "auto",
-
-      // Custom text for better UX
       custom_text: {
         submit: {
           message: `Welcome to Verso ${planDetails.planName}! Start your 14-day free trial.`,
@@ -108,33 +78,18 @@ export async function POST(request: Request) {
           message: "Thank you! You'll be redirected back to Verso shortly.",
         },
       },
-
-      // Metadata for webhook processing
       metadata: {
-        userId: session.user.id,
+        userId: user.id,
         plan: planDetails.planId.toUpperCase(),
         planName: planDetails.planName,
         billingPeriod: planDetails.billingPeriod,
       },
-
-      // Payment method types
       payment_method_types: ["card"],
     })
 
-    return NextResponse.json({
+    return {
       url: checkoutSession.url,
       sessionId: checkoutSession.id,
-    })
-  } catch (error) {
-    console.error("Checkout error:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to create checkout session",
-        ...(process.env.NODE_ENV === "development" && {
-          details: error instanceof Error ? error.message : String(error),
-        }),
-      },
-      { status: 500 }
-    )
-  }
-}
+    }
+  },
+})

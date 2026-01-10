@@ -532,10 +532,9 @@ function ScreenplaysContent() {
         title="Screenplays"
         description={`${filteredScreenplays.length} screenplay${filteredScreenplays.length !== 1 ? 's' : ''}${searchQuery || activeFilterCount > 0 ? ' (filtered)' : ''}`}
         actions={
-          <Button onClick={() => setTemplateOpen(true)} className="gap-2">
+          <Button onClick={() => setTemplateOpen(true)} size="sm" className="gap-2">
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">New Screenplay</span>
-            <span className="sm:hidden">New</span>
           </Button>
         }
       >

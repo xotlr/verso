@@ -26,10 +26,10 @@ export const stripe = {
 }
 
 export const PLAN_LIMITS = {
-  FREE: { projects: 1, collaboration: false, maxTeamSeats: 1, production: false },      // Basic access (1 team allowed)
-  PLUS: { projects: Infinity, collaboration: false, maxTeamSeats: 0, production: false }, // Solo writer
-  PRO: { projects: Infinity, collaboration: true, maxTeamSeats: 5, production: true },   // Writing teams + production
-  MAX: { projects: Infinity, collaboration: true, maxTeamSeats: Infinity, production: true }, // Production/Studio (per-seat)
+  FREE: { projects: 1, collaboration: false, maxTeamSeats: 1, production: false, scriptCheck: false },      // Basic access (1 team allowed)
+  PLUS: { projects: Infinity, collaboration: false, maxTeamSeats: 0, production: false, scriptCheck: false }, // Solo writer
+  PRO: { projects: Infinity, collaboration: true, maxTeamSeats: 5, production: true, scriptCheck: true },   // Writing teams + production
+  MAX: { projects: Infinity, collaboration: true, maxTeamSeats: Infinity, production: true, scriptCheck: true }, // Production/Studio (per-seat)
 } as const
 
 export type PlanType = keyof typeof PLAN_LIMITS
@@ -52,6 +52,10 @@ export function canCreateTeam(plan: PlanType): boolean {
 
 export function canUseProduction(plan: PlanType): boolean {
   return PLAN_LIMITS[plan].production
+}
+
+export function canUseScriptCheck(plan: PlanType): boolean {
+  return PLAN_LIMITS[plan].scriptCheck
 }
 
 // Price IDs from environment

@@ -1,97 +1,72 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
-import crypto from "crypto";
+import { z } from "zod"
+import { createApiHandler, RateLimitError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
+import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit"
+import { logger } from "@/lib/logger"
+import crypto from "crypto"
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email address"),
-});
+})
 
-// POST /api/auth/forgot-password - Request password reset
-export async function POST(request: Request) {
-  try {
-    // Rate limit by IP to prevent enumeration attacks
-    const ip = getClientIp(request);
-    const rateLimitResult = await rateLimit(`forgot-password:${ip}`, RATE_LIMITS.AUTH);
+export const POST = createApiHandler({
+  auth: "none",
+  schema: forgotPasswordSchema,
+  handler: async ({ request, data }) => {
+    const ip = getClientIp(request)
+    const rateLimitResult = await rateLimit(`forgot-password:${ip}`, RATE_LIMITS.AUTH)
 
     if (!rateLimitResult.success) {
-      return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
-        { status: 429 }
-      );
+      throw new RateLimitError(
+        "Too many requests. Please try again later.",
+        Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000)
+      )
     }
 
-    const body = await request.json();
-    const validation = forgotPasswordSchema.safeParse(body);
+    const normalizedEmail = data.email.toLowerCase().trim()
 
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: validation.error.issues[0]?.message || "Invalid request" },
-        { status: 400 }
-      );
-    }
-
-    const { email } = validation.data;
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Always return success to prevent email enumeration
-    // But only actually send email if user exists
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
       select: { id: true, email: true, password: true },
-    });
+    })
 
-    // Only process if user exists AND has a password (credentials auth)
-    // OAuth-only users can't reset password
     if (user?.email && user.password) {
-      // Delete any existing tokens for this email
       await prisma.passwordResetToken.deleteMany({
         where: { email: normalizedEmail },
-      });
+      })
 
-      // Generate secure token
-      const token = crypto.randomBytes(32).toString("hex");
-      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      const token = crypto.randomBytes(32).toString("hex")
+      const expires = new Date(Date.now() + 60 * 60 * 1000)
 
-      // Create new token
       await prisma.passwordResetToken.create({
         data: {
           email: normalizedEmail,
           token,
           expires,
         },
-      });
+      })
 
-      // Send email
-      await sendPasswordResetEmail(normalizedEmail, token);
+      await sendPasswordResetEmail(normalizedEmail, token)
     }
 
-    // Always return success (don't reveal if email exists)
-    return NextResponse.json({
+    return {
       success: true,
       message: "If an account exists with this email, you will receive a password reset link.",
-    });
-  } catch (error) {
-    console.error("Error in forgot-password:", error);
-    return NextResponse.json(
-      { error: "Failed to process request" },
-      { status: 500 }
-    );
-  }
-}
+    }
+  },
+})
 
 async function sendPasswordResetEmail(email: string, token: string) {
-  const resendApiKey = process.env.RESEND_API_KEY;
-  const emailFrom = process.env.EMAIL_FROM || "noreply@verso.ac";
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://verso.ac";
+  const resendApiKey = process.env.RESEND_API_KEY
+  const emailFrom = process.env.EMAIL_FROM || "noreply@verso.ac"
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://verso.ac"
 
   if (!resendApiKey) {
-    console.warn("RESEND_API_KEY not configured, skipping email send");
-    return;
+    console.warn("RESEND_API_KEY not configured, skipping email send")
+    return
   }
 
-  const resetUrl = `${appUrl}/reset-password?token=${token}`;
+  const resetUrl = `${appUrl}/reset-password?token=${token}`
 
   try {
     const response = await fetch("https://api.resend.com/emails", {
@@ -124,13 +99,13 @@ async function sendPasswordResetEmail(email: string, token: string) {
         `,
         text: `Reset your Verso password\n\nYou requested a password reset. Visit this link to choose a new password:\n\n${resetUrl}\n\nThis link expires in 1 hour. If you didn't request this reset, you can safely ignore this email.`,
       }),
-    });
+    })
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Resend API error:", errorData);
+      const errorData = await response.json()
+      logger.error("Resend API error", undefined, { errorData })
     }
   } catch (error) {
-    console.error("Failed to send password reset email:", error);
+    logger.error("Failed to send password reset email", error instanceof Error ? error : undefined)
   }
 }

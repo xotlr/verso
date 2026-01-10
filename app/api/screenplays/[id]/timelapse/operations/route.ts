@@ -1,115 +1,90 @@
-import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
-import { z } from 'zod';
+import { z } from "zod"
+import { createApiHandler, NotFoundError, BadRequestError, UnauthorizedError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
+import { auth } from "@/lib/auth"
+import { NextResponse } from "next/server"
+import { logger } from "@/lib/logger"
 
-// Schema for batch recording operations
 const recordOperationSchema = z.object({
   operations: z.array(z.object({
-    operationType: z.enum(['insert', 'delete', 'replace']),
+    operationType: z.enum(["insert", "delete", "replace"]),
     position: z.number().nullable().optional(),
     content: z.string().nullable().optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
   })),
-});
+})
 
-// POST - Record timelapse operations (batch)
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export const POST = createApiHandler({
+  auth: "required",
+  schema: recordOperationSchema,
+  handler: async ({ user, params, data }) => {
+    const { id: screenplayId } = params
 
-    const { id: screenplayId } = await params;
-    const body = await request.json();
-    const result = recordOperationSchema.safeParse(body);
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: 'Invalid request body' },
-        { status: 400 }
-      );
-    }
-
-    // Verify ownership and check if timelapse is enabled
     const screenplay = await prisma.screenplay.findFirst({
       where: {
         id: screenplayId,
-        userId: session.user.id,
+        userId: user.id,
       },
       select: {
         timelapseEnabled: true,
         timelapseStarted: true,
       },
-    });
+    })
 
     if (!screenplay) {
-      return NextResponse.json({ error: 'Screenplay not found' }, { status: 404 });
+      throw new NotFoundError("Screenplay")
     }
 
     if (!screenplay.timelapseEnabled) {
-      return NextResponse.json({ error: 'Timelapse recording is disabled' }, { status: 400 });
+      throw new BadRequestError("Timelapse recording is disabled")
     }
 
-    // If timelapse hasn't started yet, start it
     if (!screenplay.timelapseStarted) {
       await prisma.screenplay.update({
         where: { id: screenplayId },
         data: { timelapseStarted: new Date() },
-      });
+      })
     }
 
-    // Record operations in batch
-    const operations = result.data.operations.map((op) => ({
+    const operations = data.operations.map((op) => ({
       screenplayId,
-      userId: session.user.id,
+      userId: user.id,
       operationType: op.operationType,
       position: op.position ?? null,
       content: op.content ?? null,
       metadata: op.metadata ? (op.metadata as Prisma.InputJsonValue) : Prisma.JsonNull,
-    }));
+    }))
 
     await prisma.screenplayOperation.createMany({
       data: operations,
-    });
+    })
 
-    return NextResponse.json({ success: true, count: operations.length });
-  } catch (error) {
-    console.error('Error recording timelapse operations:', error);
-    return NextResponse.json(
-      { error: 'Failed to record operations' },
-      { status: 500 }
-    );
-  }
-}
+    return { success: true, count: operations.length }
+  },
+})
 
-// GET - Fetch operations for playback
+// GET - mixed auth (owner OR public timelapse) - custom handler needed
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await auth()
+  const { id: screenplayId } = await params
   try {
-    const session = await auth();
-    const { id: screenplayId } = await params;
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(request.url)
 
-    const cursor = searchParams.get('cursor');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '1000'), 5000);
-    const fromTimestamp = searchParams.get('from');
-    const toTimestamp = searchParams.get('to');
+    const cursor = searchParams.get("cursor")
+    const limit = Math.min(parseInt(searchParams.get("limit") || "1000"), 5000)
+    const fromTimestamp = searchParams.get("from")
+    const toTimestamp = searchParams.get("to")
 
-    // Check if user owns the screenplay or if it's a shared timelapse
     const screenplay = await prisma.screenplay.findFirst({
       where: {
         id: screenplayId,
         OR: [
-          { userId: session?.user?.id || '' },
-          { timelapseShareId: { not: null } }, // Public timelapse
+          { userId: session?.user?.id || "" },
+          { timelapseShareId: { not: null } },
         ],
       },
       select: {
@@ -119,39 +94,37 @@ export async function GET(
         timelapseStarted: true,
         timelapseShareId: true,
       },
-    });
+    })
 
     if (!screenplay) {
-      return NextResponse.json({ error: 'Screenplay not found' }, { status: 404 });
+      return NextResponse.json({ error: "Screenplay not found" }, { status: 404 })
     }
 
-    // If not owner and no share ID, unauthorized
     if (screenplay.userId !== session?.user?.id && !screenplay.timelapseShareId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Build query
     const where: {
-      screenplayId: string;
-      sequenceNumber?: { gt: bigint };
-      timestamp?: { gte?: Date; lte?: Date };
+      screenplayId: string
+      sequenceNumber?: { gt: bigint }
+      timestamp?: { gte?: Date; lte?: Date }
     } = {
       screenplayId,
-    };
+    }
 
     if (cursor) {
-      where.sequenceNumber = { gt: BigInt(cursor) };
+      where.sequenceNumber = { gt: BigInt(cursor) }
     }
 
     if (fromTimestamp || toTimestamp) {
-      where.timestamp = {};
-      if (fromTimestamp) where.timestamp.gte = new Date(fromTimestamp);
-      if (toTimestamp) where.timestamp.lte = new Date(toTimestamp);
+      where.timestamp = {}
+      if (fromTimestamp) where.timestamp.gte = new Date(fromTimestamp)
+      if (toTimestamp) where.timestamp.lte = new Date(toTimestamp)
     }
 
     const operations = await prisma.screenplayOperation.findMany({
       where,
-      orderBy: { sequenceNumber: 'asc' },
+      orderBy: { sequenceNumber: "asc" },
       take: limit,
       select: {
         id: true,
@@ -169,83 +142,67 @@ export async function GET(
           },
         },
       },
-    });
+    })
 
-    // Get total count for progress
     const totalCount = await prisma.screenplayOperation.count({
       where: { screenplayId },
-    });
+    })
 
-    // Convert BigInt to string for JSON serialization
     const serializedOperations = operations.map((op) => ({
       ...op,
       sequenceNumber: op.sequenceNumber.toString(),
-    }));
+    }))
 
     const nextCursor = operations.length === limit
       ? operations[operations.length - 1].sequenceNumber.toString()
-      : null;
+      : null
 
     return NextResponse.json({
       operations: serializedOperations,
       nextCursor,
       totalCount,
       timelapseStarted: screenplay.timelapseStarted,
-    });
+    })
   } catch (error) {
-    console.error('Error fetching timelapse operations:', error);
+    logger.error("Failed to fetch timelapse operations", error instanceof Error ? error : undefined, {
+      screenplayId,
+      userId: session?.user?.id,
+    })
     return NextResponse.json(
-      { error: 'Failed to fetch operations' },
+      { error: "Failed to fetch operations" },
       { status: 500 }
-    );
+    )
   }
 }
 
-// DELETE - Clear timelapse data
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export const DELETE = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id: screenplayId } = params
 
-    const { id: screenplayId } = await params;
-
-    // Verify ownership
     const screenplay = await prisma.screenplay.findFirst({
       where: {
         id: screenplayId,
-        userId: session.user.id,
+        userId: user.id,
       },
-    });
+    })
 
     if (!screenplay) {
-      return NextResponse.json({ error: 'Screenplay not found' }, { status: 404 });
+      throw new NotFoundError("Screenplay")
     }
 
-    // Delete all operations
     await prisma.screenplayOperation.deleteMany({
       where: { screenplayId },
-    });
+    })
 
-    // Reset timelapse started
     await prisma.screenplay.update({
       where: { id: screenplayId },
       data: {
         timelapseStarted: null,
         timelapseShareId: null,
       },
-    });
+    })
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error clearing timelapse:', error);
-    return NextResponse.json(
-      { error: 'Failed to clear timelapse' },
-      { status: 500 }
-    );
-  }
-}
+    return { success: true }
+  },
+})

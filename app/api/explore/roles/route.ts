@@ -1,22 +1,21 @@
-import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
+import { createApiHandler, RATE_LIMITS } from "@/lib/api"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { z } from "zod"
 
 const rolesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
   offset: z.coerce.number().int().min(0).default(0),
   search: z.string().max(200).optional(),
-  role: z.string().max(50).optional(), // Filter by role type
+  role: z.string().max(50).optional(),
   location: z.string().max(100).optional(),
   isPaid: z.enum(["true", "false"]).optional(),
 })
 
-// GET /api/explore/roles - Browse open roles from public projects
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-
+export const GET = createApiHandler({
+  auth: "none",
+  rateLimit: RATE_LIMITS.API,
+  handler: async ({ searchParams }) => {
     const queryResult = rolesQuerySchema.safeParse({
       limit: searchParams.get("limit") || undefined,
       offset: searchParams.get("offset") || undefined,
@@ -27,41 +26,28 @@ export async function GET(request: NextRequest) {
     })
 
     if (!queryResult.success) {
-      return NextResponse.json(
-        { error: "Invalid query parameters" },
-        { status: 400 }
-      )
+      return { error: "Invalid query parameters" }
     }
 
     const { limit, offset, search, role, location, isPaid } = queryResult.data
 
-    // Get current user to check if they've applied
     const session = await auth()
     const userId = session?.user?.id
 
-    // Build where clause for role needs from public projects
-    const where: Record<string, unknown> = {
-      project: {
-        isPublic: true,
-      },
-    }
+    const where: Record<string, unknown> = { project: { isPublic: true } }
 
-    // Filter by role type
     if (role && role !== "all") {
       where.role = role
     }
 
-    // Filter by location
     if (location) {
       where.location = { contains: location, mode: "insensitive" }
     }
 
-    // Filter by paid status
     if (isPaid !== undefined) {
       where.isPaid = isPaid === "true"
     }
 
-    // Search in project name or role description
     if (search) {
       where.OR = [
         { description: { contains: search, mode: "insensitive" } },
@@ -72,9 +58,7 @@ export async function GET(request: NextRequest) {
     const [roleNeeds, total] = await Promise.all([
       prisma.projectRoleNeed.findMany({
         where,
-        orderBy: {
-          createdAt: "desc",
-        },
+        orderBy: { createdAt: "desc" },
         skip: offset,
         take: limit,
         select: {
@@ -90,21 +74,10 @@ export async function GET(request: NextRequest) {
               name: true,
               banner: true,
               logo: true,
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  image: true,
-                },
-              },
+              user: { select: { id: true, name: true, image: true } },
             },
           },
-          _count: {
-            select: {
-              applications: true,
-            },
-          },
-          // Check if current user has applied
+          _count: { select: { applications: true } },
           ...(userId
             ? {
                 applications: {
@@ -119,7 +92,6 @@ export async function GET(request: NextRequest) {
       prisma.projectRoleNeed.count({ where }),
     ])
 
-    // Transform to add hasApplied field
     const transformedRoleNeeds = roleNeeds.map((roleNeed) => {
       const { applications, ...rest } = roleNeed as typeof roleNeed & {
         applications?: { id: string; status: string }[]
@@ -131,16 +103,6 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
-      roleNeeds: transformedRoleNeeds,
-      total,
-      hasMore: offset + roleNeeds.length < total,
-    })
-  } catch (error) {
-    console.error("Error fetching open roles:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch roles" },
-      { status: 500 }
-    )
-  }
-}
+    return { roleNeeds: transformedRoleNeeds, total, hasMore: offset + roleNeeds.length < total }
+  },
+})

@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-import bcrypt from "bcryptjs";
-import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
+import { z } from "zod"
+import { createApiHandler, BadRequestError, RateLimitError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
+import bcrypt from "bcryptjs"
+import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit"
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1, "Token is required"),
@@ -12,80 +12,50 @@ const resetPasswordSchema = z.object({
     .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
     .regex(/[a-z]/, "Password must contain at least one lowercase letter")
     .regex(/[0-9]/, "Password must contain at least one number"),
-});
+})
 
-// POST /api/auth/reset-password - Reset password with token
-export async function POST(request: Request) {
-  try {
-    // Rate limit by IP
-    const ip = getClientIp(request);
-    const rateLimitResult = await rateLimit(`reset-password:${ip}`, RATE_LIMITS.AUTH);
+export const POST = createApiHandler({
+  auth: "none",
+  schema: resetPasswordSchema,
+  handler: async ({ request, data }) => {
+    const ip = getClientIp(request)
+    const rateLimitResult = await rateLimit(`reset-password:${ip}`, RATE_LIMITS.AUTH)
 
     if (!rateLimitResult.success) {
-      return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
-        { status: 429 }
-      );
+      throw new RateLimitError(
+        "Too many requests. Please try again later.",
+        Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000)
+      )
     }
 
-    const body = await request.json();
-    const validation = resetPasswordSchema.safeParse(body);
-
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: validation.error.issues[0]?.message || "Invalid request" },
-        { status: 400 }
-      );
-    }
-
-    const { token, password } = validation.data;
-
-    // Find valid token
     const resetToken = await prisma.passwordResetToken.findUnique({
-      where: { token },
-    });
+      where: { token: data.token },
+    })
 
     if (!resetToken) {
-      return NextResponse.json(
-        { error: "Invalid or expired reset link. Please request a new one." },
-        { status: 400 }
-      );
+      throw new BadRequestError("Invalid or expired reset link. Please request a new one.")
     }
 
-    // Check if token has expired
     if (new Date() > resetToken.expires) {
-      // Delete expired token
       await prisma.passwordResetToken.delete({
         where: { id: resetToken.id },
-      });
-
-      return NextResponse.json(
-        { error: "This reset link has expired. Please request a new one." },
-        { status: 400 }
-      );
+      })
+      throw new BadRequestError("This reset link has expired. Please request a new one.")
     }
 
-    // Find user by email
     const user = await prisma.user.findUnique({
       where: { email: resetToken.email },
-    });
+    })
 
     if (!user) {
-      // Shouldn't happen, but handle gracefully
       await prisma.passwordResetToken.delete({
         where: { id: resetToken.id },
-      });
-
-      return NextResponse.json(
-        { error: "Invalid reset link. Please request a new one." },
-        { status: 400 }
-      );
+      })
+      throw new BadRequestError("Invalid reset link. Please request a new one.")
     }
 
-    // Hash new password (using same cost factor as signup)
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await bcrypt.hash(data.password, 12)
 
-    // Update password and delete token in transaction
     await prisma.$transaction([
       prisma.user.update({
         where: { id: user.id },
@@ -94,62 +64,40 @@ export async function POST(request: Request) {
       prisma.passwordResetToken.delete({
         where: { id: resetToken.id },
       }),
-      // Delete all other tokens for this email (cleanup)
       prisma.passwordResetToken.deleteMany({
         where: { email: resetToken.email },
       }),
-    ]);
+    ])
 
-    return NextResponse.json({
+    return {
       success: true,
       message: "Password has been reset successfully. You can now log in.",
-    });
-  } catch (error) {
-    console.error("Error in reset-password:", error);
-    return NextResponse.json(
-      { error: "Failed to reset password" },
-      { status: 500 }
-    );
-  }
-}
+    }
+  },
+})
 
-// GET /api/auth/reset-password?token=xxx - Verify token is valid
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const token = searchParams.get("token");
+export const GET = createApiHandler({
+  auth: "none",
+  handler: async ({ request }) => {
+    const { searchParams } = new URL(request.url)
+    const token = searchParams.get("token")
 
     if (!token) {
-      return NextResponse.json(
-        { valid: false, error: "Token is required" },
-        { status: 400 }
-      );
+      throw new BadRequestError("Token is required")
     }
 
     const resetToken = await prisma.passwordResetToken.findUnique({
       where: { token },
-    });
+    })
 
     if (!resetToken) {
-      return NextResponse.json(
-        { valid: false, error: "Invalid or expired reset link" },
-        { status: 400 }
-      );
+      throw new BadRequestError("Invalid or expired reset link")
     }
 
     if (new Date() > resetToken.expires) {
-      return NextResponse.json(
-        { valid: false, error: "This reset link has expired" },
-        { status: 400 }
-      );
+      throw new BadRequestError("This reset link has expired")
     }
 
-    return NextResponse.json({ valid: true });
-  } catch (error) {
-    console.error("Error verifying reset token:", error);
-    return NextResponse.json(
-      { valid: false, error: "Failed to verify token" },
-      { status: 500 }
-    );
-  }
-}
+    return { valid: true }
+  },
+})

@@ -5,6 +5,7 @@
 
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
+import { logger } from '@/lib/logger';
 
 // Check if Upstash credentials are available
 const hasUpstash = Boolean(
@@ -75,7 +76,10 @@ export async function rateLimit(
         resetAt: result.reset,
       };
     } catch (error) {
-      console.error('Upstash rate limit error, falling back to in-memory:', error);
+      logger.warn('Upstash rate limit error, falling back to in-memory', {
+        identifier,
+        error: error instanceof Error ? error.message : String(error),
+      });
       // Fall through to in-memory on error
     }
   }

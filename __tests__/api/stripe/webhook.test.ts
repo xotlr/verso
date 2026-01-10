@@ -51,7 +51,21 @@ import { headers } from 'next/headers'
 import { cancelTeamSubscription } from '@/lib/stripe-helpers'
 
 const mockGetStripe = vi.mocked(getStripe)
-const mockPrisma = vi.mocked(prisma)
+const mockPrisma = prisma as unknown as {
+  processedWebhookEvent: {
+    findUnique: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+  };
+  user: {
+    update: ReturnType<typeof vi.fn>;
+    updateMany: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
+  };
+  team: {
+    update: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
+  };
+}
 const mockHeaders = vi.mocked(headers)
 const mockCancelTeamSubscription = vi.mocked(cancelTeamSubscription)
 

@@ -1,9 +1,7 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 
-// Helper to check callsheet access
 async function checkCallsheetAccess(callsheetId: string, userId: string) {
   const callsheet = await prisma.callsheet.findUnique({
     where: { id: callsheetId },
@@ -11,11 +9,7 @@ async function checkCallsheetAccess(callsheetId: string, userId: string) {
       project: {
         include: {
           team: {
-            include: {
-              members: {
-                where: { userId },
-              },
-            },
+            include: { members: { where: { userId } } },
           },
         },
       },
@@ -23,66 +17,18 @@ async function checkCallsheetAccess(callsheetId: string, userId: string) {
   })
 
   if (!callsheet) {
-    return { allowed: false, error: "Callsheet not found", status: 404 }
+    return { allowed: false, notFound: true, callsheet: null }
   }
 
-  // Owner access
   if (callsheet.userId === userId) {
-    return { allowed: true, callsheet }
+    return { allowed: true, notFound: false, callsheet }
   }
 
-  // Team member access
   if (callsheet.project?.team && callsheet.project.team.members.length > 0) {
-    return { allowed: true, callsheet }
+    return { allowed: true, notFound: false, callsheet }
   }
 
-  return { allowed: false, error: "Access denied", status: 403 }
-}
-
-// GET /api/callsheets/[id]/share - List all share links for a callsheet
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
-    const { id } = await params
-    const access = await checkCallsheetAccess(id, session.user.id)
-
-    if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
-    }
-
-    const shareLinks = await prisma.callsheetShareLink.findMany({
-      where: { callsheetId: id },
-      orderBy: { createdAt: "desc" },
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    })
-
-    return NextResponse.json({ shareLinks })
-  } catch (error) {
-    console.error("[CALLSHEET_SHARE_GET]", error)
-    return NextResponse.json(
-      { error: "Failed to fetch share links" },
-      { status: 500 }
-    )
-  }
+  return { allowed: false, notFound: false, callsheet: null }
 }
 
 const createShareLinkSchema = z.object({
@@ -91,58 +37,59 @@ const createShareLinkSchema = z.object({
   expiresAt: z.string().datetime().optional().nullable(),
 })
 
-// POST /api/callsheets/[id]/share - Create a new share link
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
-    const { id } = await params
-    const access = await checkCallsheetAccess(id, session.user.id)
+    const access = await checkCallsheetAccess(id, user.id)
+
+    if (access.notFound) {
+      throw new NotFoundError("Callsheet")
+    }
 
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      throw new ForbiddenError("Access denied")
     }
 
-    const body = await request.json()
-    const result = createShareLinkSchema.safeParse(body)
+    const shareLinks = await prisma.callsheetShareLink.findMany({
+      where: { callsheetId: id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: { select: { name: true } },
+      },
+    })
 
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
+    return { shareLinks }
+  },
+})
+
+export const POST = createApiHandler({
+  auth: "required",
+  schema: createShareLinkSchema,
+  handler: async ({ user, params, data }) => {
+    const { id } = params
+
+    const access = await checkCallsheetAccess(id, user.id)
+
+    if (access.notFound) {
+      throw new NotFoundError("Callsheet")
     }
 
-    const { filterType, filterValue, expiresAt } = result.data
+    if (!access.allowed) {
+      throw new ForbiddenError("Access denied")
+    }
 
     const shareLink = await prisma.callsheetShareLink.create({
       data: {
         callsheetId: id,
-        userId: session.user.id,
-        filterType,
-        filterValue: filterValue || null,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        userId: user.id,
+        filterType: data.filterType,
+        filterValue: data.filterValue || null,
+        expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
       },
     })
 
-    return NextResponse.json({ shareLink }, { status: 201 })
-  } catch (error) {
-    console.error("[CALLSHEET_SHARE_POST]", error)
-    return NextResponse.json(
-      { error: "Failed to create share link" },
-      { status: 500 }
-    )
-  }
-}
+    return { shareLink }
+  },
+})

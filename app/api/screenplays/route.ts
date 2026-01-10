@@ -1,31 +1,20 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { z } from "zod"
+import { createApiHandler, ForbiddenError, BadRequestError, RateLimitError, NotFoundError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
-import { z } from "zod"
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit"
-import { screenplaySchema } from "@/lib/prosemirror/schema"
-import { serializeForStorage, plainTextToProseMirror } from "@/lib/prosemirror/serialization"
+import {
+  initializeScreenplayContent,
+  validateScreenplayCreationAccess,
+} from "@/lib/screenplay"
 
-// Plan limits removed - unlimited standalone screenplays for all plans
-
-// GET /api/screenplays - List all screenplays for the user (standalone and in projects)
-export async function GET(request: Request) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, request }) => {
     const { searchParams } = new URL(request.url)
     const projectId = searchParams.get("projectId")
     const standalone = searchParams.get("standalone")
     const teamId = searchParams.get("teamId")
-
-    // New filter params
     const favorites = searchParams.get("favorites")
     const recent = searchParams.get("recent")
     const genre = searchParams.get("genre")
@@ -34,44 +23,36 @@ export async function GET(request: Request) {
     let where: Prisma.ScreenplayWhereInput
 
     if (projectId) {
-      // Get screenplays for a specific project
       where = { projectId }
     } else if (standalone === "true") {
-      // Get only standalone screenplays (no project)
       where = {
-        userId: session.user.id,
+        userId: user.id,
         projectId: null,
       }
     } else if (teamId) {
-      // Get team screenplays
       const membership = await prisma.teamMember.findUnique({
         where: {
           teamId_userId: {
             teamId,
-            userId: session.user.id,
+            userId: user.id,
           },
         },
       })
 
       if (!membership) {
-        return NextResponse.json(
-          { error: "Access denied" },
-          { status: 403 }
-        )
+        throw new ForbiddenError("Access denied")
       }
 
       where = { teamId }
     } else {
-      // Return all user's screenplays (personal + team)
       where = {
         OR: [
-          { userId: session.user.id },
-          { team: { members: { some: { userId: session.user.id } } } },
+          { userId: user.id },
+          { team: { members: { some: { userId: user.id } } } },
         ],
       }
     }
 
-    // Apply additional filters
     if (favorites === "true") {
       where = { ...where, isFavorite: true }
     }
@@ -87,11 +68,9 @@ export async function GET(request: Request) {
       where = { ...where, projectId: null }
     }
 
-    // Pagination params
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100)
     const offset = parseInt(searchParams.get("offset") || "0")
 
-    // Determine sort order
     const orderBy: Prisma.ScreenplayOrderByWithRelationInput = recent === "true"
       ? { lastOpenedAt: "desc" }
       : { updatedAt: "desc" }
@@ -105,7 +84,7 @@ export async function GET(request: Request) {
         select: {
           id: true,
           title: true,
-          wordCount: true, // Use stored wordCount (computed on save)
+          wordCount: true,
           synopsis: true,
           logline: true,
           createdAt: true,
@@ -116,7 +95,6 @@ export async function GET(request: Request) {
           lastOpenedAt: true,
           genre: true,
           author: true,
-          // Type and TV-specific fields
           type: true,
           season: true,
           episode: true,
@@ -139,268 +117,100 @@ export async function GET(request: Request) {
       prisma.screenplay.count({ where }),
     ])
 
-    const response = NextResponse.json({
+    return {
       screenplays,
       total,
       hasMore: offset + screenplays.length < total,
-    })
+    }
+  },
+})
 
-    // Cache for 1 minute (private since user-specific)
-    response.headers.set("Cache-Control", "private, max-age=60")
-    return response
-  } catch (error) {
-    console.error("Error fetching screenplays:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch screenplays" },
-      { status: 500 }
-    )
-  }
-}
-
-// Validation schema for creating a screenplay
 const createScreenplaySchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
   content: z.string().default(""),
   synopsis: z.string().optional(),
   projectId: z.string().optional(),
   teamId: z.string().optional(),
-  // Simplified screenplay types: FILM or TV
   type: z.enum(["FILM", "TV"]).optional(),
   season: z.number().int().positive().nullable().optional(),
   episode: z.number().int().positive().nullable().optional(),
   episodeTitle: z.string().max(255).nullable().optional(),
   logline: z.string().max(500).nullable().optional(),
   genre: z.string().max(50).nullable().optional(),
-  // Author/co-writer names
   author: z.string().max(500).nullable().optional(),
 })
 
-// POST /api/screenplays - Create a new screenplay
-export async function POST(request: Request) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
-
-    // Rate limiting
+export const POST = createApiHandler({
+  auth: "required",
+  schema: createScreenplaySchema,
+  handler: async ({ user, data }) => {
     const rateLimitResult = await rateLimit(
-      `screenplay-create:${session.user.id}`,
+      `screenplay-create:${user.id}`,
       RATE_LIMITS.PROJECT_CREATE
     )
 
     if (!rateLimitResult.success) {
-      return NextResponse.json(
-        {
-          error: "Too many requests. Please try again later.",
-          retryAfter: Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000),
-        },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000)),
-          },
-        }
+      throw new RateLimitError(
+        "Too many requests. Please try again later.",
+        Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000)
       )
     }
 
-    const body = await request.json()
-    const result = createScreenplaySchema.safeParse(body)
+    const accessResult = await validateScreenplayCreationAccess({
+      userId: user.id,
+      projectId: data.projectId,
+      teamId: data.teamId,
+    })
 
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
+    if (!accessResult.allowed) {
+      if (accessResult.status === 404) throw new NotFoundError(accessResult.error)
+      if (accessResult.status === 403) throw new ForbiddenError(accessResult.error)
+      throw new BadRequestError(accessResult.error)
     }
 
-    const {
-      title,
-      content,
-      synopsis,
-      projectId,
-      teamId,
-      type,
-      season,
-      episode,
-      episodeTitle,
-      logline,
-      genre,
-      author,
-    } = result.data
+    const authorName = data.author || user.name || "Written by..."
+    let finalContent: string
+    let wordCount: number
 
-    // If projectId provided, verify user owns it or is a team member
-    if (projectId) {
-      const project = await prisma.project.findUnique({
-        where: { id: projectId },
-        select: { userId: true, teamId: true },
+    try {
+      const initialized = initializeScreenplayContent({
+        content: data.content || "",
+        title: data.title,
+        author: authorName,
+        logline: data.logline || undefined,
       })
-
-      if (!project) {
-        return NextResponse.json(
-          { error: "Project not found" },
-          { status: 404 }
-        )
-      }
-
-      if (project.userId !== session.user.id) {
-        if (project.teamId) {
-          const membership = await prisma.teamMember.findUnique({
-            where: {
-              teamId_userId: {
-                teamId: project.teamId,
-                userId: session.user.id,
-              },
-            },
-          })
-
-          if (!membership) {
-            return NextResponse.json(
-              { error: "Access denied to project" },
-              { status: 403 }
-            )
-          }
-        } else {
-          return NextResponse.json(
-            { error: "Access denied to project" },
-            { status: 403 }
-          )
-        }
-      }
-    }
-
-    // If teamId provided, verify membership
-    if (teamId) {
-      const membership = await prisma.teamMember.findUnique({
-        where: {
-          teamId_userId: {
-            teamId,
-            userId: session.user.id,
-          },
-        },
-      })
-
-      if (!membership) {
-        return NextResponse.json(
-          { error: "Access denied to team" },
-          { status: 403 }
-        )
-      }
-    }
-
-    // Generate content with populated title page
-    let finalContent = content
-    let wordCount = 0
-
-    // Author name: use provided author, fall back to user's name
-    const authorName = author || session.user.name || "Written by..."
-
-    // Title page node to prepend to all documents
-    const titlePageNode = {
-      type: "title_page",
-      content: [
-        {
-          type: "title_page_title",
-          content: title ? [{ type: "text", text: title }] : undefined,
-        },
-        {
-          type: "title_page_author",
-          content: [{ type: "text", text: authorName }],
-        },
-        {
-          type: "title_page_logline",
-          content: logline ? [{ type: "text", text: logline }] : undefined,
-        },
-      ],
-    }
-
-    if (content && content.trim() !== "") {
-      // Content provided (from template) - parse and prepend title page
-      // Validate content size (max 5MB)
-      const contentSize = new TextEncoder().encode(content).length
-      const MAX_CONTENT_SIZE = 5 * 1024 * 1024
-      if (contentSize > MAX_CONTENT_SIZE) {
-        return NextResponse.json(
-          { error: "Content too large. Maximum size is 5MB." },
-          { status: 400 }
-        )
-      }
-
-      // Parse template content (Fountain text) to ProseMirror
-      const parsedDoc = plainTextToProseMirror(content)
-      const parsedJSON = parsedDoc.toJSON()
-
-      // Prepend title page to the parsed content
-      parsedJSON.content = [titlePageNode, ...parsedJSON.content]
-
-      // Reconstruct document and serialize
-      const docWithTitlePage = screenplaySchema.nodeFromJSON(parsedJSON)
-      finalContent = serializeForStorage(docWithTitlePage)
-      wordCount = content.split(/\s+/).filter(Boolean).length
-    } else {
-      // No content - create starter document with title page
-      const initialDoc = screenplaySchema.nodeFromJSON({
-        type: "doc",
-        content: [
-          titlePageNode,
-          {
-            type: "scene_heading",
-            attrs: {
-              id: "scene-1",
-              type: "INT",
-              location: "",
-              timeOfDay: "DAY",
-              sceneNumber: null,
-            },
-          },
-          {
-            type: "action",
-          },
-        ],
-      })
-
-      finalContent = serializeForStorage(initialDoc)
-      // Word count from title page content
-      wordCount = [title, authorName, logline].filter(Boolean).join(" ").split(/\s+/).filter(Boolean).length
+      finalContent = initialized.content
+      wordCount = initialized.wordCount
+    } catch (error) {
+      throw new BadRequestError(error instanceof Error ? error.message : "Content initialization failed")
     }
 
     const screenplay = await prisma.screenplay.create({
       data: {
-        title,
+        title: data.title,
         content: finalContent,
         wordCount,
-        synopsis: logline || synopsis || null, // logline maps to synopsis
-        userId: session.user.id,
-        projectId: projectId || null,
-        teamId: teamId || null,
-        // Screenplay type (FILM or TV)
-        type: type || "FILM",
-        season: season ?? null,
-        episode: episode ?? null,
-        episodeTitle: episodeTitle ?? null,
-        genre: genre ?? null,
+        synopsis: data.logline || data.synopsis || null,
+        userId: user.id,
+        projectId: data.projectId || null,
+        teamId: data.teamId || null,
+        type: data.type || "FILM",
+        season: data.season ?? null,
+        episode: data.episode ?? null,
+        episodeTitle: data.episodeTitle ?? null,
+        genre: data.genre ?? null,
       },
     })
 
-    // Create activity record
     await prisma.activity.create({
       data: {
-        userId: session.user.id,
+        userId: user.id,
         type: "screenplay_created",
         entityId: screenplay.id,
         entityTitle: screenplay.title,
       },
     })
 
-    return NextResponse.json(screenplay, { status: 201 })
-  } catch (error) {
-    console.error("Error creating screenplay:", error)
-    return NextResponse.json(
-      { error: "Failed to create screenplay" },
-      { status: 500 }
-    )
-  }
-}
+    return screenplay
+  },
+})

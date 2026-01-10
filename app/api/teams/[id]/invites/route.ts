@@ -1,57 +1,33 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-import { logTeamAction } from "@/lib/audit-log";
+import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
+import { logTeamAction } from "@/lib/audit-log"
 
 const createInviteSchema = z.object({
   email: z.string().email(),
   role: z.enum(["ADMIN", "MEMBER"]).default("MEMBER"),
-});
+})
 
-// GET /api/teams/[id]/invites - List pending invites
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    const { id } = await params;
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // Check if user is a member
     const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId: id,
-          userId: session.user.id,
-        },
-      },
-    });
+      where: { teamId_userId: { teamId: id, userId: user.id } },
+    })
 
     const team = await prisma.team.findUnique({
       where: { id },
-    });
+    })
 
     if (!team) {
-      return NextResponse.json(
-        { error: "Team not found" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Team")
     }
 
-    const isMember = membership || team.ownerId === session.user.id;
+    const isMember = membership || team.ownerId === user.id
     if (!isMember) {
-      return NextResponse.json(
-        { error: "Access denied" },
-        { status: 403 }
-      );
+      throw new ForbiddenError("Access denied")
     }
 
     const invites = await prisma.teamInvite.findMany({
@@ -62,143 +38,82 @@ export async function GET(
         },
       },
       orderBy: { createdAt: "desc" },
-    });
+    })
 
-    return NextResponse.json(invites);
-  } catch (error) {
-    console.error("Error fetching invites:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch invites" },
-      { status: 500 }
-    );
-  }
-}
+    return invites
+  },
+})
 
-// POST /api/teams/[id]/invites - Create an invite
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    const { id } = await params;
+export const POST = createApiHandler({
+  auth: "required",
+  schema: createInviteSchema,
+  handler: async ({ user, params, data }) => {
+    const { id } = params
 
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // Check if user is owner or admin
     const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId: id,
-          userId: session.user.id,
-        },
-      },
-    });
+      where: { teamId_userId: { teamId: id, userId: user.id } },
+    })
 
     const team = await prisma.team.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: { members: true, invites: true },
-        },
-      },
-    });
+      include: { _count: { select: { members: true, invites: true } } },
+    })
 
     if (!team) {
-      return NextResponse.json(
-        { error: "Team not found" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Team")
     }
 
-    const canInvite = team.ownerId === session.user.id ||
-      (membership && (membership.role === "OWNER" || membership.role === "ADMIN"));
+    const canInvite =
+      team.ownerId === user.id ||
+      (membership && (membership.role === "OWNER" || membership.role === "ADMIN"))
 
     if (!canInvite) {
-      return NextResponse.json(
-        { error: "Only owners and admins can invite members" },
-        { status: 403 }
-      );
+      throw new ForbiddenError("Only owners and admins can invite members")
     }
 
-    const body = await request.json();
-    const validatedData = createInviteSchema.safeParse(body);
-
-    if (!validatedData.success) {
-      return NextResponse.json(
-        { error: "Invalid input", details: validatedData.error.flatten() },
-        { status: 400 }
-      );
-    }
-
-    const { email, role } = validatedData.data;
-
-    // Check if user is already a member (outside transaction - read-only check)
     const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
+      where: { email: data.email },
+    })
 
     if (existingUser) {
       const existingMembership = await prisma.teamMember.findUnique({
-        where: {
-          teamId_userId: {
-            teamId: id,
-            userId: existingUser.id,
-          },
-        },
-      });
+        where: { teamId_userId: { teamId: id, userId: existingUser.id } },
+      })
 
       if (existingMembership) {
-        return NextResponse.json(
-          { error: "User is already a member of this team" },
-          { status: 400 }
-        );
+        throw new BadRequestError("User is already a member of this team")
       }
     }
 
-    // Create invite in transaction with seat limit check to prevent race conditions
     const invite = await prisma.$transaction(async (tx) => {
-      // Check seat limits atomically
       const [memberCount, inviteCount] = await Promise.all([
         tx.teamMember.count({ where: { teamId: id } }),
         tx.teamInvite.count({ where: { teamId: id } }),
-      ]);
+      ])
 
-      const totalSeats = memberCount + inviteCount;
+      const totalSeats = memberCount + inviteCount
       if (totalSeats >= team.maxSeats) {
-        throw new Error("SEAT_LIMIT_REACHED");
+        throw new Error("SEAT_LIMIT_REACHED")
       }
 
-      // Check if invite already exists (inside transaction for atomicity)
       const existingInvite = await tx.teamInvite.findUnique({
-        where: {
-          teamId_email: {
-            teamId: id,
-            email,
-          },
-        },
-      });
+        where: { teamId_email: { teamId: id, email: data.email } },
+      })
 
       if (existingInvite) {
-        throw new Error("INVITE_EXISTS");
+        throw new Error("INVITE_EXISTS")
       }
 
-      // Create invite (expires in 7 days)
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
+      const expiresAt = new Date()
+      expiresAt.setDate(expiresAt.getDate() + 7)
 
       return tx.teamInvite.create({
         data: {
           teamId: id,
-          email,
-          role,
+          email: data.email,
+          role: data.role,
           expiresAt,
-          invitedBy: session.user.id,
+          invitedBy: user.id,
         },
         include: {
           inviter: {
@@ -208,41 +123,30 @@ export async function POST(
             select: { id: true, name: true, logo: true },
           },
         },
-      });
-    });
+      })
+    }).catch((error) => {
+      if (error instanceof Error) {
+        if (error.message === "SEAT_LIMIT_REACHED") {
+          throw new ForbiddenError(
+            "Team has reached its seat limit. Upgrade to add more members."
+          )
+        }
+        if (error.message === "INVITE_EXISTS") {
+          throw new BadRequestError("An invite has already been sent to this email")
+        }
+      }
+      throw error
+    })
 
-    // Log audit event
     await logTeamAction({
       teamId: id,
-      actorId: session.user.id,
+      actorId: user.id,
       action: "invite_sent",
       targetType: "invite",
       targetId: invite.id,
-      metadata: { email, role },
-    });
+      metadata: { email: data.email, role: data.role },
+    })
 
-    return NextResponse.json(invite, { status: 201 });
-  } catch (error) {
-    // Handle transaction errors
-    if (error instanceof Error) {
-      if (error.message === "SEAT_LIMIT_REACHED") {
-        return NextResponse.json(
-          { error: "SEAT_LIMIT_REACHED", message: "Team has reached its seat limit. Upgrade to add more members." },
-          { status: 403 }
-        );
-      }
-      if (error.message === "INVITE_EXISTS") {
-        return NextResponse.json(
-          { error: "An invite has already been sent to this email" },
-          { status: 400 }
-        );
-      }
-    }
-
-    console.error("Error creating invite:", error);
-    return NextResponse.json(
-      { error: "Failed to create invite" },
-      { status: 500 }
-    );
-  }
-}
+    return invite
+  },
+})

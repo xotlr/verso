@@ -1,16 +1,14 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { checkScreenplayAccess } from "@/lib/auth-utils";
-import { z } from "zod";
+import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
+import { checkScreenplayAccess } from "@/lib/auth-utils"
 import {
   SHOT_TYPES,
   CAMERA_ANGLES,
   CAMERA_MOVEMENTS,
   SHOT_STATUSES,
-} from "@/types/shotlist";
+} from "@/types/shotlist"
 
-// Validation schema for updating a shot
 const updateShotSchema = z.object({
   sceneId: z.string().min(1).optional(),
   shotNumber: z.number().int().positive().optional(),
@@ -27,101 +25,54 @@ const updateShotSchema = z.object({
   status: z.enum(SHOT_STATUSES).optional(),
   thumbnailUrl: z.string().url().nullable().optional(),
   thumbnailType: z.enum(["upload", "url"]).nullable().optional(),
-});
+})
 
-// GET /api/screenplays/[id]/shots/[shotId] - Get a single shot
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string; shotId: string }> }
-) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id: screenplayId, shotId } = params
 
-    const { id: screenplayId, shotId } = await params;
-
-    const access = await checkScreenplayAccess(screenplayId, session.user.id);
+    const access = await checkScreenplayAccess(screenplayId, user.id)
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      );
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
     const shot = await prisma.shot.findUnique({
       where: { id: shotId, screenplayId },
-    });
+    })
 
     if (!shot) {
-      return NextResponse.json(
-        { error: "Shot not found" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Shot")
     }
 
-    return NextResponse.json(shot);
-  } catch (error) {
-    console.error("Error fetching shot:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch shot" },
-      { status: 500 }
-    );
-  }
-}
+    return shot
+  },
+})
 
-// PUT /api/screenplays/[id]/shots/[shotId] - Update a shot
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string; shotId: string }> }
-) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+export const PUT = createApiHandler({
+  auth: "required",
+  schema: updateShotSchema,
+  handler: async ({ user, params, data }) => {
+    const { id: screenplayId, shotId } = params
 
-    const { id: screenplayId, shotId } = await params;
-
-    // Require EDITOR role for updating shots
-    const access = await checkScreenplayAccess(screenplayId, session.user.id, 'EDITOR');
+    const access = await checkScreenplayAccess(screenplayId, user.id, "EDITOR")
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      );
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
-    // Check shot exists
     const existingShot = await prisma.shot.findUnique({
       where: { id: shotId, screenplayId },
-    });
+    })
 
     if (!existingShot) {
-      return NextResponse.json(
-        { error: "Shot not found" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Shot")
     }
-
-    const body = await request.json();
-    const result = updateShotSchema.safeParse(body);
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      );
-    }
-
-    const data = result.data;
 
     const shot = await prisma.shot.update({
       where: { id: shotId },
@@ -142,65 +93,37 @@ export async function PUT(
         ...(data.thumbnailUrl !== undefined && { thumbnailUrl: data.thumbnailUrl }),
         ...(data.thumbnailType !== undefined && { thumbnailType: data.thumbnailType }),
       },
-    });
+    })
 
-    return NextResponse.json(shot);
-  } catch (error) {
-    console.error("Error updating shot:", error);
-    return NextResponse.json(
-      { error: "Failed to update shot" },
-      { status: 500 }
-    );
-  }
-}
+    return shot
+  },
+})
 
-// DELETE /api/screenplays/[id]/shots/[shotId] - Delete a shot
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string; shotId: string }> }
-) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+export const DELETE = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id: screenplayId, shotId } = params
 
-    const { id: screenplayId, shotId } = await params;
-
-    // Require EDITOR role for updating shots
-    const access = await checkScreenplayAccess(screenplayId, session.user.id, 'EDITOR');
+    const access = await checkScreenplayAccess(screenplayId, user.id, "EDITOR")
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      );
+      if (access.status === 404) {
+        throw new NotFoundError("Screenplay")
+      }
+      throw new ForbiddenError(access.error)
     }
 
-    // Check shot exists
     const existingShot = await prisma.shot.findUnique({
       where: { id: shotId, screenplayId },
-    });
+    })
 
     if (!existingShot) {
-      return NextResponse.json(
-        { error: "Shot not found" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Shot")
     }
 
     await prisma.shot.delete({
       where: { id: shotId },
-    });
+    })
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting shot:", error);
-    return NextResponse.json(
-      { error: "Failed to delete shot" },
-      { status: 500 }
-    );
-  }
-}
+    return { success: true }
+  },
+})

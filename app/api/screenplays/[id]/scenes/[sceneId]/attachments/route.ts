@@ -1,33 +1,19 @@
-import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { validateImageUrl } from "@/lib/file-validation"
 import { logger } from "@/lib/logger"
-import { z } from "zod"
 
-// GET /api/screenplays/[id]/scenes/[sceneId]/attachments - List scene attachments
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string; sceneId: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id, sceneId } = params
 
-    const { id, sceneId } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
-
+    const access = await checkScreenplayAccess(id, user.id)
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) throw new NotFoundError("Screenplay")
+      throw new ForbiddenError(access.error)
     }
 
     const attachments = await prisma.sceneAttachment.findMany({
@@ -38,17 +24,10 @@ export async function GET(
       orderBy: { displayOrder: "asc" },
     })
 
-    return NextResponse.json(attachments)
-  } catch (error) {
-    logger.error("Failed to fetch scene attachments", error as Error)
-    return NextResponse.json(
-      { error: "Failed to fetch scene attachments" },
-      { status: 500 }
-    )
-  }
-}
+    return attachments
+  },
+})
 
-// Validation schema for creating attachment
 const createAttachmentSchema = z.object({
   type: z.enum(["image", "reference", "moodboard"]),
   url: z.string().url(),
@@ -56,71 +35,38 @@ const createAttachmentSchema = z.object({
   caption: z.string().optional(),
 })
 
-// POST /api/screenplays/[id]/scenes/[sceneId]/attachments - Add scene attachment
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string; sceneId: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const POST = createApiHandler({
+  auth: "required",
+  schema: createAttachmentSchema,
+  handler: async ({ user, params, data }) => {
+    const { id, sceneId } = params
 
-    const { id, sceneId } = await params
-    const access = await checkScreenplayAccess(id, session.user.id)
-
+    const access = await checkScreenplayAccess(id, user.id)
     if (!access.allowed) {
-      return NextResponse.json(
-        { error: access.error },
-        { status: access.status }
-      )
+      if (access.status === 404) throw new NotFoundError("Screenplay")
+      throw new ForbiddenError(access.error)
     }
 
-    const body = await request.json()
-    const result = createAttachmentSchema.safeParse(body)
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
-    }
-
-    const { type, url, filename, caption } = result.data
-
-    // Server-side validation: verify URL is from allowed storage domain and is valid image
     try {
-      validateImageUrl(url)
+      validateImageUrl(data.url)
     } catch (validationError) {
       logger.security('Invalid attachment URL rejected', {
-        url: url.substring(0, 100), // Truncate for logging
+        url: data.url.substring(0, 100),
         screenplayId: id,
         sceneId,
-        userId: session.user.id,
+        userId: user.id,
       })
-      return NextResponse.json(
-        { error: (validationError as Error).message },
-        { status: 400 }
-      )
+      throw new BadRequestError((validationError as Error).message)
     }
 
-    // Check attachment limit (max 10 per scene)
     const existingCount = await prisma.sceneAttachment.count({
       where: { screenplayId: id, sceneId },
     })
 
     if (existingCount >= 10) {
-      return NextResponse.json(
-        { error: "Maximum 10 attachments per scene" },
-        { status: 400 }
-      )
+      throw new BadRequestError("Maximum 10 attachments per scene")
     }
 
-    // Get next display order
     const lastAttachment = await prisma.sceneAttachment.findFirst({
       where: { screenplayId: id, sceneId },
       orderBy: { displayOrder: "desc" },
@@ -133,10 +79,10 @@ export async function POST(
       data: {
         screenplayId: id,
         sceneId,
-        type,
-        url,
-        filename,
-        caption,
+        type: data.type,
+        url: data.url,
+        filename: data.filename,
+        caption: data.caption,
         displayOrder,
       },
     })
@@ -144,15 +90,9 @@ export async function POST(
     logger.audit('create', 'sceneAttachment', attachment.id, {
       screenplayId: id,
       sceneId,
-      type,
+      type: data.type,
     })
 
-    return NextResponse.json(attachment, { status: 201 })
-  } catch (error) {
-    logger.error("Failed to create scene attachment", error as Error)
-    return NextResponse.json(
-      { error: "Failed to create scene attachment" },
-      { status: 500 }
-    )
-  }
-}
+    return attachment
+  },
+})

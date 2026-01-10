@@ -1,29 +1,26 @@
-import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
 
-// GET /api/series/[id] - Get a single series with episodes
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+const updateSeriesSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  logline: z.string().optional().nullable(),
+  genre: z.string().optional().nullable(),
+  format: z
+    .enum(["one-hour", "half-hour", "multi-cam", "limited", "anthology"])
+    .optional()
+    .nullable(),
+  projectId: z.string().optional().nullable(),
+  banner: z.string().url().optional().nullable(),
+})
 
-    const { id } = await params
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
     const series = await prisma.series.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
+      where: { id, userId: user.id },
       select: {
         id: true,
         title: true,
@@ -34,10 +31,7 @@ export async function GET(
         createdAt: true,
         updatedAt: true,
         projectId: true,
-        project: {
-          select: { id: true, name: true },
-        },
-        // New: Include seasons with nested episodes
+        project: { select: { id: true, name: true } },
         seasons: {
           select: {
             id: true,
@@ -59,13 +53,10 @@ export async function GET(
               },
               orderBy: { episode: "asc" },
             },
-            _count: {
-              select: { episodes: true },
-            },
+            _count: { select: { episodes: true } },
           },
           orderBy: { number: "asc" },
         },
-        // Legacy: Direct episodes (for backward compatibility)
         episodes: {
           select: {
             id: true,
@@ -77,167 +68,76 @@ export async function GET(
             updatedAt: true,
             isFavorite: true,
           },
-          orderBy: [
-            { season: "asc" },
-            { episode: "asc" },
-          ],
+          orderBy: [{ season: "asc" }, { episode: "asc" }],
         },
-        _count: {
-          select: { episodes: true, seasons: true },
-        },
+        _count: { select: { episodes: true, seasons: true } },
       },
     })
 
     if (!series) {
-      return NextResponse.json(
-        { error: "Series not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Series")
     }
 
-    return NextResponse.json(series)
-  } catch (error) {
-    console.error("Error fetching series:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch series" },
-      { status: 500 }
-    )
-  }
-}
-
-// Validation schema for updating a series
-const updateSeriesSchema = z.object({
-  title: z.string().min(1).max(255).optional(),
-  logline: z.string().optional().nullable(),
-  genre: z.string().optional().nullable(),
-  format: z.enum(["one-hour", "half-hour", "multi-cam", "limited", "anthology"]).optional().nullable(),
-  projectId: z.string().optional().nullable(),
-  banner: z.string().url().optional().nullable(),
+    return series
+  },
 })
 
-// PATCH /api/series/[id] - Update a series
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const PATCH = createApiHandler({
+  auth: "required",
+  schema: updateSeriesSchema,
+  handler: async ({ user, params, data }) => {
+    const { id } = params
 
-    const { id } = await params
-    const body = await request.json()
-    const result = updateSeriesSchema.safeParse(body)
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error.issues[0].message },
-        { status: 400 }
-      )
-    }
-
-    // Verify ownership
     const existingSeries = await prisma.series.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
+      where: { id, userId: user.id },
     })
 
     if (!existingSeries) {
-      return NextResponse.json(
-        { error: "Series not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Series")
     }
 
-    // If projectId provided, verify user owns the project
-    if (result.data.projectId) {
+    if (data.projectId) {
       const project = await prisma.project.findFirst({
-        where: {
-          id: result.data.projectId,
-          userId: session.user.id,
-        },
+        where: { id: data.projectId, userId: user.id },
       })
 
       if (!project) {
-        return NextResponse.json(
-          { error: "Project not found or access denied" },
-          { status: 403 }
-        )
+        throw new ForbiddenError("Project not found or access denied")
       }
     }
 
     const series = await prisma.series.update({
       where: { id },
-      data: result.data,
+      data,
     })
 
-    return NextResponse.json(series)
-  } catch (error) {
-    console.error("Error updating series:", error)
-    return NextResponse.json(
-      { error: "Failed to update series" },
-      { status: 500 }
-    )
-  }
-}
+    return series
+  },
+})
 
-// DELETE /api/series/[id] - Delete a series
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      )
-    }
+export const DELETE = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
-    const { id } = await params
-
-    // Verify ownership
     const series = await prisma.series.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
-      include: {
-        _count: { select: { episodes: true } },
-      },
+      where: { id, userId: user.id },
+      include: { _count: { select: { episodes: true } } },
     })
 
     if (!series) {
-      return NextResponse.json(
-        { error: "Series not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Series")
     }
 
-    // Unlink episodes from series (don't delete them)
     await prisma.screenplay.updateMany({
       where: { seriesId: id },
       data: { seriesId: null },
     })
 
-    // Delete the series
     await prisma.series.delete({
       where: { id },
     })
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Error deleting series:", error)
-    return NextResponse.json(
-      { error: "Failed to delete series" },
-      { status: 500 }
-    )
-  }
-}
+    return { success: true }
+  },
+})

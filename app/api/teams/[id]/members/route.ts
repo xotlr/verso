@@ -1,45 +1,24 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-import { logTeamAction } from "@/lib/audit-log";
+import { z } from "zod"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
+import { logTeamAction } from "@/lib/audit-log"
 
 const addMemberSchema = z.object({
   email: z.string().email(),
   role: z.enum(["ADMIN", "MEMBER"]).default("MEMBER"),
-});
+})
 
-// GET /api/teams/[id]/members - List team members
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    const { id } = await params;
+export const GET = createApiHandler({
+  auth: "required",
+  handler: async ({ user, params }) => {
+    const { id } = params
 
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // Check if user is a member
     const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId: id,
-          userId: session.user.id,
-        },
-      },
-    });
+      where: { teamId_userId: { teamId: id, userId: user.id } },
+    })
 
     if (!membership) {
-      return NextResponse.json(
-        { error: "Access denied" },
-        { status: 403 }
-      );
+      throw new ForbiddenError("Access denied")
     }
 
     const members = await prisma.teamMember.findMany({
@@ -50,150 +29,88 @@ export async function GET(
         },
       },
       orderBy: { createdAt: "asc" },
-    });
+    })
 
-    return NextResponse.json(members);
-  } catch (error) {
-    console.error("Error fetching members:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch members" },
-      { status: 500 }
-    );
-  }
-}
+    return members
+  },
+})
 
-// POST /api/teams/[id]/members - Add a member by email
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await auth();
-    const { id } = await params;
+export const POST = createApiHandler({
+  auth: "required",
+  schema: addMemberSchema,
+  handler: async ({ user, params, data }) => {
+    const { id } = params
 
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // Check if user is owner or admin
     const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId: id,
-          userId: session.user.id,
-        },
-      },
-    });
+      where: { teamId_userId: { teamId: id, userId: user.id } },
+    })
 
     const team = await prisma.team.findUnique({
       where: { id },
-    });
+    })
 
     if (!team) {
-      return NextResponse.json(
-        { error: "Team not found" },
-        { status: 404 }
-      );
+      throw new NotFoundError("Team")
     }
 
-    const canInvite = team.ownerId === session.user.id ||
-      (membership && (membership.role === "OWNER" || membership.role === "ADMIN"));
+    const canInvite =
+      team.ownerId === user.id ||
+      (membership && (membership.role === "OWNER" || membership.role === "ADMIN"))
 
     if (!canInvite) {
-      return NextResponse.json(
-        { error: "Only owners and admins can invite members" },
-        { status: 403 }
-      );
+      throw new ForbiddenError("Only owners and admins can invite members")
     }
 
-    // Check seat limits
     const [memberCount, inviteCount] = await Promise.all([
       prisma.teamMember.count({ where: { teamId: id } }),
       prisma.teamInvite.count({ where: { teamId: id } }),
-    ]);
-    const totalSeats = memberCount + inviteCount;
+    ])
+    const totalSeats = memberCount + inviteCount
 
     if (totalSeats >= team.maxSeats) {
-      return NextResponse.json(
-        { error: "SEAT_LIMIT_REACHED", message: `Team has reached the maximum of ${team.maxSeats} seats. Upgrade to add more members.` },
-        { status: 403 }
-      );
+      throw new ForbiddenError(
+        `Team has reached the maximum of ${team.maxSeats} seats. Upgrade to add more members.`
+      )
     }
 
-    const body = await request.json();
-    const validatedData = addMemberSchema.safeParse(body);
-
-    if (!validatedData.success) {
-      return NextResponse.json(
-        { error: "Invalid input", details: validatedData.error.flatten() },
-        { status: 400 }
-      );
-    }
-
-    const { email, role } = validatedData.data;
-
-    // Find user by email
     const userToAdd = await prisma.user.findUnique({
-      where: { email },
-    });
+      where: { email: data.email },
+    })
 
     if (!userToAdd) {
-      return NextResponse.json(
-        { error: "User not found. They need to create an account first." },
-        { status: 404 }
-      );
+      throw new NotFoundError("User not found. They need to create an account first.")
     }
 
-    // Check if already a member
     const existingMembership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId: id,
-          userId: userToAdd.id,
-        },
-      },
-    });
+      where: { teamId_userId: { teamId: id, userId: userToAdd.id } },
+    })
 
     if (existingMembership) {
-      return NextResponse.json(
-        { error: "User is already a member of this team" },
-        { status: 400 }
-      );
+      throw new BadRequestError("User is already a member of this team")
     }
 
-    // Add member
     const newMember = await prisma.teamMember.create({
       data: {
         teamId: id,
         userId: userToAdd.id,
-        role,
+        role: data.role,
       },
       include: {
         user: {
           select: { id: true, name: true, email: true, image: true },
         },
       },
-    });
+    })
 
-    // Log audit event
     await logTeamAction({
       teamId: id,
-      actorId: session.user.id,
+      actorId: user.id,
       action: "member_added",
       targetType: "member",
       targetId: userToAdd.id,
-      metadata: { email, role, userName: userToAdd.name },
-    });
+      metadata: { email: data.email, role: data.role, userName: userToAdd.name },
+    })
 
-    return NextResponse.json(newMember, { status: 201 });
-  } catch (error) {
-    console.error("Error adding member:", error);
-    return NextResponse.json(
-      { error: "Failed to add member" },
-      { status: 500 }
-    );
-  }
-}
+    return newMember
+  },
+})

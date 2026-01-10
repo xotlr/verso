@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { EditableTitle } from "@/components/editable-title";
 import { SeriesBreadcrumb } from "@/components/series/series-breadcrumb";
 import { Search, ChevronLeft, History } from "lucide-react";
@@ -109,6 +108,8 @@ export function AppHeader({ className }: AppHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Clear breadcrumb when navigating away from screenplay routes
+  // Syncing state with URL changes is a legitimate pattern
+   
   useEffect(() => {
     if (!pathname.startsWith('/screenplay/')) {
       setBreadcrumbData(null);
@@ -126,7 +127,9 @@ export function AppHeader({ className }: AppHeaderProps) {
     return () => window.removeEventListener('screenplay-breadcrumb-update', handleBreadcrumbUpdate);
   }, []);
 
-  // Track online/offline status
+  // Track online/offline status (sync with external system)
+  // This is the standard pattern for subscribing to browser APIs
+   
   useEffect(() => {
     setIsOnline(navigator.onLine);
 
@@ -299,7 +302,6 @@ export function AppHeader({ className }: AppHeaderProps) {
             tooltip="Search (⌘K)"
             onClick={() => window.dispatchEvent(new CustomEvent('command-palette-open'))}
           />
-          <ThemeToggle />
           <NotificationBell />
           <UserAvatarMenu />
         </div>

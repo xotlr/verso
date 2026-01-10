@@ -1,53 +1,44 @@
-import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 import { z } from "zod"
-import { rateLimit, RATE_LIMITS, getClientIp } from "@/lib/rate-limit"
+import { createApiHandler, RATE_LIMITS } from "@/lib/api"
+import { prisma } from "@/lib/prisma"
+import { logger } from "@/lib/logger"
 
-// Query params validation schema
 const exploreQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
   offset: z.coerce.number().int().min(0).default(0),
   genre: z.string().max(100).optional(),
   search: z.string().max(500).optional(),
+  type: z.enum(["screenplays", "genres"]).default("screenplays"),
 })
 
-// GET /api/explore - Get public screenplays for exploration
-export async function GET(request: NextRequest) {
-  try {
-    // Rate limit to prevent scraping
-    const clientIp = getClientIp(request)
-    const rateLimitResult = await rateLimit(`explore:${clientIp}`, RATE_LIMITS.API)
-
-    if (!rateLimitResult.success) {
-      return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
-        { status: 429 }
-      )
-    }
-
-    const { searchParams } = new URL(request.url)
-
-    // Validate query parameters
+export const GET = createApiHandler({
+  auth: "none",
+  rateLimit: RATE_LIMITS.API,
+  handler: async ({ searchParams }) => {
     const queryResult = exploreQuerySchema.safeParse({
       limit: searchParams.get("limit") || undefined,
       offset: searchParams.get("offset") || undefined,
       genre: searchParams.get("genre") || undefined,
       search: searchParams.get("search") || undefined,
+      type: searchParams.get("type") || undefined,
     })
 
     if (!queryResult.success) {
-      return NextResponse.json(
-        { error: "Invalid query parameters", details: queryResult.error.issues },
-        { status: 400 }
-      )
+      return { error: "Invalid query parameters", details: queryResult.error.issues }
     }
 
-    const { limit, offset, genre, search } = queryResult.data
+    const { limit, offset, genre, search, type } = queryResult.data
 
-    // Build where clause for public screenplays
-    const where: Record<string, unknown> = {
-      isPublic: true,
+    if (type === "genres") {
+      const genres = await prisma.screenplay.findMany({
+        where: { isPublic: true, genre: { not: null } },
+        select: { genre: true },
+        distinct: ["genre"],
+      })
+      return { genres: genres.map((g) => g.genre).filter(Boolean) }
     }
+
+    const where: Record<string, unknown> = { isPublic: true }
 
     if (genre) {
       where.genre = genre
@@ -60,14 +51,10 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    // Get public screenplays with author info
     const [screenplays, total] = await Promise.all([
       prisma.screenplay.findMany({
         where,
-        orderBy: [
-          { views: "desc" },
-          { publishedAt: "desc" },
-        ],
+        orderBy: [{ views: "desc" }, { publishedAt: "desc" }],
         skip: offset,
         take: limit,
         select: {
@@ -77,50 +64,16 @@ export async function GET(request: NextRequest) {
           genre: true,
           views: true,
           publishedAt: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              image: true,
-            },
-          },
+          user: { select: { id: true, name: true, image: true } },
         },
       }),
       prisma.screenplay.count({ where }),
     ])
 
-    return NextResponse.json({
+    return {
       screenplays,
       total,
       hasMore: offset + screenplays.length < total,
-    })
-  } catch (error) {
-    console.error("Error fetching public screenplays:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch screenplays" },
-      { status: 500 }
-    )
-  }
-}
-
-// GET /api/explore/genres - Get available genres
-export async function OPTIONS() {
-  try {
-    const genres = await prisma.screenplay.findMany({
-      where: {
-        isPublic: true,
-        genre: { not: null },
-      },
-      select: { genre: true },
-      distinct: ["genre"],
-    })
-
-    return NextResponse.json(genres.map((g) => g.genre).filter(Boolean))
-  } catch (error) {
-    console.error("Error fetching genres:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch genres" },
-      { status: 500 }
-    )
-  }
-}
+    }
+  },
+})

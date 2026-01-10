@@ -26,8 +26,10 @@ export {
   ForbiddenError,
   NotFoundError,
   ConflictError,
+  GoneError,
   ValidationError,
   RateLimitError,
+  CsrfError,
   InternalError,
   isApiError,
 } from './errors';

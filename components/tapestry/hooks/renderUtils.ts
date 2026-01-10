@@ -5,10 +5,9 @@
  */
 
 import * as d3 from 'd3';
-import type { TapestryNode, TapestryConnection, TapestryGroup } from '@/types/tapestry';
+import type { TapestryNode, TapestryConnection } from '@/types/tapestry';
 import { DEFAULT_NOTE_WIDTH, DEFAULT_NOTE_HEIGHT, getNodeDimensions } from '@/types/tapestry';
 import type { TapestryLookups } from '@/lib/tapestry/lookups';
-import type { GroupBounds } from '@/lib/tapestry/bounds';
 
 // Re-export for backwards compatibility with existing imports
 export { getNodeDimensions };

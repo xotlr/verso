@@ -37,3 +37,15 @@ export {
   pathLength,
   generateAllRoutes,
 } from './routing';
+
+// D3 Setup Utilities
+export {
+  createGridPattern,
+  createArrowMarker,
+  createShadowFilters,
+  createCanvasBackground,
+  initializeSvgDefs,
+} from './d3-setup';
+
+// Index Cards Utilities
+export { loadIndexCards, getIndexCardsStorageKey } from './index-cards';

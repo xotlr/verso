@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import type { PaginationResult, PositionMap } from '@/lib/verso/types';
+import type { PaginationResult } from '@/lib/verso/types';
+import type { PositionMap } from '@/lib/verso/serializer';
 
 // Mock the entire verso module to avoid WASM loading
 vi.mock('@/lib/verso', () => {
@@ -219,8 +220,11 @@ describe('useCurrentPage', () => {
 
   it('returns page for cursor position', () => {
     const posMap: PositionMap = {
-      posToElement: (pos) => (pos < 50 ? 'el-1' : 'el-2'),
-      elementToPos: (id) => (id === 'el-1' ? 0 : 50),
+      posToElement: (pos: number) => (pos < 50 ? 'el-1' : 'el-2'),
+      elementToPos: new Map([
+        ['el-1', { from: 0, to: 49 }],
+        ['el-2', { from: 50, to: 100 }],
+      ]),
     };
 
     const { result, rerender } = renderHook(

@@ -1,32 +1,13 @@
-import { NextRequest, NextResponse } from "next/server"
+import { createApiHandler, NotFoundError, GoneError, RATE_LIMITS } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
-import { rateLimit, RATE_LIMITS, getClientIp } from "@/lib/rate-limit"
+import { logger } from "@/lib/logger"
 
-// GET /api/share/[token] - Validate token and get screenplay
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ token: string }> }
-) {
-  try {
-    // Rate limit to prevent token brute force attacks
-    const clientIp = getClientIp(request)
-    const rateLimitResult = await rateLimit(`share-token:${clientIp}`, RATE_LIMITS.API)
+export const GET = createApiHandler({
+  auth: "none",
+  rateLimit: RATE_LIMITS.API,
+  handler: async ({ params }) => {
+    const { token } = params
 
-    if (!rateLimitResult.success) {
-      return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000).toString(),
-          },
-        }
-      )
-    }
-
-    const { token } = await params
-
-    // Find the share link by token
     const shareLink = await prisma.shareLink.findUnique({
       where: { token },
       include: {
@@ -44,7 +25,6 @@ export async function GET(
             wordCount: true,
             createdAt: true,
             updatedAt: true,
-            // Include user for author fallback
             user: {
               select: {
                 name: true,
@@ -55,50 +35,31 @@ export async function GET(
       },
     })
 
-    // Token not found
     if (!shareLink) {
-      return NextResponse.json(
-        { error: "Share link not found" },
-        { status: 404 }
-      )
+      throw new NotFoundError("Share link")
     }
 
-    // Link is deactivated
     if (!shareLink.isActive) {
-      return NextResponse.json(
-        { error: "This share link has been revoked" },
-        { status: 410 }
-      )
+      throw new GoneError("This share link has been revoked")
     }
 
-    // Link has expired
     if (shareLink.expiresAt && new Date() > shareLink.expiresAt) {
-      return NextResponse.json(
-        { error: "This share link has expired" },
-        { status: 410 }
-      )
+      throw new GoneError("This share link has expired")
     }
 
     // Increment view count (fire and forget)
     prisma.screenplay.update({
       where: { id: shareLink.screenplayId },
       data: { views: { increment: 1 } },
-    }).catch(console.error)
+    }).catch((err) => logger.error("Failed to increment view count", err instanceof Error ? err : undefined))
 
-    // Return screenplay with permission level
-    return NextResponse.json({
+    return {
       screenplay: {
         ...shareLink.screenplay,
-        author: shareLink.screenplay.author || shareLink.screenplay.user?.name || 'Anonymous',
+        author: shareLink.screenplay.author || shareLink.screenplay.user?.name || "Anonymous",
       },
       permission: shareLink.permission,
       expiresAt: shareLink.expiresAt,
-    })
-  } catch (error) {
-    console.error("[SHARE_TOKEN_GET]", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
-  }
-}
+    }
+  },
+})

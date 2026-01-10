@@ -17,7 +17,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import type { TapestryNode, TapestryConnection, TapestryGroup } from '@/types/tapestry';
+// TapestryNode, TapestryConnection, TapestryGroup types used by consumers of context
 import type { Viewport } from '@/lib/tapestry/virtualization';
 import type { HighlightState } from '@/lib/tapestry/types';
 import { INITIAL_HIGHLIGHT_STATE } from '@/lib/tapestry/types';
