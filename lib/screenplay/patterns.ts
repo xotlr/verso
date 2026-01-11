@@ -2,18 +2,52 @@
  * Centralized regex patterns for screenplay parsing and formatting
  */
 
+// Check if text contains at least one letter (filters out "112", "2024", etc.)
+const HAS_LETTER = /[A-Za-z]/;
+
+// Lines that look like action even if ALL CAPS (matches DOCX parser's ACTION_INDICATORS)
+const ACTION_INDICATORS = [
+  /^(THE|A|AN|HE|SHE|THEY|WE|IT|THIS|THAT|THESE|THOSE|HIS|HER|THEIR|OUR|MY|YOUR)\s/i, // Common article/pronoun starters
+  /\.\s*$/, // Ends with period (likely a sentence)
+  /,\s*$/, // Ends with comma
+  /\band\b/i, // Contains "and"
+  /\bthe\b/i, // Contains "the"
+  /\bis\b/i, // Contains "is"
+  /\bare\b/i, // Contains "are"
+  /\bwas\b/i, // Contains "was"
+  /\bwere\b/i, // Contains "were"
+  /\bwith\b/i, // Contains "with"
+  /\binto\b/i, // Contains "into"
+  /\bfrom\b/i, // Contains "from"
+  /\bhave\b/i, // Contains "have"
+  /\bhas\b/i, // Contains "has"
+  /\bhad\b/i, // Contains "had"
+  /\bwill\b/i, // Contains "will"
+  /\bwould\b/i, // Contains "would"
+  /\bcan\b/i, // Contains "can"
+  /\bcould\b/i, // Contains "could"
+  /\bshould\b/i, // Contains "should"
+  /\bmust\b/i, // Contains "must"
+  /^\d+$/, // Pure numbers
+  /^\d+[A-Z]?$/, // Numbers with optional letter suffix (like "112A")
+  /^[A-Z]?\d+$/, // Optional letter prefix with numbers
+];
+
 // Scene headings
 export const SCENE_HEADING_REGEX = /^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i;
 export const SCENE_HEADING_WITH_NUMBER_REGEX = /^\d+\.\s*(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i;
 
 // Transitions
-export const TRANSITION_START_REGEX = /^(FADE|CUT|DISSOLVE|MATCH CUT|SMASH CUT|TIME CUT|FREEZE FRAME|DIAGONAL WIPE|FLASH)/i;
+export const TRANSITION_START_REGEX = /^(FADE|CUT|DISSOLVE|MATCH CUT|SMASH CUT|TIME CUT|FREEZE FRAME|DIAGONAL WIPE|FLASH|BACK TO|INTERCUT)/i;
 export const TRANSITION_FULL_REGEX = /^(FADE|CUT|DISSOLVE|MATCH CUT|SMASH CUT|TIME CUT|FREEZE FRAME|END|THE END).*:/i;
 export const FADE_OUT_REGEX = /^FADE\s+OUT\.?$/i;
+// Transitions that don't require colon
+export const TRANSITION_NO_COLON_REGEX = /^(BACK TO PRESENT|BACK TO SCENE|BACK TO REALITY|BACK TO:|LATER|CONTINUOUS|END FLASHBACK|END DREAM|END MONTAGE|FLASHBACK|DREAM SEQUENCE|MONTAGE|SERIES OF SHOTS)\.?$/i;
 
 // Character names
 export const CHARACTER_NAME_WITH_EXTENSION_REGEX = /^([A-Z][A-Z\s'.-]+?)(\s*\([A-Z\.'\s]+\))?$/;
-export const CHARACTER_EXTENSION_REGEX = /^(.+?)\s*(\((?:V\.O\.|O\.S\.|O\.C\.|CONT'D)\))$/;
+// More flexible extension regex - handles V.O., VO, V.O, O.S., OS, O.S, CONT'D, CONTINUING, etc.
+export const CHARACTER_EXTENSION_REGEX = /^(.+?)\s*(\((?:V\.?O\.?|O\.?S\.?|O\.?C\.?|CONT'?D?|CONTINUING|PRE-?LAP|FILTER|PHONE|RADIO|TV|ON SCREEN|SUBTITLE|SUBTITLED)\))\s*$/i;
 
 // Parentheticals
 export const PARENTHETICAL_REGEX = /^\(.+\)$/;
@@ -73,7 +107,7 @@ export const ACT_HEADER_REGEX = /^ACT\s+[IVX]+:/;
 export const END_MARKER_REGEX = /^(THE END|END)$/i;
 
 // Exclusion patterns (things that look like character names but aren't)
-export const NON_CHARACTER_KEYWORDS_REGEX = /^(FADE|CUT|DISSOLVE|MATCH CUT|SMASH CUT|TIME CUT|FREEZE FRAME|END|THE END|CONTINUED)/;
+export const NON_CHARACTER_KEYWORDS_REGEX = /^(FADE|CUT|DISSOLVE|MATCH CUT|SMASH CUT|TIME CUT|FREEZE FRAME|END|THE END|CONTINUED|BACK TO|LATER|CONTINUOUS|MEANWHILE|SUDDENLY|FLASHBACK|INTERCUT|MONTAGE|SERIES OF SHOTS|END FLASHBACK|END DREAM|END MONTAGE|DREAM SEQUENCE)/;
 
 // Detection patterns for auto-formatting
 export const HAS_SCENE_HEADINGS_REGEX = /(?:INT\.|EXT\.|INT\/EXT\.|I\/E\.)/i;
@@ -94,6 +128,8 @@ export function isSceneHeading(line: string): boolean {
 export function isTransition(line: string): boolean {
   const trimmed = line.trim();
   return TRANSITION_FULL_REGEX.test(trimmed) ||
+         FADE_OUT_REGEX.test(trimmed) ||
+         TRANSITION_NO_COLON_REGEX.test(trimmed) ||
          (TRANSITION_START_REGEX.test(trimmed) && trimmed.endsWith(':'));
 }
 
@@ -113,6 +149,7 @@ export function isParenthetical(line: string): boolean {
  * - THEO (V.O.)
  * - FELIX (O.S.)
  * - NARRATOR (CONT'D)
+ * - MAN'S VOICE (O.S.)
  */
 export function couldBeCharacterName(line: string): boolean {
   const trimmed = line.trim();
@@ -121,26 +158,71 @@ export function couldBeCharacterName(line: string): boolean {
   // Extensions are parenthesized and may contain periods
   const withoutExtension = trimmed.replace(/\s*\([^)]+\)$/, '');
 
-  return (
-    withoutExtension === withoutExtension.toUpperCase() &&
-    withoutExtension.length > 1 &&
-    withoutExtension.length < 50 &&
-    !NON_CHARACTER_KEYWORDS_REGEX.test(withoutExtension) &&
-    !withoutExtension.includes('.') // Check only the name part, not extension
-  );
+  // Must contain at least one letter (filters out "112", etc.)
+  if (!HAS_LETTER.test(withoutExtension)) {
+    return false;
+  }
+
+  // Must be ALL CAPS
+  if (withoutExtension !== withoutExtension.toUpperCase()) {
+    return false;
+  }
+
+  // Must be reasonable length (character names aren't too long)
+  if (withoutExtension.length <= 1 || withoutExtension.length >= 50) {
+    return false;
+  }
+
+  // Filter out transition/scene keywords
+  if (NON_CHARACTER_KEYWORDS_REGEX.test(withoutExtension)) {
+    return false;
+  }
+
+  // Check for periods in name (but allow periods in extension)
+  // Exception: common titles like DR., MR., MRS., MS., SGT., LT., GEN., etc.
+  const nameWithoutTitle = withoutExtension.replace(/^(DR|MR|MRS|MS|SGT|LT|GEN|CPT|COL|MAJ|REV|PROF)\.\s*/i, '');
+  if (nameWithoutTitle.includes('.')) {
+    return false;
+  }
+
+  // Filter out lines that look like action (sentences, common action starters)
+  for (const pattern of ACTION_INDICATORS) {
+    if (pattern.test(withoutExtension)) {
+      return false;
+    }
+  }
+
+  // Character names are typically 1-4 words
+  const wordCount = withoutExtension.split(/\s+/).length;
+  if (wordCount > 4) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
  * Extract character name and extension from a character line
+ * Handles various extension formats: (V.O.), (VO), (O.S.), (OS), (CONT'D), etc.
  */
 export function parseCharacterLine(line: string): { name: string; extension: string | null } {
   const trimmed = line.trim();
-  const match = trimmed.match(CHARACTER_EXTENSION_REGEX);
 
+  // Try the specific regex first
+  const match = trimmed.match(CHARACTER_EXTENSION_REGEX);
   if (match) {
     return {
       name: match[1].trim(),
       extension: match[2] || null
+    };
+  }
+
+  // Fallback: generic parenthetical at end
+  const genericMatch = trimmed.match(/^(.+?)\s*(\([^)]+\))\s*$/);
+  if (genericMatch) {
+    return {
+      name: genericMatch[1].trim(),
+      extension: genericMatch[2] || null
     };
   }
 

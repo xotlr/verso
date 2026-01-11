@@ -376,7 +376,7 @@ export const defaultSettings: AppSettings = {
     pageStyle: 'themed', // Use theme-colored pages by default
     paperColor: 'white', // Default paper color
     highlightColor: 'yellow', // Default highlight color
-    showSceneNumbers: true, // Show scene numbers next to scene headings
+    showSceneNumbers: false, // Show scene numbers next to scene headings (off by default)
     sceneNumberPosition: 'both', // Industry standard: both margins for shooting scripts
     showPlaceholders: true, // Show ghost text hints in empty elements
     yjsCollaboration: false, // Yjs CRDT collaboration disabled by default

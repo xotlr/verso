@@ -535,31 +535,28 @@ function ShotlistPanelInner({
         </div>
       ) : (
         <>
-          {/* Apply All banner for detected shots */}
+          {/* Apply All for detected shots */}
           {showDetectedShots && unsavedDetectedCount > 0 && (
-            <div className="px-3 py-2 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between gap-2 shrink-0">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                <span className="text-xs text-amber-700 dark:text-amber-300 truncate">
-                  {unsavedDetectedCount} shot{unsavedDetectedCount !== 1 ? 's' : ''} detected
-                </span>
-              </div>
+            <div className="px-3 py-2 flex items-center justify-between gap-2 shrink-0">
+              <span className="text-xs text-muted-foreground">
+                {unsavedDetectedCount} detected
+              </span>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={handleApplyAllDetected}
                 disabled={isApplyingAll}
-                className="gap-1 h-6 px-2 text-[10px] border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/50 text-amber-700 dark:text-amber-300 shrink-0"
+                className="gap-1.5 h-7 px-2 text-xs"
               >
                 {isApplyingAll ? (
                   <>
-                    <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
                     Adding...
                   </>
                 ) : (
                   <>
-                    <Plus className="h-3 w-3" />
-                    Apply All
+                    <Plus className="h-3.5 w-3.5" />
+                    Add All
                   </>
                 )}
               </Button>

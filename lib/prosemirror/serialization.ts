@@ -83,6 +83,9 @@ function parseSceneHeading(line: string): {
 
 /**
  * Extract cover page data (title, author, logline) from lines before first scene heading.
+ *
+ * Strategy: Look for "Written by" / "by" pattern first, then find title above it.
+ * This handles screenplays that start with action like "DARKNESS" before the title.
  */
 function extractCoverPageFromLines(lines: string[]): {
   title?: string;
@@ -91,20 +94,73 @@ function extractCoverPageFromLines(lines: string[]): {
 } {
   const coverPage: { title?: string; author?: string; logline?: string } = {};
 
-  for (const line of lines) {
-    const trimmed = line.trim();
+  // First pass: find explicit key: value patterns and "Written by" index
+  let writtenByIndex = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
     if (!trimmed) continue;
 
-    // Check for explicit key: value patterns
+    // Check for explicit key: value patterns (Fountain-style)
     if (/^title:\s*/i.test(trimmed)) {
       coverPage.title = trimmed.replace(/^title:\s*/i, '').trim();
-    } else if (/^(written by|by|author:?)\s*/i.test(trimmed)) {
-      coverPage.author = trimmed.replace(/^(written by|by|author:?)\s*/i, '').trim();
+    } else if (/^(written by|by)\s*$/i.test(trimmed)) {
+      // "Written by" on its own line - author is on next line
+      writtenByIndex = i;
+      const nextLine = lines[i + 1]?.trim();
+      if (nextLine && !nextLine.includes(':')) {
+        coverPage.author = nextLine;
+      }
+    } else if (/^(written by|screenplay by|by)\s+(.+)/i.test(trimmed)) {
+      // "Written by Name" on same line
+      writtenByIndex = i;
+      const match = trimmed.match(/^(written by|screenplay by|by)\s+(.+)/i);
+      if (match) {
+        coverPage.author = match[2].trim();
+      }
+    } else if (/^author:\s*/i.test(trimmed)) {
+      writtenByIndex = i;
+      coverPage.author = trimmed.replace(/^author:\s*/i, '').trim();
     } else if (/^logline:\s*/i.test(trimmed)) {
       coverPage.logline = trimmed.replace(/^logline:\s*/i, '').trim();
-    } else if (!coverPage.title && trimmed.length > 1 && !trimmed.includes(':')) {
-      // First substantial line without a colon = likely title
-      coverPage.title = trimmed;
+    }
+  }
+
+  // Second pass: find title if not already found via explicit "Title:" pattern
+  if (!coverPage.title) {
+    // If we found "Written by", look for title right before it
+    if (writtenByIndex > 0) {
+      // Work backwards from "Written by" to find the title
+      for (let i = writtenByIndex - 1; i >= 0; i--) {
+        const trimmed = lines[i].trim();
+        if (!trimmed) continue;
+
+        // Skip lines that are clearly not titles
+        const isSceneHeading = /^(INT|EXT|INT\.?\/?EXT|I\.?\/?E)\b/i.test(trimmed);
+        const isDraft = /^(draft|revision|version|\d{4}|january|february|march|april|may|june|july|august|september|october|november|december)\b/i.test(trimmed);
+
+        if (!isSceneHeading && !isDraft && !trimmed.includes(':')) {
+          // This is likely the title (first non-empty line above "Written by")
+          coverPage.title = trimmed;
+          break;
+        }
+      }
+    } else {
+      // No "Written by" found - use first substantial non-action line
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        // Skip common pre-title action/transitions
+        const isPreTitleAction = /^(FADE\s*(IN|OUT|TO)?:?|CUT\s*TO:?|DISSOLVE:?|BLACK\.?|WHITE\.?|DARKNESS\.?|SILENCE\.?|BLACKNESS\.?|BLANK\s*SCREEN\.?|OVER\s*BLACK\.?|SUPER:?|SUPERIMPOSE:?)$/i.test(trimmed);
+        const isSceneHeading = /^(INT|EXT|INT\.?\/?EXT|I\.?\/?E)\b/i.test(trimmed);
+        const isDraft = /^(draft|revision|version|\d{4}|january|february|march|april|may|june|july|august|september|october|november|december)\b/i.test(trimmed);
+
+        if (!isPreTitleAction && !isSceneHeading && !isDraft && !trimmed.includes(':')) {
+          coverPage.title = trimmed;
+          break;
+        }
+      }
     }
   }
 

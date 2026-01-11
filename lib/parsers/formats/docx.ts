@@ -634,42 +634,127 @@ class DocxParser implements ScreenplayParser {
     return false;
   }
 
+  /**
+   * Extract title page information from paragraphs.
+   *
+   * Strategy: Look for "Written by" pattern first, then find title above it.
+   * This handles screenplays that start with action like "DARKNESS" before the title.
+   */
   private extractTitlePage(
     paragraphs: DocxParagraph[],
     titlePage: TitlePage
   ): number {
     let titlePageEnd = 0;
+    let writtenByIndex = -1;
 
+    // First pass: find scene heading (end of title page) and key patterns
     for (let i = 0; i < Math.min(paragraphs.length, 20); i++) {
       const para = paragraphs[i];
       const text = para.text;
 
+      // Scene heading marks end of title page
       for (const pattern of SCENE_HEADING_PATTERNS) {
         if (pattern.test(text)) {
+          // Before returning, try to find title if we have "Written by"
+          if (writtenByIndex > 0 && !titlePage.title) {
+            this.findTitleBeforeWrittenBy(paragraphs, writtenByIndex, titlePage);
+          }
           return i;
         }
       }
 
-      if (/^(written by|by|screenplay by)/i.test(text)) {
+      // Check for explicit Fountain-style "Title:" pattern
+      if (/^title:\s*/i.test(text)) {
+        titlePage.title = text.replace(/^title:\s*/i, '').trim();
+        titlePageEnd = i + 1;
+      } else if (/^(written by|by)\s*$/i.test(text)) {
+        // "Written by" on its own line - author is on next line
+        writtenByIndex = i;
         titlePage.credit = text;
         titlePageEnd = i + 1;
         if (paragraphs[i + 1] && !this.isSceneHeading(paragraphs[i + 1].text)) {
           titlePage.author = paragraphs[i + 1].text;
           titlePageEnd = i + 2;
         }
+      } else if (/^(written by|screenplay by|by)\s+(.+)/i.test(text)) {
+        // "Written by Name" on same line
+        writtenByIndex = i;
+        titlePage.credit = text;
+        const match = text.match(/^(written by|screenplay by|by)\s+(.+)/i);
+        if (match) {
+          titlePage.author = match[2].trim();
+        }
+        titlePageEnd = i + 1;
+      } else if (/^author:\s*/i.test(text)) {
+        writtenByIndex = i;
+        titlePage.author = text.replace(/^author:\s*/i, '').trim();
+        titlePageEnd = i + 1;
+      } else if (/^logline:\s*/i.test(text)) {
+        titlePage.logline = text.replace(/^logline:\s*/i, '').trim();
+        titlePageEnd = i + 1;
       } else if (/^draft|revision/i.test(text)) {
         titlePage.draftDate = text;
         titlePageEnd = i + 1;
       } else if (/^©|copyright/i.test(text)) {
         titlePage.copyright = text;
         titlePageEnd = i + 1;
-      } else if (!titlePage.title && i < 5 && para.alignment === 'center') {
-        titlePage.title = text;
-        titlePageEnd = i + 1;
+      }
+    }
+
+    // Second pass: find title if not already found
+    if (!titlePage.title) {
+      if (writtenByIndex > 0) {
+        // Look for title right before "Written by"
+        this.findTitleBeforeWrittenBy(paragraphs, writtenByIndex, titlePage);
+      } else {
+        // No "Written by" found - use first centered non-action line
+        for (let i = 0; i < Math.min(paragraphs.length, 10); i++) {
+          const para = paragraphs[i];
+          const text = para.text;
+
+          if (this.isSceneHeading(text)) break;
+
+          // Prefer centered text for title
+          if (para.alignment === 'center' || i < 3) {
+            const isPreTitleAction = /^(FADE\s*(IN|OUT|TO)?:?|CUT\s*TO:?|DISSOLVE:?|BLACK\.?|WHITE\.?|DARKNESS\.?|SILENCE\.?|BLACKNESS\.?|BLANK\s*SCREEN\.?|OVER\s*BLACK\.?|SUPER:?|SUPERIMPOSE:?)$/i.test(text);
+            const isSceneHeading = /^(INT|EXT|INT\.?\/?EXT|I\.?\/?E)\b/i.test(text);
+            const isDraft = /^(draft|revision|version|\d{4}|january|february|march|april|may|june|july|august|september|october|november|december)\b/i.test(text);
+
+            if (!isPreTitleAction && !isSceneHeading && !isDraft && !text.includes(':')) {
+              titlePage.title = text;
+              titlePageEnd = Math.max(titlePageEnd, i + 1);
+              break;
+            }
+          }
+        }
       }
     }
 
     return titlePageEnd;
+  }
+
+  /**
+   * Find title by looking backwards from "Written by" line.
+   */
+  private findTitleBeforeWrittenBy(
+    paragraphs: DocxParagraph[],
+    writtenByIndex: number,
+    titlePage: TitlePage
+  ): void {
+    for (let i = writtenByIndex - 1; i >= 0; i--) {
+      const text = paragraphs[i].text;
+      if (!text.trim()) continue;
+
+      // Skip lines that are clearly not titles
+      const isSceneHeading = /^(INT|EXT|INT\.?\/?EXT|I\.?\/?E)\b/i.test(text);
+      const isDraft = /^(draft|revision|version|\d{4}|january|february|march|april|may|june|july|august|september|october|november|december)\b/i.test(text);
+
+      if (!isSceneHeading && !isDraft && !text.includes(':')) {
+        // This is likely the title (first non-empty line above "Written by")
+        titlePage.title = text;
+        break;
+      }
+    }
   }
 
   private isSceneHeading(text: string): boolean {

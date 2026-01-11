@@ -1,4 +1,4 @@
-import { Plugin, PluginKey, EditorState } from 'prosemirror-state';
+import { Plugin, PluginKey, EditorState, TextSelection } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { SceneNumberPosition } from '@/types/settings';
@@ -111,6 +111,44 @@ export function createSceneNumberingPlugin(options: SceneNumberingOptions = {}) 
     props: {
       decorations(state) {
         return this.getState(state)?.decorations ?? DecorationSet.empty;
+      },
+
+      // Prevent clicks in the scene number gutter areas from affecting the editor
+      handleClick(view, pos, event) {
+        const target = event.target as HTMLElement;
+        if (!target) return false;
+
+        // Get the scene heading element if click is within one
+        const sceneHeading = target.closest('.pm-scene-heading');
+        if (!sceneHeading) return false;
+
+        // Get click position relative to the scene heading
+        const rect = sceneHeading.getBoundingClientRect();
+        const clickX = event.clientX - rect.left;
+
+        // The scene heading has 80px padding on each side for gutters
+        // If click is in the left gutter (0-80px) or right gutter (last 80px), block it
+        const gutterWidth = 80;
+        const elementWidth = rect.width;
+
+        if (clickX < gutterWidth || clickX > elementWidth - gutterWidth) {
+          // Click is in gutter area - prevent default behavior
+          // Instead, position cursor at the start of the scene heading content
+          const $pos = view.state.doc.resolve(pos);
+          const sceneHeadingNode = $pos.node($pos.depth);
+
+          if (sceneHeadingNode?.type.name === 'scene_heading') {
+            // Find the start of the scene heading content
+            const sceneStart = $pos.before($pos.depth) + 1;
+            const tr = view.state.tr.setSelection(
+              TextSelection.near(view.state.doc.resolve(sceneStart))
+            );
+            view.dispatch(tr);
+            return true; // Handled
+          }
+        }
+
+        return false; // Let ProseMirror handle normally
       }
     }
   });
@@ -142,10 +180,12 @@ function createSceneNumberDecorations(
       sequentialCount++;
 
       // Priority: WASM numbers > node attribute > sequential count
+      // Always use a valid scene number (never empty)
       let sceneNumber: string;
-      if (wasmSceneNumbers && wasmSceneNumbers.has(offset)) {
-        sceneNumber = wasmSceneNumbers.get(offset)!;
-      } else if (node.attrs.sceneNumber) {
+      const wasmNumber = wasmSceneNumbers?.get(offset);
+      if (wasmNumber && wasmNumber.trim()) {
+        sceneNumber = wasmNumber;
+      } else if (node.attrs.sceneNumber && node.attrs.sceneNumber.trim()) {
         sceneNumber = node.attrs.sceneNumber;
       } else {
         sceneNumber = sequentialCount.toString();

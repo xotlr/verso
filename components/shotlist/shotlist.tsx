@@ -432,31 +432,28 @@ export function Shotlist({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Apply All banner for detected shots */}
+      {/* Apply All for detected shots */}
       {showDetectedShots && unsavedDetectedCount > 0 && (
-        <div className="px-6 py-3 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-amber-500" />
-            <span className="text-sm text-amber-700 dark:text-amber-300">
-              {unsavedDetectedCount} shot{unsavedDetectedCount !== 1 ? 's' : ''} detected from script
-            </span>
-          </div>
+        <div className="px-6 py-3 flex items-center justify-between gap-4">
+          <span className="text-sm text-muted-foreground">
+            {unsavedDetectedCount} shot{unsavedDetectedCount !== 1 ? 's' : ''} detected from script
+          </span>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={handleApplyAllDetected}
             disabled={isApplyingAll}
-            className="gap-1.5 border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/50 text-amber-700 dark:text-amber-300"
+            className="gap-1.5"
           >
             {isApplyingAll ? (
               <>
-                <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 Adding...
               </>
             ) : (
               <>
-                <Plus className="h-3 w-3" />
-                Apply All
+                <Plus className="h-3.5 w-3.5" />
+                Add All
               </>
             )}
           </Button>
