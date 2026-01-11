@@ -68,16 +68,31 @@ const INDENT_THRESHOLDS = {
 };
 
 // Character name patterns - used for fallback detection
-const CHARACTER_NAME_PATTERN = /^[A-Z][A-Z\s'.,-]+(?:\s*\([^)]+\))?$/;
+// Must start with letter, contain mostly letters, optional parenthetical extension
+const CHARACTER_NAME_PATTERN = /^[A-Z][A-Z\s'.,-]*[A-Z](?:\s*\([^)]+\))?$/;
 // Matches: "JOHN", "JOHN SMITH", "DR. SMITH", "MARY JANE (V.O.)", "O'BRIEN"
+// Single letter names need special handling
+
+// Check if text contains at least one letter (filters out "112", "2024", etc.)
+const HAS_LETTER = /[A-Za-z]/;
 
 // Lines that look like action even if ALL CAPS
 const ACTION_INDICATORS = [
-  /^(THE|A|AN|HE|SHE|THEY|WE|IT)\s/i,
+  /^(THE|A|AN|HE|SHE|THEY|WE|IT|THIS|THAT|THESE|THOSE)\s/i,
   /\.\s*$/,  // Ends with period (likely a sentence)
   /,\s*$/,   // Ends with comma
   /\band\b/i, // Contains "and"
   /\bthe\b/i, // Contains "the"
+  /\bis\b/i,  // Contains "is"
+  /\bare\b/i, // Contains "are"
+  /\bwas\b/i, // Contains "was"
+  /\bwere\b/i, // Contains "were"
+  /\bwith\b/i, // Contains "with"
+  /\binto\b/i, // Contains "into"
+  /\bfrom\b/i, // Contains "from"
+  /^\d+$/, // Pure numbers
+  /^\d+[A-Z]?$/, // Numbers with optional letter suffix (like "112A")
+  /^[A-Z]?\d+$/, // Optional letter prefix with numbers
 ];
 
 interface DocxParagraph {
@@ -492,8 +507,13 @@ class DocxParser implements ScreenplayParser {
     indent: number,
     text: string
   ): boolean {
+    // Must contain at least one letter (filters out "112", "2024", etc.)
+    if (!HAS_LETTER.test(text)) {
+      return false;
+    }
+
     // Must be short (character names aren't long)
-    if (text.length > 45) {
+    if (text.length > 40) {
       return false;
     }
 
@@ -509,38 +529,56 @@ class DocxParser implements ScreenplayParser {
       }
     }
 
-    // Strategy 1: Style/indentation-based (traditional approach, now more lenient)
+    // Extract base name without parenthetical (V.O., O.S., CONT'D, etc.)
+    const baseName = text.replace(/\s*\([^)]+\)\s*$/, '').trim();
+
+    // Base name must be at least 2 characters and contain letters
+    if (baseName.length < 2 || !HAS_LETTER.test(baseName)) {
+      return false;
+    }
+
+    // Strategy 1: Style/indentation-based (traditional approach)
     const hasCharacterIndent = indent >= INDENT_THRESHOLDS.character.min &&
       indent <= INDENT_THRESHOLDS.character.max;
     const isCentered = para.alignment === 'center';
 
     if (hasCharacterIndent || isCentered) {
-      return true;
-    }
-
-    // Strategy 2: Pattern matching for character names
-    // Short ALL CAPS text that matches character name pattern
-    if (CHARACTER_NAME_PATTERN.test(text) && text.length <= 35) {
-      // Additional validation: no sentence-like characteristics
-      const wordCount = text.split(/\s+/).length;
-      if (wordCount <= 4) {
+      // Even with proper formatting, validate it looks like a name
+      const wordCount = baseName.split(/\s+/).length;
+      if (wordCount <= 4 && CHARACTER_NAME_PATTERN.test(text)) {
+        return true;
+      }
+      // Single word ALL CAPS with proper indent is likely a character
+      if (wordCount === 1 && baseName.length >= 2 && baseName.length <= 20) {
         return true;
       }
     }
 
-    // Strategy 3: Context-based - ALL CAPS after action/scene-heading
-    // Screenplay structure: scene heading -> action -> character -> dialogue
+    // Strategy 2: Pattern matching for character names
+    // Must match character name pattern AND be reasonably short
+    if (CHARACTER_NAME_PATTERN.test(text)) {
+      const wordCount = baseName.split(/\s+/).length;
+      // Character names are typically 1-3 words
+      if (wordCount <= 3 && baseName.length <= 25) {
+        return true;
+      }
+    }
+
+    // Strategy 3: Context-based - single/double word ALL CAPS after action
+    // This is more restrictive - only triggers for very name-like text
     if (
       (prevType === 'action' || prevType === 'scene-heading') &&
-      text.length <= 30 &&
-      !text.includes('.') &&
-      !text.includes('!') &&
-      !text.includes('?')
+      baseName.length >= 2 &&
+      baseName.length <= 20
     ) {
-      // Looks like a character cue: short ALL CAPS without punctuation after action
-      const wordCount = text.split(/\s+/).length;
-      if (wordCount <= 3) {
-        return true;
+      const wordCount = baseName.split(/\s+/).length;
+      // Only 1-2 word names without any punctuation
+      if (wordCount <= 2 && !/[.!?,;:]/.test(baseName)) {
+        // Make sure it's not a common word that might be emphasized
+        const commonWords = ['LATER', 'CONTINUOUS', 'MEANWHILE', 'SUDDENLY', 'FINALLY', 'THEN', 'NOW', 'HERE', 'THERE'];
+        if (!commonWords.includes(baseName)) {
+          return true;
+        }
       }
     }
 
