@@ -11,6 +11,7 @@ interface SettingsContextType {
   updateLayoutSettings: (updates: Partial<AppSettings['layout']>) => void;
   updateExportSettings: (updates: Partial<AppSettings['export']>) => void;
   updateInterfaceSettings: (updates: Partial<AppSettings['interface']>) => void;
+  updateShotlistSettings: (updates: Partial<AppSettings['shotlist']>) => void;
   setThemePreset: (preset: ThemePreset) => void;
   resetSettings: () => void;
   exportSettings: () => string;
@@ -76,6 +77,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           layout: { ...defaultSettings.layout, ...parsed.layout },
           export: { ...defaultSettings.export, ...parsed.export },
           interface: { ...defaultSettings.interface, ...parsed.interface },
+          shotlist: {
+            ...defaultSettings.shotlist,
+            ...parsed.shotlist,
+            detection: {
+              ...defaultSettings.shotlist.detection,
+              ...(parsed.shotlist?.detection || {}),
+            },
+          },
         });
       }
     } catch (error) {
@@ -272,6 +281,20 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  const updateShotlistSettings = useCallback((updates: Partial<AppSettings['shotlist']>) => {
+    setSettings((prev) => ({
+      ...prev,
+      shotlist: {
+        ...prev.shotlist,
+        ...updates,
+        detection: {
+          ...prev.shotlist.detection,
+          ...(updates.detection || {}),
+        },
+      },
+    }));
+  }, []);
+
   const setThemePreset = useCallback((preset: ThemePreset) => {
     const presetSettings = themePresets[preset];
     if (presetSettings) {
@@ -334,6 +357,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         layout: { ...defaultSettings.layout, ...parsed.layout },
         export: { ...defaultSettings.export, ...parsed.export },
         interface: { ...defaultSettings.interface, ...parsed.interface },
+        shotlist: {
+          ...defaultSettings.shotlist,
+          ...parsed.shotlist,
+          detection: {
+            ...defaultSettings.shotlist.detection,
+            ...(parsed.shotlist?.detection || {}),
+          },
+        },
       });
       return true;
     } catch (error) {
@@ -350,6 +381,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     updateLayoutSettings,
     updateExportSettings,
     updateInterfaceSettings,
+    updateShotlistSettings,
     setThemePreset,
     resetSettings,
     exportSettings,

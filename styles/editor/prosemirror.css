@@ -154,13 +154,22 @@
 /* Scroll area - simple scrollable div with centered content */
 .pm-editor-scroll-area {
   background: hsl(var(--background));
-  scroll-behavior: smooth;
+  /* NOTE: Removed scroll-behavior: smooth to prevent "yanking" effect during typing.
+   * Smooth scroll causes conflicts with ProseMirror's cursor-following behavior,
+   * typewriter mode, and pagination decoration updates. The browser's smooth scroll
+   * animation fights with programmatic scroll adjustments, causing visible jitter.
+   * Use .pm-smooth-scroll class for explicit smooth scroll (e.g., page navigation). */
   /* CSS containment: paint prevents children from painting outside bounds */
   contain: paint;
 
   /* Custom scrollbar */
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border)) transparent;
+}
+
+/* Opt-in smooth scrolling for explicit navigation (e.g., Go To Page) */
+.pm-editor-scroll-area.pm-smooth-scroll {
+  scroll-behavior: smooth;
 }
 
 .pm-editor-scroll-area::-webkit-scrollbar {
@@ -1411,8 +1420,10 @@
   right: 0;
   pointer-events: none;
   z-index: 0;
-  /* CSS containment: strict isolates this visual layer completely */
-  contain: strict;
+  /* CSS containment: layout isolates this visual layer from main layout.
+   * Using 'layout' instead of 'strict' to reduce containment invalidation
+   * during rapid typing (strict containment can cause paint thrashing). */
+  contain: layout;
 }
 
 /* Individual page frame - background */
@@ -1468,8 +1479,9 @@
   top: 0;
   pointer-events: none;
   z-index: 1;
-  /* CSS containment: strict isolates gap overlays from main layout */
-  contain: strict;
+  /* CSS containment: layout isolates gap overlays from main layout.
+   * Using 'layout' instead of 'strict' to reduce containment invalidation. */
+  contain: layout;
 }
 
 /* Gap overlay between pages - positioned within the transformed container */

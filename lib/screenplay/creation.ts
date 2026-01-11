@@ -90,8 +90,13 @@ export function initializeScreenplayContent(
     const parsedDoc = plainTextToProseMirror(content);
     const parsedJSON = parsedDoc.toJSON();
 
-    // Prepend title page to the parsed content
-    parsedJSON.content = [titlePageNode, ...parsedJSON.content];
+    // Check if parsed content already has a title page (e.g., from import)
+    const hasExistingTitlePage = parsedJSON.content?.[0]?.type === 'title_page';
+
+    // Only prepend title page if one doesn't already exist
+    if (!hasExistingTitlePage) {
+      parsedJSON.content = [titlePageNode, ...parsedJSON.content];
+    }
 
     // Reconstruct document and serialize
     const docWithTitlePage = screenplaySchema.nodeFromJSON(parsedJSON);

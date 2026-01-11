@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import useSWR from 'swr';
-import { Download, Upload, RotateCcw, Palette, Type, Keyboard, LogOut, Accessibility, CreditCard, User, Users } from 'lucide-react';
+import { Download, Upload, RotateCcw, Palette, Type, Keyboard, LogOut, Accessibility, CreditCard, User, Users, Clapperboard } from 'lucide-react';
 import { useSettings } from '@/contexts/settings-context';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -18,6 +18,7 @@ import { KeyboardSection } from './KeyboardSection';
 import { AccessibilitySection } from './AccessibilitySection';
 import { BillingSection } from './BillingSection';
 import { TeamsSection } from './TeamsSection';
+import { ShotlistSection } from './ShotlistSection';
 
 interface SettingsContentProps {
   defaultTab?: string;
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { value: 'profile', icon: User, label: 'Profile' },
   { value: 'appearance', icon: Palette, label: 'Appearance' },
   { value: 'editor', icon: Type, label: 'Editor' },
+  { value: 'shotlist', icon: Clapperboard, label: 'Shotlist' },
   { value: 'accessibility', icon: Accessibility, label: 'Accessibility' },
   { value: 'shortcuts', icon: Keyboard, label: 'Shortcuts' },
   { value: 'billing', icon: CreditCard, label: 'Billing' },
@@ -44,6 +46,7 @@ export function SettingsContent({ defaultTab = 'profile', onDone, showDoneButton
     updateVisualSettings,
     updateEditorSettings,
     updateInterfaceSettings,
+    updateShotlistSettings,
     setThemePreset,
     resetSettings,
     exportSettings,
@@ -329,6 +332,14 @@ export function SettingsContent({ defaultTab = 'profile', onDone, showDoneButton
             />
           </TabsContent>
 
+          {/* Shotlist Settings */}
+          <TabsContent value="shotlist" className="m-0">
+            <ShotlistSection
+              settings={settings.shotlist}
+              updateShotlistSettings={updateShotlistSettings}
+            />
+          </TabsContent>
+
           {/* Accessibility Settings */}
           <TabsContent value="accessibility" className="m-0">
             <AccessibilitySection
@@ -404,3 +415,4 @@ export { AccessibilitySection } from './AccessibilitySection';
 export { KeyboardSection } from './KeyboardSection';
 export { BillingSection } from './BillingSection';
 export { TeamsSection } from './TeamsSection';
+export { ShotlistSection } from './ShotlistSection';

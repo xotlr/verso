@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 import {
   Clapperboard,
   ChevronDown,
@@ -19,6 +20,9 @@ import {
   GripVertical,
   Sparkles,
 } from 'lucide-react';
+import { useSettings } from '@/contexts/settings-context';
+import { formatShotLabel } from '@/lib/shotlist/format';
+import { arrayMove } from '@dnd-kit/sortable';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,6 +77,7 @@ interface ShotlistPanelProps {
 // Sortable shot item component
 interface SortableShotItemProps {
   shot: Shot;
+  displayNumber: string;
   onEditShot?: (shot: Shot) => void;
   handleDuplicateShot: (shot: Shot) => void;
   handleDeleteShot: (shotId: string) => void;
@@ -81,6 +86,7 @@ interface SortableShotItemProps {
 
 const SortableShotItem = React.memo(function SortableShotItem({
   shot,
+  displayNumber,
   onEditShot,
   handleDuplicateShot,
   handleDeleteShot,
@@ -126,7 +132,7 @@ const SortableShotItem = React.memo(function SortableShotItem({
       {/* Shot number */}
       <div className="w-5 h-5 rounded bg-muted flex items-center justify-center shrink-0">
         <span className="text-[10px] font-medium">
-          {shot.shotNumber}
+          {displayNumber}
         </span>
       </div>
 
@@ -216,7 +222,38 @@ function ShotlistPanelInner({
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ShotStatus | 'all'>('all');
+  const [isApplyingAll, setIsApplyingAll] = useState(false);
   const sceneRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // Settings for shotlist
+  const { settings } = useSettings();
+  const { numberFormat, detection } = settings.shotlist;
+  const showDetectedShots = detection.enabled && detection.showSuggestions;
+
+  // Create a map of global shot indices for global-sequential format
+  const globalShotIndices = useMemo(() => {
+    const indices = new Map<string, number>();
+    let globalIndex = 1;
+    for (const scene of scenesWithShots) {
+      for (const shot of scene.shots) {
+        indices.set(shot.id, globalIndex);
+        globalIndex++;
+      }
+    }
+    return indices;
+  }, [scenesWithShots]);
+
+  // Format shot number based on settings
+  const getDisplayNumber = useCallback(
+    (shot: Shot, sceneNumber: number) => {
+      if (numberFormat === 'global-sequential') {
+        const globalIndex = globalShotIndices.get(shot.id) ?? shot.shotNumber;
+        return String(globalIndex);
+      }
+      return formatShotLabel(shot.shotNumber, sceneNumber, numberFormat);
+    },
+    [numberFormat, globalShotIndices]
+  );
 
   // Expand first scene when data loads
   useEffect(() => {
@@ -353,6 +390,61 @@ function ShotlistPanelInner({
     );
   }, []);
 
+  // Get all unsaved detected shots (not already in database)
+  const getUnsavedDetectedShots = useCallback(() => {
+    const allSavedShots = scenesWithShots.flatMap((s) => s.shots);
+    return detectedShots.filter((detected) => {
+      if (!detected.sceneId) return false;
+      const sceneShots = allSavedShots.filter((s) => s.sceneId === detected.sceneId);
+      return !isAlreadySaved(detected, sceneShots);
+    });
+  }, [detectedShots, scenesWithShots, isAlreadySaved]);
+
+  // Add all detected shots at once
+  const handleApplyAllDetected = useCallback(async () => {
+    const unsavedShots = getUnsavedDetectedShots();
+    if (unsavedShots.length === 0) {
+      toast.info('No new shots to add');
+      return;
+    }
+
+    setIsApplyingAll(true);
+    try {
+      const response = await fetch(
+        `/api/screenplays/${screenplayId}/shots/batch`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shots: unsavedShots.map((detected) => ({
+              sceneId: detected.sceneId,
+              description: detected.subject || detected.lineContent,
+              shotType: detected.shotType,
+              status: 'planned',
+            })),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to add shots');
+      }
+
+      const { shots: newShots, count } = await response.json();
+      const allShots = scenesWithShots.flatMap((s) => s.shots);
+      onShotsChange?.([...allShots, ...newShots]);
+      toast.success(`Added ${count} shot${count !== 1 ? 's' : ''} from script`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to add shots';
+      toast.error(message);
+    } finally {
+      setIsApplyingAll(false);
+    }
+  }, [screenplayId, scenesWithShots, onShotsChange, getUnsavedDetectedShots]);
+
+  const unsavedDetectedCount = showDetectedShots ? getUnsavedDetectedShots().length : 0;
+
   const getStatusBadge = useCallback((status: ShotStatus) => {
     const colors = SHOT_STATUS_COLORS[status] || SHOT_STATUS_COLORS.planned;
     return colors;
@@ -370,21 +462,63 @@ function ShotlistPanelInner({
     })
   );
 
-  // Handle drag end - log reorder for now
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
+  // Handle drag end - persist reorder via API
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (over && active.id !== over.id) {
-      // Find which scene contains these shots
-      const allShots = scenesWithShots.flatMap(s => s.shots);
-      const oldIndex = allShots.findIndex(s => s.id === active.id);
-      const newIndex = allShots.findIndex(s => s.id === over.id);
-
-      if (oldIndex !== -1 && newIndex !== -1) {
-        // TODO: Implement actual shot reordering persistence via API
-      }
+    if (!over || active.id === over.id) {
+      return;
     }
-  }, [scenesWithShots]);
+
+    // Find which scene the shot belongs to
+    const scene = scenesWithShots.find((s) =>
+      s.shots.some((shot) => shot.id === active.id)
+    );
+
+    if (!scene) return;
+
+    const oldIndex = scene.shots.findIndex((shot) => shot.id === active.id);
+    const newIndex = scene.shots.findIndex((shot) => shot.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Optimistically update the UI
+    const reorderedShots = arrayMove(scene.shots, oldIndex, newIndex);
+    const updatedSceneShots = reorderedShots.map((shot, index) => ({
+      ...shot,
+      shotNumber: index + 1,
+    }));
+
+    // Update all shots with the new order
+    const allShots = scenesWithShots.flatMap((s) =>
+      s.sceneId === scene.sceneId ? updatedSceneShots : s.shots
+    );
+    onShotsChange?.(allShots);
+
+    // Persist to database
+    try {
+      const response = await fetch(
+        `/api/screenplays/${screenplayId}/shots/reorder`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sceneId: scene.sceneId,
+            shotIds: reorderedShots.map((s) => s.id),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to save order');
+      }
+    } catch {
+      // Revert on error
+      const allShots = scenesWithShots.flatMap((s) => s.shots);
+      onShotsChange?.(allShots);
+      toast.error('Failed to reorder shots');
+    }
+  }, [screenplayId, scenesWithShots, onShotsChange]);
 
   return (
     <PanelContainer className={className}>
@@ -401,6 +535,37 @@ function ShotlistPanelInner({
         </div>
       ) : (
         <>
+          {/* Apply All banner for detected shots */}
+          {showDetectedShots && unsavedDetectedCount > 0 && (
+            <div className="px-3 py-2 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                <span className="text-xs text-amber-700 dark:text-amber-300 truncate">
+                  {unsavedDetectedCount} shot{unsavedDetectedCount !== 1 ? 's' : ''} detected
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleApplyAllDetected}
+                disabled={isApplyingAll}
+                className="gap-1 h-6 px-2 text-[10px] border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/50 text-amber-700 dark:text-amber-300 shrink-0"
+              >
+                {isApplyingAll ? (
+                  <>
+                    <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-3 w-3" />
+                    Apply All
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
           {/* Search and Filter */}
           {totalShots > 3 && (
             <div className="p-3 space-y-2 shrink-0">
@@ -494,7 +659,7 @@ function ShotlistPanelInner({
                     {/* Shots list with Drag & Drop */}
                     {expandedScenes.has(scene.sceneId) && (
                       <div className="space-y-1 p-2">
-                        {scene.shots.length === 0 && getDetectedShotsForScene(scene.sceneId).length === 0 ? (
+                        {scene.shots.length === 0 && (!showDetectedShots || getDetectedShotsForScene(scene.sceneId).length === 0) ? (
                           <Button
                             variant="outline"
                             onClick={() => onAddShot?.(scene.sceneId)}
@@ -525,6 +690,7 @@ function ShotlistPanelInner({
                                     <SortableShotItem
                                       key={shot.id}
                                       shot={shot}
+                                      displayNumber={getDisplayNumber(shot, scene.sceneNumber)}
                                       onEditShot={onEditShot}
                                       handleDuplicateShot={handleDuplicateShot}
                                       handleDeleteShot={handleDeleteShot}
@@ -536,7 +702,7 @@ function ShotlistPanelInner({
                             )}
 
                             {/* Detected shots (suggestions) */}
-                            {getDetectedShotsForScene(scene.sceneId).filter(
+                            {showDetectedShots && getDetectedShotsForScene(scene.sceneId).filter(
                               detected => !isAlreadySaved(detected, scene.shots)
                             ).length > 0 && (
                               <div className="mt-2 pt-2">

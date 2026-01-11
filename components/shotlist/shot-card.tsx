@@ -35,6 +35,7 @@ import Image from "next/image";
 
 interface ShotCardProps {
   shot: Shot;
+  displayNumber?: string; // Formatted shot number based on settings
   onEdit: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
@@ -42,12 +43,14 @@ interface ShotCardProps {
 
 export function ShotCard({
   shot,
+  displayNumber,
   onEdit,
   onDelete,
   onDuplicate,
 }: ShotCardProps) {
   const statusColor = SHOT_STATUS_COLORS[shot.status as ShotStatus] || SHOT_STATUS_COLORS.planned;
   const statusLabel = SHOT_STATUS_LABELS[shot.status as ShotStatus] || shot.status;
+  const shotLabel = displayNumber ?? String(shot.shotNumber);
 
   return (
     <div
@@ -69,12 +72,12 @@ export function ShotCard({
               unoptimized={shot.thumbnailType === 'url'}
             />
             <div className="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[10px] px-1 rounded">
-              {shot.shotNumber}
+              {shotLabel}
             </div>
           </div>
         ) : (
           <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-            <span className="text-sm font-bold text-primary">{shot.shotNumber}</span>
+            <span className="text-sm font-bold text-primary">{shotLabel}</span>
           </div>
         )}
       </div>

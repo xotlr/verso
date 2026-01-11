@@ -220,12 +220,32 @@ export interface ExportSettings {
   paperSize: 'letter' | 'a4';
 }
 
+// Shot numbering format options
+export type ShotNumberFormat =
+  | 'scene-shot'        // 14.1, 14.2 (industry standard)
+  | 'scene-letter'      // 14A, 14B
+  | 'sequential'        // 1, 2, 3 (per scene)
+  | 'global-sequential'; // 1, 2, 3 (across entire shotlist)
+
+export interface ShotDetectionSettings {
+  enabled: boolean;                              // Show detected shots
+  showSuggestions: boolean;                      // Show suggestions in shotlist
+  patternSensitivity: 'strict' | 'normal' | 'lenient';
+}
+
+export interface ShotlistSettings {
+  numberFormat: ShotNumberFormat;
+  showScenePrefix: boolean;                      // For sequential, show "Scene 14 - Shot 1"
+  detection: ShotDetectionSettings;
+}
+
 export interface AppSettings {
   visual: VisualSettings;
   editor: EditorSettings;
   interface: InterfaceSettings;
   layout: LayoutSettings;
   export: ExportSettings;
+  shotlist: ShotlistSettings;
 }
 
 export const defaultSettings: AppSettings = {
@@ -381,6 +401,15 @@ export const defaultSettings: AppSettings = {
   export: {
     defaultFormat: 'pdf',
     paperSize: 'letter',
+  },
+  shotlist: {
+    numberFormat: 'scene-shot', // Industry standard: 14.1, 14.2
+    showScenePrefix: false,
+    detection: {
+      enabled: true,
+      showSuggestions: true,
+      patternSensitivity: 'normal',
+    },
   },
 };
 

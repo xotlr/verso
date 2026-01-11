@@ -1,11 +1,28 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { toast } from "sonner";
+import {
+  DndContext,
+  DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
 import { SceneWithShots, Shot, DetectedShot } from "@/types/shotlist";
 import { getShotDisplayName, type DetectedShotType } from "@/lib/screenplay/patterns";
+import { useSettings } from "@/contexts/settings-context";
+import { formatShotLabel } from "@/lib/shotlist/format";
 import { Badge } from "@/components/ui/badge";
-import { ShotCard } from "./shot-card";
+import { SortableShotCard } from "./sortable-shot-card";
 import { ShotEditor } from "./shot-editor";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -56,6 +73,109 @@ export function Shotlist({
   const [editingShot, setEditingShot] = useState<Shot | null>(null);
   const [addingToScene, setAddingToScene] = useState<string | null>(null);
   const [deletingShot, setDeletingShot] = useState<Shot | null>(null);
+  const [isApplyingAll, setIsApplyingAll] = useState(false);
+
+  const { settings } = useSettings();
+  const { numberFormat, detection } = settings.shotlist;
+  const showDetectedShots = detection.enabled && detection.showSuggestions;
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px movement before starting drag
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end for reordering shots within a scene
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+
+      if (!over || active.id === over.id) {
+        return;
+      }
+
+      // Find which scene the shot belongs to
+      const scene = scenesWithShots.find((s) =>
+        s.shots.some((shot) => shot.id === active.id)
+      );
+
+      if (!scene) return;
+
+      const oldIndex = scene.shots.findIndex((shot) => shot.id === active.id);
+      const newIndex = scene.shots.findIndex((shot) => shot.id === over.id);
+
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      // Optimistically update the UI
+      const reorderedShots = arrayMove(scene.shots, oldIndex, newIndex);
+      const updatedSceneShots = reorderedShots.map((shot, index) => ({
+        ...shot,
+        shotNumber: index + 1,
+      }));
+
+      // Update all shots with the new order
+      const allShots = scenesWithShots.flatMap((s) =>
+        s.sceneId === scene.sceneId ? updatedSceneShots : s.shots
+      );
+      onShotsChange(allShots);
+
+      // Persist to database
+      try {
+        const response = await fetch(
+          `/api/screenplays/${screenplayId}/shots/reorder`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sceneId: scene.sceneId,
+              shotIds: reorderedShots.map((s) => s.id),
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to save order");
+        }
+      } catch {
+        // Revert on error
+        const allShots = scenesWithShots.flatMap((s) => s.shots);
+        onShotsChange(allShots);
+        toast.error("Failed to reorder shots");
+      }
+    },
+    [screenplayId, scenesWithShots, onShotsChange]
+  );
+
+  // Create a map of global shot indices for global-sequential format
+  const globalShotIndices = useMemo(() => {
+    const indices = new Map<string, number>();
+    let globalIndex = 1;
+    for (const scene of scenesWithShots) {
+      for (const shot of scene.shots) {
+        indices.set(shot.id, globalIndex);
+        globalIndex++;
+      }
+    }
+    return indices;
+  }, [scenesWithShots]);
+
+  // Format shot number based on settings
+  const getDisplayNumber = useCallback(
+    (shot: Shot, sceneNumber: number) => {
+      if (numberFormat === 'global-sequential') {
+        const globalIndex = globalShotIndices.get(shot.id) ?? shot.shotNumber;
+        return String(globalIndex);
+      }
+      return formatShotLabel(shot.shotNumber, sceneNumber, numberFormat);
+    },
+    [numberFormat, globalShotIndices]
+  );
 
   const toggleScene = useCallback((sceneId: string) => {
     setExpandedScenes((prev) => {
@@ -255,12 +375,103 @@ export function Shotlist({
     [screenplayId, scenesWithShots, onShotsChange]
   );
 
+  // Get all unsaved detected shots (not already in database)
+  const getUnsavedDetectedShots = useCallback(() => {
+    const allSavedShots = scenesWithShots.flatMap((s) => s.shots);
+    return detectedShots.filter((detected) => {
+      if (!detected.sceneId) return false;
+      const sceneShots = allSavedShots.filter((s) => s.sceneId === detected.sceneId);
+      return !isAlreadySaved(detected, sceneShots);
+    });
+  }, [detectedShots, scenesWithShots, isAlreadySaved]);
+
+  // Add all detected shots at once
+  const handleApplyAllDetected = useCallback(async () => {
+    const unsavedShots = getUnsavedDetectedShots();
+    if (unsavedShots.length === 0) {
+      toast.info('No new shots to add');
+      return;
+    }
+
+    setIsApplyingAll(true);
+    try {
+      const response = await fetch(
+        `/api/screenplays/${screenplayId}/shots/batch`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shots: unsavedShots.map((detected) => ({
+              sceneId: detected.sceneId,
+              description: detected.subject || detected.lineContent,
+              shotType: detected.shotType,
+              status: 'planned',
+            })),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to add shots');
+      }
+
+      const { shots: newShots, count } = await response.json();
+      const allShots = scenesWithShots.flatMap((s) => s.shots);
+      onShotsChange([...allShots, ...newShots]);
+      toast.success(`Added ${count} shot${count !== 1 ? 's' : ''} from script`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to add shots';
+      toast.error(message);
+    } finally {
+      setIsApplyingAll(false);
+    }
+  }, [screenplayId, scenesWithShots, onShotsChange, getUnsavedDetectedShots]);
+
+  const unsavedDetectedCount = showDetectedShots ? getUnsavedDetectedShots().length : 0;
+
   return (
     <div className="flex flex-col h-full">
+      {/* Apply All banner for detected shots */}
+      {showDetectedShots && unsavedDetectedCount > 0 && (
+        <div className="px-6 py-3 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-amber-500" />
+            <span className="text-sm text-amber-700 dark:text-amber-300">
+              {unsavedDetectedCount} shot{unsavedDetectedCount !== 1 ? 's' : ''} detected from script
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleApplyAllDetected}
+            disabled={isApplyingAll}
+            className="gap-1.5 border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/50 text-amber-700 dark:text-amber-300"
+          >
+            {isApplyingAll ? (
+              <>
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Adding...
+              </>
+            ) : (
+              <>
+                <Plus className="h-3 w-3" />
+                Apply All
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
       {/* Scene list */}
-      <ScrollArea className="flex-1">
-        <div className="p-6 space-y-4">
-          {scenesWithShots.length === 0 ? (
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <ScrollArea className="flex-1">
+          <div className="p-6 space-y-4">
+            {scenesWithShots.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center bg-card rounded-lg border border-border/60">
               <Clapperboard className="h-10 w-10 text-muted-foreground mb-4" />
               <p className="font-semibold text-foreground">
@@ -332,19 +543,25 @@ export function Shotlist({
                         </button>
                       ) : (
                         <>
-                          {/* Saved shots */}
-                          {scene.shots.map((shot) => (
-                            <ShotCard
-                              key={shot.id}
-                              shot={shot}
-                              onEdit={() => handleEditShot(shot)}
-                              onDelete={() => setDeletingShot(shot)}
-                              onDuplicate={() => handleDuplicateShot(shot)}
-                            />
-                          ))}
+                          {/* Saved shots - sortable */}
+                          <SortableContext
+                            items={scene.shots.map((s) => s.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {scene.shots.map((shot) => (
+                              <SortableShotCard
+                                key={shot.id}
+                                shot={shot}
+                                displayNumber={getDisplayNumber(shot, scene.sceneNumber)}
+                                onEdit={() => handleEditShot(shot)}
+                                onDelete={() => setDeletingShot(shot)}
+                                onDuplicate={() => handleDuplicateShot(shot)}
+                              />
+                            ))}
+                          </SortableContext>
 
                           {/* Detected shots (suggestions) */}
-                          {getDetectedShotsForScene(scene.sceneId).filter(
+                          {showDetectedShots && getDetectedShotsForScene(scene.sceneId).filter(
                             detected => !isAlreadySaved(detected, scene.shots)
                           ).length > 0 && (
                             <div className="col-span-full mt-4 pt-4 border-t border-dashed border-border/50">
@@ -411,8 +628,9 @@ export function Shotlist({
               </Collapsible>
             ))
           )}
-        </div>
-      </ScrollArea>
+          </div>
+        </ScrollArea>
+      </DndContext>
 
       {/* Shot editor dialog */}
       <ShotEditor
