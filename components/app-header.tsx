@@ -15,13 +15,11 @@ import { HeaderIconButton } from "@/components/header-icon-button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-
-// Breadcrumb data type for series episodes
-interface BreadcrumbData {
-  series: { id: string; title: string };
-  season?: { id: string; number: number; title?: string | null } | null;
-  episode?: { episode: number | null; episodeTitle: string | null } | null;
-}
+import { useEditorCommands } from "@/contexts/editor-commands-context";
+import { useEditorBreadcrumb } from "@/contexts/editor-breadcrumb-context";
+import { useEditorStatus } from "@/contexts/editor-status-context";
+import { useCommandPalette } from "@/contexts/command-palette-context";
+import { useGlassStyles } from "@/hooks/use-glass-styles";
 
 // Get active item label from pathname
 function getActiveItem(pathname: string, dynamicTitle: string | null): {
@@ -102,50 +100,24 @@ interface AppHeaderProps {
 
 export function AppHeader({ className }: AppHeaderProps) {
   const pathname = usePathname();
+  const editorCommands = useEditorCommands();
+  const { isGlass, container: glassContainer } = useGlassStyles();
   const [dynamicTitle, setDynamicTitle] = useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState(true);
-  const [breadcrumbData, setBreadcrumbData] = useState<BreadcrumbData | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Use contexts instead of window events
+  const { breadcrumb: breadcrumbData, clearBreadcrumb } = useEditorBreadcrumb();
+  const { isOnline } = useEditorStatus();
+  const commandPalette = useCommandPalette();
+
   // Clear breadcrumb when navigating away from screenplay routes
-  // Syncing state with URL changes is a legitimate pattern
-   
   useEffect(() => {
     if (!pathname.startsWith('/screenplay/')) {
-      setBreadcrumbData(null);
+      clearBreadcrumb();
     }
-  }, [pathname]);
+  }, [pathname, clearBreadcrumb]);
 
-  // Listen for breadcrumb updates from screenplay editor
-  useEffect(() => {
-    const handleBreadcrumbUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent<BreadcrumbData>;
-      setBreadcrumbData(customEvent.detail);
-    };
-
-    window.addEventListener('screenplay-breadcrumb-update', handleBreadcrumbUpdate);
-    return () => window.removeEventListener('screenplay-breadcrumb-update', handleBreadcrumbUpdate);
-  }, []);
-
-  // Track online/offline status (sync with external system)
-  // This is the standard pattern for subscribing to browser APIs
-   
-  useEffect(() => {
-    setIsOnline(navigator.onLine);
-
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  // Listen for screenplay title updates
+  // Listen for screenplay title updates (still uses window event - TODO: add to EditorCommands context)
   useEffect(() => {
     const handleTitleUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<{ title: string }>;
@@ -156,12 +128,10 @@ export function AppHeader({ className }: AppHeaderProps) {
     return () => window.removeEventListener('screenplay-title-update', handleTitleUpdate);
   }, []);
 
+  // Save title via EditorCommands context
   const handleTitleSave = useCallback((newTitle: string) => {
-    // Dispatch event to update screenplay title
-    window.dispatchEvent(new CustomEvent('screenplay-title-save', {
-      detail: { title: newTitle }
-    }));
-  }, []);
+    editorCommands.saveTitle(newTitle);
+  }, [editorCommands]);
 
   const activeItem = getActiveItem(pathname, dynamicTitle);
   const pageTitle = getPageTitle(pathname);
@@ -184,7 +154,8 @@ export function AppHeader({ className }: AppHeaderProps) {
   return (
     <TooltipProvider delayDuration={300}>
       <header className={cn(
-        "sticky top-0 z-40 flex h-11 shrink-0 items-center gap-2 bg-sidebar px-4",
+        "sticky top-0 z-40 flex h-11 shrink-0 items-center gap-2 px-4",
+        !isGlass && "bg-sidebar",
         className
       )}>
         {/* Desktop: Active item display or breadcrumb */}
@@ -211,7 +182,12 @@ export function AppHeader({ className }: AppHeaderProps) {
         {isDetailPage ? (
           <button
             onClick={() => window.history.back()}
-            className="md:hidden flex items-center justify-center h-9 w-9 -ml-2 rounded-md hover:bg-accent"
+            className={cn(
+              "md:hidden flex items-center justify-center h-9 w-9 -ml-2 rounded-md",
+              isGlass
+                ? "bg-card/50 backdrop-blur-sm hover:bg-card/60 border border-border/20"
+                : "hover:bg-accent"
+            )}
           >
             <ChevronLeft className="h-6 w-6" />
           </button>
@@ -237,34 +213,50 @@ export function AppHeader({ className }: AppHeaderProps) {
         </div>
 
         {/* Mobile: Action buttons + Hamburger menu on right */}
-        <div className="md:hidden flex items-center gap-1 -mr-1">
-          {/* Screenplay-specific buttons on mobile */}
+        <div className={cn(
+          "md:hidden flex items-center gap-1 -mr-1",
+          isGlass && "gap-2"
+        )}>
+          {/* Screenplay-specific buttons on mobile - in pill for limitless */}
           {isScreenplayPage && (
-            <>
+            <div className={cn(
+              "flex items-center gap-0.5",
+              isGlass && "p-1 rounded-xl",
+              isGlass && glassContainer
+            )}>
               <HeaderIconButton
                 icon={<IoShareOutline className="h-4 w-4" />}
                 activeIcon={<IoShare className="h-4 w-4" />}
                 tooltip="Share"
-                onClick={() => window.dispatchEvent(new CustomEvent('editor-open-share'))}
+                isGlass={isGlass}
+                onClick={editorCommands.openShare}
               />
               <HeaderIconButton
                 icon={<History className="h-4 w-4" />}
                 tooltip="History"
-                onClick={() => window.dispatchEvent(new CustomEvent('editor-open-version-history'))}
+                isGlass={isGlass}
+                onClick={editorCommands.openVersionHistory}
               />
               <HeaderIconButton
                 icon={<BsRewindBtn className="h-4 w-4" />}
                 activeIcon={<BsRewindBtnFill className="h-4 w-4" />}
                 tooltip="Timelapse"
-                onClick={() => window.dispatchEvent(new CustomEvent('editor-open-timelapse'))}
+                isGlass={isGlass}
+                onClick={editorCommands.openTimelapse}
               />
-            </>
+            </div>
           )}
-          <MobileHeaderMenu open={menuOpen} onOpenChange={setMenuOpen} />
+          {/* Mobile menu - in pill for limitless */}
+          <div className={cn(
+            isGlass && "p-1 rounded-xl",
+            isGlass && glassContainer
+          )}>
+            <MobileHeaderMenu open={menuOpen} onOpenChange={setMenuOpen} isGlass={isGlass} />
+          </div>
         </div>
 
         {/* Desktop: Individual action buttons */}
-        <div className="ml-auto hidden md:flex items-center gap-1">
+        <div className="ml-auto hidden md:flex items-center gap-2">
           {/* Offline indicator - only shows when disconnected */}
           {!isOnline && (
             <div className="flex items-center gap-1.5 mr-2 text-orange-500">
@@ -273,37 +265,51 @@ export function AppHeader({ className }: AppHeaderProps) {
             </div>
           )}
 
-          {/* Screenplay-specific buttons */}
+          {/* Screenplay-specific buttons - grouped in pill for limitless */}
           {isScreenplayPage && (
-            <>
+            <div className={cn(
+              "flex items-center gap-0.5",
+              isGlass && "p-1 rounded-xl",
+              isGlass && glassContainer
+            )}>
               <HeaderIconButton
                 icon={<IoShareOutline className="h-4 w-4" />}
                 activeIcon={<IoShare className="h-4 w-4" />}
                 tooltip="Share"
-                onClick={() => window.dispatchEvent(new CustomEvent('editor-open-share'))}
+                isGlass={isGlass}
+                onClick={editorCommands.openShare}
               />
               <HeaderIconButton
                 icon={<History className="h-4 w-4" />}
                 tooltip="Version History"
-                onClick={() => window.dispatchEvent(new CustomEvent('editor-open-version-history'))}
+                isGlass={isGlass}
+                onClick={editorCommands.openVersionHistory}
               />
               <HeaderIconButton
                 icon={<BsRewindBtn className="h-4 w-4" />}
                 activeIcon={<BsRewindBtnFill className="h-4 w-4" />}
                 tooltip="View Timelapse"
-                onClick={() => window.dispatchEvent(new CustomEvent('editor-open-timelapse'))}
+                isGlass={isGlass}
+                onClick={editorCommands.openTimelapse}
               />
-            </>
+            </div>
           )}
 
-          {/* Global buttons */}
-          <HeaderIconButton
-            icon={<Search className="h-4 w-4" />}
-            tooltip="Search (⌘K)"
-            onClick={() => window.dispatchEvent(new CustomEvent('command-palette-open'))}
-          />
-          <NotificationBell />
-          <UserAvatarMenu />
+          {/* Global buttons - grouped in pill for limitless */}
+          <div className={cn(
+            "flex items-center gap-0.5",
+            isGlass && "p-1 rounded-xl",
+            isGlass && glassContainer
+          )}>
+            <HeaderIconButton
+              icon={<Search className="h-4 w-4" />}
+              tooltip="Search (⌘K)"
+              isGlass={isGlass}
+              onClick={commandPalette.open}
+            />
+            <NotificationBell isGlass={isGlass} />
+            <UserAvatarMenu isGlass={isGlass} />
+          </div>
         </div>
       </header>
     </TooltipProvider>

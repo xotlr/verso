@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { toast } from 'sonner';
+import { useSafeFetch } from '@/hooks/use-safe-fetch';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageLayout } from '@/components/layouts/page-layout';
@@ -53,19 +54,11 @@ export default function TeamsPage() {
   const [viewMode, setViewMode] = useViewMode('teams');
   const [isCreating, setIsCreating] = useState(false);
   const [settingsTeamId, setSettingsTeamId] = useState<string | null>(null);
-  const [settingsTeamData, setSettingsTeamData] = useState<TeamData | null>(null);
 
-  // Fetch full team data when settings are opened
-  React.useEffect(() => {
-    if (settingsTeamId) {
-      fetch(`/api/teams/${settingsTeamId}`)
-        .then((res) => res.ok ? res.json() : null)
-        .then((data) => setSettingsTeamData(data))
-        .catch(() => setSettingsTeamData(null));
-    } else {
-      setSettingsTeamData(null);
-    }
-  }, [settingsTeamId]);
+  // Fetch full team data when settings are opened (with abort controller)
+  const { data: settingsTeamData } = useSafeFetch<TeamData>(
+    settingsTeamId ? `/api/teams/${settingsTeamId}` : null
+  );
 
   // Filter teams by search query
   const filteredTeams = teams?.filter(team =>
@@ -103,7 +96,6 @@ export default function TeamsPage() {
           onOpenChange={(open) => {
             if (!open) {
               setSettingsTeamId(null);
-              setSettingsTeamData(null);
               mutate();
             }
           }}

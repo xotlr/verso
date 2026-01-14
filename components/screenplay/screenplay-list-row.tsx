@@ -53,7 +53,7 @@ function TypeBadge({ type }: { type: DisplayScreenplayType }) {
   }[type] || PiFilmScript;
 
   return (
-    <span className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary border border-primary/20">
+    <span className="icon-btn-primary">
       <Icon className="h-4 w-4" />
     </span>
   );
@@ -242,7 +242,7 @@ export function ScreenplayListRow({
             <button
               onClick={createMenuHandler()}
               onPointerDown={stopPointerPropagation}
-              className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center flex-shrink-0"
+              className="card-action-btn"
               aria-label="More options"
             >
               <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />

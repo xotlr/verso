@@ -139,7 +139,7 @@ export function MoveProjectToTeamDialog({
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="search-input-icon" />
           <Input
             placeholder="Search teams..."
             value={search}
@@ -152,7 +152,7 @@ export function MoveProjectToTeamDialog({
         <ScrollArea className="h-[280px] rounded-md border">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Loader2 className="spinner" />
             </div>
           ) : (
             <div className="p-2 space-y-1">
@@ -213,7 +213,7 @@ export function MoveProjectToTeamDialog({
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{team.name}</p>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <div className="meta-text">
                           <RoleIcon className="h-3 w-3" />
                           <span>{team._count?.members || 0} members</span>
                         </div>

@@ -50,7 +50,7 @@ export function ProfileTrustBadges({
         {activeBadges.map((badge) => (
           <Tooltip key={badge.label}>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="meta-text">
                 <div className="flex items-center justify-center h-4 w-4 rounded-full bg-green-500/10">
                   <Check className="h-2.5 w-2.5 text-green-500" />
                 </div>

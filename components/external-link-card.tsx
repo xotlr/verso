@@ -187,7 +187,7 @@ function NotesEditor({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h4 className="font-medium text-sm">Notes</h4>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <div className="meta-text">
               {saving && <Loader2 className="h-3 w-3 animate-spin" />}
               {saved && !saving && <Check className="h-3 w-3 text-green-500" />}
             </div>

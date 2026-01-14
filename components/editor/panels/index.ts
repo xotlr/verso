@@ -11,4 +11,6 @@ export { PanelContent } from './PanelContent';
 export { PanelFooter } from './PanelFooter';
 export { PanelSearch } from './PanelSearch';
 export { PanelEmptyState } from './PanelEmptyState';
+export { PanelSkeleton } from './PanelSkeleton';
+export { SortableShotItem } from './SortableShotItem';
 export { usePanelDndSensors } from './use-panel-dnd';

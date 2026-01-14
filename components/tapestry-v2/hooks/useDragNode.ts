@@ -220,8 +220,8 @@ export function useDragNode({
             void (currentX - dragStateRef.current.startX);
             void (currentY - dragStateRef.current.startY);
 
-            // TODO: Collect all selected node positions and apply delta
-            // For now, just update the dragged node
+            // Multi-node drag moves all selected nodes together - implementation pending
+            // Currently updates only the dragged node
             onDragEnd?.(node.id, currentX, currentY);
           } else {
             onDragEnd?.(node.id, currentX, currentY);

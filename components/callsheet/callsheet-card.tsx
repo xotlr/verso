@@ -134,7 +134,7 @@ export function CallsheetCard({
             <div className="flex-1 min-w-0">
               {/* Status badge row */}
               <div className="flex items-center gap-2 mb-1.5">
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                <span className="badge-primary">
                   <PiClipboard className="h-2.5 w-2.5" />
                   Callsheet
                 </span>
@@ -175,7 +175,7 @@ export function CallsheetCard({
                 <DropdownMenuTrigger asChild>
                   <button
                     onClick={createMenuHandler()}
-                    className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
+                    className="card-action-btn"
                     aria-label="More options"
                   >
                     <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />

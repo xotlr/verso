@@ -49,5 +49,18 @@ export function AuroraRenderer() {
     return null;
   }
 
-  return <AuroraBackground />;
+  return (
+    <>
+      <AuroraBackground />
+      {/* Frosted glass overlay on top of aurora */}
+      <div
+        className="fixed inset-0 pointer-events-none z-[1]"
+        style={{
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+        }}
+        aria-hidden="true"
+      />
+    </>
+  );
 }

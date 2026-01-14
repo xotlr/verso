@@ -3,10 +3,12 @@
 import * as React from 'react';
 import { Moon, Sun, Monitor } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
+import { useGlassStyles } from '@/hooks/use-glass-styles';
 import { cn } from '@/lib/utils';
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
+  const { isGlass, container } = useGlassStyles();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -15,7 +17,10 @@ export function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <div className="flex flex-col bg-muted rounded-md p-0.5 border border-border/60 h-[84px] w-7" />
+      <div className={cn(
+        "flex flex-col rounded-xl p-1 h-[94px] w-8",
+        container
+      )} />
     );
   }
 
@@ -27,7 +32,10 @@ export function ThemeToggle() {
 
   return (
     <div
-      className="flex flex-col bg-muted rounded-md p-0.5 border border-border/60"
+      className={cn(
+        "flex flex-col rounded-xl p-1 gap-0.5",
+        container
+      )}
       role="radiogroup"
       aria-label="Theme selection"
     >
@@ -38,7 +46,7 @@ export function ThemeToggle() {
           role="radio"
           aria-checked={theme === value}
           className={cn(
-            "p-1 rounded",
+            "p-1.5 rounded-lg",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
             theme === value
               ? "bg-background shadow-sm text-foreground"

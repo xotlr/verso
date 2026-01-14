@@ -43,6 +43,7 @@ import {
   setSharedCacheInvalidator,
   invalidateScreenplayCache,
 } from '@/hooks/use-screenplay-cache';
+import { useEditorCommands } from '@/contexts/editor-commands-context';
 
 interface CommandItemData {
   id: string;
@@ -93,6 +94,7 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { screenplays, fetchScreenplays, invalidateCache } = useScreenplayCache();
+  const editorCommands = useEditorCommands();
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
 
@@ -173,7 +175,7 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
       category: 'actions',
       keywords: ['download', 'save', 'pdf', 'fdx', 'fountain'],
       action: () => {
-        window.dispatchEvent(new CustomEvent('editor-open-export'));
+        editorCommands.openExport();
         onClose();
       },
     },
@@ -289,7 +291,7 @@ export function CommandPalette({ isOpen, onClose, onOpenSettings }: CommandPalet
         onClose();
       },
     },
-  ], [theme, setTheme, router, onClose, onOpenSettings]);
+  ], [theme, setTheme, router, onClose, onOpenSettings, editorCommands]);
 
   // Screenplay navigation commands
   const screenplayCommands: CommandItemData[] = useMemo(() =>

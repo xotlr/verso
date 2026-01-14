@@ -45,7 +45,7 @@ export function InvitesTab({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8 mt-4">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="spinner" />
       </div>
     );
   }
@@ -53,7 +53,7 @@ export function InvitesTab({
   if (invites.length === 0) {
     return (
       <div className="text-center py-8 mt-4">
-        <Mail className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+        <Mail className="icon-large" />
         <p className="text-sm text-muted-foreground">No pending invites</p>
       </div>
     );

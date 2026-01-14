@@ -35,9 +35,9 @@ export const themeMetadata: Record<ThemePreset, ThemeMetadata> = {
 };
 
 export type UIFont = 'inter' | 'sf-pro' | 'geist' | 'geist-mono' | 'ibm-plex' | 'plus-jakarta' | 'space-grotesk' | 'dot-gothic' | 'audiowide' | 'oxanium' | 'chakra-petch' | 'sixtyfour' | 'doto' | 'special-elite' | 'syne' | 'poiret-one' | 'bellefair' | 'cinzel-decorative';
-export type HeaderFont = 'default' | 'badeen-display' | 'bonheur-royale' | 'fraunces' | 'bodoni-moda' | 'plaster' | 'montserrat' | 'doto' | 'bellefair' | 'cinzel-decorative';
+export type HeaderFont = 'default' | 'badeen-display' | 'bonheur-royale' | 'fraunces' | 'bodoni-moda' | 'plaster' | 'montserrat' | 'doto' | 'bellefair' | 'cinzel-decorative' | 'syne';
 export type ScreenplayFont = 'courier-prime' | 'courier-new' | 'courier-final-draft';
-export type AccessibilityFont = 'default' | 'sans' | 'system' | 'dyslexic';
+export type AccessibilityFont = 'default' | 'sans' | 'system' | 'dyslexic' | 'courier';
 
 // ============================================
 // PREMIUM THEME TYPES
@@ -205,7 +205,6 @@ export interface InterfaceSettings {
   highContrast: boolean;
   displayScale: number; // 0.8 to 1.4, default 1.0
   appFont: AccessibilityFont; // Override theme font for entire UI
-  editorFont: AccessibilityFont; // Override theme font for screenplay editor
 }
 
 export type ToolbarLayout = 'verso' | 'maelle';
@@ -392,7 +391,6 @@ export const defaultSettings: AppSettings = {
     highContrast: false,
     displayScale: 1.0,
     appFont: 'default',
-    editorFont: 'default',
   },
   layout: {
     layoutMode: 'classic',
@@ -1936,7 +1934,7 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       ],
     },
     uiFont: 'syne',
-    headerFont: 'badeen-display',
+    headerFont: 'syne',
     borderRadius: 14,
     animationSpeed: 0.2,
     cursor: {

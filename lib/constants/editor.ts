@@ -50,3 +50,47 @@ export const REVISION_COLOR_CLASSES: Record<string, string> = {
   salmon: 'bg-orange-300',
   cherry: 'bg-red-400',
 } as const;
+
+/**
+ * Page metrics for standard screenplay format.
+ * US Letter: 8.5" x 11"
+ * Margins: 1" top, 1" bottom, 1.5" left, 1" right
+ * Font: Courier 12pt (10 chars/inch, 6 lines/inch)
+ */
+export const PAGE_METRICS = {
+  /** Lines per page (standard screenplay - matches WASM engine) */
+  LINES_PER_PAGE: 52,
+  /** Approximate characters per line */
+  CHARS_PER_LINE: 58,
+  /** Line height in pixels (12pt Courier at 96 DPI = 16px) */
+  LINE_HEIGHT_PX: 16,
+  /** Page content height in pixels (9" usable at 96 DPI) */
+  PAGE_HEIGHT_PX: 864,
+  /** Minimum lines to keep together for dialogue */
+  MIN_DIALOGUE_LINES: 2,
+  /** Minimum lines before page break for character name */
+  MIN_LINES_BEFORE_BREAK: 3,
+} as const;
+
+/**
+ * Z-index scale for consistent layering.
+ * Use these instead of arbitrary z-* values in components.
+ */
+export const Z_INDEX = {
+  /** Sticky headers, toolbars */
+  STICKY: 10,
+  /** Fixed position overlays within content */
+  OVERLAY: 20,
+  /** Floating elements, popovers */
+  POPOVER: 40,
+  /** Dropdowns, menus */
+  DROPDOWN: 50,
+  /** Modals, dialogs */
+  MODAL: 60,
+  /** Drawers (higher than modal for mobile UX) */
+  DRAWER: 60,
+  /** Toast notifications */
+  TOAST: 70,
+  /** Tooltips (highest - should always be visible) */
+  TOOLTIP: 80,
+} as const;

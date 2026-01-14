@@ -109,7 +109,7 @@ export function TeamsSection() {
         </div>
       ) : teams.length === 0 ? (
         <div className="text-center py-12 border rounded-lg bg-muted/30">
-          <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+          <Users className="icon-large" />
           <h3 className="font-medium mb-1">No teams yet</h3>
           <p className="text-sm text-muted-foreground mb-4">
             Create a team to collaborate with others

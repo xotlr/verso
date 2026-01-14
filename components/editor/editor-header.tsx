@@ -6,12 +6,16 @@ import { EditableTitle } from "@/components/editable-title";
 import { ArrowLeft, Play, History } from "lucide-react";
 import { IoShareOutline } from "react-icons/io5";
 import { cn } from "@/lib/utils";
+import { useIsGlass } from "@/hooks/use-glass-styles";
+import { useEditorCommands } from "@/contexts/editor-commands-context";
 
 interface EditorHeaderProps {
   className?: string;
 }
 
 export function EditorHeader({ className }: EditorHeaderProps) {
+  const editorCommands = useEditorCommands();
+  const isGlass = useIsGlass();
   const [screenplayTitle, setScreenplayTitle] = useState<string>("Loading...");
   const [isOnline, setIsOnline] = useState(true);
   const [yjsStatus, setYjsStatus] = useState<{
@@ -64,31 +68,19 @@ export function EditorHeader({ className }: EditorHeaderProps) {
     return () => window.removeEventListener('yjs-status-update', handleYjsStatus);
   }, []);
 
+  // Use editor commands context instead of window events
   const handleTitleSave = useCallback((newTitle: string) => {
-    // Dispatch event to update screenplay title (editor will handle API call)
-    window.dispatchEvent(new CustomEvent('screenplay-title-save', {
-      detail: { title: newTitle }
-    }));
-  }, []);
+    editorCommands.saveTitle(newTitle);
+  }, [editorCommands]);
 
-  const handleShare = useCallback(() => {
-    // Dispatch event to open share dialog in editor
-    window.dispatchEvent(new CustomEvent('editor-open-share'));
-  }, []);
-
-  const handleTimelapse = useCallback(() => {
-    // Dispatch event to open timelapse
-    window.dispatchEvent(new CustomEvent('editor-open-timelapse'));
-  }, []);
-
-  const handleVersionHistory = useCallback(() => {
-    // Dispatch event to open version history
-    window.dispatchEvent(new CustomEvent('editor-open-version-history'));
-  }, []);
+  const handleShare = editorCommands.openShare;
+  const handleTimelapse = editorCommands.openTimelapse;
+  const handleVersionHistory = editorCommands.openVersionHistory;
 
   return (
     <header className={cn(
-      "sticky top-0 z-40 flex h-11 shrink-0 items-center gap-2 bg-sidebar px-4",
+      "sticky top-0 z-40 flex h-11 shrink-0 items-center gap-2 px-4",
+      !isGlass && "bg-sidebar",
       className
     )}>
       {/* Mobile: Back button on left */}

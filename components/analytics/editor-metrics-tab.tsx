@@ -88,7 +88,7 @@ export function EditorMetricsTab() {
     <div className="space-y-4 py-4">
       {/* Keystroke Latency Section */}
       <div className="space-y-2">
-        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <h4 className="section-label">
           Keystroke Latency
         </h4>
         <div className="grid grid-cols-3 gap-2">
@@ -120,7 +120,7 @@ export function EditorMetricsTab() {
 
       {/* Transaction & Frame Stats */}
       <div className="space-y-2">
-        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <h4 className="section-label">
           Performance
         </h4>
         <div className="grid grid-cols-2 gap-2">
@@ -144,7 +144,7 @@ export function EditorMetricsTab() {
 
       {/* Memory Usage (Chrome only) */}
       <div className="space-y-2">
-        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <h4 className="section-label">
           Memory (Chrome only)
         </h4>
         <div className="p-3 rounded-lg bg-muted/50">

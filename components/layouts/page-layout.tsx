@@ -31,10 +31,10 @@ export function PageLayout({
   const hasHeader = title || description || actions;
 
   return (
-    <ScrollArea className="h-full bg-background" fadeEdges="bottom" fadeHeight="3rem">
+    <ScrollArea className="h-full w-full bg-background" fadeEdges="bottom" fadeHeight="3rem">
       <div
         className={cn(
-          'mx-auto',
+          'mx-auto min-h-full',
           narrow ? 'max-w-4xl' : 'max-w-7xl',
           !noPadding && 'px-3 sm:px-4 md:px-6 lg:px-8 pt-4 sm:pt-6 md:pt-8',
           // Bottom padding: extra on mobile for floating bottom nav (h-14 at bottom-4 + safe area)

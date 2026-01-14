@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { Check, Loader2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import {
   useProseMirrorEditor,
   SceneInfo,
@@ -32,10 +32,10 @@ import { Button } from '@/components/ui/button';
 import { MobileEditorToolbar } from '@/components/editor/mobile-editor-toolbar';
 import { MobileSceneCharacterSheet } from '@/components/editor/MobileSceneCharacterSheet';
 import { ZoomIndicator } from './ZoomIndicator';
+import { StatsBar } from './StatsBar';
 import { TextSelection } from 'prosemirror-state';
-import { setElementType } from '@/lib/prosemirror/plugins/element-switching';
-import { toggleBold, toggleItalic, toggleUnderline } from '@/lib/prosemirror/plugins/keymap';
 import { updateTypewriterScrollSettings } from '@/lib/prosemirror/plugins';
+import { useEditorFormatting } from '@/hooks/editor/use-editor-formatting';
 import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
 // Settings accessed via useEditorSettings hook
 import { useDebugMetrics } from '@/components/analytics/debug-metrics-context';
@@ -95,63 +95,6 @@ export interface ProseMirrorEditorProps {
     color: string;
   };
 }
-
-/**
- * Minimal stats bar - shows save status + page count, expands on hover for more stats.
- * Memoized to prevent re-renders on every keystroke.
- */
-const StatsBar = React.memo(function StatsBar({
-  wordCount,
-  pageCount,
-  sceneCount,
-  characterCount,
-  isSaving,
-  className,
-}: {
-  wordCount: number;
-  pageCount: number;
-  sceneCount: number;
-  characterCount: number;
-  isSaving?: boolean;
-  className?: string;
-}) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  return (
-    <div
-      className={cn('fixed bottom-4 right-4 z-40', className)}
-      onMouseEnter={() => setIsExpanded(true)}
-      onMouseLeave={() => setIsExpanded(false)}
-    >
-      {/* Expanded stats - appears above on hover */}
-      {isExpanded && (
-        <div className="absolute bottom-full right-0 mb-2 px-3 py-1.5 rounded-lg bg-popover/95 backdrop-blur-sm border border-border/50 text-xs text-muted-foreground shadow-lg animate-in fade-in slide-in-from-bottom-1 duration-150">
-          <div className="flex items-center gap-3">
-            <span>{wordCount.toLocaleString()} words</span>
-            <span className="text-border">·</span>
-            <span>{sceneCount} scenes</span>
-            <span className="text-border">·</span>
-            <span>{characterCount} characters</span>
-          </div>
-        </div>
-      )}
-
-      {/* Collapsed stats - always visible */}
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card/50 backdrop-blur-sm border border-border/30 text-xs text-muted-foreground/70 hover:text-muted-foreground hover:bg-card/70 transition-colors cursor-default">
-        {/* Save status */}
-        {isSaving ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
-        ) : (
-          <Check className="h-3 w-3 text-green-500/70" />
-        )}
-        <span className="text-border/50">·</span>
-        <span>
-          {pageCount} {pageCount === 1 ? 'page' : 'pages'}
-        </span>
-      </div>
-    </div>
-  );
-});
 
 /**
  * Main ProseMirror screenplay editor component.
@@ -329,6 +272,14 @@ export function ProseMirrorEditor({
     onHighlightColorChange: setHighlightColor,
   });
 
+  // Formatting actions hook
+  const {
+    handleInsertElement,
+    handleBold,
+    handleItalic,
+    handleUnderline,
+  } = useEditorFormatting(view);
+
   // In timelapse mode, use pre-computed cached pagination for accurate page frames
   // Fall back to live result if cache miss (e.g., sampled cache)
   const effectivePaginationResult = useMemo(() => {
@@ -418,32 +369,6 @@ export function ProseMirrorEditor({
     const pageGap = paginationResult?.stats.layout?.page_gap_px ?? PAGE_GAP_PX;
     return pageFrames.length * pageHeight + (pageFrames.length - 1) * pageGap;
   }, [isDiscreteMode, pageFrames, paginationResult]);
-
-  // Mobile toolbar callbacks
-  const handleInsertElement = useCallback((elementType: string) => {
-    if (!view) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setElementType(elementType as any)(view.state, view.dispatch);
-    view.focus();
-  }, [view]);
-
-  const handleBold = useCallback(() => {
-    if (!view) return;
-    toggleBold(view.state, view.dispatch);
-    view.focus();
-  }, [view]);
-
-  const handleItalic = useCallback(() => {
-    if (!view) return;
-    toggleItalic(view.state, view.dispatch);
-    view.focus();
-  }, [view]);
-
-  const handleUnderline = useCallback(() => {
-    if (!view) return;
-    toggleUnderline(view.state, view.dispatch);
-    view.focus();
-  }, [view]);
 
   // Handle Script Check button click
   const handleScriptCheck = useCallback(() => {

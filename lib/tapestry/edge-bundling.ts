@@ -129,8 +129,7 @@ function getDialogueCountForScene(
   entity: SidebarEntity,
   _scene: ScenePosition
 ): number {
-  // TODO: If we have per-scene dialogue data, use it here
-  // For now, use the entity's total dialogue count
+  // Uses entity's total dialogue count - per-scene breakdown requires additional data model
   return entity.dialogueCount;
 }
 

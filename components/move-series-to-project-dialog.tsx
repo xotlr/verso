@@ -119,7 +119,7 @@ export function MoveSeriesToProjectDialog({
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="search-input-icon" />
           <Input
             placeholder="Search projects..."
             value={search}
@@ -132,7 +132,7 @@ export function MoveSeriesToProjectDialog({
         <ScrollArea className="h-[280px] rounded-md border">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Loader2 className="spinner" />
             </div>
           ) : (
             <div className="p-2 space-y-1">

@@ -1,0 +1,215 @@
+/**
+ * Shared Animation Keyframes and Utilities
+ *
+ * This file contains reusable animation definitions that can be used
+ * across the application. Import this file in globals.css.
+ *
+ * Usage:
+ * - Add class names like .animate-fade-in, .animate-slide-up, etc.
+ * - Use keyframes directly in custom animations
+ */
+
+/* ===== Core Keyframes ===== */
+
+@keyframes verso-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes verso-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes verso-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes verso-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes verso-slide-left {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes verso-slide-right {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes verso-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes verso-scale-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes verso-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes verso-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+@keyframes verso-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes verso-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes verso-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* ===== Progress/Loading Animations ===== */
+
+@keyframes verso-progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes verso-skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ===== Utility Classes ===== */
+
+.verso-animate-fade-in {
+  animation: verso-fade-in 200ms ease-out;
+}
+
+.verso-animate-fade-out {
+  animation: verso-fade-out 200ms ease-out;
+}
+
+.verso-animate-slide-up {
+  animation: verso-slide-up 200ms ease-out;
+}
+
+.verso-animate-slide-down {
+  animation: verso-slide-down 200ms ease-out;
+}
+
+.verso-animate-scale-in {
+  animation: verso-scale-in 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.verso-animate-pop {
+  animation: verso-pop 300ms ease-out;
+}
+
+.verso-animate-shake {
+  animation: verso-shake 500ms ease-out;
+}
+
+.verso-animate-pulse {
+  animation: verso-pulse 2s ease-in-out infinite;
+}
+
+.verso-animate-spin {
+  animation: verso-spin 1s linear infinite;
+}
+
+.verso-animate-bounce {
+  animation: verso-bounce 1s ease-in-out infinite;
+}
+
+/* ===== Animation Timing Modifiers ===== */
+
+.verso-animate-fast {
+  animation-duration: 100ms;
+}
+
+.verso-animate-slow {
+  animation-duration: 400ms;
+}
+
+.verso-animate-slower {
+  animation-duration: 600ms;
+}
+
+/* ===== Animation Delay Modifiers ===== */
+
+.verso-animate-delay-100 {
+  animation-delay: 100ms;
+}
+
+.verso-animate-delay-200 {
+  animation-delay: 200ms;
+}
+
+.verso-animate-delay-300 {
+  animation-delay: 300ms;
+}
+
+.verso-animate-delay-500 {
+  animation-delay: 500ms;
+}
+
+/* ===== Animation Fill Mode ===== */
+
+.verso-animate-fill-forwards {
+  animation-fill-mode: forwards;
+}
+
+.verso-animate-fill-backwards {
+  animation-fill-mode: backwards;
+}
+
+.verso-animate-fill-both {
+  animation-fill-mode: both;
+}

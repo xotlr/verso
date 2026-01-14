@@ -39,7 +39,7 @@ export function FormattingGuideDialog({
                 <p className="text-sm text-muted-foreground">
                   Indicates location and time of day. Always in CAPS.
                 </p>
-                <div className="bg-muted/50 border border-border rounded-lg p-4 font-mono text-sm">
+                <div className="code-block">
                   <div className="text-foreground">INT. COFFEE SHOP - DAY</div>
                   <div className="text-foreground mt-2">EXT. CITY STREET - NIGHT</div>
                 </div>
@@ -56,7 +56,7 @@ export function FormattingGuideDialog({
                 <p className="text-sm text-muted-foreground">
                   Describes what we see and hear. Written in present tense.
                 </p>
-                <div className="bg-muted/50 border border-border rounded-lg p-4 font-mono text-sm">
+                <div className="code-block">
                   <div className="text-foreground">
                     Sarah enters the crowded cafe, scanning the room. She spots an empty
                     table by the window and makes her way through the crowd.
@@ -70,7 +70,7 @@ export function FormattingGuideDialog({
                 <p className="text-sm text-muted-foreground">
                   Appears above dialogue, centered and in CAPS.
                 </p>
-                <div className="bg-muted/50 border border-border rounded-lg p-4 font-mono text-sm text-center">
+                <div className="code-block text-center">
                   <div className="text-foreground">SARAH</div>
                 </div>
                 <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
@@ -86,7 +86,7 @@ export function FormattingGuideDialog({
                 <p className="text-sm text-muted-foreground">
                   The words characters speak. Centered under the character name.
                 </p>
-                <div className="bg-muted/50 border border-border rounded-lg p-4 font-mono text-sm text-center">
+                <div className="code-block text-center">
                   <div className="text-foreground">SARAH</div>
                   <div className="text-foreground mt-1 max-w-[250px] mx-auto">
                     I&apos;ve been waiting for this moment my entire life.
@@ -100,7 +100,7 @@ export function FormattingGuideDialog({
                 <p className="text-sm text-muted-foreground">
                   Brief direction for how dialogue is delivered. Use sparingly.
                 </p>
-                <div className="bg-muted/50 border border-border rounded-lg p-4 font-mono text-sm text-center">
+                <div className="code-block text-center">
                   <div className="text-foreground">SARAH</div>
                   <div className="text-muted-foreground">(whispering)</div>
                   <div className="text-foreground max-w-[250px] mx-auto">
@@ -115,7 +115,7 @@ export function FormattingGuideDialog({
                 <p className="text-sm text-muted-foreground">
                   Indicates how we move between scenes. Right-aligned, in CAPS.
                 </p>
-                <div className="bg-muted/50 border border-border rounded-lg p-4 font-mono text-sm text-right">
+                <div className="code-block text-right">
                   <div className="text-foreground">CUT TO:</div>
                   <div className="text-foreground mt-2">DISSOLVE TO:</div>
                   <div className="text-foreground mt-2">FADE OUT.</div>
@@ -197,7 +197,7 @@ export function FormattingGuideDialog({
                     When a character first appears, write their name in CAPS and include
                     age and a brief description.
                   </p>
-                  <div className="bg-muted/50 border border-border rounded-lg p-4 font-mono text-sm">
+                  <div className="code-block">
                     <div className="text-foreground">
                       SARAH CHEN (30s), sharp eyes behind round glasses, enters
                       clutching a worn leather briefcase.
@@ -218,7 +218,7 @@ export function FormattingGuideDialog({
                   <p className="text-sm text-muted-foreground">
                     Write important sounds in CAPS within action lines.
                   </p>
-                  <div className="bg-muted/50 border border-border rounded-lg p-4 font-mono text-sm">
+                  <div className="code-block">
                     <div className="text-foreground">
                       A door SLAMS somewhere in the house. Sarah freezes.
                     </div>

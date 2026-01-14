@@ -8,7 +8,6 @@ import { TeamProvider } from "@/contexts/team-context";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { WebVitals } from "@/components/analytics/web-vitals";
-import { PerformancePanel } from "@/components/analytics/performance-panel";
 import { DebugMetricsProvider } from "@/components/analytics/debug-metrics-context";
 import { PetalsRenderer } from "@/components/effects/petals-renderer";
 import { AuroraRenderer } from "@/components/effects/aurora-renderer";
@@ -285,7 +284,6 @@ export default function RootLayout({
                   <DebugMetricsProvider>
                     {children}
                     <Toaster position="bottom-right" />
-                    <PerformancePanel />
                   </DebugMetricsProvider>
                 </TeamProvider>
               </ShortcutsProvider>

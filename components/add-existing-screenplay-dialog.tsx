@@ -132,7 +132,7 @@ export function AddExistingScreenplayDialog({
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="search-input-icon" />
           <Input
             placeholder="Search screenplays..."
             value={search}
@@ -145,7 +145,7 @@ export function AddExistingScreenplayDialog({
         <ScrollArea className="h-[300px] rounded-md border">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Loader2 className="spinner" />
             </div>
           ) : filteredScreenplays.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-4">

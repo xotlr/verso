@@ -57,12 +57,21 @@ export function useOfflineSave({
   // Load any existing draft on mount
   useEffect(() => {
     const loadDraft = async () => {
-      const draft = await getDraft(screenplayId)
-      if (draft) {
-        localVersionRef.current = draft.localVersion
-        if (draft.syncStatus === 'pending') {
-          setSyncStatus('pending')
+      try {
+        const draft = await getDraft(screenplayId)
+        if (draft) {
+          localVersionRef.current = draft.localVersion
+          if (draft.syncStatus === 'pending') {
+            setSyncStatus('pending')
+          }
         }
+      } catch (error) {
+        // IndexedDB may fail in some contexts (private browsing, storage quota)
+        // Degrade gracefully - continue without offline support
+        if (process.env.NODE_ENV === "development") {
+          console.error('[OfflineSave] Failed to load draft:', error)
+        }
+        setSyncStatus('offline')
       }
     }
     loadDraft()
@@ -100,12 +109,14 @@ export function useOfflineSave({
           errorData = { message: errorBody }
         }
 
-        console.error('[Sync Error] Save failed:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData,
-          url: response.url,
-        })
+        if (process.env.NODE_ENV === "development") {
+          console.error('[Sync Error] Save failed:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorData,
+            url: response.url,
+          })
+        }
 
         // Show user-friendly error based on status
         if (response.status === 401 || response.status === 403) {
@@ -125,7 +136,9 @@ export function useOfflineSave({
         updatedAt: new Date(data.updatedAt).getTime(),
       }
     } catch (error) {
-      console.error('[Sync Error] Exception during save:', error)
+      if (process.env.NODE_ENV === "development") {
+        console.error('[Sync Error] Exception during save:', error)
+      }
       return { success: false }
     }
   }, [screenplayId])
@@ -175,7 +188,9 @@ export function useOfflineSave({
         setSyncStatus('synced')
       }
     } catch (error) {
-      console.error('Error processing sync queue:', error)
+      if (process.env.NODE_ENV === "development") {
+        console.error('Error processing sync queue:', error)
+      }
     } finally {
       if (isMountedRef.current) {
         setIsSyncing(false)

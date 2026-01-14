@@ -21,6 +21,7 @@ import { SceneWithShots, Shot, DetectedShot } from "@/types/shotlist";
 import { getShotDisplayName, type DetectedShotType } from "@/lib/screenplay/patterns";
 import { useSettings } from "@/contexts/settings-context";
 import { formatShotLabel } from "@/lib/shotlist/format";
+import { useDetectedShots } from "@/hooks/shotlist";
 import { Badge } from "@/components/ui/badge";
 import { SortableShotCard } from "./sortable-shot-card";
 import { ShotEditor } from "./shot-editor";
@@ -78,6 +79,30 @@ export function Shotlist({
   const { settings } = useSettings();
   const { numberFormat, detection } = settings.shotlist;
   const showDetectedShots = detection.enabled && detection.showSuggestions;
+
+  // Detected shots management
+  const {
+    getDetectedShotsForScene,
+    isAlreadySaved,
+    handleAddDetectedShot,
+    unsavedCount: unsavedDetectedCount,
+    handleApplyAllDetected: applyAllDetected,
+  } = useDetectedShots({
+    screenplayId,
+    scenesWithShots,
+    detectedShots,
+    onShotsChange,
+  });
+
+  // Wrap apply all with loading state
+  const handleApplyAllDetected = useCallback(async () => {
+    setIsApplyingAll(true);
+    try {
+      await applyAllDetected();
+    } finally {
+      setIsApplyingAll(false);
+    }
+  }, [applyAllDetected]);
 
   // DnD sensors
   const sensors = useSensors(
@@ -327,116 +352,21 @@ export function Shotlist({
     [screenplayId, scenesWithShots, onShotsChange]
   );
 
-  // Get detected shots for a specific scene
-  const getDetectedShotsForScene = useCallback((sceneId: string) => {
-    return detectedShots.filter(s => s.sceneId === sceneId);
-  }, [detectedShots]);
-
-  // Check if a detected shot is already saved (by comparing content)
-  const isAlreadySaved = useCallback((detected: DetectedShot, savedShots: Shot[]) => {
-    return savedShots.some(saved =>
-      saved.description?.toLowerCase().includes(detected.lineContent.toLowerCase().slice(0, 30)) ||
-      detected.lineContent.toLowerCase().includes(saved.description?.toLowerCase() || '')
-    );
-  }, []);
-
-  // Add a detected shot to the database
-  const handleAddDetectedShot = useCallback(
-    async (detected: DetectedShot) => {
-      try {
-        const response = await fetch(
-          `/api/screenplays/${screenplayId}/shots`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sceneId: detected.sceneId,
-              description: detected.subject || detected.lineContent,
-              shotType: detected.shotType,
-              status: 'planned',
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || 'Failed to add shot');
-        }
-
-        const newShot = await response.json();
-        const allShots = scenesWithShots.flatMap((s) => s.shots);
-        onShotsChange([...allShots, newShot]);
-        toast.success('Shot added from script');
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to add shot';
-        toast.error(message);
-      }
-    },
-    [screenplayId, scenesWithShots, onShotsChange]
-  );
-
-  // Get all unsaved detected shots (not already in database)
-  const getUnsavedDetectedShots = useCallback(() => {
-    const allSavedShots = scenesWithShots.flatMap((s) => s.shots);
-    return detectedShots.filter((detected) => {
-      if (!detected.sceneId) return false;
-      const sceneShots = allSavedShots.filter((s) => s.sceneId === detected.sceneId);
-      return !isAlreadySaved(detected, sceneShots);
-    });
-  }, [detectedShots, scenesWithShots, isAlreadySaved]);
-
-  // Add all detected shots at once
-  const handleApplyAllDetected = useCallback(async () => {
-    const unsavedShots = getUnsavedDetectedShots();
-    if (unsavedShots.length === 0) {
-      toast.info('No new shots to add');
-      return;
-    }
-
-    setIsApplyingAll(true);
-    try {
-      const response = await fetch(
-        `/api/screenplays/${screenplayId}/shots/batch`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            shots: unsavedShots.map((detected) => ({
-              sceneId: detected.sceneId,
-              description: detected.subject || detected.lineContent,
-              shotType: detected.shotType,
-              status: 'planned',
-            })),
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to add shots');
-      }
-
-      const { shots: newShots, count } = await response.json();
-      const allShots = scenesWithShots.flatMap((s) => s.shots);
-      onShotsChange([...allShots, ...newShots]);
-      toast.success(`Added ${count} shot${count !== 1 ? 's' : ''} from script`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to add shots';
-      toast.error(message);
-    } finally {
-      setIsApplyingAll(false);
-    }
-  }, [screenplayId, scenesWithShots, onShotsChange, getUnsavedDetectedShots]);
-
-  const unsavedDetectedCount = showDetectedShots ? getUnsavedDetectedShots().length : 0;
+  // Get effective count for display (only when feature is enabled)
+  const displayedUnsavedCount = showDetectedShots ? unsavedDetectedCount : 0;
 
   return (
     <div className="flex flex-col h-full">
+      {/* Screen reader instructions for drag-and-drop */}
+      <div id="shotlist-drag-instructions" className="sr-only">
+        Press Space or Enter to start dragging. Use arrow keys to move. Press Space or Enter to drop, or Escape to cancel.
+      </div>
+
       {/* Apply All for detected shots */}
-      {showDetectedShots && unsavedDetectedCount > 0 && (
+      {showDetectedShots && displayedUnsavedCount > 0 && (
         <div className="px-6 py-3 flex items-center justify-between gap-4">
           <span className="text-sm text-muted-foreground">
-            {unsavedDetectedCount} shot{unsavedDetectedCount !== 1 ? 's' : ''} detected from script
+            {displayedUnsavedCount} shot{displayedUnsavedCount !== 1 ? 's' : ''} detected from script
           </span>
           <Button
             variant="ghost"

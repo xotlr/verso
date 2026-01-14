@@ -2,7 +2,7 @@
  * ImportDropZone Types
  */
 
-import { ParseProgress, ParserFormat, ParseWarning } from '@/lib/parsers/types';
+import { ParseProgress, ParserFormat, ParseWarning, TitlePage } from '@/lib/parsers/types';
 import { Scene, SceneElement } from '@/types/screenplay';
 
 export type ImportContext = 'dashboard' | 'editor';
@@ -18,6 +18,7 @@ export interface ImportResult {
   wordCount?: number;
   error?: string;
   warnings?: ParseWarning[];
+  titlePage?: TitlePage;
 }
 
 export interface ImportDropZoneProps {

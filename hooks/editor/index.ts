@@ -35,3 +35,7 @@ export { useResponsiveScale } from './use-responsive-scale';
 export { useEditorZoom } from './use-editor-zoom';
 export { useEditorSettings } from './use-editor-settings';
 export { useEditorHighlighting } from './use-editor-highlighting';
+export { useEditorDialogs } from './use-editor-dialogs';
+export type { EditorDialogs } from './use-editor-dialogs';
+export { useEditorFormatting } from './use-editor-formatting';
+export type { EditorFormatting } from './use-editor-formatting';

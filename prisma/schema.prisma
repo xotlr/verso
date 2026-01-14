@@ -566,6 +566,7 @@ model Screenplay {
   characterMetas   CharacterMeta[]
   sceneAttachments SceneAttachment[]
   shots            Shot[]
+  customCardGroups CustomCardGroup[]
 
   // Collaboration relations
   operations            ScreenplayOperation[]
@@ -774,20 +775,41 @@ model SceneMeta {
   sceneId      String // References scene ID in screenplay content
 
   // Metadata
-  color String? // Hex color for scene (e.g., "#FF5733")
-  notes String? @db.Text
-  mood  String? // e.g., "tense", "romantic", "action"
-  act   String? // Act assignment: 'act1' | 'act2a' | 'act2b' | 'act3' | null (unassigned)
+  color         String? // Hex color for scene (e.g., "#FF5733")
+  notes         String? @db.Text
+  mood          String? // e.g., "tense", "romantic", "action"
+  act           String? // Act assignment: 'act1' | 'act2a' | 'act2b' | 'act3' | null (unassigned)
+  customGroupId String? // Custom card group assignment (for index cards)
 
   // Tracking
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  screenplay Screenplay @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  screenplay  Screenplay       @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  customGroup CustomCardGroup? @relation(fields: [customGroupId], references: [id], onDelete: SetNull)
 
   @@unique([screenplayId, sceneId])
   @@index([screenplayId])
+  @@index([customGroupId])
+}
+
+// Custom card groups for index cards view
+model CustomCardGroup {
+  id           String      @id @default(cuid())
+  screenplayId String
+  name         String
+  color        String      @default("blue") // slate, red, orange, amber, etc.
+  order        Int         @default(0) // Display order
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  // Relations
+  screenplay Screenplay  @relation(fields: [screenplayId], references: [id], onDelete: Cascade)
+  sceneMetas SceneMeta[]
+
+  @@index([screenplayId])
+  @@index([screenplayId, order])
 }
 
 // Character metadata (roles, notes per character)

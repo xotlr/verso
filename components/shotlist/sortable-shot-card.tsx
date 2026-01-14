@@ -56,9 +56,10 @@ export function SortableShotCard({
           "opacity-0 group-hover/sortable:opacity-100 transition-opacity",
           "cursor-grab active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-primary/20"
         )}
-        aria-label="Drag to reorder"
+        aria-label="Drag to reorder shot"
+        aria-describedby="shotlist-drag-instructions"
       >
-        <GripVertical className="h-4 w-4" />
+        <GripVertical className="h-4 w-4" aria-hidden="true" />
       </button>
 
       <ShotCard

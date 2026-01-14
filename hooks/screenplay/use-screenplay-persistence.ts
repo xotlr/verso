@@ -119,14 +119,24 @@ export function useScreenplayPersistence({
         }),
       });
 
-      if (response.ok) {
-        lastVersionContentRef.current = content;
-        if (reason === "manual") {
-          toast.success("Version saved");
-        }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to save version (${response.status})`);
+      }
+
+      lastVersionContentRef.current = content;
+      if (reason === "manual") {
+        toast.success("Version saved");
       }
     } catch (error) {
-      console.error("Error creating version:", error);
+      // Show error only for manual saves (don't spam user with auto-save failures)
+      if (reason === "manual") {
+        toast.error("Failed to save version");
+      }
+      // Log for debugging but don't block user
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error creating version:", error);
+      }
     }
   }, [screenplayId]);
 
@@ -139,7 +149,11 @@ export function useScreenplayPersistence({
         setIsSaveVersionDialogOpen(true);
       }
     } catch (error) {
-      console.error("Error saving screenplay:", error);
+      // offlineSave handles its own errors and queues for retry
+      // Only log in development to avoid console noise
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error saving screenplay:", error);
+      }
     }
   }, [offlineSave, screenplayTitle]);
 
@@ -265,7 +279,9 @@ export function useScreenplayPersistence({
           toast.error("Failed to update title");
         }
       } catch (error) {
-        console.error('Failed to update title:', error);
+        if (process.env.NODE_ENV === "development") {
+          console.error('Failed to update title:', error);
+        }
         toast.error("Failed to update title");
       }
     };
@@ -281,42 +297,49 @@ export function useScreenplayPersistence({
     const loadScreenplay = async () => {
       try {
         const response = await fetch(`/api/screenplays/${screenplayId}`);
-        if (response.ok) {
-          const screenplay = await response.json();
-          const content = screenplay.content || "";
-          setScreenplayTextState(content);
-          screenplayTextRef.current = content;
 
-          const title = screenplay.title || "Untitled Screenplay";
-          setScreenplayTitle(title);
-          if (onTitleChange) {
-            onTitleChange(title);
-          }
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Failed to load screenplay (${response.status})`);
+        }
 
-          const parsed = parseScreenplayText(content);
-          setScenes(parsed.scenes || []);
-          setCharacters(parsed.characters || []);
-          setLocations(parsed.locations || []);
+        const screenplay = await response.json();
+        const content = screenplay.content || "";
+        setScreenplayTextState(content);
+        screenplayTextRef.current = content;
 
-          // Initialize timelapse
-          initializeTimelapse(content);
+        const title = screenplay.title || "Untitled Screenplay";
+        setScreenplayTitle(title);
+        if (onTitleChange) {
+          onTitleChange(title);
+        }
 
-          // Dispatch breadcrumb event if series
-          if (screenplay.series) {
-            window.dispatchEvent(new CustomEvent('screenplay-breadcrumb-update', {
-              detail: {
-                series: screenplay.series,
-                season: screenplay.seasonRef,
-                episode: {
-                  episode: screenplay.episode,
-                  episodeTitle: screenplay.episodeTitle,
-                },
+        const parsed = parseScreenplayText(content);
+        setScenes(parsed.scenes || []);
+        setCharacters(parsed.characters || []);
+        setLocations(parsed.locations || []);
+
+        // Initialize timelapse
+        initializeTimelapse(content);
+
+        // Dispatch breadcrumb event if series
+        if (screenplay.series) {
+          window.dispatchEvent(new CustomEvent('screenplay-breadcrumb-update', {
+            detail: {
+              series: screenplay.series,
+              season: screenplay.seasonRef,
+              episode: {
+                episode: screenplay.episode,
+                episodeTitle: screenplay.episodeTitle,
               },
-            }));
-          }
+            },
+          }));
         }
       } catch (error) {
-        console.error("Error loading screenplay:", error);
+        toast.error("Failed to load screenplay");
+        if (process.env.NODE_ENV === "development") {
+          console.error("Error loading screenplay:", error);
+        }
       } finally {
         setIsLoading(false);
       }

@@ -144,7 +144,7 @@ export function TeamAuditLog({ teamId }: TeamAuditLogProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="spinner" />
       </div>
     )
   }
@@ -152,7 +152,7 @@ export function TeamAuditLog({ teamId }: TeamAuditLogProps) {
   if (error) {
     return (
       <div className="text-center py-12">
-        <XCircle className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+        <XCircle className="icon-large" />
         <p className="text-sm text-muted-foreground">{error}</p>
       </div>
     )
@@ -161,7 +161,7 @@ export function TeamAuditLog({ teamId }: TeamAuditLogProps) {
   if (logs.length === 0) {
     return (
       <div className="text-center py-12">
-        <Settings className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+        <Settings className="icon-large" />
         <p className="text-sm text-muted-foreground">No activity yet</p>
         <p className="text-xs text-muted-foreground mt-1">
           Team actions will appear here

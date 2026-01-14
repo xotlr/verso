@@ -1,4 +1,3 @@
-import { z } from "zod"
 import { createApiHandler, ForbiddenError, BadRequestError, RateLimitError, NotFoundError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
@@ -7,6 +6,7 @@ import {
   initializeScreenplayContent,
   validateScreenplayCreationAccess,
 } from "@/lib/screenplay"
+import { createScreenplaySchema } from "@/lib/validation"
 
 export const GET = createApiHandler({
   auth: "required",
@@ -127,21 +127,6 @@ export const GET = createApiHandler({
   },
 })
 
-const createScreenplaySchema = z.object({
-  title: z.string().min(1, "Title is required").max(255),
-  content: z.string().default(""),
-  synopsis: z.string().optional(),
-  projectId: z.string().optional(),
-  teamId: z.string().optional(),
-  type: z.enum(["FILM", "TV"]).optional(),
-  season: z.number().int().positive().nullable().optional(),
-  episode: z.number().int().positive().nullable().optional(),
-  episodeTitle: z.string().max(255).nullable().optional(),
-  logline: z.string().max(500).nullable().optional(),
-  genre: z.string().max(50).nullable().optional(),
-  author: z.string().max(500).nullable().optional(),
-})
-
 export const POST = createApiHandler({
   auth: "required",
   schema: createScreenplaySchema,
@@ -193,6 +178,8 @@ export const POST = createApiHandler({
         content: finalContent,
         wordCount,
         synopsis: data.logline || data.synopsis || null,
+        logline: data.logline || null,
+        author: data.author || authorName,
         userId: user.id,
         projectId: data.projectId || null,
         teamId: data.teamId || null,

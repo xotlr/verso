@@ -15,12 +15,16 @@ import { useSettings } from "@/contexts/settings-context";
 import { useYjsCollaboration } from "@/hooks/use-yjs-collaboration";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useShotManagement, useScreenplayPersistence } from "@/hooks/screenplay";
+import { useShotManagement, useScreenplayPersistence, useScreenplayMetadata } from "@/hooks/screenplay";
+import { useEditorStatus } from "@/contexts/editor-status-context";
+import { useEditorBreadcrumb } from "@/contexts/editor-breadcrumb-context";
 import type { SceneInfo, CharacterInfo } from "@/hooks/editor/use-prosemirror-editor";
 import type { EditorView } from "prosemirror-view";
 import type { DetectedShot, Shot } from "@/types/shotlist";
 import { SHOT_TYPES } from "@/types/shotlist";
 import { useEditorScenesOptional } from "@/contexts/editor-scene-context";
+import { EditorCommandsProvider } from "@/contexts/editor-commands-context";
+import { useEditorDialogs } from "@/hooks/editor/use-editor-dialogs";
 
 // Lazy-load heavy dialog components to reduce initial bundle size
 const VersionHistorySidebar = dynamic(
@@ -65,13 +69,15 @@ interface ScreenplayEditorWrapperProps {
   onTitleChange?: (title: string) => void;
 }
 
-type ScreenplayType = 'FEATURE' | 'TV' | 'SHORT';
-
 export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange }: ScreenplayEditorWrapperProps) {
 
   const router = useRouter();
   const { data: session } = useSession();
   const editorSceneContext = useEditorScenesOptional();
+
+  // Context hooks for cross-component communication (replaces window events)
+  const editorStatus = useEditorStatus();
+  const editorBreadcrumb = useEditorBreadcrumb();
 
   // Core persistence hook (handles save, version, timelapse, offline sync)
   const persistence = useScreenplayPersistence({
@@ -80,16 +86,15 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     skipInitialLoad: true, // We load with metadata below
   });
 
+  // Dialog/drawer state (centralized in hook)
+  const dialogs = useEditorDialogs();
+
+  // Metadata state (centralized in hook)
+  const metadata = useScreenplayMetadata();
+
   // UI state
   const [selectedSceneId, setSelectedSceneId] = useState<string | undefined>();
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
-  const [compareVersion, setCompareVersion] = useState<ScreenplayVersion | null>(null);
   const [sceneWorkspaceScene, setSceneWorkspaceScene] = useState<Scene | null>(null);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
-  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
-  const [compareTwoVersions, setCompareTwoVersions] = useState<{from: ScreenplayVersion, to: ScreenplayVersion} | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [sceneInfos, setSceneInfos] = useState<SceneInfo[]>([]);
   const [charInfos, setCharInfos] = useState<CharacterInfo[]>([]);
@@ -113,33 +118,6 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     screenplayId,
     sceneInfos,
   });
-
-  // TV/Episode fields
-  const [screenplayType, setScreenplayType] = useState<ScreenplayType>('FEATURE');
-  const [season, setSeason] = useState<number | null>(null);
-  const [episode, setEpisode] = useState<number | null>(null);
-  const [episodeTitle, setEpisodeTitle] = useState<string | null>(null);
-
-  // Metadata fields
-  const [logline, setLogline] = useState<string | null>(null);
-  const [genre, setGenre] = useState<string | null>(null);
-  const [author, setAuthor] = useState<string | null>(null);
-
-  // Title page fields
-  const [titlePageFields, setTitlePageFields] = useState<{
-    contactName?: string | null;
-    contactEmail?: string | null;
-    contactPhone?: string | null;
-    contactAddress?: string | null;
-    copyrightYear?: number | null;
-    copyrightHolder?: string | null;
-    registrationNumber?: string | null;
-    draftLabel?: string | null;
-    draftDate?: string | null;
-    showTitlePageContact?: boolean;
-    showTitlePageCopyright?: boolean;
-    showTitlePageDraft?: boolean;
-  }>({});
 
   const { settings } = useSettings();
   const layoutMode = settings.layout.layoutMode;
@@ -167,17 +145,15 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     initialContent: persistence.screenplayText,
   });
 
-  // Broadcast Yjs connection status to header
+  // Update Yjs connection status via context (replaces window event)
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('yjs-status-update', {
-      detail: {
-        enabled: yjsEnabled,
-        isConnected: yjsCollaboration.isConnected,
-        isSynced: yjsCollaboration.isSynced,
-        isPersistenceSynced: yjsCollaboration.isPersistenceSynced,
-      },
-    }));
-  }, [yjsEnabled, yjsCollaboration.isConnected, yjsCollaboration.isSynced, yjsCollaboration.isPersistenceSynced]);
+    editorStatus.setYjsStatus({
+      enabled: yjsEnabled,
+      isConnected: yjsCollaboration.isConnected,
+      isSynced: yjsCollaboration.isSynced,
+      isPersistenceSynced: yjsCollaboration.isPersistenceSynced,
+    });
+  }, [editorStatus, yjsEnabled, yjsCollaboration.isConnected, yjsCollaboration.isSynced, yjsCollaboration.isPersistenceSynced]);
 
   // Sync editor scene data to EditorSceneContext for sidebar consumption
   useEffect(() => {
@@ -217,38 +193,18 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
           persistence.setCharacters(parsed.characters || []);
           persistence.setLocations(parsed.locations || []);
 
-          // Load metadata fields (not in persistence hook)
-          setScreenplayType(screenplay.type || 'FEATURE');
-          setSeason(screenplay.season || null);
-          setEpisode(screenplay.episode || null);
-          setEpisodeTitle(screenplay.episodeTitle || null);
-          setLogline(screenplay.logline || null);
-          setGenre(screenplay.genre || null);
-          setAuthor(screenplay.author || null);
-          setTitlePageFields({
-            contactName: screenplay.contactName,
-            contactEmail: screenplay.contactEmail,
-            contactPhone: screenplay.contactPhone,
-            contactAddress: screenplay.contactAddress,
-            copyrightYear: screenplay.copyrightYear,
-            copyrightHolder: screenplay.copyrightHolder,
-            registrationNumber: screenplay.registrationNumber,
-            draftLabel: screenplay.draftLabel,
-            draftDate: screenplay.draftDate ? new Date(screenplay.draftDate).toISOString().split('T')[0] : null,
-            showTitlePageContact: screenplay.showTitlePageContact ?? true,
-            showTitlePageCopyright: screenplay.showTitlePageCopyright ?? true,
-            showTitlePageDraft: screenplay.showTitlePageDraft ?? true,
-          });
+          // Load metadata via hook
+          metadata.setFromScreenplay(screenplay);
 
-          // Dispatch breadcrumb event if this screenplay belongs to a series
+          // Set breadcrumb via context if this screenplay belongs to a series
           if (screenplay.series) {
-            window.dispatchEvent(new CustomEvent('screenplay-breadcrumb-update', {
-              detail: {
-                series: screenplay.series,
-                season: screenplay.seasonRef,
-                episode: { episode: screenplay.episode, episodeTitle: screenplay.episodeTitle },
-              },
-            }));
+            editorBreadcrumb.setBreadcrumb({
+              series: screenplay.series,
+              season: screenplay.seasonRef,
+              episode: { episode: screenplay.episode, episodeTitle: screenplay.episodeTitle },
+            });
+          } else {
+            editorBreadcrumb.clearBreadcrumb();
           }
 
           // Initialize timelapse
@@ -273,45 +229,16 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     persistenceHandleTextChange(text);
   }, [persistenceHandleTextChange]);
 
-  // Listen for share dialog open events from header
+  // Editor command handlers (exposed via EditorCommandsProvider)
+  const handleSaveTitle = useCallback((newTitle: string) => {
+    persistence.setScreenplayTitle(newTitle);
+  }, [persistence]);
+
+  // Listen for keyboard shortcut events from parent page
   useEffect(() => {
-    const handleOpenShare = () => {
-      setIsShareDialogOpen(true);
-    };
-
-    window.addEventListener('editor-open-share', handleOpenShare);
-    return () => window.removeEventListener('editor-open-share', handleOpenShare);
-  }, []);
-
-  // Listen for export dialog open events from command palette
-  useEffect(() => {
-    const handleOpenExport = () => {
-      setIsExportDialogOpen(true);
-    };
-
-    window.addEventListener('editor-open-export', handleOpenExport);
-    return () => window.removeEventListener('editor-open-export', handleOpenExport);
-  }, []);
-
-  // Listen for timelapse open events from header
-  useEffect(() => {
-    const handleOpenTimelapse = () => {
-      router.push(`/screenplay/${screenplayId}/timelapse`);
-    };
-
-    window.addEventListener('editor-open-timelapse', handleOpenTimelapse);
-    return () => window.removeEventListener('editor-open-timelapse', handleOpenTimelapse);
-  }, [router, screenplayId]);
-
-  // Listen for version history open events from header
-  useEffect(() => {
-    const handleOpenVersionHistory = () => {
-      setIsVersionHistoryOpen(true);
-    };
-
-    window.addEventListener('editor-open-version-history', handleOpenVersionHistory);
-    return () => window.removeEventListener('editor-open-version-history', handleOpenVersionHistory);
-  }, []);
+    window.addEventListener('editor-open-export', dialogs.openExport);
+    return () => window.removeEventListener('editor-open-export', dialogs.openExport);
+  }, [dialogs.openExport]);
 
   // Handle scene/character extraction from ProseMirror
   // Must be declared before early return to follow React hooks rules
@@ -367,6 +294,13 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
 
   // Modern Mode: Use the ProseMirror-based editor
   return (
+    <EditorCommandsProvider
+      screenplayId={screenplayId}
+      onOpenShare={dialogs.openShare}
+      onOpenExport={dialogs.openExport}
+      onOpenVersionHistory={dialogs.openVersionHistory}
+      onSaveTitle={handleSaveTitle}
+    >
       <div className={cn("h-full flex", `layout-${layoutMode}`)}>
         {/* Left Sidebar Panel - Push layout (extends from left sidebar) */}
         <EditorPanel
@@ -407,7 +341,7 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
             scenes={sceneInfos}
             characters={charInfos}
             onTimelapse={() => router.push(`/screenplay/${screenplayId}/timelapse`)}
-            onToggleVersionHistory={() => setIsVersionHistoryOpen(true)}
+            onToggleVersionHistory={dialogs.openVersionHistory}
             scenesCount={sceneInfos.length}
             charactersCount={charInfos.length}
             shotlistCount={detectedShots.length}
@@ -421,8 +355,8 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
 
       {/* Floating panels and dialogs */}
       <EditorFloatingPanel
-        isOpen={isPanelOpen}
-        onClose={() => setIsPanelOpen(false)}
+        isOpen={dialogs.isPanelOpen}
+        onClose={dialogs.closePanel}
         scenes={persistence.scenes}
         characters={persistence.characters}
         locations={persistence.locations}
@@ -440,37 +374,37 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
       />
       <VersionHistorySidebar
         screenplayId={screenplayId}
-        isOpen={isVersionHistoryOpen}
-        onClose={() => setIsVersionHistoryOpen(false)}
+        isOpen={dialogs.isVersionHistoryOpen}
+        onClose={dialogs.closeVersionHistory}
         onRestore={persistence.handleRestore}
-        onCompare={(version) => setCompareVersion(version)}
-        onCompareTwoVersions={(fromVersion, toVersion) => setCompareTwoVersions({ from: fromVersion, to: toVersion })}
+        onCompare={dialogs.setCompareVersion}
+        onCompareTwoVersions={(fromVersion, toVersion) => dialogs.setCompareTwoVersions({ from: fromVersion, to: toVersion })}
         onSaveVersion={() => persistence.setIsSaveVersionDialogOpen(true)}
         currentContent={persistence.screenplayText}
       />
       <VersionCompareDialog
-        isOpen={!!compareVersion}
-        onClose={() => setCompareVersion(null)}
+        isOpen={!!dialogs.compareVersion}
+        onClose={dialogs.closeCompare}
         currentContent={persistence.screenplayText}
-        version={compareVersion}
+        version={dialogs.compareVersion}
         onRestore={persistence.handleRestore}
       />
       <ScreenplayDetailsDrawer
-        isOpen={isDetailsOpen}
-        onClose={() => setIsDetailsOpen(false)}
+        isOpen={dialogs.isDetailsOpen}
+        onClose={dialogs.closeDetails}
         screenplayId={screenplayId}
-        logline={logline}
-        genre={genre}
-        author={author}
-        type={screenplayType === 'FEATURE' || screenplayType === 'SHORT' ? 'FILM' : screenplayType === 'TV' ? 'TV' : undefined}
-        season={season}
-        episode={episode}
-        episodeTitle={episodeTitle}
-        titlePageFields={titlePageFields}
+        logline={metadata.logline}
+        genre={metadata.genre}
+        author={metadata.author}
+        type={metadata.screenplayType === 'FEATURE' || metadata.screenplayType === 'SHORT' ? 'FILM' : metadata.screenplayType === 'TV' ? 'TV' : undefined}
+        season={metadata.season}
+        episode={metadata.episode}
+        episodeTitle={metadata.episodeTitle}
+        titlePageFields={metadata.titlePageFields}
       />
       <ShareDialogEnhanced
-        open={isShareDialogOpen}
-        onOpenChange={setIsShareDialogOpen}
+        open={dialogs.isShareDialogOpen}
+        onOpenChange={dialogs.setIsShareDialogOpen}
         screenplayId={screenplayId}
         screenplayTitle={persistence.screenplayTitle}
       />
@@ -480,10 +414,10 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         onSave={persistence.handleSaveVersionWithMessage}
       />
       <VersionCompareTwoDialog
-        isOpen={!!compareTwoVersions}
-        onClose={() => setCompareTwoVersions(null)}
-        fromVersion={compareTwoVersions?.from ?? null}
-        toVersion={compareTwoVersions?.to ?? null}
+        isOpen={!!dialogs.compareTwoVersions}
+        onClose={dialogs.closeCompareTwo}
+        fromVersion={dialogs.compareTwoVersions?.from ?? null}
+        toVersion={dialogs.compareTwoVersions?.to ?? null}
         onRestore={persistence.handleRestore}
       />
       <ShotEditor
@@ -515,8 +449,8 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         onSave={handleSaveShot}
       />
       <ExportDialog
-        isOpen={isExportDialogOpen}
-        onClose={() => setIsExportDialogOpen(false)}
+        isOpen={dialogs.isExportDialogOpen}
+        onClose={dialogs.closeExport}
         title={persistence.screenplayTitle}
         author={session?.user?.name || ''}
         content={persistence.screenplayText}
@@ -525,5 +459,6 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         revisionColor="white"
       />
       </div>
+    </EditorCommandsProvider>
   );
 }

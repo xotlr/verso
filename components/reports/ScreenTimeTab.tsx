@@ -74,10 +74,7 @@ export function ScreenTimeTab({ scenes, characters }: ScreenTimeTabProps) {
       ) : (
         <div className="space-y-3">
           {castBreakdownData.map((cast, index) => (
-            <div
-              key={index}
-              className="p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors"
-            >
+            <div key={index} className="card-hoverable">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-bold text-sm">

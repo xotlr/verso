@@ -39,10 +39,7 @@ export function LocationListTab({ scenes, locations }: LocationListTabProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {locationBreakdownData.map((location, index) => (
-            <div
-              key={index}
-              className="p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors"
-            >
+            <div key={index} className="card-hoverable">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <h4 className="font-semibold">{location.name}</h4>
@@ -72,7 +69,7 @@ export function LocationListTab({ scenes, locations }: LocationListTabProps) {
       )}
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg border border-border">
+      <div className="stats-grid">
         <div>
           <p className="text-xs text-muted-foreground mb-1">Total Locations</p>
           <p className="text-2xl font-bold">{locationBreakdownData.length}</p>

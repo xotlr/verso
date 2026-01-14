@@ -190,6 +190,8 @@ function WorkspacePageContent() {
         body: JSON.stringify({
           title: result.title || 'Imported Screenplay',
           content: result.content,
+          logline: result.titlePage?.logline,
+          author: result.titlePage?.author,
         }),
       });
 

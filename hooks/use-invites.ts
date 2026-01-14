@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useSession } from 'next-auth/react'
+import { useSafeFetch, useAbortSignal } from './use-safe-fetch'
 
 interface InviteConfig {
   /** Base API path for fetching invites (e.g., '/api/invites') */
@@ -22,70 +23,65 @@ interface InviteResult {
 /**
  * Generic hook for managing invite lists (team invites, project role invites, etc.)
  * Provides fetch, accept, and decline functionality with consistent patterns.
+ * Uses useSafeFetch for automatic abort on unmount.
  */
 export function useInvites<T>(config: InviteConfig) {
   const { apiPath, acceptPath, declinePath, acceptMethod = 'POST' } = config
   const { data: session } = useSession()
-  const [invites, setInvites] = useState<T[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const getAbortSignal = useAbortSignal()
 
-  const fetchInvites = useCallback(async () => {
-    if (!session?.user?.email) {
-      setIsLoading(false)
-      return
-    }
+  // Only fetch when session is available
+  const shouldFetch = !!session?.user?.email
 
+  const { data, isLoading, refetch } = useSafeFetch<T[]>(
+    shouldFetch ? apiPath : null,
+    { initialData: [] }
+  )
+
+  const invites = data ?? []
+
+  const acceptInvite = useCallback(async (token: string): Promise<InviteResult> => {
     try {
-      const res = await fetch(apiPath)
+      const signal = getAbortSignal()
+      const res = await fetch(acceptPath(token), { method: acceptMethod, signal })
       if (res.ok) {
-        const data = await res.json()
-        setInvites(data)
-      }
-    } catch (error) {
-      console.error(`Failed to fetch invites from ${apiPath}:`, error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [session?.user?.email, apiPath])
-
-  useEffect(() => {
-    fetchInvites()
-  }, [fetchInvites])
-
-  const acceptInvite = async (token: string): Promise<InviteResult> => {
-    try {
-      const res = await fetch(acceptPath(token), { method: acceptMethod })
-      if (res.ok) {
-        await fetchInvites()
+        refetch()
         return { success: true }
       }
-      const data = await res.json().catch(() => ({}))
-      return { success: false, error: data.error || 'Failed to accept invite' }
-    } catch {
+      const responseData = await res.json().catch(() => ({}))
+      return { success: false, error: responseData.error || 'Failed to accept invite' }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return { success: false, error: 'Request cancelled' }
+      }
       return { success: false, error: 'Failed to accept invite' }
     }
-  }
+  }, [acceptPath, acceptMethod, getAbortSignal, refetch])
 
-  const declineInvite = async (token: string): Promise<InviteResult> => {
+  const declineInvite = useCallback(async (token: string): Promise<InviteResult> => {
     try {
-      const res = await fetch(declinePath(token), { method: 'DELETE' })
+      const signal = getAbortSignal()
+      const res = await fetch(declinePath(token), { method: 'DELETE', signal })
       if (res.ok) {
-        await fetchInvites()
+        refetch()
         return { success: true }
       }
-      const data = await res.json().catch(() => ({}))
-      return { success: false, error: data.error || 'Failed to decline invite' }
-    } catch {
+      const responseData = await res.json().catch(() => ({}))
+      return { success: false, error: responseData.error || 'Failed to decline invite' }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return { success: false, error: 'Request cancelled' }
+      }
       return { success: false, error: 'Failed to decline invite' }
     }
-  }
+  }, [declinePath, getAbortSignal, refetch])
 
   return {
     invites,
     isLoading,
     acceptInvite,
     declineInvite,
-    refresh: fetchInvites,
+    refresh: refetch,
     count: invites.length
   }
 }

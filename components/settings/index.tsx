@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import useSWR from 'swr';
 import { Download, Upload, RotateCcw, Palette, Type, Keyboard, LogOut, Accessibility, CreditCard, User, Users, Clapperboard } from 'lucide-react';
@@ -109,7 +109,7 @@ export function SettingsContent({ defaultTab = 'profile', onDone, showDoneButton
   // Loading state: SWR loading and no cached data
   const isLoadingProfile = swrLoading && !profileData;
 
-  const checkUsername = async (username: string) => {
+  const checkUsername = useCallback(async (username: string) => {
     if (!username || username.length < 3) {
       setUsernameStatus('idle');
       setUsernameError(null);
@@ -138,9 +138,9 @@ export function SettingsContent({ defaultTab = 'profile', onDone, showDoneButton
       setUsernameStatus('idle');
       setUsernameError('Failed to check username');
     }
-  };
+  }, []);
 
-  const handleUsernameChange = (value: string) => {
+  const handleUsernameChange = useCallback((value: string) => {
     setProfile(p => ({ ...p, username: value }));
 
     // Clear any pending check
@@ -152,9 +152,9 @@ export function SettingsContent({ defaultTab = 'profile', onDone, showDoneButton
     usernameTimeoutRef.current = setTimeout(() => {
       checkUsername(value);
     }, 500);
-  };
+  }, [checkUsername]);
 
-  const handleSaveProfile = async () => {
+  const handleSaveProfile = useCallback(async () => {
     if (!session?.user?.id) return;
     setIsSavingProfile(true);
     try {
@@ -193,7 +193,7 @@ export function SettingsContent({ defaultTab = 'profile', onDone, showDoneButton
     } finally {
       setIsSavingProfile(false);
     }
-  };
+  }, [session?.user?.id, profile, mutateProfile, updateSession]);
 
   const handleExport = () => {
     const json = exportSettings();

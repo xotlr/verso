@@ -1,5 +1,6 @@
 import { Plugin, PluginKey, EditorState, Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
+import { isViewReady } from '@/types/prosemirror';
 
 /**
  * Typewriter Scroll Plugin
@@ -55,8 +56,7 @@ export function updateTypewriterScrollSettings(
   options: Partial<TypewriterScrollOptions>
 ): void {
   // Guard against dispatching to a destroyed view (can happen during rapid content changes)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (!(view as any).docView) return;
+  if (!isViewReady(view)) return;
 
   const tr = createTypewriterScrollUpdateTransaction(view.state, options);
   view.dispatch(tr);

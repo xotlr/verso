@@ -158,14 +158,6 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       root.removeAttribute('data-app-font');
     }
 
-    // Apply editor font override (affects only screenplay editor)
-    const editorFont = settings.interface.editorFont;
-    if (editorFont && editorFont !== 'default') {
-      root.setAttribute('data-editor-font', editorFont);
-    } else {
-      root.removeAttribute('data-editor-font');
-    }
-
     // Apply premium theme attributes
     root.setAttribute('data-theme-preset', settings.visual.themePreset);
 

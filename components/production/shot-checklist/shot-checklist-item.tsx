@@ -195,7 +195,7 @@ export function ShotChecklistItem({
             {onSupervisorChange && (
               <div className="pt-3 border-t border-border/30 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  <span className="section-label">
                     Script Supervisor
                   </span>
                   <ContinuityFlagToggle

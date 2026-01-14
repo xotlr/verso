@@ -5,6 +5,11 @@
 @import '../styles/theme-ui-chrome.css';
 @import '../styles/theme-ambient.css';
 
+/* Modular style imports */
+@import '../styles/typography.css';
+@import '../styles/animations.css';
+@import '../styles/accessibility.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -138,11 +143,6 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
     font-size: var(--font-size, 14px) !important;
-  }
-
-  /* Limitless: aurora is the background */
-  html[data-theme-preset="limitless"] body {
-    background: transparent;
   }
 
   /* Global text selection highlight using primary color */
@@ -291,6 +291,9 @@
   [data-header-font="cinzel-decorative"] {
     --font-heading: var(--font-cinzel-decorative), Georgia, serif;
   }
+  [data-header-font="syne"] {
+    --font-heading: var(--font-syne), system-ui, sans-serif;
+  }
 
   /* Apply heading font to UI headings only (exclude screenplay editor) */
   h1:not(.ProseMirror *),
@@ -336,67 +339,42 @@
 
   /* ===== FONT PREVIEW (Theme selector - must use theme font, not app font) ===== */
   .font-preview {
-    font-family: var(--preview-font, inherit) !important;
+    font-family: var(--preview-font, inherit);
   }
 
-  /* ===== APP FONT OVERRIDES (Entire UI) ===== */
-  [data-app-font="sans"],
-  [data-app-font="sans"] body {
-    font-family: var(--font-inter), system-ui, sans-serif !important;
-  }
-  [data-app-font="sans"] h1, [data-app-font="sans"] h2, [data-app-font="sans"] h3,
-  [data-app-font="sans"] h4, [data-app-font="sans"] h5, [data-app-font="sans"] h6,
-  [data-app-font="sans"] button, [data-app-font="sans"] input,
-  [data-app-font="sans"] select, [data-app-font="sans"] textarea {
-    font-family: var(--font-inter), system-ui, sans-serif !important;
-  }
+  /* ===== APP FONT SYSTEM ===== */
+  /*
+   * App-wide font is controlled via data-app-font attribute on html.
+   * Uses CSS custom property inheritance instead of !important overrides.
+   * Form elements explicitly inherit to override browser defaults.
+   */
 
-  [data-app-font="system"],
-  [data-app-font="system"] body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  /* Define app font family based on data attribute */
+  [data-app-font="sans"] {
+    --app-font-family: var(--font-inter), system-ui, sans-serif;
   }
-  [data-app-font="system"] h1, [data-app-font="system"] h2, [data-app-font="system"] h3,
-  [data-app-font="system"] h4, [data-app-font="system"] h5, [data-app-font="system"] h6,
-  [data-app-font="system"] button, [data-app-font="system"] input,
-  [data-app-font="system"] select, [data-app-font="system"] textarea {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  [data-app-font="system"] {
+    --app-font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
-
-  [data-app-font="dyslexic"],
-  [data-app-font="dyslexic"] body {
-    font-family: 'OpenDyslexic', system-ui, sans-serif !important;
+  [data-app-font="dyslexic"] {
+    --app-font-family: 'OpenDyslexic', system-ui, sans-serif;
     letter-spacing: 0.03em;
   }
-  [data-app-font="dyslexic"] h1, [data-app-font="dyslexic"] h2, [data-app-font="dyslexic"] h3,
-  [data-app-font="dyslexic"] h4, [data-app-font="dyslexic"] h5, [data-app-font="dyslexic"] h6,
-  [data-app-font="dyslexic"] button, [data-app-font="dyslexic"] input,
-  [data-app-font="dyslexic"] select, [data-app-font="dyslexic"] textarea {
-    font-family: 'OpenDyslexic', system-ui, sans-serif !important;
+  [data-app-font="courier"] {
+    --app-font-family: var(--font-courier-prime), 'Courier New', monospace;
   }
 
-  /* ===== EDITOR FONT OVERRIDES (Screenplay Editor Only) ===== */
-  [data-editor-font="sans"] .ProseMirror,
-  [data-editor-font="sans"] .pm-editor,
-  [data-editor-font="sans"] .font-screenplay,
-  [data-editor-font="sans"] .screenplay-text {
-    font-family: var(--font-inter), system-ui, sans-serif !important;
-    letter-spacing: 0.01em;
+  /* Apply app font to root when data-app-font is set */
+  [data-app-font] {
+    font-family: var(--app-font-family);
   }
 
-  [data-editor-font="system"] .ProseMirror,
-  [data-editor-font="system"] .pm-editor,
-  [data-editor-font="system"] .font-screenplay,
-  [data-editor-font="system"] .screenplay-text {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  }
-
-  [data-editor-font="dyslexic"] .ProseMirror,
-  [data-editor-font="dyslexic"] .pm-editor,
-  [data-editor-font="dyslexic"] .font-screenplay,
-  [data-editor-font="dyslexic"] .screenplay-text {
-    font-family: 'OpenDyslexic', var(--font-courier-prime), monospace !important;
-    letter-spacing: 0.05em;
-    word-spacing: 0.12em;
+  /* Form elements don't inherit font by default - explicitly set inheritance */
+  [data-app-font] button,
+  [data-app-font] input,
+  [data-app-font] select,
+  [data-app-font] textarea {
+    font-family: inherit;
   }
 
   /* ===== ACCESSIBILITY ===== */
@@ -511,19 +489,177 @@
   .card-glow:hover::after {
     opacity: 1;
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
-  }
 }
 
 @layer components {
+  /* ===== SHARED UTILITY CLASSES ===== */
+
+  /**
+   * Card action button - consistent interactive button styling for cards.
+   * Used for menu triggers, action buttons on list rows and cards.
+   * Provides touch-friendly sizing on mobile (44x44px tap target).
+   */
+  .card-action-btn {
+    @apply p-2 sm:p-1.5;
+    @apply hover:bg-accent rounded-md transition-colors;
+    @apply text-muted-foreground hover:text-foreground;
+    @apply min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0;
+    @apply flex items-center justify-center flex-shrink-0;
+  }
+
+  /**
+   * Primary badge - small labeled indicator with primary color scheme.
+   * Used for scene counts, shot counts, status indicators.
+   */
+  .badge-primary {
+    @apply inline-flex items-center gap-1;
+    @apply px-1.5 py-0.5 rounded;
+    @apply text-[9px] font-bold uppercase tracking-wider;
+    @apply bg-primary/10 text-primary border border-primary/20;
+  }
+
+  /**
+   * Primary badge (medium) - slightly larger variant.
+   */
+  .badge-primary-md {
+    @apply inline-flex items-center gap-1;
+    @apply px-1.5 py-0.5 rounded;
+    @apply text-[10px] font-medium;
+    @apply bg-primary/10 text-primary;
+  }
+
+  /**
+   * Icon button (primary) - square icon container with primary styling.
+   * Used for feature icons, action indicators.
+   */
+  .icon-btn-primary {
+    @apply inline-flex items-center justify-center;
+    @apply h-8 w-8 rounded-lg;
+    @apply bg-primary/10 text-primary border border-primary/20;
+  }
+
+  /**
+   * Hoverable card - interactive card with hover highlight.
+   * Used for list items, report entries, selectable cards.
+   */
+  .card-hoverable {
+    @apply p-4 bg-card border border-border rounded-lg;
+    @apply hover:border-primary/50 transition-colors;
+  }
+
+  /**
+   * Search input icon - positioned icon for search inputs.
+   * Used inside relative containers with search inputs.
+   */
+  .search-input-icon {
+    @apply absolute left-3 top-1/2 -translate-y-1/2;
+    @apply h-4 w-4 text-muted-foreground;
+  }
+
+  /**
+   * Card footer - bottom section with border separator.
+   * Used for action buttons, meta info at card bottom.
+   */
+  .card-footer {
+    @apply mt-auto pt-3 border-t border-border/40;
+    @apply flex items-center justify-between;
+  }
+
+  /**
+   * Stats grid - 3-column grid for displaying metrics.
+   * Used for analytics, breakdowns, summaries.
+   */
+  .stats-grid {
+    @apply grid grid-cols-3 gap-4 p-4;
+    @apply bg-muted/50 rounded-lg border border-border;
+  }
+
+  /**
+   * Section label - uppercase muted heading for sections.
+   * Used for analytics panels, sidebars, form sections.
+   */
+  .section-label {
+    @apply text-xs font-medium text-muted-foreground;
+    @apply uppercase tracking-wider;
+  }
+
+  /**
+   * Code block - monospace container for code/data display.
+   * Used for JSON, code snippets, technical data.
+   */
+  .code-block {
+    @apply bg-muted/50 border border-border rounded-lg;
+    @apply p-4 font-mono text-sm;
+  }
+
+  /**
+   * Empty state - centered message for empty content areas.
+   * Used for empty lists, no results, placeholder states.
+   */
+  .empty-state {
+    @apply text-center py-5 px-4;
+    @apply font-medium text-base text-muted-foreground;
+  }
+
+  /**
+   * Menu item - hoverable list item for dropdowns/menus.
+   * Used for command menus, context menus, select options.
+   */
+  .menu-item {
+    @apply flex items-center px-3 py-2;
+    @apply text-sm hover:bg-accent cursor-pointer;
+  }
+
+  /**
+   * Meta text - small muted text with icon.
+   * Used for timestamps, counts, secondary info.
+   */
+  .meta-text {
+    @apply flex items-center gap-1;
+    @apply text-xs text-muted-foreground;
+  }
+
+  /**
+   * Centered content - vertically/horizontally centered flex container.
+   * Used for empty states, loading states, placeholder content.
+   */
+  .centered-content {
+    @apply flex flex-col items-center justify-center;
+    @apply py-8 text-center;
+  }
+
+  /**
+   * Spinner - animated loading indicator.
+   * Used for loading states, async operations.
+   */
+  .spinner {
+    @apply h-6 w-6 animate-spin text-muted-foreground;
+  }
+
+  /**
+   * Row between - flex row with space between and vertical padding.
+   * Used for list rows, settings items, key-value pairs.
+   */
+  .row-between {
+    @apply flex items-center justify-between py-0.5;
+  }
+
+  /**
+   * Large icon - centered large muted icon for empty states.
+   * Used for empty state illustrations, feature icons.
+   */
+  .icon-large {
+    @apply h-12 w-12 mx-auto text-muted-foreground/50 mb-3;
+  }
+
+  /**
+   * Skeleton line - animated placeholder for text loading.
+   * Used for loading skeletons.
+   */
+  .skeleton-line {
+    @apply h-5 w-3/4 bg-muted rounded animate-pulse mb-2;
+  }
+
   /* ===== SCROLLBAR ===== */
   ::-webkit-scrollbar {
     @apply w-2 h-2;
@@ -1494,6 +1630,1025 @@ button {
 
 /* ===== LANDING PAGE MICRO-INTERACTIONS ===== */
 @layer utilities {
+  /* Limitless Theme: Aurora Background Override */
+  /* Must be in utilities layer to override bg-background Tailwind class */
+  html[data-theme-preset="limitless"],
+  html[data-theme-preset="limitless"] body {
+    background: transparent !important;
+  }
+
+  html[data-theme-preset="limitless"] [data-sidebar="inset"] {
+    background: transparent !important;
+  }
+
+  /* Make all bg-background elements within content area transparent for aurora */
+  html[data-theme-preset="limitless"] [data-sidebar="inset"] .bg-background {
+    background-color: transparent !important;
+  }
+
+  /* Keep backgrounds for UI elements that need them (dialogs, popovers, dropdowns) */
+  html[data-theme-preset="limitless"] [role="dialog"] .bg-background,
+  html[data-theme-preset="limitless"] [data-radix-popper-content-wrapper] .bg-background,
+  html[data-theme-preset="limitless"] [data-radix-menu-content] .bg-background {
+    background-color: hsl(var(--background)) !important;
+  }
+
+  /* ========== LIMITLESS: TRANSPARENT SIDEBAR & HEADER ========== */
+
+  /* Base sidebar style (fallback for all themes) */
+  [data-sidebar="sidebar"] {
+    background: hsl(var(--sidebar-background));
+  }
+
+  /* Limitless theme: COMPLETELY transparent sidebar */
+  html[data-theme-preset="limitless"] [data-sidebar="sidebar"] {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
+  }
+
+  /* Limitless theme: Override sidebar-background variable */
+  html[data-theme-preset="limitless"] {
+    --sidebar-background: 0 0% 0% / 0 !important;
+  }
+
+  /* Limitless theme: Transparent sidebar background (not header - header has glass effect) */
+  html[data-theme-preset="limitless"] .bg-sidebar:not(header),
+  html[data-theme-preset="limitless"] [class*="bg-sidebar"]:not(header),
+  html[data-theme-preset="limitless"] .sticky.top-0.bg-sidebar:not(header) {
+    --tw-bg-opacity: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  /* Ensure header wrapper div is also transparent */
+  html[data-theme-preset="limitless"] [data-sidebar="inset"] > div:first-child,
+  html[data-theme-preset="limitless"] main[data-sidebar="inset"] > div:first-child {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Make the SidebarInset (main content area) transparent for header visibility */
+  html[data-theme-preset="limitless"] [data-sidebar="inset"],
+  html[data-theme-preset="limitless"] main[data-sidebar="inset"] {
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  /* Limitless: Remove all backgrounds/borders from sidebar elements */
+  html[data-theme-preset="limitless"] [data-sidebar="sidebar"] *,
+  html[data-theme-preset="limitless"] [data-sidebar="sidebar"] *::before,
+  html[data-theme-preset="limitless"] [data-sidebar="sidebar"] *::after {
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-color: transparent !important;
+  }
+
+  /* Limitless: Keep primary buttons visible */
+  html[data-theme-preset="limitless"] [data-sidebar="sidebar"] .bg-primary {
+    background: hsl(var(--primary)) !important;
+  }
+
+  /* Limitless: Keep theme toggle visible */
+  html[data-theme-preset="limitless"] [data-sidebar="sidebar"] [role="radiogroup"] {
+    background: hsl(var(--background) / 0.5) !important;
+  }
+  html[data-theme-preset="limitless"] [data-sidebar="sidebar"] [role="radiogroup"] [aria-checked="true"] {
+    background: hsl(var(--background) / 0.8) !important;
+  }
+
+  /* ========== LIMITLESS GLASSMORPHISM ========== */
+
+  /* Glass Cards */
+  html[data-theme-preset="limitless"] .bg-card,
+  html[data-theme-preset="limitless"] [data-slot="card"] {
+    background: hsl(var(--card) / 0.4) !important;
+    backdrop-filter: blur(24px) saturate(1.4);
+    border: 1px solid hsl(var(--primary) / 0.15) !important;
+    box-shadow:
+      0 4px 24px -4px hsl(var(--primary) / 0.15),
+      0 0 0 1px hsl(var(--primary) / 0.05),
+      inset 0 1px 0 hsl(255 100% 100% / 0.05);
+  }
+
+  html[data-theme-preset="limitless"] .bg-card:hover,
+  html[data-theme-preset="limitless"] [data-slot="card"]:hover {
+    background: hsl(var(--card) / 0.5) !important;
+    border-color: hsl(var(--primary) / 0.25) !important;
+    box-shadow:
+      0 8px 32px -4px hsl(var(--primary) / 0.2),
+      0 0 0 1px hsl(var(--primary) / 0.1),
+      inset 0 1px 0 hsl(255 100% 100% / 0.08);
+  }
+
+  /* Glass Toolbar/Tabs */
+  html[data-theme-preset="limitless"] [role="tablist"],
+  html[data-theme-preset="limitless"] .bg-muted {
+    background: hsl(var(--muted) / 0.3) !important;
+    backdrop-filter: blur(16px) saturate(1.3);
+    border: 1px solid hsl(var(--primary) / 0.1);
+  }
+
+  /* Glass Tab Buttons */
+  html[data-theme-preset="limitless"] [role="tab"][data-state="active"] {
+    background: hsl(var(--primary) / 0.15) !important;
+    backdrop-filter: blur(12px);
+    box-shadow:
+      0 2px 8px hsl(var(--primary) / 0.2),
+      inset 0 1px 0 hsl(255 100% 100% / 0.1);
+  }
+
+  /* ========== APPLE GLASS BUTTONS ========== */
+
+  /* Base button glass - all buttons get glass treatment */
+  html[data-theme-preset="limitless"] button,
+  html[data-theme-preset="limitless"] [role="button"],
+  html[data-theme-preset="limitless"] a[class*="button"],
+  html[data-theme-preset="limitless"] .btn {
+    position: relative;
+    backdrop-filter: blur(16px) saturate(1.8);
+    -webkit-backdrop-filter: blur(16px) saturate(1.8);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Default/Primary button - vibrant glass */
+  html[data-theme-preset="limitless"] button[class~="bg-primary"] {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.85) 0%,
+      hsl(var(--primary) / 0.65) 100%
+    ) !important;
+    backdrop-filter: blur(20px) saturate(2);
+    -webkit-backdrop-filter: blur(20px) saturate(2);
+    border: 1px solid hsl(var(--primary) / 0.4) !important;
+    box-shadow:
+      0 4px 20px hsl(var(--primary) / 0.35),
+      0 0 40px -10px hsl(var(--primary) / 0.3),
+      inset 0 1px 0 hsl(255 100% 100% / 0.2),
+      inset 0 -1px 0 hsl(var(--primary) / 0.2);
+  }
+
+  html[data-theme-preset="limitless"] button[class~="bg-primary"]:hover {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.95) 0%,
+      hsl(var(--primary) / 0.75) 100%
+    ) !important;
+    transform: translateY(-1px);
+    box-shadow:
+      0 8px 28px hsl(var(--primary) / 0.45),
+      0 0 60px -10px hsl(var(--primary) / 0.4),
+      inset 0 1px 0 hsl(255 100% 100% / 0.25),
+      inset 0 -1px 0 hsl(var(--primary) / 0.3);
+  }
+
+  html[data-theme-preset="limitless"] button[class~="bg-primary"]:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow:
+      0 2px 12px hsl(var(--primary) / 0.3),
+      inset 0 1px 0 hsl(255 100% 100% / 0.15);
+  }
+
+  /* Secondary button - frosted glass */
+  html[data-theme-preset="limitless"] button[class~="bg-secondary"] {
+    background: hsl(var(--secondary) / 0.4) !important;
+    backdrop-filter: blur(20px) saturate(1.8);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    border: 1px solid hsl(var(--primary) / 0.15) !important;
+    box-shadow:
+      0 2px 12px hsl(var(--primary) / 0.1),
+      inset 0 1px 0 hsl(255 100% 100% / 0.1);
+  }
+
+  html[data-theme-preset="limitless"] button[class~="bg-secondary"]:hover {
+    background: hsl(var(--secondary) / 0.55) !important;
+    border-color: hsl(var(--primary) / 0.25) !important;
+    box-shadow:
+      0 4px 20px hsl(var(--primary) / 0.15),
+      inset 0 1px 0 hsl(255 100% 100% / 0.15);
+    transform: translateY(-1px);
+  }
+
+  /* Outline button - minimal glass border */
+  html[data-theme-preset="limitless"] button[class*="border"][class*="bg-background"] {
+    background: hsl(var(--background) / 0.25) !important;
+    backdrop-filter: blur(20px) saturate(1.8);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    border: 1px solid hsl(var(--primary) / 0.2) !important;
+    box-shadow:
+      0 2px 8px hsl(var(--primary) / 0.08),
+      inset 0 1px 0 hsl(255 100% 100% / 0.08);
+  }
+
+  html[data-theme-preset="limitless"] button[class*="border"][class*="bg-background"]:hover {
+    background: hsl(var(--primary) / 0.12) !important;
+    border-color: hsl(var(--primary) / 0.35) !important;
+    box-shadow:
+      0 4px 16px hsl(var(--primary) / 0.15),
+      inset 0 1px 0 hsl(255 100% 100% / 0.12);
+  }
+
+  /* Ghost button - invisible until hover */
+  html[data-theme-preset="limitless"] button:not([class*="bg-"]):not([role="tab"]):not([role="switch"]):not([role="checkbox"]) {
+    background: transparent !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  html[data-theme-preset="limitless"] button:not([class*="bg-"]):not([role="tab"]):not([role="switch"]):not([role="checkbox"]):hover {
+    background: hsl(var(--primary) / 0.12) !important;
+    backdrop-filter: blur(16px) saturate(1.6);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6);
+    box-shadow:
+      0 2px 12px hsl(var(--primary) / 0.1),
+      inset 0 1px 0 hsl(255 100% 100% / 0.08);
+  }
+
+  /* Destructive button - danger glass */
+  html[data-theme-preset="limitless"] button[class~="bg-destructive"] {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--destructive) / 0.8) 0%,
+      hsl(var(--destructive) / 0.6) 100%
+    ) !important;
+    backdrop-filter: blur(16px) saturate(1.6);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6);
+    border: 1px solid hsl(var(--destructive) / 0.4) !important;
+    box-shadow:
+      0 4px 16px hsl(var(--destructive) / 0.3),
+      inset 0 1px 0 hsl(255 100% 100% / 0.15);
+  }
+
+  html[data-theme-preset="limitless"] button[class~="bg-destructive"]:hover {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--destructive) / 0.9) 0%,
+      hsl(var(--destructive) / 0.7) 100%
+    ) !important;
+    transform: translateY(-1px);
+    box-shadow:
+      0 6px 24px hsl(var(--destructive) / 0.4),
+      inset 0 1px 0 hsl(255 100% 100% / 0.2);
+  }
+
+  /* Icon buttons - circular glass */
+  html[data-theme-preset="limitless"] button[class*="icon"],
+  html[data-theme-preset="limitless"] button.h-9.w-9,
+  html[data-theme-preset="limitless"] button.h-8.w-8,
+  html[data-theme-preset="limitless"] button.size-8,
+  html[data-theme-preset="limitless"] button.size-9 {
+    background: hsl(var(--background) / 0.25) !important;
+    backdrop-filter: blur(16px) saturate(1.8);
+    -webkit-backdrop-filter: blur(16px) saturate(1.8);
+    border: 1px solid hsl(var(--primary) / 0.12) !important;
+    box-shadow:
+      0 2px 8px hsl(var(--primary) / 0.08),
+      inset 0 1px 0 hsl(255 100% 100% / 0.06);
+  }
+
+  html[data-theme-preset="limitless"] button[class*="icon"]:hover,
+  html[data-theme-preset="limitless"] button.h-9.w-9:hover,
+  html[data-theme-preset="limitless"] button.h-8.w-8:hover,
+  html[data-theme-preset="limitless"] button.size-8:hover,
+  html[data-theme-preset="limitless"] button.size-9:hover {
+    background: hsl(var(--primary) / 0.15) !important;
+    border-color: hsl(var(--primary) / 0.25) !important;
+    box-shadow:
+      0 4px 16px hsl(var(--primary) / 0.2),
+      0 0 20px -4px hsl(var(--primary) / 0.15),
+      inset 0 1px 0 hsl(255 100% 100% / 0.1);
+    transform: translateY(-1px);
+  }
+
+  /* Accent/muted backgrounds - subtle glass */
+  html[data-theme-preset="limitless"] button[class~="bg-accent"] {
+    background: hsl(var(--accent) / 0.2) !important;
+    backdrop-filter: blur(16px) saturate(1.6);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6);
+    border: 1px solid hsl(var(--primary) / 0.1) !important;
+  }
+
+  html[data-theme-preset="limitless"] button[class~="bg-accent"]:hover {
+    background: hsl(var(--accent) / 0.35) !important;
+    border-color: hsl(var(--primary) / 0.2) !important;
+  }
+
+  /* Button inner shine effect - requires position relative on buttons */
+  html[data-theme-preset="limitless"] button {
+    position: relative;
+  }
+
+  html[data-theme-preset="limitless"] button::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      180deg,
+      hsl(255 100% 100% / 0.1) 0%,
+      transparent 50%
+    );
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  html[data-theme-preset="limitless"] button:hover::before {
+    opacity: 1;
+  }
+
+
+  /* Glass Input Fields */
+  html[data-theme-preset="limitless"] input,
+  html[data-theme-preset="limitless"] textarea {
+    background: hsl(var(--background) / 0.3) !important;
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--primary) / 0.15) !important;
+  }
+
+  html[data-theme-preset="limitless"] input:focus,
+  html[data-theme-preset="limitless"] textarea:focus {
+    border-color: hsl(var(--primary) / 0.4) !important;
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
+  }
+
+  /* Glass Badges/Pills */
+  html[data-theme-preset="limitless"] [data-slot="badge"],
+  html[data-theme-preset="limitless"] .badge {
+    background: hsl(var(--primary) / 0.2) !important;
+    backdrop-filter: blur(8px);
+    border: 1px solid hsl(var(--primary) / 0.2);
+  }
+
+  /* Glass Search */
+  html[data-theme-preset="limitless"] [data-slot="search"],
+  html[data-theme-preset="limitless"] .search-input {
+    background: hsl(var(--background) / 0.25) !important;
+    backdrop-filter: blur(16px) saturate(1.2);
+    border: 1px solid hsl(var(--primary) / 0.1) !important;
+  }
+
+  /* Scrollbar Frosted Glass Effect */
+  html[data-theme-preset="limitless"] ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    background: transparent;
+  }
+
+  html[data-theme-preset="limitless"] ::-webkit-scrollbar-track {
+    background: hsl(var(--background) / 0.2);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 999px;
+    margin: 4px;
+  }
+
+  html[data-theme-preset="limitless"] ::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  html[data-theme-preset="limitless"] ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.6);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  html[data-theme-preset="limitless"] ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* ScrollArea component - remove borders and make seamless */
+  html[data-theme-preset="limitless"] [data-radix-scroll-area-viewport] {
+    border: none !important;
+    outline: none !important;
+  }
+
+  html[data-theme-preset="limitless"] [data-radix-scroll-area-scrollbar] {
+    background: transparent !important;
+    border: none !important;
+  }
+
+  html[data-theme-preset="limitless"] [data-radix-scroll-area-thumb] {
+    background: hsl(var(--primary) / 0.3) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 999px !important;
+  }
+
+  html[data-theme-preset="limitless"] [data-radix-scroll-area-thumb]:hover {
+    background: hsl(var(--primary) / 0.5) !important;
+  }
+
+  /* Header: TRANSPARENT for limitless (float on aurora) */
+  html[data-theme-preset="limitless"] header,
+  html[data-theme-preset="limitless"] [data-slot="header"] {
+    background: transparent !important;
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Limitless: Space Grotesk for header and sidebar */
+  html[data-theme-preset="limitless"] header,
+  html[data-theme-preset="limitless"] header *,
+  html[data-theme-preset="limitless"] [data-sidebar="sidebar"],
+  html[data-theme-preset="limitless"] [data-sidebar="sidebar"] * {
+    font-family: var(--font-space-grotesk), "Space Grotesk", system-ui, sans-serif !important;
+  }
+
+  /* Popover/Dropdown Glass */
+  html[data-theme-preset="limitless"] [data-radix-popper-content-wrapper] > div,
+  html[data-theme-preset="limitless"] [role="menu"],
+  html[data-theme-preset="limitless"] [role="listbox"] {
+    background: hsl(var(--popover) / 0.85) !important;
+    backdrop-filter: blur(24px) saturate(1.5);
+    border: 1px solid hsl(var(--primary) / 0.15) !important;
+    box-shadow:
+      0 8px 32px hsl(0 0% 0% / 0.3),
+      0 0 0 1px hsl(var(--primary) / 0.1);
+  }
+
+  /* Glow effect on interactive elements */
+  html[data-theme-preset="limitless"] .bg-card::before,
+  html[data-theme-preset="limitless"] [data-slot="card"]::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.2) 0%,
+      transparent 50%,
+      hsl(var(--primary) / 0.1) 100%
+    );
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  html[data-theme-preset="limitless"] .bg-card:hover::before,
+  html[data-theme-preset="limitless"] [data-slot="card"]:hover::before {
+    opacity: 1;
+  }
+
+  /* Subtle text glow for headings */
+  html[data-theme-preset="limitless"].dark h1:not(.ProseMirror *),
+  html[data-theme-preset="limitless"].dark h2:not(.ProseMirror *) {
+    text-shadow: 0 0 30px hsl(var(--primary) / 0.3);
+  }
+
+  /* Bottom nav glass */
+  html[data-theme-preset="limitless"] nav[data-slot="bottom-nav"] {
+    background: hsl(var(--background) / 0.6) !important;
+    backdrop-filter: blur(20px) saturate(1.5);
+    border-top: 1px solid hsl(var(--primary) / 0.1) !important;
+  }
+
+  /* Screenplay Cards - Direct targeting */
+  html[data-theme-preset="limitless"] .group.relative.bg-card {
+    position: relative;
+    background: hsl(var(--card) / 0.35) !important;
+    backdrop-filter: blur(20px) saturate(1.5);
+    border: 1px solid hsl(var(--primary) / 0.12) !important;
+    box-shadow:
+      0 4px 20px -4px hsl(var(--primary) / 0.12),
+      inset 0 1px 0 hsl(255 100% 100% / 0.04);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html[data-theme-preset="limitless"] .group.relative.bg-card:hover {
+    background: hsl(var(--card) / 0.45) !important;
+    border-color: hsl(var(--primary) / 0.25) !important;
+    box-shadow:
+      0 8px 32px -4px hsl(var(--primary) / 0.2),
+      0 0 20px -4px hsl(var(--primary) / 0.15),
+      inset 0 1px 0 hsl(255 100% 100% / 0.08);
+    transform: translateY(-2px);
+  }
+
+  /* Card glow ring on hover */
+  html[data-theme-preset="limitless"] .group.relative.bg-card::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.15) 0%,
+      transparent 40%,
+      transparent 60%,
+      hsl(var(--primary) / 0.1) 100%
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  html[data-theme-preset="limitless"] .group.relative.bg-card:hover::after {
+    opacity: 1;
+  }
+
+  /* Border elements - subtle glow */
+  html[data-theme-preset="limitless"] .border-border {
+    border-color: hsl(var(--primary) / 0.12) !important;
+  }
+
+  html[data-theme-preset="limitless"] .border-border\/60 {
+    border-color: hsl(var(--primary) / 0.1) !important;
+  }
+
+  /* Dividers */
+  html[data-theme-preset="limitless"] hr,
+  html[data-theme-preset="limitless"] [role="separator"] {
+    border-color: hsl(var(--primary) / 0.1) !important;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.15), transparent);
+  }
+
+  /* Filter pills/chips glass */
+  html[data-theme-preset="limitless"] [data-slot="filter-pill"],
+  html[data-theme-preset="limitless"] .rounded-full.border {
+    background: hsl(var(--background) / 0.3) !important;
+    backdrop-filter: blur(12px);
+    border-color: hsl(var(--primary) / 0.15) !important;
+  }
+
+  /* Active filter pill */
+  html[data-theme-preset="limitless"] [data-active="true"],
+  html[data-theme-preset="limitless"] [aria-pressed="true"] {
+    background: hsl(var(--primary) / 0.2) !important;
+    border-color: hsl(var(--primary) / 0.3) !important;
+    box-shadow: 0 0 12px hsl(var(--primary) / 0.2);
+  }
+
+  /* Enhanced text contrast for glass backgrounds */
+  html[data-theme-preset="limitless"].dark .text-foreground {
+    text-shadow: 0 1px 2px hsl(0 0% 0% / 0.3);
+  }
+
+  html[data-theme-preset="limitless"].dark .text-muted-foreground {
+    text-shadow: 0 1px 1px hsl(0 0% 0% / 0.2);
+  }
+
+  /* Cyan accent glow for primary actions */
+  html[data-theme-preset="limitless"] .text-primary {
+    text-shadow: 0 0 10px currentColor;
+  }
+
+  /* Glass tooltip */
+  html[data-theme-preset="limitless"] [role="tooltip"] {
+    background: hsl(var(--popover) / 0.9) !important;
+    backdrop-filter: blur(16px) saturate(1.5);
+    border: 1px solid hsl(var(--primary) / 0.15) !important;
+  }
+
+  /* Shimmer/reflection effect on glass surfaces */
+  @keyframes glass-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  html[data-theme-preset="limitless"] .group.relative.bg-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--primary) / 0.3) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  html[data-theme-preset="limitless"] .group.relative.bg-card:hover::before {
+    opacity: 1;
+    animation: glass-shimmer 2s ease-in-out infinite;
+  }
+
+  /* Light mode limitless adjustments */
+  html[data-theme-preset="limitless"]:not(.dark) .bg-card,
+  html[data-theme-preset="limitless"]:not(.dark) .group.relative.bg-card {
+    background: hsl(var(--card) / 0.6) !important;
+    box-shadow:
+      0 4px 20px -4px hsl(var(--primary) / 0.08),
+      inset 0 1px 0 hsl(255 100% 100% / 0.5);
+  }
+
+  /* REMOVED: Conflicting sidebar glassmorphism rules - now handled in LIMITLESS: TRANSPARENT SIDEBAR section */
+
+  /* ========== DIALOGS & SHEETS GLASS ========== */
+
+  /* Dialog/Modal deep glass */
+  html[data-theme-preset="limitless"] [role="dialog"][data-state="open"] > div:first-child,
+  html[data-theme-preset="limitless"] [data-radix-dialog-content] {
+    background: hsl(var(--background) / 0.88) !important;
+    backdrop-filter: blur(40px) saturate(1.8);
+    border: 1px solid hsl(var(--primary) / 0.18) !important;
+    box-shadow:
+      0 32px 80px -16px hsl(0 0% 0% / 0.5),
+      0 0 0 1px hsl(var(--primary) / 0.08),
+      0 0 60px -10px hsl(var(--primary) / 0.15),
+      inset 0 1px 0 hsl(255 100% 100% / 0.05);
+  }
+
+  /* Dialog header border glow */
+  html[data-theme-preset="limitless"] [role="dialog"] [data-slot="dialog-header"]::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent);
+  }
+
+  /* Dialog overlay aurora tint */
+  html[data-theme-preset="limitless"] [data-radix-dialog-overlay],
+  html[data-theme-preset="limitless"] [data-state="open"][role="presentation"] {
+    background: radial-gradient(
+      ellipse at 50% 0%,
+      hsl(var(--primary) / 0.08) 0%,
+      hsl(0 0% 0% / 0.6) 100%
+    ) !important;
+    backdrop-filter: blur(8px);
+  }
+
+  /* Sheet/Drawer glass */
+  html[data-theme-preset="limitless"] [data-radix-dialog-content][data-side] {
+    background: hsl(var(--background) / 0.92) !important;
+    backdrop-filter: blur(40px) saturate(1.6);
+    border: 1px solid hsl(var(--primary) / 0.12) !important;
+    box-shadow:
+      0 0 60px -10px hsl(var(--primary) / 0.2),
+      inset 0 1px 0 hsl(255 100% 100% / 0.04);
+  }
+
+  /* ========== COMMAND PALETTE GLASS ========== */
+
+  html[data-theme-preset="limitless"] [cmdk-root],
+  html[data-theme-preset="limitless"] [data-slot="command-dialog"] {
+    background: hsl(var(--background) / 0.92) !important;
+    backdrop-filter: blur(40px) saturate(1.6);
+    border: 1px solid hsl(var(--primary) / 0.18) !important;
+    box-shadow:
+      0 32px 80px -16px hsl(0 0% 0% / 0.5),
+      0 0 80px -20px hsl(var(--primary) / 0.2),
+      0 0 0 1px hsl(var(--primary) / 0.08);
+  }
+
+  html[data-theme-preset="limitless"] [cmdk-input-wrapper],
+  html[data-theme-preset="limitless"] [cmdk-input] {
+    background: hsl(var(--background) / 0.4) !important;
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid hsl(var(--primary) / 0.12) !important;
+  }
+
+  html[data-theme-preset="limitless"] [cmdk-item] {
+    transition: all 0.15s ease;
+  }
+
+  html[data-theme-preset="limitless"] [cmdk-item][data-selected="true"],
+  html[data-theme-preset="limitless"] [cmdk-item][aria-selected="true"] {
+    background: hsl(var(--primary) / 0.15) !important;
+    backdrop-filter: blur(8px);
+    box-shadow:
+      inset 0 1px 0 hsl(255 100% 100% / 0.05),
+      0 0 12px -4px hsl(var(--primary) / 0.3);
+  }
+
+  html[data-theme-preset="limitless"] [cmdk-group-heading] {
+    color: hsl(var(--primary) / 0.8);
+    text-shadow: 0 0 16px hsl(var(--primary) / 0.4);
+    letter-spacing: 0.05em;
+  }
+
+  /* ========== SWITCHES & TOGGLES GLASS ========== */
+
+  html[data-theme-preset="limitless"] [role="switch"] {
+    background: hsl(var(--muted) / 0.4) !important;
+    backdrop-filter: blur(8px);
+    border: 1px solid hsl(var(--primary) / 0.1) !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html[data-theme-preset="limitless"] [role="switch"][data-state="checked"] {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.5) 0%,
+      hsl(var(--primary) / 0.7) 100%
+    ) !important;
+    border-color: hsl(var(--primary) / 0.4) !important;
+    box-shadow:
+      0 0 20px hsl(var(--primary) / 0.4),
+      0 0 40px -10px hsl(var(--primary) / 0.3),
+      inset 0 1px 0 hsl(255 100% 100% / 0.15);
+  }
+
+  html[data-theme-preset="limitless"] [role="switch"] > span {
+    background: linear-gradient(
+      180deg,
+      hsl(255 100% 100% / 1) 0%,
+      hsl(255 100% 100% / 0.9) 100%
+    ) !important;
+    box-shadow:
+      0 2px 8px hsl(0 0% 0% / 0.25),
+      0 0 0 1px hsl(0 0% 0% / 0.05);
+  }
+
+  html[data-theme-preset="limitless"] [role="switch"][data-state="checked"] > span {
+    box-shadow:
+      0 2px 8px hsl(0 0% 0% / 0.25),
+      0 0 12px hsl(var(--primary) / 0.4);
+  }
+
+  /* ========== CHECKBOX & RADIO GLASS ========== */
+
+  html[data-theme-preset="limitless"] [role="checkbox"],
+  html[data-theme-preset="limitless"] button[role="checkbox"] {
+    background: hsl(var(--background) / 0.4) !important;
+    backdrop-filter: blur(4px);
+    border: 1px solid hsl(var(--primary) / 0.25) !important;
+    transition: all 0.2s ease;
+  }
+
+  html[data-theme-preset="limitless"] [role="checkbox"][data-state="checked"],
+  html[data-theme-preset="limitless"] button[role="checkbox"][data-state="checked"] {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.7) 0%,
+      hsl(var(--primary) / 0.9) 100%
+    ) !important;
+    border-color: hsl(var(--primary)) !important;
+    box-shadow:
+      0 0 12px hsl(var(--primary) / 0.4),
+      inset 0 1px 0 hsl(255 100% 100% / 0.2);
+  }
+
+  /* ========== SLIDER GLASS ========== */
+
+  html[data-theme-preset="limitless"] [role="slider"],
+  html[data-theme-preset="limitless"] .slider-track {
+    background: hsl(var(--muted) / 0.4) !important;
+    backdrop-filter: blur(4px);
+  }
+
+  html[data-theme-preset="limitless"] [data-orientation="horizontal"] > span:first-child,
+  html[data-theme-preset="limitless"] .slider-range {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--primary) / 0.6) 0%,
+      hsl(var(--primary) / 0.9) 100%
+    ) !important;
+    box-shadow: 0 0 16px hsl(var(--primary) / 0.4);
+  }
+
+  html[data-theme-preset="limitless"] [role="slider"] span[data-orientation],
+  html[data-theme-preset="limitless"] .slider-thumb {
+    background: linear-gradient(
+      180deg,
+      hsl(255 100% 100%) 0%,
+      hsl(255 100% 98%) 100%
+    ) !important;
+    border: 2px solid hsl(var(--primary) / 0.5) !important;
+    box-shadow:
+      0 2px 10px hsl(0 0% 0% / 0.25),
+      0 0 16px hsl(var(--primary) / 0.3);
+    transition: all 0.2s ease;
+  }
+
+  html[data-theme-preset="limitless"] [role="slider"] span[data-orientation]:hover,
+  html[data-theme-preset="limitless"] .slider-thumb:hover {
+    transform: scale(1.15);
+    box-shadow:
+      0 4px 16px hsl(0 0% 0% / 0.3),
+      0 0 24px hsl(var(--primary) / 0.5);
+  }
+
+  /* ========== TOAST GLASS ========== */
+
+  html[data-theme-preset="limitless"] [data-sonner-toast],
+  html[data-theme-preset="limitless"] [data-sonner-toaster] li {
+    background: hsl(var(--background) / 0.88) !important;
+    backdrop-filter: blur(32px) saturate(1.6);
+    border: 1px solid hsl(var(--primary) / 0.15) !important;
+    box-shadow:
+      0 12px 40px hsl(0 0% 0% / 0.35),
+      0 0 0 1px hsl(var(--primary) / 0.08),
+      0 0 30px -10px hsl(var(--primary) / 0.15);
+  }
+
+  /* ========== AVATAR GLOW ========== */
+
+  html[data-theme-preset="limitless"] [data-slot="avatar"],
+  html[data-theme-preset="limitless"] span[class*="avatar"] {
+    box-shadow:
+      0 0 0 2px hsl(var(--background) / 0.6),
+      0 0 20px -4px hsl(var(--primary) / 0.3);
+    transition: all 0.25s ease;
+  }
+
+  html[data-theme-preset="limitless"] [data-slot="avatar"]:hover,
+  html[data-theme-preset="limitless"] span[class*="avatar"]:hover {
+    box-shadow:
+      0 0 0 2px hsl(var(--primary) / 0.4),
+      0 0 30px -4px hsl(var(--primary) / 0.5);
+  }
+
+  /* ========== PROGRESS BAR GLASS ========== */
+
+  html[data-theme-preset="limitless"] [role="progressbar"] {
+    background: hsl(var(--muted) / 0.3) !important;
+    backdrop-filter: blur(4px);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  html[data-theme-preset="limitless"] [role="progressbar"] > div {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--primary) / 0.7) 0%,
+      hsl(var(--primary)) 50%,
+      hsl(var(--primary) / 0.7) 100%
+    ) !important;
+    background-size: 200% 100%;
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.5);
+    animation: progress-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes progress-glow {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 100% 0%; }
+  }
+
+  /* ========== SKELETON SHIMMER ========== */
+
+  html[data-theme-preset="limitless"] [data-slot="skeleton"],
+  html[data-theme-preset="limitless"] [class*="skeleton"] {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted) / 0.25) 0%,
+      hsl(var(--primary) / 0.12) 25%,
+      hsl(var(--primary) / 0.2) 50%,
+      hsl(var(--primary) / 0.12) 75%,
+      hsl(var(--muted) / 0.25) 100%
+    ) !important;
+    background-size: 400% 100%;
+    animation: limitless-skeleton 2.5s ease-in-out infinite;
+  }
+
+  @keyframes limitless-skeleton {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+  }
+
+  /* ========== DROPDOWN/SELECT GLASS ========== */
+
+  html[data-theme-preset="limitless"] [data-radix-select-content],
+  html[data-theme-preset="limitless"] [data-radix-select-viewport] {
+    background: hsl(var(--popover) / 0.92) !important;
+    backdrop-filter: blur(32px) saturate(1.6);
+    border: 1px solid hsl(var(--primary) / 0.15) !important;
+    box-shadow:
+      0 12px 40px hsl(0 0% 0% / 0.4),
+      0 0 0 1px hsl(var(--primary) / 0.08);
+  }
+
+  html[data-theme-preset="limitless"] [data-radix-select-item][data-highlighted],
+  html[data-theme-preset="limitless"] [data-radix-select-item]:focus {
+    background: hsl(var(--primary) / 0.18) !important;
+    backdrop-filter: blur(8px);
+  }
+
+  /* ========== CONTEXT MENU GLASS ========== */
+
+  html[data-theme-preset="limitless"] [data-radix-context-menu-content] {
+    background: hsl(var(--popover) / 0.92) !important;
+    backdrop-filter: blur(32px) saturate(1.6);
+    border: 1px solid hsl(var(--primary) / 0.15) !important;
+    box-shadow:
+      0 12px 40px hsl(0 0% 0% / 0.4),
+      0 0 30px -10px hsl(var(--primary) / 0.2),
+      0 0 0 1px hsl(var(--primary) / 0.08);
+  }
+
+  html[data-theme-preset="limitless"] [data-radix-context-menu-item][data-highlighted] {
+    background: hsl(var(--primary) / 0.18) !important;
+  }
+
+  /* ========== TABLE GLASS ========== */
+
+  html[data-theme-preset="limitless"] table {
+    background: hsl(var(--card) / 0.25) !important;
+    backdrop-filter: blur(12px);
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  html[data-theme-preset="limitless"] thead {
+    background: hsl(var(--muted) / 0.35) !important;
+    backdrop-filter: blur(8px);
+  }
+
+  html[data-theme-preset="limitless"] thead th {
+    border-bottom: 1px solid hsl(var(--primary) / 0.15) !important;
+  }
+
+  html[data-theme-preset="limitless"] tbody tr {
+    transition: all 0.15s ease;
+  }
+
+  html[data-theme-preset="limitless"] tbody tr:hover {
+    background: hsl(var(--primary) / 0.08) !important;
+  }
+
+  /* ========== ACCORDION GLASS ========== */
+
+  html[data-theme-preset="limitless"] [data-state="open"][data-orientation="vertical"] {
+    background: hsl(var(--muted) / 0.15) !important;
+    backdrop-filter: blur(8px);
+  }
+
+  html[data-theme-preset="limitless"] [data-radix-accordion-trigger]:hover {
+    background: hsl(var(--primary) / 0.08) !important;
+  }
+
+  /* ========== ALERT GLASS ========== */
+
+  html[data-theme-preset="limitless"] [role="alert"] {
+    background: hsl(var(--card) / 0.45) !important;
+    backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid hsl(var(--primary) / 0.18) !important;
+    box-shadow:
+      0 4px 20px hsl(var(--primary) / 0.1),
+      inset 0 1px 0 hsl(255 100% 100% / 0.05);
+  }
+
+  /* ========== FOCUS RING GLOW ========== */
+
+  html[data-theme-preset="limitless"] *:focus-visible {
+    outline: none !important;
+    box-shadow:
+      0 0 0 2px hsl(var(--background)),
+      0 0 0 4px hsl(var(--primary) / 0.6),
+      0 0 24px hsl(var(--primary) / 0.35) !important;
+  }
+
+  /* ========== LINK GLOW ========== */
+
+  html[data-theme-preset="limitless"].dark a:not([class*="button"]):not([class*="btn"]):hover {
+    text-shadow: 0 0 16px hsl(var(--primary) / 0.6);
+  }
+
+  /* ========== FLOATING ACTION BUTTON ========== */
+
+  html[data-theme-preset="limitless"] [data-slot="fab"],
+  html[data-theme-preset="limitless"] button.fixed.rounded-full {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.85) 0%,
+      hsl(var(--primary) / 0.65) 100%
+    ) !important;
+    backdrop-filter: blur(12px);
+    box-shadow:
+      0 8px 32px hsl(var(--primary) / 0.4),
+      0 0 60px -10px hsl(var(--primary) / 0.3),
+      inset 0 1px 0 hsl(255 100% 100% / 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html[data-theme-preset="limitless"] [data-slot="fab"]:hover,
+  html[data-theme-preset="limitless"] button.fixed.rounded-full:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow:
+      0 12px 40px hsl(var(--primary) / 0.5),
+      0 0 80px -10px hsl(var(--primary) / 0.4),
+      inset 0 1px 0 hsl(255 100% 100% / 0.25);
+  }
+
   /* Button Hover Lift */
   .btn-hover-lift {
     @apply transition-all duration-fast;

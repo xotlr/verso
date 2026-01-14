@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { EditorView } from 'prosemirror-view';
 import { EditorState } from 'prosemirror-state';
+import { isViewReady } from '@/types/prosemirror';
 import { cn } from '@/lib/utils';
 import {
   Bold,
@@ -116,8 +117,7 @@ export function FloatingToolbar({ view, className, scrollbarWidth = 8 }: Floatin
   // Update toolbar position based on selection
   const updatePosition = useCallback(() => {
     // Check if view is ready (docView is the DOM representation)
-    // docView exists at runtime but isn't in the TypeScript types
-    if (!view || !(view as unknown as { docView: unknown }).docView) {
+    if (!isViewReady(view)) {
       setPosition((prev) => ({ ...prev, visible: false }));
       return;
     }

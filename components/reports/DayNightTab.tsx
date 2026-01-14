@@ -41,10 +41,7 @@ export function DayNightTab({ scenes }: DayNightTabProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {dayNightBreakdownData.map((item, index) => (
-            <div
-              key={index}
-              className="p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors"
-            >
+            <div key={index} className="card-hoverable">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   {item.timeOfDay === 'DAY' ? (

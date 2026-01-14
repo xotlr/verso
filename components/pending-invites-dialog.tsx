@@ -69,11 +69,11 @@ export function PendingInvitesDialog({ open, onOpenChange }: PendingInvitesDialo
         <div className="mt-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Loader2 className="spinner" />
             </div>
           ) : invites.length === 0 ? (
             <div className="text-center py-8">
-              <Mail className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+              <Mail className="icon-large" />
               <p className="text-sm text-muted-foreground">No pending invitations</p>
             </div>
           ) : (

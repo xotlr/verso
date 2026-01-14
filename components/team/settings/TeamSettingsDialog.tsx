@@ -138,7 +138,7 @@ export function TeamSettingsDialog({
                 <TeamAuditLog teamId={team.id} />
               ) : (
                 <div className="text-center py-12">
-                  <History className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                  <History className="icon-large" />
                   <p className="text-sm text-muted-foreground">
                     Only admins can view activity logs
                   </p>

@@ -160,6 +160,8 @@ export function SortableSceneItem({
           }}
           role="button"
           tabIndex={0}
+          aria-label={`Scene ${scene.sceneNumber || sceneIndex + 1}: ${formatSceneHeading(scene)}. Draggable.`}
+          aria-describedby="scene-drag-instructions"
         >
           <div className="w-full flex items-center gap-2 px-2.5 py-2 text-left">
             {/* Scene number - click to toggle selection */}

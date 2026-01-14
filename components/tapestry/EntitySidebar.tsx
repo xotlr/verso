@@ -55,7 +55,7 @@ export function EntitySidebar({
         {/* Characters Section */}
         {characters.length > 0 && (
           <section className="mb-4" aria-label="Characters">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 px-2">
+            <h3 className="section-label mb-2 px-2">
               Characters
             </h3>
             <ul className="space-y-1" role="listbox" aria-label={`${characters.length} characters`}>
@@ -77,7 +77,7 @@ export function EntitySidebar({
         {/* Locations Section */}
         {locations.length > 0 && (
           <section aria-label="Locations">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 px-2">
+            <h3 className="section-label mb-2 px-2">
               Locations
             </h3>
             <ul className="space-y-1" role="listbox" aria-label={`${locations.length} locations`}>

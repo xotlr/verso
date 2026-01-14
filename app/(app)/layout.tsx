@@ -11,14 +11,15 @@ import { AppHeader } from "@/components/app-header";
 import { EditorHeader } from "@/components/editor/editor-header";
 import { BottomNav } from "@/components/bottom-nav";
 import { EditorBottomNav } from "@/components/editor/editor-bottom-nav";
-import { EditorPanelProvider } from "@/components/editor/EditorPanelContext";
+import { EditorUIProvider } from "@/contexts/editor-ui-context";
 import { EditorSceneProvider } from "@/contexts/editor-scene-context";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { cn } from "@/lib/utils";
 import { ProductivityProvider } from "@/contexts/productivity-context";
-import { ScreenplayActionsProvider } from "@/contexts/screenplay-actions-context";
-import { SeriesActionsProvider } from "@/contexts/series-actions-context";
-import { ProjectActionsProvider } from "@/contexts/project-actions-context";
+import { EntityActionsProvider } from "@/contexts/entity-actions-context";
+import { EditorBreadcrumbProvider } from "@/contexts/editor-breadcrumb-context";
+import { CommandPaletteProvider } from "@/contexts/command-palette-context";
+import { EditorSessionProvider } from "@/contexts/editor-session-context";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -125,15 +126,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
   }, [focusMode]);
 
   return (
+    <CommandPaletteProvider>
+    <EditorBreadcrumbProvider>
+    <EditorSessionProvider>
     <ProductivityProvider>
-      <ScreenplayActionsProvider>
-      <SeriesActionsProvider>
-      <ProjectActionsProvider>
+      <EntityActionsProvider>
       <EditorSceneProvider>
         {/* Handle checkout success - wrapped in Suspense for useSearchParams */}
         <Suspense fallback={null}>
           <CheckoutSuccessHandler />
         </Suspense>
+        {/* EditorUIProvider lifted to wrap both sidebar and content for direct context access */}
+        <EditorUIProvider>
         <SidebarProvider>
           {/* Sidebar - slides out in focus mode */}
           <div className={cn(
@@ -169,7 +173,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
 
           {isEditorPage ? (
-            <EditorPanelProvider>
+            <>
               <main
                 ref={focusContainerRef}
                 className="flex-1 overflow-hidden transition-all duration-300 ease-out"
@@ -179,7 +183,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
               {/* Bottom Navigation - mobile only, hidden in focus mode */}
               {(!mounted || !focusMode) && <EditorBottomNav />}
-            </EditorPanelProvider>
+            </>
           ) : (
             <>
               <main
@@ -205,10 +209,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
         {/* PWA Install Prompt */}
         <InstallPrompt />
         </SidebarProvider>
+        </EditorUIProvider>
       </EditorSceneProvider>
-      </ProjectActionsProvider>
-      </SeriesActionsProvider>
-      </ScreenplayActionsProvider>
+      </EntityActionsProvider>
     </ProductivityProvider>
+    </EditorSessionProvider>
+    </EditorBreadcrumbProvider>
+    </CommandPaletteProvider>
   );
 }

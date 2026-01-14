@@ -25,9 +25,10 @@ import { TbNeedleThread } from 'react-icons/tb';
 import { HiFilm, HiOutlineFilm } from "react-icons/hi2";
 import { FaNoteSticky, FaRegNoteSticky } from "react-icons/fa6";
 import { Logo } from "@/components/logo";
-import type { EditorPanelType } from '@/components/editor/EditorPanelContext';
+import { useEditorUIOptional, type EditorPanelType } from '@/contexts/editor-ui-context';
 
 import { cn } from '@/lib/utils';
+import { useIsGlass } from '@/hooks/use-glass-styles';
 import "@/styles/sidebar-animations.css";
 import {
   DropdownMenu,
@@ -93,6 +94,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   const router = useRouter();
   const mounted = useMounted();
   const { setMode } = useSidebar();
+  const isGlass = useIsGlass();
 
   // Detect screenplay ID from URL if not provided as prop
   const urlScreenplayId = extractScreenplayId(pathname);
@@ -135,32 +137,14 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newTeamOpen, setNewTeamOpen] = useState(false);
 
-  // Panel state (synced via events with EditorPanelContext)
-  const [activePanel, setActivePanel] = useState<EditorPanelType | null>(null);
-  const [panelCounts, setPanelCounts] = useState({ scenes: 0, characters: 0, shots: 0, notes: 0 });
+  // Get panel state directly from context (no more window events!)
+  const editorUI = useEditorUIOptional();
+  const activePanel = editorUI?.panelOpen ? editorUI.activePanel : null;
+  const panelCounts = editorUI?.counts ?? { scenes: 0, characters: 0, shots: 0, notes: 0 };
 
-  // Listen for panel state changes from EditorPanelContext
-  useEffect(() => {
-    const handlePanelState = (e: CustomEvent<{
-      activePanel: EditorPanelType | null;
-      open: boolean;
-      counts?: { scenes: number; characters: number; shots: number; notes: number };
-    }>) => {
-      setActivePanel(e.detail.open ? e.detail.activePanel : null);
-      if (e.detail.counts) {
-        setPanelCounts(e.detail.counts);
-      }
-    };
-
-    window.addEventListener('editor-panel-state', handlePanelState as EventListener);
-    return () => window.removeEventListener('editor-panel-state', handlePanelState as EventListener);
-  }, []);
-
-  // Toggle panel from sidebar
+  // Toggle panel from sidebar using context
   const handlePanelToggle = (panel: EditorPanelType) => {
-    window.dispatchEvent(new CustomEvent('editor-panel-toggle', {
-      detail: { panel }
-    }));
+    editorUI?.setPanel(panel);
   };
 
 
@@ -223,18 +207,18 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   ] : [];
 
   return (
-    <Sidebar className="bg-sidebar sidebar-animated">
+    <Sidebar className="sidebar-animated">
       {/* Header */}
-      <SidebarHeader className="gap-1.5 p-0">
-        {/* Logo */}
-        <div className="flex h-11 items-center justify-center px-2">
+      <SidebarHeader className="gap-2 px-2 pt-0 pb-0">
+        {/* Logo - aligned with app header (h-11 = 44px) */}
+        <div className="flex h-11 items-center justify-center">
           <Link href="/home" className="flex items-center justify-center">
             <Logo size={22} className="text-primary hover:opacity-80 transition-opacity" />
           </Link>
         </div>
 
         {/* Create Button with Dropdown */}
-        <SidebarMenu className="px-2 pb-3">
+        <SidebarMenu className="px-0 pb-1">
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -273,61 +257,74 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
         {/* Editor Mode: Only show editor-relevant tools */}
         {mounted && isEditorMode && screenplayId ? (
           <>
-            {/* Editor Tools + Panel Toggles - single unified menu */}
-            <SidebarMenu>
-              {screenplayNavItems.map((item, index) => (
-                <NavMenuItem
-                  key={item.url}
-                  title={item.title}
-                  url={item.url}
-                  icon={item.icon}
-                  activeIcon={item.activeIcon}
-                  pathname={pathname}
-                  index={index}
-                />
-              ))}
-              {pathname === `/screenplay/${screenplayId}` && (
-                <>
+            {/* Editor Tools + Panel Toggles - glass pill wrapper for limitless */}
+            <div className={cn(
+              isGlass
+                ? "mx-2 p-1 rounded-xl bg-white/40 dark:bg-black/20 backdrop-blur-md border border-white/30 dark:border-white/10"
+                : "mx-2 p-1 rounded-xl bg-muted border border-border/60"
+            )}>
+              <SidebarMenu className={cn(isGlass && "px-0 gap-0.5")}>
+                {screenplayNavItems.map((item, index) => (
                   <NavMenuItem
-                    title={`Scenes${panelCounts.scenes ? ` (${panelCounts.scenes})` : ''}`}
-                    icon={HiOutlineFilm}
-                    activeIcon={HiFilm}
+                    key={item.url}
+                    title={item.title}
+                    url={item.url}
+                    icon={item.icon}
+                    activeIcon={item.activeIcon}
                     pathname={pathname}
-                    onClick={() => handlePanelToggle('scenes')}
-                    isActive={activePanel === 'scenes'}
-                    notification={panelCounts.scenes > 0}
+                    index={index}
+                    isGlass={isGlass}
                   />
-                  <NavMenuItem
-                    title={`Characters${panelCounts.characters ? ` (${panelCounts.characters})` : ''}`}
-                    icon={RiGroup2Line}
-                    activeIcon={RiGroup2Fill}
-                    pathname={pathname}
-                    onClick={() => handlePanelToggle('characters')}
-                    isActive={activePanel === 'characters'}
-                    notification={panelCounts.characters > 0}
-                  />
-                  <NavMenuItem
-                    title={`Shotlist${panelCounts.shots ? ` (${panelCounts.shots})` : ''}`}
-                    icon={BsCameraReels}
-                    activeIcon={BsCameraReelsFill}
-                    pathname={pathname}
-                    onClick={() => handlePanelToggle('shotlist')}
-                    isActive={activePanel === 'shotlist'}
-                    notification={panelCounts.shots > 0}
-                  />
-                  <NavMenuItem
-                    title={`Notes${panelCounts.notes ? ` (${panelCounts.notes})` : ''}`}
-                    icon={FaRegNoteSticky}
-                    activeIcon={FaNoteSticky}
-                    pathname={pathname}
-                    onClick={() => handlePanelToggle('notes')}
-                    isActive={activePanel === 'notes'}
-                    notification={panelCounts.notes > 0}
-                  />
-                </>
-              )}
+                ))}
+                {pathname === `/screenplay/${screenplayId}` && (
+                  <>
+                    <NavMenuItem
+                      title={`Scenes${panelCounts.scenes ? ` (${panelCounts.scenes})` : ''}`}
+                      icon={HiOutlineFilm}
+                      activeIcon={HiFilm}
+                      pathname={pathname}
+                      onClick={() => handlePanelToggle('scenes')}
+                      isActive={activePanel === 'scenes'}
+                      notification={panelCounts.scenes > 0}
+                      isGlass={isGlass}
+                    />
+                    <NavMenuItem
+                      title={`Characters${panelCounts.characters ? ` (${panelCounts.characters})` : ''}`}
+                      icon={RiGroup2Line}
+                      activeIcon={RiGroup2Fill}
+                      pathname={pathname}
+                      onClick={() => handlePanelToggle('characters')}
+                      isActive={activePanel === 'characters'}
+                      notification={panelCounts.characters > 0}
+                      isGlass={isGlass}
+                    />
+                    <NavMenuItem
+                      title={`Shotlist${panelCounts.shots ? ` (${panelCounts.shots})` : ''}`}
+                      icon={BsCameraReels}
+                      activeIcon={BsCameraReelsFill}
+                      pathname={pathname}
+                      onClick={() => handlePanelToggle('shotlist')}
+                      isActive={activePanel === 'shotlist'}
+                      notification={panelCounts.shots > 0}
+                      isGlass={isGlass}
+                    />
+                    <NavMenuItem
+                      title={`Notes${panelCounts.notes ? ` (${panelCounts.notes})` : ''}`}
+                      icon={FaRegNoteSticky}
+                      activeIcon={FaNoteSticky}
+                      pathname={pathname}
+                      onClick={() => handlePanelToggle('notes')}
+                      isActive={activePanel === 'notes'}
+                      notification={panelCounts.notes > 0}
+                      isGlass={isGlass}
+                    />
+                  </>
+                )}
+              </SidebarMenu>
+            </div>
 
-              {/* Resources */}
+            {/* Resources */}
+            <SidebarMenu>
               <SidebarMenuItem>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -353,22 +350,31 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
           </>
         ) : (
           <>
-            {/* Library Mode: Main Navigation */}
-            <SidebarMenu>
-              {mainNavItems.map((item, index) => (
-                <NavMenuItem
-                  key={item.url}
-                  title={item.title}
-                  url={item.url}
-                  icon={item.icon}
-                  activeIcon={item.activeIcon}
-                  pathname={pathname}
-                  index={index}
-                  notification={item.notification}
-                />
-              ))}
+            {/* Library Mode: Main Navigation - glass pill wrapper for limitless */}
+            <div className={cn(
+              isGlass
+                ? "mx-2 p-1 rounded-xl bg-white/40 dark:bg-black/20 backdrop-blur-md border border-white/30 dark:border-white/10"
+                : "mx-2 p-1 rounded-xl bg-muted border border-border/60"
+            )}>
+              <SidebarMenu className={cn(isGlass && "px-0 gap-0.5")}>
+                {mainNavItems.map((item, index) => (
+                  <NavMenuItem
+                    key={item.url}
+                    title={item.title}
+                    url={item.url}
+                    icon={item.icon}
+                    activeIcon={item.activeIcon}
+                    pathname={pathname}
+                    index={index}
+                    notification={item.notification}
+                    isGlass={isGlass}
+                  />
+                ))}
+              </SidebarMenu>
+            </div>
 
-              {/* Resources */}
+            {/* Resources */}
+            <SidebarMenu>
               <SidebarMenuItem>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -407,8 +413,8 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
       </SidebarContent>
 
       {/* Footer - Theme Toggle & Settings */}
-      <SidebarFooter className="px-2 py-2">
-        <SidebarMenu className="px-0">
+      <SidebarFooter className="px-2 pt-0 pb-2">
+        <SidebarMenu className="px-0 gap-1.5">
           <SidebarMenuItem>
             <ThemeToggle />
           </SidebarMenuItem>

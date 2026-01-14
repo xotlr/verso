@@ -3,34 +3,9 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { PaginationResult, PageIdentifier, ElementPosition } from '@/lib/verso/types';
 import type { PositionMap } from '@/lib/verso/serializer';
+import { PAGE_METRICS } from '@/lib/constants/editor';
 
 export const paginationPluginKey = new PluginKey<PaginationState>('pagination');
-
-/**
- * Page metrics for standard screenplay format.
- * US Letter: 8.5" x 11"
- * Margins: 1" top, 1" bottom, 1.5" left, 1" right
- * Font: Courier 12pt (10 chars/inch, 6 lines/inch)
- */
-const PAGE_METRICS = {
-  // Lines per page (standard screenplay - matches WASM engine)
-  LINES_PER_PAGE: 52,
-
-  // Approximate characters per line
-  CHARS_PER_LINE: 58,
-
-  // Line height in pixels (12pt Courier at 96 DPI = 16px)
-  LINE_HEIGHT_PX: 16,
-
-  // Page content height in pixels (9" usable at 96 DPI)
-  PAGE_HEIGHT_PX: 864,
-
-  // Minimum lines to keep together for dialogue
-  MIN_DIALOGUE_LINES: 2,
-
-  // Minimum lines before page break for character name
-  MIN_LINES_BEFORE_BREAK: 3,
-};
 
 /**
  * Page break information derived from WASM pagination results.

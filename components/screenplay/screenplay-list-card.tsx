@@ -123,9 +123,7 @@ function TypeBadge({ type }: { type: DisplayScreenplayType }) {
   const Icon = config.icon;
 
   return (
-    <span
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20"
-    >
+    <span className="badge-primary">
       <Icon className="h-2.5 w-2.5" />
       {config.label}
     </span>
@@ -260,7 +258,7 @@ export function ScreenplayListCard({
                 <button
                   onClick={createMenuHandler()}
                   onPointerDown={stopPointerPropagation}
-                  className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
+                  className="card-action-btn"
                   aria-label="More options"
                 >
                   <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
@@ -491,7 +489,7 @@ export function ScreenplayListCardSkeleton({ variant = 'default' }: { variant?: 
         )}
 
         {/* Footer skeleton */}
-        <div className="mt-auto pt-3 border-t border-border/40 flex items-center justify-between">
+        <div className="card-footer">
           <div className="h-5 w-16 bg-muted rounded animate-pulse" />
           <div className="h-3 w-20 bg-muted rounded animate-pulse" />
         </div>

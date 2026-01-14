@@ -1,128 +1,47 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
+/**
+ * @deprecated This file is maintained for backward compatibility.
+ * Use useEditorUI from '@/contexts/editor-ui-context' instead.
+ */
 
-// Editor UI State
-interface EditorUIState {
-  showFindReplace: boolean;
-  showSceneNavigator: boolean;
-  showCharacterList: boolean;
-  showPageBreaks: boolean;
-  showLineNumbers: boolean;
-  zenMode: boolean;
-  viewMode: 'single' | 'spread';
-}
+import { useEditorUI, EditorUIProvider, type ViewMode } from './editor-ui-context';
 
-// Editor Context Value
-interface EditorContextValue {
-  // UI State
-  ui: EditorUIState;
+// Re-export the new provider with the old name
+export const EditorProvider = EditorUIProvider;
 
-  // UI Actions
-  toggleFindReplace: () => void;
-  toggleSceneNavigator: () => void;
-  toggleCharacterList: () => void;
-  togglePageBreaks: () => void;
-  toggleLineNumbers: () => void;
-  toggleZenMode: () => void;
-  setZenMode: (value: boolean) => void;
-  setViewMode: (mode: 'single' | 'spread') => void;
-
-  // Selection state
-  selectedText: string;
-  setSelectedText: (text: string) => void;
-
-  // Typing state (for animations)
-  isTyping: boolean;
-  setIsTyping: (value: boolean) => void;
-}
-
-const EditorContext = createContext<EditorContextValue | null>(null);
-
-interface EditorProviderProps {
-  children: ReactNode;
-}
-
-export function EditorProvider({ children }: EditorProviderProps) {
-  // UI State
-  const [showFindReplace, setShowFindReplace] = useState(false);
-  const [showSceneNavigator, setShowSceneNavigator] = useState(false);
-  const [showCharacterList, setShowCharacterList] = useState(false);
-  const [showPageBreaks, setShowPageBreaks] = useState(true);
-  const [showLineNumbers, setShowLineNumbers] = useState(false);
-  const [zenMode, setZenModeState] = useState(false);
-  const [viewMode, setViewModeState] = useState<'single' | 'spread'>('single');
-
-  // Selection and typing state
-  const [selectedText, setSelectedText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-
-  // UI Actions
-  const toggleFindReplace = useCallback(() => setShowFindReplace(prev => !prev), []);
-  const toggleSceneNavigator = useCallback(() => setShowSceneNavigator(prev => !prev), []);
-  const toggleCharacterList = useCallback(() => setShowCharacterList(prev => !prev), []);
-  const togglePageBreaks = useCallback(() => setShowPageBreaks(prev => !prev), []);
-  const toggleLineNumbers = useCallback(() => setShowLineNumbers(prev => !prev), []);
-  const toggleZenMode = useCallback(() => setZenModeState(prev => !prev), []);
-  const setZenMode = useCallback((value: boolean) => setZenModeState(value), []);
-  const setViewMode = useCallback((mode: 'single' | 'spread') => setViewModeState(mode), []);
-
-  // Memoize UI state object
-  const ui = useMemo<EditorUIState>(() => ({
-    showFindReplace,
-    showSceneNavigator,
-    showCharacterList,
-    showPageBreaks,
-    showLineNumbers,
-    zenMode,
-    viewMode,
-  }), [showFindReplace, showSceneNavigator, showCharacterList, showPageBreaks, showLineNumbers, zenMode, viewMode]);
-
-  // Memoize context value
-  const value = useMemo<EditorContextValue>(() => ({
-    ui,
-    toggleFindReplace,
-    toggleSceneNavigator,
-    toggleCharacterList,
-    togglePageBreaks,
-    toggleLineNumbers,
-    toggleZenMode,
-    setZenMode,
-    setViewMode,
-    selectedText,
-    setSelectedText,
-    isTyping,
-    setIsTyping,
-  }), [
-    ui,
-    toggleFindReplace,
-    toggleSceneNavigator,
-    toggleCharacterList,
-    togglePageBreaks,
-    toggleLineNumbers,
-    toggleZenMode,
-    setZenMode,
-    setViewMode,
-    selectedText,
-    isTyping,
-  ]);
-
-  return (
-    <EditorContext.Provider value={value}>
-      {children}
-    </EditorContext.Provider>
-  );
-}
-
+// Re-export hook with compatibility wrapper
 export function useEditor() {
-  const context = useContext(EditorContext);
-  if (!context) {
-    throw new Error('useEditor must be used within an EditorProvider');
-  }
-  return context;
+  const ctx = useEditorUI();
+
+  // Construct the old shape for backward compatibility
+  return {
+    ui: {
+      showFindReplace: ctx.showFindReplace,
+      showSceneNavigator: false, // Deprecated - use panel system
+      showCharacterList: false,  // Deprecated - use panel system
+      showPageBreaks: ctx.showPageBreaks,
+      showLineNumbers: ctx.showLineNumbers,
+      zenMode: ctx.zenMode,
+      viewMode: ctx.viewMode,
+    },
+    toggleFindReplace: ctx.toggleFindReplace,
+    toggleSceneNavigator: () => ctx.setPanel('scenes'),
+    toggleCharacterList: () => ctx.setPanel('characters'),
+    togglePageBreaks: ctx.togglePageBreaks,
+    toggleLineNumbers: ctx.toggleLineNumbers,
+    toggleZenMode: ctx.toggleZenMode,
+    setZenMode: ctx.setZenMode,
+    setViewMode: ctx.setViewMode,
+    selectedText: ctx.selectedText,
+    setSelectedText: ctx.setSelectedText,
+    isTyping: ctx.isTyping,
+    setIsTyping: ctx.setIsTyping,
+  };
 }
 
-export function useEditorUI() {
-  const { ui, ...actions } = useEditor();
-  return { ...ui, ...actions };
-}
+// Re-export useEditorUI to maintain the existing export
+export { useEditorUI };
+
+// Re-export types
+export type { ViewMode };

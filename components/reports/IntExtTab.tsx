@@ -41,10 +41,7 @@ export function IntExtTab({ scenes }: IntExtTabProps) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {intExtBreakdownData.map((item, index) => (
-            <div
-              key={index}
-              className="p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors"
-            >
+            <div key={index} className="card-hoverable">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   {item.locationType === 'INT' ? (
@@ -91,7 +88,7 @@ export function IntExtTab({ scenes }: IntExtTabProps) {
       )}
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg border border-border">
+      <div className="stats-grid">
         <div>
           <p className="text-xs text-muted-foreground mb-1">Interior Scenes</p>
           <p className="text-2xl font-bold">

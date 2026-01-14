@@ -274,7 +274,7 @@ export function SceneWorkspacePanel({
         <ScrollArea className="h-[calc(100vh-120px)]">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Loader2 className="spinner" />
             </div>
           ) : (
             <div className="p-4 space-y-6">

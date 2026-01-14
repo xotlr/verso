@@ -83,6 +83,7 @@ export function useFileImport(options?: UseFileImportOptions): UseFileImportRetu
           elements: parseResult.elements,
           wordCount,
           warnings: parseResult.warnings,
+          titlePage: parseResult.titlePage,
         };
 
         setResult(importResult);

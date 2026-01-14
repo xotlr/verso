@@ -124,7 +124,7 @@ export function StackCard({ stack, onClick, onEdit, onUngroup, onDelete }: Stack
                     e.stopPropagation();
                   }}
                   onPointerDown={stopPointerPropagation}
-                  className="p-2 sm:p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
+                  className="card-action-btn"
                   aria-label="More options"
                 >
                   <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
@@ -253,7 +253,7 @@ export function StackCardSkeleton() {
           </div>
 
           {/* Footer skeleton */}
-          <div className="mt-auto pt-3 border-t border-border/40 flex items-center justify-between">
+          <div className="card-footer">
             <div className="h-5 w-20 bg-muted rounded animate-pulse" />
             <div className="h-3 w-12 bg-muted rounded animate-pulse" />
           </div>

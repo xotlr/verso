@@ -57,7 +57,7 @@ export function PendingInviteBanner() {
       )}
       renderBadges={(invite) => (
         <>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="meta-text">
             <Users className="h-3.5 w-3.5" />
             {invite.team._count?.members ?? 0} member
             {(invite.team._count?.members ?? 0) !== 1 ? 's' : ''}

@@ -187,7 +187,7 @@ function ScenesPanelInner({
       const newIndex = scenes.findIndex(s => s.id === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
-        // TODO: Implement actual document reordering via ProseMirror transaction
+        // Scene reordering requires ProseMirror node manipulation - haptic feedback only for now
         if (navigator.vibrate) {
           navigator.vibrate([5, 50, 5]);
         }
@@ -249,6 +249,11 @@ function ScenesPanelInner({
 
   return (
     <PanelContainer className={className}>
+      {/* Screen reader instructions for drag-and-drop */}
+      <div id="scene-drag-instructions" className="sr-only">
+        Press Space or Enter to start dragging. Use arrow keys to move. Press Space or Enter to drop, or Escape to cancel.
+      </div>
+
       {/* Search & Filters */}
       {scenes.length > 5 && (
         <SceneFilters

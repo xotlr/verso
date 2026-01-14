@@ -15,6 +15,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { MoveToProjectDialog } from '@/components/move-to-project-dialog';
 import { MoveToTeamDialog } from '@/components/move-to-team-dialog';
+import {
+  exportScreenplay,
+  toggleFavorite,
+  removeFromProject,
+  removeFromTeam,
+} from './screenplay/shared-actions';
 
 // Minimal screenplay data needed for actions
 export interface ScreenplayActionData {
@@ -155,41 +161,13 @@ export function useScreenplayActions(screenplay: ScreenplayActionData) {
 
   // Export screenplay content
   const handleExport = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/screenplays/${screenplay.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        const blob = new Blob([data.content || ''], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${screenplay.title}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      console.error('Error exporting screenplay:', error);
-      toast.error('Failed to export screenplay');
-    }
-  }, [screenplay.id, screenplay.title]);
+    await exportScreenplay(screenplay);
+  }, [screenplay]);
 
   // Toggle favorite status
   const handleToggleFavorite = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/screenplays/${screenplay.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isFavorite: !screenplay.isFavorite }),
-      });
-      if (response.ok) {
-        toast.success(screenplay.isFavorite ? 'Removed from favorites' : 'Added to favorites');
-        onRefresh();
-      }
-    } catch (error) {
-      console.error('Error toggling favorite:', error);
-      toast.error('Failed to update favorite status');
-    }
-  }, [screenplay.id, screenplay.isFavorite, onRefresh]);
+    await toggleFavorite(screenplay, onRefresh);
+  }, [screenplay, onRefresh]);
 
   // Delete screenplay (opens confirmation dialog)
   const handleDelete = useCallback(() => {
@@ -203,22 +181,8 @@ export function useScreenplayActions(screenplay: ScreenplayActionData) {
 
   // Remove from current project
   const handleRemoveFromProject = useCallback(async () => {
-    if (!screenplay.projectId) return;
-    try {
-      const response = await fetch(`/api/screenplays/${screenplay.id}/move`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: null }),
-      });
-      if (response.ok) {
-        toast.success('Removed from project');
-        onRefresh();
-      }
-    } catch (error) {
-      console.error('Error removing from project:', error);
-      toast.error('Failed to remove from project');
-    }
-  }, [screenplay.id, screenplay.projectId, onRefresh]);
+    await removeFromProject(screenplay, onRefresh);
+  }, [screenplay, onRefresh]);
 
   // Create a new project from this screenplay
   const handleCreateProject = useCallback(async () => {
@@ -264,22 +228,8 @@ export function useScreenplayActions(screenplay: ScreenplayActionData) {
 
   // Remove from current team
   const handleRemoveFromTeam = useCallback(async () => {
-    if (!screenplay.teamId) return;
-    try {
-      const response = await fetch(`/api/screenplays/${screenplay.id}/move`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamId: null }),
-      });
-      if (response.ok) {
-        toast.success('Removed from team');
-        onRefresh();
-      }
-    } catch (error) {
-      console.error('Error removing from team:', error);
-      toast.error('Failed to remove from team');
-    }
-  }, [screenplay.id, screenplay.teamId, onRefresh]);
+    await removeFromTeam(screenplay, onRefresh);
+  }, [screenplay, onRefresh]);
 
   return {
     // All actions
@@ -330,76 +280,20 @@ export function useScreenplayActionsStandalone(
   }, [router, screenplay.id]);
 
   const handleExport = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/screenplays/${screenplay.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        const blob = new Blob([data.content || ''], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${screenplay.title}.txt`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      console.error('Error exporting screenplay:', error);
-      toast.error('Failed to export screenplay');
-    }
-  }, [screenplay.id, screenplay.title]);
+    await exportScreenplay(screenplay);
+  }, [screenplay]);
 
   const handleToggleFavorite = useCallback(async () => {
-    try {
-      const response = await fetch(`/api/screenplays/${screenplay.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isFavorite: !screenplay.isFavorite }),
-      });
-      if (response.ok) {
-        toast.success(screenplay.isFavorite ? 'Removed from favorites' : 'Added to favorites');
-        callbacks.onRefresh?.();
-      }
-    } catch (error) {
-      console.error('Error toggling favorite:', error);
-      toast.error('Failed to update favorite status');
-    }
-  }, [screenplay.id, screenplay.isFavorite, callbacks]);
+    await toggleFavorite(screenplay, callbacks.onRefresh);
+  }, [screenplay, callbacks.onRefresh]);
 
   const handleRemoveFromProject = useCallback(async () => {
-    if (!screenplay.projectId) return;
-    try {
-      const response = await fetch(`/api/screenplays/${screenplay.id}/move`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: null }),
-      });
-      if (response.ok) {
-        toast.success('Removed from project');
-        callbacks.onRefresh?.();
-      }
-    } catch (error) {
-      console.error('Error removing from project:', error);
-      toast.error('Failed to remove from project');
-    }
-  }, [screenplay.id, screenplay.projectId, callbacks]);
+    await removeFromProject(screenplay, callbacks.onRefresh);
+  }, [screenplay, callbacks.onRefresh]);
 
   const handleRemoveFromTeam = useCallback(async () => {
-    if (!screenplay.teamId) return;
-    try {
-      const response = await fetch(`/api/screenplays/${screenplay.id}/move`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamId: null }),
-      });
-      if (response.ok) {
-        toast.success('Removed from team');
-        callbacks.onRefresh?.();
-      }
-    } catch (error) {
-      console.error('Error removing from team:', error);
-      toast.error('Failed to remove from team');
-    }
-  }, [screenplay.id, screenplay.teamId, callbacks]);
+    await removeFromTeam(screenplay, callbacks.onRefresh);
+  }, [screenplay, callbacks.onRefresh]);
 
   return {
     handleEdit,

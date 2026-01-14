@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import { Plus, Layers } from 'lucide-react';
 import { PiFilmScript } from 'react-icons/pi';
 import { RiFolder6Line } from 'react-icons/ri';
@@ -41,6 +39,7 @@ import { DroppableStackCard } from './droppable-stack-card';
 import { useScreenplayActionsContext, type ScreenplayActionTarget } from '@/contexts/screenplay-actions-context';
 import type { ScreenplayItem, ProjectItem, SeriesItem, StackItem } from '@/hooks/use-workspace-data';
 import type { ViewMode } from '@/hooks/use-view-mode';
+import { useWorkspaceDialogs } from '@/hooks/workspace';
 
 type TabValue = 'screenplays' | 'series' | 'projects';
 
@@ -126,129 +125,39 @@ export function WorkspaceContentGrid({
     isArchived: s.isArchived,
   });
 
-  // Stack dialog state
-  const [selectedStack, setSelectedStack] = useState<StackItem | null>(null);
-  const [stackDialogOpen, setStackDialogOpen] = useState(false);
-
-  // Add to stack dialog state
-  const [screenplayToAddToStack, setScreenplayToAddToStack] = useState<ScreenplayItem | null>(null);
-  const [addToStackDialogOpen, setAddToStackDialogOpen] = useState(false);
-
-  // Project rename dialog state
-  const [projectToRename, setProjectToRename] = useState<ProjectItem | null>(null);
-
-  // Project move to team dialog state
-  const [projectToMoveToTeam, setProjectToMoveToTeam] = useState<ProjectItem | null>(null);
-
-  // Series rename dialog state
-  const [seriesToRename, setSeriesToRename] = useState<SeriesItem | null>(null);
-
-  // Series move to project dialog state
-  const [seriesToMoveToProject, setSeriesToMoveToProject] = useState<SeriesItem | null>(null);
-
-  // Add existing screenplay to project dialog state
-  const [projectToAddScreenplay, setProjectToAddScreenplay] = useState<ProjectItem | null>(null);
-
-  // Archive handlers for projects
-  const handleArchiveProject = useCallback(async (project: ProjectItem) => {
-    try {
-      const response = await fetch(`/api/projects/${project.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isArchived: !project.isArchived }),
-      });
-      if (response.ok) {
-        toast.success(project.isArchived ? 'Unarchived' : 'Archived');
-        onDataRefresh?.();
-      } else {
-        throw new Error('Failed to update');
-      }
-    } catch (error) {
-      console.error('Error toggling archive:', error);
-      toast.error('Failed to update archive status');
-    }
-  }, [onDataRefresh]);
-
-  // Archive handlers for series
-  const handleArchiveSeries = useCallback(async (s: SeriesItem) => {
-    try {
-      const response = await fetch(`/api/series/${s.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isArchived: !s.isArchived }),
-      });
-      if (response.ok) {
-        toast.success(s.isArchived ? 'Unarchived' : 'Archived');
-        onDataRefresh?.();
-      } else {
-        throw new Error('Failed to update');
-      }
-    } catch (error) {
-      console.error('Error toggling archive:', error);
-      toast.error('Failed to update archive status');
-    }
-  }, [onDataRefresh]);
-
-  const handleOpenStack = (stack: StackItem) => {
-    setSelectedStack(stack);
-    setStackDialogOpen(true);
-  };
-
-  const handleRenameStack = async (stackId: string, name: string) => {
-    if (onRenameStack) {
-      await onRenameStack(stackId, name);
-      // Update local state
-      if (selectedStack && selectedStack.id === stackId) {
-        setSelectedStack({ ...selectedStack, name });
-      }
-    }
-  };
-
-  const handleRemoveFromStack = async (screenplayId: string, stackId: string) => {
-    if (onRemoveFromStack) {
-      await onRemoveFromStack(screenplayId, stackId);
-      // Update local state to remove the screenplay from the dialog
-      if (selectedStack && selectedStack.id === stackId) {
-        const updatedScreenplays = selectedStack.screenplays?.filter(s => s.id !== screenplayId) || [];
-        if (updatedScreenplays.length === 0) {
-          // Stack is now empty, close dialog
-          setStackDialogOpen(false);
-          setSelectedStack(null);
-        } else {
-          setSelectedStack({
-            ...selectedStack,
-            screenplays: updatedScreenplays,
-            _count: { screenplays: updatedScreenplays.length },
-          });
-        }
-      }
-    }
-  };
-
-  const handleOpenAddToStack = (screenplay: ScreenplayItem) => {
-    setScreenplayToAddToStack(screenplay);
-    setAddToStackDialogOpen(true);
-  };
-
-  const handleAddScreenplayToStack = async (stackId: string) => {
-    if (screenplayToAddToStack) {
-      await onAddToStack(screenplayToAddToStack.id, stackId);
-      setAddToStackDialogOpen(false);
-      setScreenplayToAddToStack(null);
-    }
-  };
-
-  const handleCreateNewStackForScreenplay = async (_name: string) => {
-    if (screenplayToAddToStack) {
-      // Create a new stack with this screenplay
-      // We need another screenplay to create a stack, so we'll use the createStack with the same screenplay
-      // Actually for mobile, we might want a different API that creates a stack with just one screenplay
-      // For now, we'll just close the dialog - the user needs to drag another screenplay or use desktop
-      // TODO: Add API to create a stack with a single screenplay
-      setAddToStackDialogOpen(false);
-      setScreenplayToAddToStack(null);
-    }
-  };
+  // Workspace dialogs via hook
+  const {
+    selectedStack,
+    setSelectedStack,
+    stackDialogOpen,
+    setStackDialogOpen,
+    screenplayToAddToStack,
+    addToStackDialogOpen,
+    setAddToStackDialogOpen,
+    projectToRename,
+    setProjectToRename,
+    projectToMoveToTeam,
+    setProjectToMoveToTeam,
+    projectToAddScreenplay,
+    setProjectToAddScreenplay,
+    seriesToRename,
+    setSeriesToRename,
+    seriesToMoveToProject,
+    setSeriesToMoveToProject,
+    handleOpenStack,
+    handleRenameStack,
+    handleRemoveFromStack,
+    handleOpenAddToStack,
+    handleAddScreenplayToStack,
+    handleCreateNewStackForScreenplay,
+    handleArchiveProject,
+    handleArchiveSeries,
+  } = useWorkspaceDialogs({
+    onDataRefresh,
+    onRenameStack,
+    onRemoveFromStack,
+    onAddToStack,
+  });
 
   // Filter and sort screenplays (exclude those in stacks - they appear inside stack cards)
   const filteredScreenplays = screenplays
@@ -354,192 +263,137 @@ export function WorkspaceContentGrid({
       );
     }
 
-    if (viewMode === 'grid') {
-      return (
-        <>
-          <WorkspaceDndContext
-            onCreateStack={onCreateStack}
-            onAddToStack={onAddToStack}
-          >
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-              {/* Render stacks first */}
-              {filteredStacks.map((stack) => (
-                <DroppableStackCard
-                  key={`stack-${stack.id}`}
-                  stack={stack}
-                  onClick={() => handleOpenStack(stack)}
-                  onUngroup={() => onDissolveStack(stack.id)}
-                  onDelete={() => onDelete(stack.id, 'stack')}
-                />
-              ))}
-              {/* Then render standalone screenplays */}
-              {filteredScreenplays.map((screenplay) => {
-                const target = toActionTarget(screenplay);
-                return (
-                  <DraggableScreenplayCard
-                    key={screenplay.id}
-                    fullScreenplay={screenplay}
-                    screenplay={{
-                      id: screenplay.id,
-                      title: screenplay.title,
-                      logline: screenplay.logline,
-                      synopsis: screenplay.synopsis,
-                      updatedAt: screenplay.updatedAt,
-                      wordCount: screenplay.wordCount,
-                      genre: screenplay.genre,
-                      isFavorite: screenplay.isFavorite,
-                      isArchived: screenplay.isArchived,
-                      project: screenplay.project,
-                      team: screenplay.team,
-                      author: screenplay.author,
-                      user: screenplay.user,
-                      type: screenplay.type || undefined,
-                      season: screenplay.season,
-                      episode: screenplay.episode,
-                      episodeTitle: screenplay.episodeTitle,
-                      series: screenplay.series,
-                    }}
-                    href={`/editor/${screenplay.id}`}
-                    showFavorite={true}
-                    showGenre={true}
-                    showProject={true}
-                    showTeam={true}
-                    showWordCount={true}
-                    onEdit={() => router.push(`/editor/${screenplay.id}`)}
-                    onRename={() => openRename(target)}
-                    onExport={() => doExport(target)}
-                    onToggleFavorite={() => doToggleFavorite(target)}
-                    onDelete={() => openDeleteScreenplay(target)}
-                    onMoveToProject={() => openMoveToProject(target)}
-                    onRemoveFromProject={screenplay.projectId ? () => doRemoveFromProject(target) : undefined}
-                    onCreateProject={!screenplay.projectId ? () => doCreateProject(target) : undefined}
-                    onMoveToTeam={() => openMoveToTeam(target)}
-                    onRemoveFromTeam={screenplay.teamId ? () => doRemoveFromTeam(target) : undefined}
-                    onAddToStack={stacks.length > 0 ? () => handleOpenAddToStack(screenplay) : undefined}
-                    onArchive={() => doToggleArchive(target)}
-                  />
-                );
-              })}
-            </div>
-          </WorkspaceDndContext>
-          <StackDialog
-            stack={selectedStack}
-            open={stackDialogOpen}
-            onOpenChange={setStackDialogOpen}
-            onRename={handleRenameStack}
-            onUngroup={(stackId) => {
-              onDissolveStack(stackId);
-              setStackDialogOpen(false);
-              setSelectedStack(null);
-            }}
-            onRemoveFromStack={handleRemoveFromStack}
-          />
-          <AddToStackDialog
-            open={addToStackDialogOpen}
-            onOpenChange={setAddToStackDialogOpen}
-            screenplayTitle={screenplayToAddToStack?.title || ''}
-            stacks={stacks.map(s => ({
-              id: s.id,
-              name: s.name,
-              screenplayCount: s._count?.screenplays || s.screenplays?.length || 0,
-            }))}
-            onAddToStack={handleAddScreenplayToStack}
-            onCreateNewStack={handleCreateNewStackForScreenplay}
-          />
-        </>
-      );
-    }
-
-    // List view for screenplays - simple rows (no DnD in list view)
-    return (
-      <>
-        <div className="space-y-4">
-          {/* Stacks section */}
-          {filteredStacks.length > 0 && (
-            <div className="space-y-2">
-              {filteredStacks.map((stack) => (
-                <StackListRow
-                  key={`stack-${stack.id}`}
-                  stack={stack}
-                  onClick={() => handleOpenStack(stack)}
-                  onEdit={() => handleOpenStack(stack)}
-                  onUngroup={() => onDissolveStack(stack.id)}
-                  onDelete={() => onDelete(stack.id, 'stack')}
-                />
-              ))}
-            </div>
-          )}
-          {/* Screenplays list */}
-          <div className="space-y-2">
-            {filteredScreenplays.map((screenplay) => {
-              const target = toActionTarget(screenplay);
-              return (
-                <ScreenplayListRow
-                  key={screenplay.id}
-                  screenplay={{
-                    id: screenplay.id,
-                    title: screenplay.title,
-                    logline: screenplay.logline,
-                    synopsis: screenplay.synopsis,
-                    updatedAt: screenplay.updatedAt,
-                    wordCount: screenplay.wordCount,
-                    genre: screenplay.genre,
-                    isFavorite: screenplay.isFavorite,
-                    isArchived: screenplay.isArchived,
-                    project: screenplay.project,
-                    team: screenplay.team,
-                    author: screenplay.author,
-                    user: screenplay.user,
-                    type: screenplay.type || undefined,
-                    season: screenplay.season,
-                    episode: screenplay.episode,
-                    episodeTitle: screenplay.episodeTitle,
-                    series: screenplay.series,
-                  }}
-                  href={`/editor/${screenplay.id}`}
-                  onEdit={() => router.push(`/editor/${screenplay.id}`)}
-                  onRename={() => openRename(target)}
-                  onExport={() => doExport(target)}
-                  onToggleFavorite={() => doToggleFavorite(target)}
-                  onDelete={() => openDeleteScreenplay(target)}
-                  onMoveToProject={() => openMoveToProject(target)}
-                  onRemoveFromProject={screenplay.projectId ? () => doRemoveFromProject(target) : undefined}
-                  onCreateProject={!screenplay.projectId ? () => doCreateProject(target) : undefined}
-                  onMoveToTeam={() => openMoveToTeam(target)}
-                  onRemoveFromTeam={screenplay.teamId ? () => doRemoveFromTeam(target) : undefined}
-                  onAddToStack={stacks.length > 0 ? () => handleOpenAddToStack(screenplay) : undefined}
-                  onArchive={() => doToggleArchive(target)}
-                />
-              );
-            })}
-          </div>
+    const screenplaysContent = viewMode === 'grid' ? (
+      <WorkspaceDndContext
+        onCreateStack={onCreateStack}
+        onAddToStack={onAddToStack}
+      >
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+          {/* Render stacks first */}
+          {filteredStacks.map((stack) => (
+            <DroppableStackCard
+              key={`stack-${stack.id}`}
+              stack={stack}
+              onClick={() => handleOpenStack(stack)}
+              onUngroup={() => onDissolveStack(stack.id)}
+              onDelete={() => onDelete(stack.id, 'stack')}
+            />
+          ))}
+          {/* Then render standalone screenplays */}
+          {filteredScreenplays.map((screenplay) => {
+            const target = toActionTarget(screenplay);
+            return (
+              <DraggableScreenplayCard
+                key={screenplay.id}
+                fullScreenplay={screenplay}
+                screenplay={{
+                  id: screenplay.id,
+                  title: screenplay.title,
+                  logline: screenplay.logline,
+                  synopsis: screenplay.synopsis,
+                  updatedAt: screenplay.updatedAt,
+                  wordCount: screenplay.wordCount,
+                  genre: screenplay.genre,
+                  isFavorite: screenplay.isFavorite,
+                  isArchived: screenplay.isArchived,
+                  project: screenplay.project,
+                  team: screenplay.team,
+                  author: screenplay.author,
+                  user: screenplay.user,
+                  type: screenplay.type || undefined,
+                  season: screenplay.season,
+                  episode: screenplay.episode,
+                  episodeTitle: screenplay.episodeTitle,
+                  series: screenplay.series,
+                }}
+                href={`/editor/${screenplay.id}`}
+                showFavorite={true}
+                showGenre={true}
+                showProject={true}
+                showTeam={true}
+                showWordCount={true}
+                onEdit={() => router.push(`/editor/${screenplay.id}`)}
+                onRename={() => openRename(target)}
+                onExport={() => doExport(target)}
+                onToggleFavorite={() => doToggleFavorite(target)}
+                onDelete={() => openDeleteScreenplay(target)}
+                onMoveToProject={() => openMoveToProject(target)}
+                onRemoveFromProject={screenplay.projectId ? () => doRemoveFromProject(target) : undefined}
+                onCreateProject={!screenplay.projectId ? () => doCreateProject(target) : undefined}
+                onMoveToTeam={() => openMoveToTeam(target)}
+                onRemoveFromTeam={screenplay.teamId ? () => doRemoveFromTeam(target) : undefined}
+                onAddToStack={stacks.length > 0 ? () => handleOpenAddToStack(screenplay) : undefined}
+                onArchive={() => doToggleArchive(target)}
+              />
+            );
+          })}
         </div>
-        <StackDialog
-          stack={selectedStack}
-          open={stackDialogOpen}
-          onOpenChange={setStackDialogOpen}
-          onRename={handleRenameStack}
-          onUngroup={(stackId) => {
-            onDissolveStack(stackId);
-            setStackDialogOpen(false);
-            setSelectedStack(null);
-          }}
-          onRemoveFromStack={handleRemoveFromStack}
-        />
-        <AddToStackDialog
-          open={addToStackDialogOpen}
-          onOpenChange={setAddToStackDialogOpen}
-          screenplayTitle={screenplayToAddToStack?.title || ''}
-          stacks={stacks.map(s => ({
-            id: s.id,
-            name: s.name,
-            screenplayCount: s._count?.screenplays || s.screenplays?.length || 0,
-          }))}
-          onAddToStack={handleAddScreenplayToStack}
-          onCreateNewStack={handleCreateNewStackForScreenplay}
-        />
-      </>
+      </WorkspaceDndContext>
+    ) : (
+      <div className="space-y-4">
+        {/* Stacks section */}
+        {filteredStacks.length > 0 && (
+          <div className="space-y-2">
+            {filteredStacks.map((stack) => (
+              <StackListRow
+                key={`stack-${stack.id}`}
+                stack={stack}
+                onClick={() => handleOpenStack(stack)}
+                onEdit={() => handleOpenStack(stack)}
+                onUngroup={() => onDissolveStack(stack.id)}
+                onDelete={() => onDelete(stack.id, 'stack')}
+              />
+            ))}
+          </div>
+        )}
+        {/* Screenplays list */}
+        <div className="space-y-2">
+          {filteredScreenplays.map((screenplay) => {
+            const target = toActionTarget(screenplay);
+            return (
+              <ScreenplayListRow
+                key={screenplay.id}
+                screenplay={{
+                  id: screenplay.id,
+                  title: screenplay.title,
+                  logline: screenplay.logline,
+                  synopsis: screenplay.synopsis,
+                  updatedAt: screenplay.updatedAt,
+                  wordCount: screenplay.wordCount,
+                  genre: screenplay.genre,
+                  isFavorite: screenplay.isFavorite,
+                  isArchived: screenplay.isArchived,
+                  project: screenplay.project,
+                  team: screenplay.team,
+                  author: screenplay.author,
+                  user: screenplay.user,
+                  type: screenplay.type || undefined,
+                  season: screenplay.season,
+                  episode: screenplay.episode,
+                  episodeTitle: screenplay.episodeTitle,
+                  series: screenplay.series,
+                }}
+                href={`/editor/${screenplay.id}`}
+                onEdit={() => router.push(`/editor/${screenplay.id}`)}
+                onRename={() => openRename(target)}
+                onExport={() => doExport(target)}
+                onToggleFavorite={() => doToggleFavorite(target)}
+                onDelete={() => openDeleteScreenplay(target)}
+                onMoveToProject={() => openMoveToProject(target)}
+                onRemoveFromProject={screenplay.projectId ? () => doRemoveFromProject(target) : undefined}
+                onCreateProject={!screenplay.projectId ? () => doCreateProject(target) : undefined}
+                onMoveToTeam={() => openMoveToTeam(target)}
+                onRemoveFromTeam={screenplay.teamId ? () => doRemoveFromTeam(target) : undefined}
+                onAddToStack={stacks.length > 0 ? () => handleOpenAddToStack(screenplay) : undefined}
+                onArchive={() => doToggleArchive(target)}
+              />
+            );
+          })}
+        </div>
+      </div>
     );
+
+    return <>{screenplaysContent}</>;
   }
 
   // Series tab
@@ -569,122 +423,61 @@ export function WorkspaceContentGrid({
       );
     }
 
-    if (viewMode === 'grid') {
-      return (
-        <>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-            {filteredSeries.map((s) => (
-              <SeriesCard
-                key={s.id}
-                series={{
-                  id: s.id,
-                  title: s.title,
-                  logline: s.logline,
-                  genre: s.genre,
-                  format: s.format,
-                  updatedAt: s.updatedAt,
-                  projectId: s.projectId,
-                  project: s.project,
-                  isArchived: s.isArchived,
-                  _count: s._count,
-                }}
-                onEdit={() => router.push(`/series/${s.id}`)}
-                onRename={() => setSeriesToRename(s)}
-                onMoveToProject={() => setSeriesToMoveToProject(s)}
-                onRemoveFromProject={s.projectId ? () => setSeriesToMoveToProject(s) : undefined}
-                onArchive={() => handleArchiveSeries(s)}
-                onDelete={() => onDelete(s.id, 'series')}
-              />
-            ))}
-          </div>
-          {/* Series Rename Dialog */}
-          {seriesToRename && (
-            <RenameSeriesDialog
-              open={!!seriesToRename}
-              onOpenChange={(open) => !open && setSeriesToRename(null)}
-              seriesId={seriesToRename.id}
-              currentTitle={seriesToRename.title}
-              onSuccess={() => {
-                setSeriesToRename(null);
-                onDataRefresh?.();
-              }}
-            />
-          )}
-          {/* Series Move to Project Dialog */}
-          {seriesToMoveToProject && (
-            <MoveSeriesToProjectDialog
-              open={!!seriesToMoveToProject}
-              onOpenChange={(open) => !open && setSeriesToMoveToProject(null)}
-              seriesId={seriesToMoveToProject.id}
-              seriesTitle={seriesToMoveToProject.title}
-              currentProjectId={seriesToMoveToProject.projectId}
-              onSuccess={() => {
-                setSeriesToMoveToProject(null);
-                onDataRefresh?.();
-              }}
-            />
-          )}
-        </>
-      );
-    }
-
-    // List view for series
-    return (
-      <>
-        <div className="space-y-2">
-          {filteredSeries.map((s) => (
-            <SeriesListRow
-              key={s.id}
-              series={{
-                id: s.id,
-                title: s.title,
-                logline: s.logline,
-                genre: s.genre,
-                format: s.format,
-                updatedAt: s.updatedAt,
-                projectId: s.projectId,
-                project: s.project,
-                isArchived: s.isArchived,
-                _count: s._count,
-              }}
-              onEdit={() => router.push(`/series/${s.id}`)}
-              onRename={() => setSeriesToRename(s)}
-              onMoveToProject={() => setSeriesToMoveToProject(s)}
-              onRemoveFromProject={s.projectId ? () => setSeriesToMoveToProject(s) : undefined}
-              onArchive={() => handleArchiveSeries(s)}
-              onDelete={() => onDelete(s.id, 'series')}
-            />
-          ))}
-        </div>
-        {/* Series Rename Dialog */}
-        {seriesToRename && (
-          <RenameSeriesDialog
-            open={!!seriesToRename}
-            onOpenChange={(open) => !open && setSeriesToRename(null)}
-            seriesId={seriesToRename.id}
-            currentTitle={seriesToRename.title}
-            onSuccess={() => {
-              setSeriesToRename(null);
-              onDataRefresh?.();
+    const seriesContent = viewMode === 'grid' ? (
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+        {filteredSeries.map((s) => (
+          <SeriesCard
+            key={s.id}
+            series={{
+              id: s.id,
+              title: s.title,
+              logline: s.logline,
+              genre: s.genre,
+              format: s.format,
+              updatedAt: s.updatedAt,
+              projectId: s.projectId,
+              project: s.project,
+              isArchived: s.isArchived,
+              _count: s._count,
             }}
+            onEdit={() => router.push(`/series/${s.id}`)}
+            onRename={() => setSeriesToRename(s)}
+            onMoveToProject={() => setSeriesToMoveToProject(s)}
+            onRemoveFromProject={s.projectId ? () => setSeriesToMoveToProject(s) : undefined}
+            onArchive={() => handleArchiveSeries(s)}
+            onDelete={() => onDelete(s.id, 'series')}
           />
-        )}
-        {/* Series Move to Project Dialog */}
-        {seriesToMoveToProject && (
-          <MoveSeriesToProjectDialog
-            open={!!seriesToMoveToProject}
-            onOpenChange={(open) => !open && setSeriesToMoveToProject(null)}
-            seriesId={seriesToMoveToProject.id}
-            seriesTitle={seriesToMoveToProject.title}
-            currentProjectId={seriesToMoveToProject.projectId}
-            onSuccess={() => {
-              setSeriesToMoveToProject(null);
-              onDataRefresh?.();
+        ))}
+      </div>
+    ) : (
+      <div className="space-y-2">
+        {filteredSeries.map((s) => (
+          <SeriesListRow
+            key={s.id}
+            series={{
+              id: s.id,
+              title: s.title,
+              logline: s.logline,
+              genre: s.genre,
+              format: s.format,
+              updatedAt: s.updatedAt,
+              projectId: s.projectId,
+              project: s.project,
+              isArchived: s.isArchived,
+              _count: s._count,
             }}
+            onEdit={() => router.push(`/series/${s.id}`)}
+            onRename={() => setSeriesToRename(s)}
+            onMoveToProject={() => setSeriesToMoveToProject(s)}
+            onRemoveFromProject={s.projectId ? () => setSeriesToMoveToProject(s) : undefined}
+            onArchive={() => handleArchiveSeries(s)}
+            onDelete={() => onDelete(s.id, 'series')}
           />
-        )}
-      </>
+        ))}
+      </div>
     );
+
+    return <>{seriesContent}</>;
   }
 
   // Projects tab
@@ -713,117 +506,125 @@ export function WorkspaceContentGrid({
     );
   }
 
-  if (viewMode === 'grid') {
-    return (
-      <>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
-          {filteredProjects.map((project) => (
-            <ProjectFolderCard
-              key={project.id}
-              project={{
-                id: project.id,
-                name: project.name,
-                description: project.description,
-                status: project.status ?? undefined,
-                updatedAt: project.updatedAt,
-                teamId: project.teamId,
-                team: project.team,
-                roles: project.roles,
-                screenplays: project.screenplays,
-                isArchived: project.isArchived,
-                _count: project._count,
-              }}
-              onOpen={() => router.push(`/project/${project.id}`)}
-              onNewScreenplay={onNewScreenplayInProject ? () => onNewScreenplayInProject(project.id) : undefined}
-              onAddExistingScreenplay={() => setProjectToAddScreenplay(project)}
-              onRename={() => setProjectToRename(project)}
-              onSettings={() => router.push(`/project/${project.id}/settings`)}
-              onMoveToTeam={() => setProjectToMoveToTeam(project)}
-              onRemoveFromTeam={project.teamId ? () => setProjectToMoveToTeam(project) : undefined}
-              onArchive={() => handleArchiveProject(project)}
-              onDelete={() => onDelete(project.id, 'project')}
-            />
-          ))}
-        </div>
-        {/* Project Rename Dialog */}
-        {projectToRename && userId && (
-          <RenameProjectDialog
-            open={!!projectToRename}
-            onOpenChange={(open) => !open && setProjectToRename(null)}
-            projectId={projectToRename.id}
-            currentName={projectToRename.name}
-            currentDescription={projectToRename.description}
-            currentBanner={projectToRename.banner}
-            userId={userId}
-            onSuccess={() => {
-              setProjectToRename(null);
-              onDataRefresh?.();
-            }}
-          />
-        )}
-        {/* Project Move to Team Dialog */}
-        {projectToMoveToTeam && (
-          <MoveProjectToTeamDialog
-            open={!!projectToMoveToTeam}
-            onOpenChange={(open) => !open && setProjectToMoveToTeam(null)}
-            projectId={projectToMoveToTeam.id}
-            projectName={projectToMoveToTeam.name}
-            currentTeamId={projectToMoveToTeam.teamId}
-            onSuccess={() => {
-              setProjectToMoveToTeam(null);
-              onDataRefresh?.();
-            }}
-          />
-        )}
-        {/* Add Existing Screenplay to Project Dialog */}
-        {projectToAddScreenplay && (
-          <AddExistingScreenplayDialog
-            open={!!projectToAddScreenplay}
-            onOpenChange={(open) => !open && setProjectToAddScreenplay(null)}
-            projectId={projectToAddScreenplay.id}
-            projectName={projectToAddScreenplay.name}
-            onSuccess={() => {
-              setProjectToAddScreenplay(null);
-              onDataRefresh?.();
-            }}
-          />
-        )}
-      </>
-    );
-  }
+  const projectsContent = viewMode === 'grid' ? (
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5">
+      {filteredProjects.map((project) => (
+        <ProjectFolderCard
+          key={project.id}
+          project={{
+            id: project.id,
+            name: project.name,
+            description: project.description,
+            status: project.status ?? undefined,
+            updatedAt: project.updatedAt,
+            teamId: project.teamId,
+            team: project.team,
+            roles: project.roles,
+            screenplays: project.screenplays,
+            isArchived: project.isArchived,
+            _count: project._count,
+          }}
+          onOpen={() => router.push(`/project/${project.id}`)}
+          onNewScreenplay={onNewScreenplayInProject ? () => onNewScreenplayInProject(project.id) : undefined}
+          onAddExistingScreenplay={() => setProjectToAddScreenplay(project)}
+          onRename={() => setProjectToRename(project)}
+          onSettings={() => router.push(`/project/${project.id}/settings`)}
+          onMoveToTeam={() => setProjectToMoveToTeam(project)}
+          onRemoveFromTeam={project.teamId ? () => setProjectToMoveToTeam(project) : undefined}
+          onArchive={() => handleArchiveProject(project)}
+          onDelete={() => onDelete(project.id, 'project')}
+        />
+      ))}
+    </div>
+  ) : (
+    <div className="space-y-2">
+      {filteredProjects.map((project) => (
+        <ProjectListRow
+          key={project.id}
+          project={{
+            id: project.id,
+            name: project.name,
+            description: project.description,
+            updatedAt: project.updatedAt,
+            teamId: project.teamId,
+            team: project.team,
+            roles: project.roles,
+            screenplays: project.screenplays,
+            isArchived: project.isArchived,
+            _count: project._count,
+          }}
+          onOpen={() => router.push(`/project/${project.id}`)}
+          onNewScreenplay={onNewScreenplayInProject ? () => onNewScreenplayInProject(project.id) : undefined}
+          onAddExistingScreenplay={() => setProjectToAddScreenplay(project)}
+          onRename={() => setProjectToRename(project)}
+          onSettings={() => router.push(`/project/${project.id}/settings`)}
+          onMoveToTeam={() => setProjectToMoveToTeam(project)}
+          onRemoveFromTeam={project.teamId ? () => setProjectToMoveToTeam(project) : undefined}
+          onArchive={() => handleArchiveProject(project)}
+          onDelete={() => onDelete(project.id, 'project')}
+        />
+      ))}
+    </div>
+  );
 
-  // List view for projects - simple rows
   return (
     <>
-      <div className="space-y-2">
-        {filteredProjects.map((project) => (
-          <ProjectListRow
-            key={project.id}
-            project={{
-              id: project.id,
-              name: project.name,
-              description: project.description,
-              updatedAt: project.updatedAt,
-              teamId: project.teamId,
-              team: project.team,
-              roles: project.roles,
-              screenplays: project.screenplays,
-              isArchived: project.isArchived,
-              _count: project._count,
-            }}
-            onOpen={() => router.push(`/project/${project.id}`)}
-            onNewScreenplay={onNewScreenplayInProject ? () => onNewScreenplayInProject(project.id) : undefined}
-            onAddExistingScreenplay={() => setProjectToAddScreenplay(project)}
-            onRename={() => setProjectToRename(project)}
-            onSettings={() => router.push(`/project/${project.id}/settings`)}
-            onMoveToTeam={() => setProjectToMoveToTeam(project)}
-            onRemoveFromTeam={project.teamId ? () => setProjectToMoveToTeam(project) : undefined}
-            onArchive={() => handleArchiveProject(project)}
-            onDelete={() => onDelete(project.id, 'project')}
-          />
-        ))}
-      </div>
-      {/* Project Rename Dialog */}
+      {projectsContent}
+
+      {/* All dialogs rendered once - Stack dialogs */}
+      <StackDialog
+        stack={selectedStack}
+        open={stackDialogOpen}
+        onOpenChange={setStackDialogOpen}
+        onRename={handleRenameStack}
+        onUngroup={(stackId) => {
+          onDissolveStack(stackId);
+          setStackDialogOpen(false);
+          setSelectedStack(null);
+        }}
+        onRemoveFromStack={handleRemoveFromStack}
+      />
+      <AddToStackDialog
+        open={addToStackDialogOpen}
+        onOpenChange={setAddToStackDialogOpen}
+        screenplayTitle={screenplayToAddToStack?.title || ''}
+        stacks={stacks.map(s => ({
+          id: s.id,
+          name: s.name,
+          screenplayCount: s._count?.screenplays || s.screenplays?.length || 0,
+        }))}
+        onAddToStack={handleAddScreenplayToStack}
+        onCreateNewStack={handleCreateNewStackForScreenplay}
+      />
+
+      {/* Series dialogs */}
+      {seriesToRename && (
+        <RenameSeriesDialog
+          open={!!seriesToRename}
+          onOpenChange={(open) => !open && setSeriesToRename(null)}
+          seriesId={seriesToRename.id}
+          currentTitle={seriesToRename.title}
+          onSuccess={() => {
+            setSeriesToRename(null);
+            onDataRefresh?.();
+          }}
+        />
+      )}
+      {seriesToMoveToProject && (
+        <MoveSeriesToProjectDialog
+          open={!!seriesToMoveToProject}
+          onOpenChange={(open) => !open && setSeriesToMoveToProject(null)}
+          seriesId={seriesToMoveToProject.id}
+          seriesTitle={seriesToMoveToProject.title}
+          currentProjectId={seriesToMoveToProject.projectId}
+          onSuccess={() => {
+            setSeriesToMoveToProject(null);
+            onDataRefresh?.();
+          }}
+        />
+      )}
+
+      {/* Project dialogs */}
       {projectToRename && userId && (
         <RenameProjectDialog
           open={!!projectToRename}
@@ -839,7 +640,6 @@ export function WorkspaceContentGrid({
           }}
         />
       )}
-      {/* Project Move to Team Dialog */}
       {projectToMoveToTeam && (
         <MoveProjectToTeamDialog
           open={!!projectToMoveToTeam}
@@ -853,7 +653,6 @@ export function WorkspaceContentGrid({
           }}
         />
       )}
-      {/* Add Existing Screenplay to Project Dialog */}
       {projectToAddScreenplay && (
         <AddExistingScreenplayDialog
           open={!!projectToAddScreenplay}

@@ -81,7 +81,7 @@ export function UserCard({ user, className }: UserCardProps) {
             </span>
           </div>
           {user.location && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="meta-text">
               <MapPin className="h-3 w-3" />
               <span className="truncate max-w-[100px]">{user.location}</span>
             </span>

@@ -101,14 +101,20 @@ const fragmentShader = `
     float aspect = uResolution.x / uResolution.y;
     vec2 adjustedUv = vec2(uv.x * aspect, uv.y);
 
-    // Slow flowing time
-    float t = uTime * 0.08;
+    // Flowing time - visible animation
+    float t = uTime * 0.15;
+
+    // Add flowing motion to UVs for visible movement
+    vec2 flowUv = adjustedUv + vec2(
+      sin(adjustedUv.y * 2.0 + t) * 0.05,
+      cos(adjustedUv.x * 2.0 + t * 0.7) * 0.05
+    );
 
     // Multiple noise layers for organic flow
-    float n1 = fbm(vec3(adjustedUv * 1.5, t * 0.3));
-    float n2 = fbm(vec3(adjustedUv * 2.0 + 100.0, t * 0.2 + 50.0));
-    float n3 = snoise(vec3(adjustedUv * 0.8 + n1 * 0.3, t * 0.15));
-    float n4 = snoise(vec3(adjustedUv * 1.2 + n2 * 0.2, t * 0.25 + 25.0));
+    float n1 = fbm(vec3(flowUv * 1.5, t * 0.5));
+    float n2 = fbm(vec3(flowUv * 2.0 + 100.0, t * 0.4 + 50.0));
+    float n3 = snoise(vec3(flowUv * 0.8 + n1 * 0.3, t * 0.3));
+    float n4 = snoise(vec3(flowUv * 1.2 + n2 * 0.2, t * 0.5 + 25.0));
 
     // Combine noise for shape
     float shape1 = smoothstep(-0.3, 0.6, n1 + n3 * 0.5);
@@ -122,12 +128,12 @@ const fragmentShader = `
     vec3 lightDeep = vec3(0.012, 0.243, 0.545);      // Deep blue #033e8b
     vec3 lightDark = vec3(0.059, 0.071, 0.180);      // Dark navy accent
 
-    // ============ DARK THEME COLORS (Void infinite) ============
-    vec3 darkBase = vec3(0.024, 0.035, 0.078);       // Very dark blue void
+    // ============ DARK THEME COLORS (Gojo Infinite Void - teal not black) ============
+    vec3 darkBase = vec3(0.04, 0.10, 0.14);          // Deep teal base (not black)
     vec3 darkCyan = vec3(0.235, 0.784, 0.941);       // Bright cyan #3cc8f0
-    vec3 darkTeal = vec3(0.0, 0.588, 0.831);         // Electric teal
-    vec3 darkDeep = vec3(0.082, 0.110, 0.180);       // Deep void blue
-    vec3 darkAccent = vec3(0.490, 0.867, 0.980);     // Bright infinity accent #7dddfb
+    vec3 darkTeal = vec3(0.0, 0.55, 0.75);           // Rich teal
+    vec3 darkDeep = vec3(0.02, 0.08, 0.12);          // Darker teal shadows
+    vec3 darkAccent = vec3(0.4, 0.85, 0.95);         // Ethereal cyan glow
 
     // Interpolate between themes
     vec3 base = mix(lightBase, darkBase, uTheme);
@@ -190,6 +196,15 @@ export function AuroraBackground({
   const init = useCallback(() => {
     if (!containerRef.current) return;
 
+    // Clean up any existing canvas from previous render
+    while (containerRef.current.firstChild) {
+      containerRef.current.removeChild(containerRef.current.firstChild);
+    }
+
+    // Use window dimensions for fixed full-viewport element
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
     const scene = new THREE.Scene();
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
@@ -199,7 +214,13 @@ export function AuroraBackground({
       powerPreference: 'high-performance'
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+    renderer.setSize(width, height);
+
+    // Ensure canvas fills container
+    renderer.domElement.style.display = 'block';
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -214,10 +235,7 @@ export function AuroraBackground({
       uniforms: {
         uTime: { value: 0 },
         uTheme: { value: initialTheme },
-        uResolution: { value: new THREE.Vector2(
-          containerRef.current.clientWidth,
-          containerRef.current.clientHeight
-        )}
+        uResolution: { value: new THREE.Vector2(width, height) }
       }
     });
     materialRef.current = material;
@@ -226,9 +244,10 @@ export function AuroraBackground({
     scene.add(mesh);
 
     const startTime = performance.now();
+    let isRunning = true;
 
     const animate = () => {
-      frameRef.current = requestAnimationFrame(animate);
+      if (!isRunning) return;
 
       const elapsed = (performance.now() - startTime) / 1000;
       material.uniforms.uTime.value = elapsed;
@@ -242,27 +261,30 @@ export function AuroraBackground({
       }
 
       renderer.render(scene, camera);
+      frameRef.current = requestAnimationFrame(animate);
     };
 
-    animate();
+    // Start animation
+    frameRef.current = requestAnimationFrame(animate);
 
+    // Use ResizeObserver for reliable resize detection
     const handleResize = () => {
-      if (!containerRef.current || !renderer) return;
-      const width = containerRef.current.clientWidth;
-      const height = containerRef.current.clientHeight;
-      renderer.setSize(width, height);
-      material.uniforms.uResolution.value.set(width, height);
+      const newWidth = window.innerWidth;
+      const newHeight = window.innerHeight;
+      renderer.setSize(newWidth, newHeight);
+      material.uniforms.uResolution.value.set(newWidth, newHeight);
     };
 
     window.addEventListener('resize', handleResize);
 
     return () => {
+      isRunning = false;
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(frameRef.current);
       renderer.dispose();
       geometry.dispose();
       material.dispose();
-      if (containerRef.current && renderer.domElement) {
+      if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
         containerRef.current.removeChild(renderer.domElement);
       }
     };
@@ -293,14 +315,16 @@ export function AuroraBackground({
     <div
       ref={containerRef}
       className={className}
+      data-aurora="background"
       style={{
         position: 'fixed',
-        inset: 0,
-        width: '100vw',
-        height: '100vh',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
         overflow: 'hidden',
         pointerEvents: 'none',
-        zIndex: -1,
+        zIndex: 0,
       }}
     />
   );

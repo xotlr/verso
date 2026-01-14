@@ -1,0 +1,26 @@
+/**
+ * Verso Styles Index
+ *
+ * This file imports all modular CSS files in the correct order.
+ * Import this file in app/globals.css to use all styles.
+ *
+ * Order matters:
+ * 1. Theme files (visual customization)
+ * 2. Typography (font system)
+ * 3. Animations (keyframes and utilities)
+ * 4. Accessibility (a11y utilities)
+ */
+
+/* Theme patterns and effects */
+@import './theme-patterns.css';
+@import './theme-chrome.css';
+@import './theme-ui-chrome.css';
+@import './theme-ambient.css';
+
+/* Core utilities */
+@import './typography.css';
+@import './animations.css';
+@import './accessibility.css';
+
+/* Component-specific styles */
+@import './sidebar-animations.css';

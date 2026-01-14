@@ -41,7 +41,7 @@ function SettingsRow({ label, description, children, comingSoon }: SettingsRowPr
         <div className="flex items-center gap-2">
           <Label className="text-sm text-foreground">{label}</Label>
           {comingSoon && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
+            <span className="badge-primary-md">
               <Sparkles className="h-2.5 w-2.5" />
               Soon
             </span>
@@ -212,7 +212,7 @@ export function SettingsPanel({ className }: SettingsPanelProps) {
                 <Label className="text-sm text-foreground">
                   Text contrast
                 </Label>
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">
+                <span className="badge-primary-md">
                   <Sparkles className="h-2.5 w-2.5" />
                   Soon
                 </span>

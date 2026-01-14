@@ -21,6 +21,8 @@ import { Scene, SceneElement, Location } from '@/types/screenplay';
 const SCENE_HEADING_PATTERNS = [
   /^(INT|EXT|INT\.?\/?EXT|I\.?\/?E|EST)[\.\s\-]/i,
   /^(INTERIOR|EXTERIOR)[\.\s\-]/i,
+  // Numbered scene headings: "1.INT.", "1A.EXT.", "23.INT.", "1. INT."
+  /^\d+[A-Z]?\.?\s*(INT|EXT|INT\.?\/?EXT|I\.?\/?E|EST)[\.\s\-]/i,
 ];
 
 // Transition patterns
@@ -288,11 +290,9 @@ class DocxParser implements ScreenplayParser {
 
       for (let i = 0; i < pElements.length; i++) {
         const p = pElements[i];
-        const paragraph = this.parseParagraph(p, styleMap);
-
-        if (paragraph.text.trim()) {
-          paragraphs.push(paragraph);
-        }
+        // parseParagraph now returns an array (splits on <w:br> line breaks)
+        const logicalLines = this.parseParagraph(p, styleMap);
+        paragraphs.push(...logicalLines);
       }
     } catch (error) {
       console.warn('Error parsing document.xml:', error);
@@ -301,16 +301,59 @@ class DocxParser implements ScreenplayParser {
     return paragraphs;
   }
 
+  /**
+   * Recursively extract text from an element, using a special marker for line breaks.
+   * Returns text with \x00 markers where <w:br> elements occur.
+   */
+  private extractTextFromElement(element: Element): string {
+    let result = '';
+    const tagName = element.tagName || element.nodeName;
+
+    // Handle specific DOCX elements
+    if (tagName === 'w:t') {
+      return element.textContent || '';
+    } else if (tagName === 'w:br') {
+      // Use null character as line break marker (will be split later)
+      return '\x00';
+    } else if (tagName === 'w:tab') {
+      return ' ';
+    } else if (tagName === 'w:pPr' || tagName === 'w:rPr') {
+      // Skip property elements - they don't contain text
+      return '';
+    }
+
+    // Recurse into children
+    for (let i = 0; i < element.childNodes.length; i++) {
+      const child = element.childNodes[i];
+      if (child.nodeType === 1) { // Element node
+        result += this.extractTextFromElement(child as Element);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Parse a paragraph, potentially returning multiple logical lines if the paragraph
+   * contains line breaks (<w:br>). Screenplays often put character/parenthetical/dialogue
+   * in a single paragraph separated by line breaks.
+   */
   private parseParagraph(
     p: Element,
     styleMap: Map<string, string>
-  ): DocxParagraph {
-    const textElements = p.getElementsByTagName('w:t');
-    let text = '';
-    for (let i = 0; i < textElements.length; i++) {
-      text += textElements[i].textContent || '';
+  ): DocxParagraph[] {
+    // Extract text with line break markers
+    const rawText = this.extractTextFromElement(p);
+
+    // Split on line break markers
+    const lines = rawText.split('\x00').map(line => line.replace(/\s+/g, ' ').trim()).filter(line => line.length > 0);
+
+    // If no lines or only one line, return single paragraph
+    if (lines.length === 0) {
+      return [];
     }
 
+    // Get paragraph-level properties (apply to first line primarily)
     const pPr = p.getElementsByTagName('w:pPr')[0];
     const pStyle = pPr?.getElementsByTagName('w:pStyle')[0];
     const styleId = pStyle?.getAttribute('w:val');
@@ -325,19 +368,19 @@ class DocxParser implements ScreenplayParser {
     const alignmentValue = jc?.getAttribute('w:val');
     const alignment = alignmentValue as DocxParagraph['alignment'];
 
-    const rPr = p.getElementsByTagName('w:rPr')[0];
-    const isBold = !!rPr?.getElementsByTagName('w:b')[0];
-    const caps = rPr?.getElementsByTagName('w:caps')[0];
-    const isAllCaps = !!caps || text === text.toUpperCase();
-
-    return {
-      text: text.trim(),
-      styleName,
-      indentLeft,
-      alignment,
-      isBold,
-      isAllCaps,
-    };
+    // Return multiple paragraphs for multi-line content
+    return lines.map((text, index) => {
+      const isAllCaps = text === text.toUpperCase() && /[A-Z]/.test(text);
+      return {
+        text,
+        // Only first line gets the style name (usually the character name)
+        styleName: index === 0 ? styleName : undefined,
+        indentLeft: index === 0 ? indentLeft : 0,
+        alignment: index === 0 ? alignment : undefined,
+        isBold: false, // Would need per-run tracking for accuracy
+        isAllCaps,
+      };
+    });
   }
 
   private async convertToScreenplay(
@@ -365,6 +408,44 @@ class DocxParser implements ScreenplayParser {
     for (let i = titlePageEnd; i < paragraphs.length; i++) {
       const para = paragraphs[i];
       onProgress?.(i - titlePageEnd, paragraphs.length - titlePageEnd);
+
+      // Check for merged character+dialogue (e.g., "OPERATOR (V.O.)Hallo? Ist da jemand?")
+      const mergedSplit = this.trySplitMergedCharacterDialogue(para.text);
+      if (mergedSplit) {
+        // Add character element
+        const charElement: SceneElement = {
+          id: `elem-${++elementId}`,
+          type: 'character',
+          content: mergedSplit.character,
+        };
+        elements.push(charElement);
+
+        const baseName = mergedSplit.character.replace(/\s*\([^)]+\)\s*$/, '').trim();
+        if (currentScene && !currentScene.characters.includes(baseName)) {
+          currentScene.characters.push(baseName);
+        }
+        contentLines.push(`\n                              ${mergedSplit.character}\n`);
+
+        if (currentScene) {
+          currentScene.elements.push(charElement);
+        }
+
+        // Add dialogue element
+        const dialogueElement: SceneElement = {
+          id: `elem-${++elementId}`,
+          type: 'dialogue',
+          content: mergedSplit.dialogue,
+        };
+        elements.push(dialogueElement);
+        contentLines.push(`                    ${mergedSplit.dialogue}\n`);
+
+        if (currentScene) {
+          currentScene.elements.push(dialogueElement);
+        }
+
+        prevType = 'dialogue';
+        continue;
+      }
 
       const elementType = this.detectElementType(para, prevType);
 
@@ -572,8 +653,11 @@ class DocxParser implements ScreenplayParser {
       baseName.length <= 20
     ) {
       const wordCount = baseName.split(/\s+/).length;
-      // Only 1-2 word names without any punctuation
-      if (wordCount <= 2 && !/[.!?,;:]/.test(baseName)) {
+      // Only 1-2 word names without any punctuation (including hyphens at word end)
+      // Hyphens in the middle of names are OK (e.g., MARY-ANNE), but trailing hyphens indicate
+      // interrupted speech or stylized action (e.g., "ONCE-", "TWICE-")
+      const hasTrailingHyphen = /-$/.test(baseName);
+      if (wordCount <= 2 && !/[.!?,;:]/.test(baseName) && !hasTrailingHyphen) {
         // Make sure it's not a common word that might be emphasized
         const commonWords = ['LATER', 'CONTINUOUS', 'MEANWHILE', 'SUDDENLY', 'FINALLY', 'THEN', 'NOW', 'HERE', 'THERE'];
         if (!commonWords.includes(baseName)) {
@@ -638,43 +722,38 @@ class DocxParser implements ScreenplayParser {
    * Extract title page information from paragraphs.
    *
    * Strategy: Look for "Written by" pattern first, then find title above it.
-   * This handles screenplays that start with action like "DARKNESS" before the title.
+   * Returns 0 to preserve all content - title page extraction is metadata only,
+   * pre-scene content (action, transitions) should still be included in screenplay.
    */
   private extractTitlePage(
     paragraphs: DocxParagraph[],
     titlePage: TitlePage
   ): number {
-    let titlePageEnd = 0;
     let writtenByIndex = -1;
+    let lastTitlePageElement = -1;
 
-    // First pass: find scene heading (end of title page) and key patterns
+    // First pass: find title page elements and key patterns
     for (let i = 0; i < Math.min(paragraphs.length, 20); i++) {
       const para = paragraphs[i];
       const text = para.text;
 
-      // Scene heading marks end of title page
-      for (const pattern of SCENE_HEADING_PATTERNS) {
-        if (pattern.test(text)) {
-          // Before returning, try to find title if we have "Written by"
-          if (writtenByIndex > 0 && !titlePage.title) {
-            this.findTitleBeforeWrittenBy(paragraphs, writtenByIndex, titlePage);
-          }
-          return i;
-        }
+      // Scene heading marks definite end of title page area
+      if (this.isSceneHeading(text)) {
+        break;
       }
 
       // Check for explicit Fountain-style "Title:" pattern
       if (/^title:\s*/i.test(text)) {
         titlePage.title = text.replace(/^title:\s*/i, '').trim();
-        titlePageEnd = i + 1;
+        lastTitlePageElement = i;
       } else if (/^(written by|by)\s*$/i.test(text)) {
         // "Written by" on its own line - author is on next line
         writtenByIndex = i;
         titlePage.credit = text;
-        titlePageEnd = i + 1;
+        lastTitlePageElement = i;
         if (paragraphs[i + 1] && !this.isSceneHeading(paragraphs[i + 1].text)) {
           titlePage.author = paragraphs[i + 1].text;
-          titlePageEnd = i + 2;
+          lastTitlePageElement = i + 1;
         }
       } else if (/^(written by|screenplay by|by)\s+(.+)/i.test(text)) {
         // "Written by Name" on same line
@@ -684,20 +763,20 @@ class DocxParser implements ScreenplayParser {
         if (match) {
           titlePage.author = match[2].trim();
         }
-        titlePageEnd = i + 1;
+        lastTitlePageElement = i;
       } else if (/^author:\s*/i.test(text)) {
         writtenByIndex = i;
         titlePage.author = text.replace(/^author:\s*/i, '').trim();
-        titlePageEnd = i + 1;
+        lastTitlePageElement = i;
       } else if (/^logline:\s*/i.test(text)) {
         titlePage.logline = text.replace(/^logline:\s*/i, '').trim();
-        titlePageEnd = i + 1;
+        lastTitlePageElement = i;
       } else if (/^draft|revision/i.test(text)) {
         titlePage.draftDate = text;
-        titlePageEnd = i + 1;
+        lastTitlePageElement = i;
       } else if (/^©|copyright/i.test(text)) {
         titlePage.copyright = text;
-        titlePageEnd = i + 1;
+        lastTitlePageElement = i;
       }
     }
 
@@ -706,23 +785,21 @@ class DocxParser implements ScreenplayParser {
       if (writtenByIndex > 0) {
         // Look for title right before "Written by"
         this.findTitleBeforeWrittenBy(paragraphs, writtenByIndex, titlePage);
-      } else {
-        // No "Written by" found - use first centered non-action line
-        for (let i = 0; i < Math.min(paragraphs.length, 10); i++) {
+      } else if (lastTitlePageElement === -1) {
+        // No title page elements found - check first few centered lines
+        for (let i = 0; i < Math.min(paragraphs.length, 5); i++) {
           const para = paragraphs[i];
           const text = para.text;
 
           if (this.isSceneHeading(text)) break;
 
-          // Prefer centered text for title
-          if (para.alignment === 'center' || i < 3) {
-            const isPreTitleAction = /^(FADE\s*(IN|OUT|TO)?:?|CUT\s*TO:?|DISSOLVE:?|BLACK\.?|WHITE\.?|DARKNESS\.?|SILENCE\.?|BLACKNESS\.?|BLANK\s*SCREEN\.?|OVER\s*BLACK\.?|SUPER:?|SUPERIMPOSE:?)$/i.test(text);
-            const isSceneHeading = /^(INT|EXT|INT\.?\/?EXT|I\.?\/?E)\b/i.test(text);
+          // Only centered text for title when no other title page elements exist
+          if (para.alignment === 'center') {
+            const isPreSceneAction = /^(FADE\s*(IN|OUT|TO)?:?|CUT\s*TO:?|DISSOLVE:?|BLACK\.?|WHITE\.?|DARKNESS\.?|SILENCE\.?|BLACKNESS\.?|BLANK\s*SCREEN\.?|OVER\s*BLACK\.?|SUPER:?|SUPERIMPOSE:?)$/i.test(text);
             const isDraft = /^(draft|revision|version|\d{4}|january|february|march|april|may|june|july|august|september|october|november|december)\b/i.test(text);
 
-            if (!isPreTitleAction && !isSceneHeading && !isDraft && !text.includes(':')) {
+            if (!isPreSceneAction && !isDraft && !text.includes(':')) {
               titlePage.title = text;
-              titlePageEnd = Math.max(titlePageEnd, i + 1);
               break;
             }
           }
@@ -730,7 +807,10 @@ class DocxParser implements ScreenplayParser {
       }
     }
 
-    return titlePageEnd;
+    // Return 0 to include all content - pre-scene action/transitions should be preserved
+    // Title page elements were extracted as metadata but the content loop should
+    // still process everything and detect element types properly
+    return 0;
   }
 
   /**
@@ -764,6 +844,66 @@ class DocxParser implements ScreenplayParser {
       }
     }
     return false;
+  }
+
+  /**
+   * Try to split merged character+dialogue text.
+   * Returns null if text doesn't look like merged character+dialogue.
+   * Handles cases like:
+   * - "OPERATOR (V.O.)Hallo?" → { character: "OPERATOR (V.O.)", dialogue: "Hallo?" }
+   * - "POLICE (O.S.)(muffled)Polizei!" → { character: "POLICE (O.S.)(muffled)", dialogue: "Polizei!" }
+   * - "JOHNHello there" → { character: "JOHN", dialogue: "Hello there" }
+   */
+  private trySplitMergedCharacterDialogue(
+    text: string
+  ): { character: string; dialogue: string } | null {
+    // Must have mixed case (character is uppercase, dialogue has lowercase)
+    if (text === text.toUpperCase()) {
+      return null;
+    }
+
+    // Pattern to match character name with 0, 1, or 2 parentheticals
+    // Examples: "NAME", "NAME (V.O.)", "NAME (O.S.)(muffled)", "NAME (V.O.) (CONT'D)"
+    // The key is that parentheticals are followed by dialogue that starts with a letter
+    const multiExtPattern = /^([A-Z][A-Z\s'.,-]*(?:\s*\([^)]+\)){0,2})([A-Za-z].*)$/;
+    const match = text.match(multiExtPattern);
+
+    if (match) {
+      const character = match[1].trim();
+      const dialogue = match[2].trim();
+
+      // Validate character part
+      if (character.length < 2 || character.length > 50 || dialogue.length === 0) {
+        return null;
+      }
+
+      // Extract base name (without parentheticals) for validation
+      const baseName = character.replace(/\s*\([^)]+\)/g, '').trim();
+      const baseWordCount = baseName.split(/\s+/).length;
+
+      // Base name must be short (1-3 words) and look like a character name
+      if (baseWordCount > 3 || baseName.length > 25) {
+        return null;
+      }
+
+      // Filter out action-like text
+      if (ACTION_INDICATORS.some(p => p.test(baseName))) {
+        return null;
+      }
+
+      // If character has parentheticals, it's likely a real character
+      const hasParenthetical = /\([^)]+\)/.test(character);
+      if (hasParenthetical) {
+        return { character, dialogue };
+      }
+
+      // Without parentheticals, be more strict - base name must be very short
+      if (baseWordCount <= 2 && baseName.length <= 15) {
+        return { character, dialogue };
+      }
+    }
+
+    return null;
   }
 
   private extractLocation(heading: string): string {

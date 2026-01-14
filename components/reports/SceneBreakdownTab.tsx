@@ -80,7 +80,7 @@ export function SceneBreakdownTab({ scenes, characters }: SceneBreakdownTabProps
       )}
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg border border-border">
+      <div className="stats-grid">
         <div>
           <p className="text-xs text-muted-foreground mb-1">Total Scenes</p>
           <p className="text-2xl font-bold">{sceneBreakdownData.length}</p>

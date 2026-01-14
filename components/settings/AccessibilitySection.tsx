@@ -27,6 +27,7 @@ export function AccessibilitySection({
     { value: 'sans', label: 'Sans' },
     { value: 'system', label: 'System' },
     { value: 'dyslexic', label: 'Dyslexic' },
+    { value: 'courier', label: 'Courier' },
   ];
 
   const getAppFontStyle = (value: AccessibilityFont): React.CSSProperties => {
@@ -37,21 +38,10 @@ export function AccessibilitySection({
         return { fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif' };
       case 'dyslexic':
         return { fontFamily: 'OpenDyslexic, system-ui, sans-serif' };
-      default:
-        return { fontFamily: 'Inter, system-ui, sans-serif' };
-    }
-  };
-
-  const getEditorFontStyle = (value: AccessibilityFont): React.CSSProperties => {
-    switch (value) {
-      case 'sans':
-        return { fontFamily: 'Inter, system-ui, sans-serif' };
-      case 'system':
-        return { fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif' };
-      case 'dyslexic':
-        return { fontFamily: 'OpenDyslexic, Courier Prime, monospace' };
-      default:
+      case 'courier':
         return { fontFamily: 'Courier Prime, Courier New, monospace' };
+      default:
+        return { fontFamily: 'Inter, system-ui, sans-serif' };
     }
   };
 
@@ -64,57 +54,25 @@ export function AccessibilitySection({
           <CardDescription>Font for buttons, menus, and UI</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             {fontOptions.map((opt) => (
               <button
                 key={opt.value}
                 onClick={() => updateInterfaceSettings({ appFont: opt.value })}
                 className={cn(
-                  "p-3 rounded-lg border-2 text-center transition-all",
+                  "p-2.5 rounded-lg border-2 text-center transition-all",
                   interfaceSettings.appFont === opt.value
                     ? "border-primary bg-primary/5"
                     : "border-border hover:border-primary/50"
                 )}
               >
                 <div
-                  className="text-2xl font-medium mb-1"
+                  className="text-xl font-medium mb-0.5"
                   style={getAppFontStyle(opt.value)}
                 >
                   aA
                 </div>
-                <div className="text-xs text-muted-foreground">{opt.label}</div>
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Editor Font Card */}
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base">Editor Font</CardTitle>
-          <CardDescription>Font for the screenplay editor</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-4 gap-2">
-            {fontOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => updateInterfaceSettings({ editorFont: opt.value })}
-                className={cn(
-                  "p-3 rounded-lg border-2 text-center transition-all",
-                  interfaceSettings.editorFont === opt.value
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
-                )}
-              >
-                <div
-                  className="text-2xl mb-1"
-                  style={getEditorFontStyle(opt.value)}
-                >
-                  aA
-                </div>
-                <div className="text-xs text-muted-foreground">{opt.label}</div>
+                <div className="text-[10px] text-muted-foreground">{opt.label}</div>
               </button>
             ))}
           </div>

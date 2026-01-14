@@ -40,10 +40,7 @@ export function CastBreakdownTab({ scenes, characters }: CastBreakdownTabProps) 
       ) : (
         <div className="space-y-3">
           {castBreakdownData.map((cast, index) => (
-            <div
-              key={index}
-              className="p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors"
-            >
+            <div key={index} className="card-hoverable">
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <h4 className="font-semibold text-lg">{cast.characterName}</h4>

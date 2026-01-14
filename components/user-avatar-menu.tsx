@@ -41,9 +41,10 @@ function getNextPlan(currentPlan: PlanType): PlanType | null {
 
 interface UserAvatarMenuProps {
   className?: string;
+  isGlass?: boolean;
 }
 
-export function UserAvatarMenu({ className }: UserAvatarMenuProps) {
+export function UserAvatarMenu({ className, isGlass = false }: UserAvatarMenuProps) {
   const { data: session } = useSession();
   const user = session?.user;
 
@@ -68,7 +69,10 @@ export function UserAvatarMenu({ className }: UserAvatarMenuProps) {
           <button
             className={cn(
               "relative flex items-center justify-center h-8 w-8 rounded-md",
-              "hover:bg-accent transition-colors",
+              isGlass
+                ? "hover:bg-background/40"
+                : "hover:bg-accent",
+              "transition-colors active:scale-[0.98]",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
               className
             )}

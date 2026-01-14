@@ -122,6 +122,7 @@ export function useImportPreview(options?: UseImportPreviewOptions): UseImportPr
             elements: parseResult.elements,
             wordCount,
             warnings: parseResult.warnings,
+            titlePage: parseResult.titlePage,
           };
 
           setResult(importResult);
@@ -194,6 +195,7 @@ export function useImportPreview(options?: UseImportPreviewOptions): UseImportPr
       elements: previewData.elements,
       wordCount: previewData.wordCount,
       warnings: parseResultRef.current.warnings,
+      titlePage: parseResultRef.current.titlePage,
     };
 
     setResult(importResult);

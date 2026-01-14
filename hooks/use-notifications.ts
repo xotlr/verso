@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
+import { useSafeFetch, useAbortSignal } from "./use-safe-fetch"
 
 export interface Notification {
   id: string
@@ -16,77 +17,122 @@ export interface Notification {
   createdAt: string
 }
 
+interface NotificationsResponse {
+  notifications: Notification[]
+  unreadCount: number
+}
+
 interface UseNotificationsReturn {
   notifications: Notification[]
   unreadCount: number
   isLoading: boolean
   markAsRead: (id: string) => Promise<void>
   markAllAsRead: () => Promise<void>
-  refetch: () => Promise<void>
+  refetch: () => void
 }
 
 export function useNotifications(): UseNotificationsReturn {
   const { data: session } = useSession()
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
+  const getAbortSignal = useAbortSignal()
 
-  // Fetch notifications from API
-  const fetchNotifications = useCallback(async () => {
-    if (!session?.user?.id) return
+  // Local state for optimistic updates and realtime additions
+  const [localNotifications, setLocalNotifications] = useState<Notification[] | null>(null)
+  const [localUnreadCount, setLocalUnreadCount] = useState<number | null>(null)
 
-    try {
-      const response = await fetch("/api/notifications?limit=20")
-      if (response.ok) {
-        const data = await response.json()
-        setNotifications(data.notifications)
-        setUnreadCount(data.unreadCount)
-      }
-    } catch (error) {
-      console.error("Failed to fetch notifications:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [session?.user?.id])
+  // Safe fetch with automatic abort on unmount
+  const { data, isLoading, refetch } = useSafeFetch<NotificationsResponse>(
+    session?.user?.id ? "/api/notifications?limit=20" : null
+  )
+
+  // Use local state if set (optimistic/realtime), otherwise use fetched data
+  const notifications = localNotifications ?? data?.notifications ?? []
+  const unreadCount = localUnreadCount ?? data?.unreadCount ?? 0
 
   // Mark single notification as read
   const markAsRead = useCallback(async (id: string) => {
+    // Optimistic update first
+    const previousNotifications = localNotifications ?? data?.notifications ?? []
+    const previousUnreadCount = localUnreadCount ?? data?.unreadCount ?? 0
+
+    setLocalNotifications(
+      previousNotifications.map((n) =>
+        n.id === id ? { ...n, isRead: true } : n
+      )
+    )
+    setLocalUnreadCount(Math.max(0, previousUnreadCount - 1))
+
     try {
+      const signal = getAbortSignal()
       const response = await fetch(`/api/notifications/${id}/read`, {
         method: "PATCH",
+        signal,
       })
-      if (response.ok) {
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-        )
-        setUnreadCount((prev) => Math.max(0, prev - 1))
+
+      if (!response.ok) {
+        // Rollback optimistic update
+        setLocalNotifications(previousNotifications)
+        setLocalUnreadCount(previousUnreadCount)
+
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Failed to update notification (${response.status})`)
       }
     } catch (error) {
-      console.error("Failed to mark notification as read:", error)
+      if (error instanceof Error && error.name === "AbortError") return
+
+      // Rollback on any error
+      setLocalNotifications(previousNotifications)
+      setLocalUnreadCount(previousUnreadCount)
+
+      toast.error("Failed to mark notification as read")
     }
-  }, [])
+  }, [getAbortSignal, data, localNotifications, localUnreadCount])
 
   // Mark all notifications as read
   const markAllAsRead = useCallback(async () => {
+    // Optimistic update first
+    const previousNotifications = localNotifications ?? data?.notifications ?? []
+    const previousUnreadCount = localUnreadCount ?? data?.unreadCount ?? 0
+
+    setLocalNotifications(
+      previousNotifications.map((n) => ({ ...n, isRead: true }))
+    )
+    setLocalUnreadCount(0)
+
     try {
+      const signal = getAbortSignal()
       const response = await fetch("/api/notifications/read-all", {
         method: "POST",
+        signal,
       })
-      if (response.ok) {
-        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
-        setUnreadCount(0)
+
+      if (!response.ok) {
+        // Rollback optimistic update
+        setLocalNotifications(previousNotifications)
+        setLocalUnreadCount(previousUnreadCount)
+
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Failed to update notifications (${response.status})`)
       }
     } catch (error) {
-      console.error("Failed to mark all notifications as read:", error)
+      if (error instanceof Error && error.name === "AbortError") return
+
+      // Rollback on any error
+      setLocalNotifications(previousNotifications)
+      setLocalUnreadCount(previousUnreadCount)
+
+      toast.error("Failed to mark all as read")
     }
-  }, [])
+  }, [getAbortSignal, data, localNotifications, localUnreadCount])
 
-  // Initial fetch
+  // Reset local state when data changes (after refetch)
   useEffect(() => {
-    fetchNotifications()
-  }, [fetchNotifications])
+    if (data) {
+      setLocalNotifications(null)
+      setLocalUnreadCount(null)
+    }
+  }, [data])
 
-  // Supabase Realtime subscription
+  // Supabase Realtime subscription for new notifications
   useEffect(() => {
     if (!session?.user?.id) return
 
@@ -103,9 +149,12 @@ export function useNotifications(): UseNotificationsReturn {
         (payload) => {
           const newNotification = payload.new as Notification
 
-          // Add to list
-          setNotifications((prev) => [newNotification, ...prev])
-          setUnreadCount((prev) => prev + 1)
+          // Add to local list (optimistic update)
+          setLocalNotifications((prev) => [
+            newNotification,
+            ...(prev ?? data?.notifications ?? []),
+          ])
+          setLocalUnreadCount((prev) => (prev ?? data?.unreadCount ?? 0) + 1)
 
           // Show toast
           toast(newNotification.title, {
@@ -118,7 +167,7 @@ export function useNotifications(): UseNotificationsReturn {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [session?.user?.id])
+  }, [session?.user?.id, data])
 
   return {
     notifications,
@@ -126,6 +175,6 @@ export function useNotifications(): UseNotificationsReturn {
     isLoading,
     markAsRead,
     markAllAsRead,
-    refetch: fetchNotifications,
+    refetch,
   }
 }

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { EditorView } from 'prosemirror-view';
+import { isViewReady } from '@/types/prosemirror';
 import { ArrowLeft, Share2, Download, Settings, Maximize, Minimize } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TimelapseControls } from './timelapse-controls';
@@ -95,8 +96,7 @@ export function TimelapsePlayer({
   // Detects where content changed by comparing with previous content
   useEffect(() => {
     // Check that editor view is fully initialized (docView exists)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (editorView && (editorView as any).docView && currentContent && contentRef.current) {
+    if (isViewReady(editorView) && currentContent && contentRef.current) {
       const prevContent = prevContentRef.current;
       prevContentRef.current = currentContent;
 

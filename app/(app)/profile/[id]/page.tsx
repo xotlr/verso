@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import { useSafeFetch } from '@/hooks/use-safe-fetch'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -71,39 +72,20 @@ interface UserProfile {
 export default function ProfilePage() {
   const params = useParams()
   const { data: session } = useSession()
-  const [user, setUser] = useState<UserProfile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [user, setUser] = useState<UserProfile | null>(null)
 
   const userId = params.id as string
   const isOwnProfile = session?.user?.id === userId
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const response = await fetch(`/api/users/${userId}`)
-        if (!response.ok) {
-          if (response.status === 404) {
-            setError('User not found')
-          } else if (response.status === 403) {
-            setError('This profile is private')
-          } else {
-            setError('Failed to load profile')
-          }
-          return
-        }
-        const data = await response.json()
-        setUser(data)
-      } catch {
-        setError('Failed to load profile')
-      } finally {
-        setIsLoading(false)
-      }
-    }
+  // Fetch profile with abort controller
+  const { data, error: fetchError, isLoading } = useSafeFetch<UserProfile>(
+    `/api/users/${userId}`,
+    { onSuccess: setUser }
+  )
 
-    fetchProfile()
-  }, [userId])
+  // Derive error message from fetch result
+  const error = fetchError ? 'Failed to load profile' : null
 
   // Dispatch user name to header breadcrumb
   useEffect(() => {

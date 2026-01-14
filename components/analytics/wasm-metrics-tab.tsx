@@ -39,7 +39,7 @@ export function WasmMetricsTab() {
     <div className="space-y-4 py-4">
       {/* Timing */}
       <div className="space-y-2">
-        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <h4 className="section-label">
           Pagination Timing
         </h4>
         <div className="p-3 rounded-lg bg-muted/50">
@@ -56,7 +56,7 @@ export function WasmMetricsTab() {
 
       {/* Document Stats */}
       <div className="space-y-2">
-        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <h4 className="section-label">
           Document Stats
         </h4>
         <div className="grid grid-cols-2 gap-2">
@@ -99,7 +99,7 @@ export function WasmMetricsTab() {
       {/* Layout Metadata */}
       {layout && (
         <div className="space-y-2">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <h4 className="section-label">
             Layout Metadata
           </h4>
           <div className="grid grid-cols-2 gap-1.5 text-xs">

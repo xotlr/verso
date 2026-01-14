@@ -108,7 +108,7 @@ const Sidebar = React.forwardRef<
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            className="w-[--sidebar-width] p-0 text-sidebar-foreground [&>button]:hidden"
             style={{ "--sidebar-width": SIDEBAR_WIDTH_MOBILE } as React.CSSProperties}
             side={side}
           >
@@ -143,7 +143,7 @@ const Sidebar = React.forwardRef<
         >
           <div
             data-sidebar="sidebar"
-            className="flex h-full w-full flex-col bg-sidebar"
+            className="flex h-full w-full flex-col"
           >
             {children}
           </div>
@@ -161,7 +161,8 @@ const SidebarInset = React.forwardRef<
   return (
     <main
       ref={ref}
-      className={cn("relative flex w-full flex-1 flex-col bg-background", className)}
+      data-sidebar="inset"
+      className={cn("relative z-20 flex w-full flex-1 flex-col bg-background", className)}
       {...props}
     />
   )
@@ -240,7 +241,7 @@ const SidebarContent = React.forwardRef<
       <div
         ref={ref}
         data-sidebar="content"
-        className="flex flex-col gap-2"
+        className="flex flex-col gap-2 py-2"
         {...props}
       >
         {children}
@@ -339,7 +340,7 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex items-center justify-center overflow-hidden rounded-lg p-2 text-left outline-none ring-sidebar-ring transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground [&>svg]:size-4 [&>svg]:shrink-0",
+  "peer/menu-button flex items-center justify-center rounded-lg p-2 text-left outline-none ring-sidebar-ring transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground [&>svg]:size-4 [&>svg]:shrink-0",
   {
     variants: {
       variant: {

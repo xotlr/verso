@@ -102,7 +102,7 @@ export function CheckinList({
     <div className="space-y-4">
       {Object.entries(byDepartment).map(([department, members]) => (
         <div key={department} className="space-y-2">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <h4 className="section-label">
             {department}
           </h4>
           <div className="space-y-1">
