@@ -23,9 +23,42 @@ function checkCsrf(request: NextRequest, host: string): NextResponse | null {
 
   const origin = request.headers.get('origin')
 
-  // No origin header - could be same-origin request or non-browser
-  // Allow but log for monitoring (browser CORS preflight should have origin)
-  if (!origin) return null
+  // No origin header handling:
+  // - Same-origin requests from some browsers may omit Origin
+  // - Non-browser clients (curl, Postman, server-to-server) won't have Origin
+  // - We rely on auth layer as secondary protection
+  //
+  // For extra security, check if request looks like it's from a browser
+  // Browsers always send these headers, CLI tools often don't
+  if (!origin) {
+    const secFetchMode = request.headers.get('sec-fetch-mode')
+    const secFetchSite = request.headers.get('sec-fetch-site')
+
+    // If Sec-Fetch headers present, this is a modern browser
+    // same-origin and same-site requests are safe, others are suspicious
+    if (secFetchMode || secFetchSite) {
+      // same-origin: request from same origin (safe)
+      // same-site: request from same site but different origin (safe for our subdomain setup)
+      // cors/navigate with no origin is suspicious
+      if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'same-site') {
+        console.warn('[CSRF] Browser request without Origin header', {
+          path: request.nextUrl.pathname,
+          method,
+          secFetchMode,
+          secFetchSite,
+          userAgent: request.headers.get('user-agent')?.slice(0, 100),
+        })
+        // Block cross-site browser requests without Origin
+        return NextResponse.json(
+          { error: 'Missing origin header' },
+          { status: 403 }
+        )
+      }
+    }
+
+    // No Sec-Fetch headers = likely non-browser client, allow (auth required anyway)
+    return null
+  }
 
   try {
     const originUrl = new URL(origin)

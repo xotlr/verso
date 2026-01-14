@@ -11,3 +11,4 @@ export { useTapestryKeyboard } from './use-tapestry-keyboard';
 export { useTapestryAutoSync } from './use-tapestry-auto-sync';
 export { useTapestryZoom } from './use-tapestry-zoom';
 export { useTapestryFilters } from './use-tapestry-filters';
+export { useTapestryInit, createInitialLayout, recomputeLayout } from './use-tapestry-init';
