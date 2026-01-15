@@ -65,11 +65,12 @@ const runtimeRegistry = new Map<string, NameConfig>();
  * Register a name at runtime
  */
 export function registerName(config: NameConfig): void {
+  const { id } = config;
   if (!validateNameConfig(config)) {
-    console.warn(`[VoiceNames] Invalid config for ${config.id}`);
+    console.warn(`[VoiceNames] Invalid config for ${id}`);
     return;
   }
-  runtimeRegistry.set(config.id, config);
+  runtimeRegistry.set(id, config);
 }
 
 /**

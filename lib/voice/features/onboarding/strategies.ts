@@ -284,7 +284,7 @@ function selectVariant(
 
   // Use smart picking to avoid recently shown
   const ids = filtered.map((v) => v.id);
-  const selectedId = pickSmart(ids, recentIds, context.sessionSeed);
+  const selectedId = pickSmart(ids, recentIds, context.sessionSeed ?? Date.now());
   return filtered.find((v) => v.id === selectedId) || variants[0];
 }
 
@@ -337,7 +337,7 @@ function selectWelcomeMessage(context: OnboardingContext): string {
   const timeMessages = welcomeMessagesByTime[context.timePeriod] || [];
   const allMessages = [...timeMessages, ...welcomeMessages];
 
-  return pickSmart(allMessages, [], context.sessionSeed);
+  return pickSmart(allMessages, [], context.sessionSeed ?? Date.now());
 }
 
 // ============================================================================
@@ -375,7 +375,7 @@ function selectCompletionMessage(context: OnboardingContext): string {
   const timeMessages = completionMessagesByTime[timeKey] || [];
   const allMessages = [...timeMessages, ...completionMessages];
 
-  return pickSmart(allMessages, [], context.sessionSeed);
+  return pickSmart(allMessages, [], context.sessionSeed ?? Date.now());
 }
 
 // ============================================================================
