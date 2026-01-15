@@ -45,14 +45,14 @@ export const CAMERA_ANGLES = [
 
 export const CAMERA_MOVEMENTS = [
   'STATIC',
+  'HANDHELD',
   'PAN',
   'TILT',
   'DOLLY',
-  'TRUCK',
-  'CRANE',
-  'HANDHELD',
   'STEADICAM',
   'ZOOM',
+  'TRUCK',
+  'CRANE',
   'RACK_FOCUS',
 ] as const;
 
@@ -198,6 +198,17 @@ export const CAMERA_ANGLE_LABELS: Record<CameraAngle, string> = {
   WORMS_EYE: "Worm's Eye",
   OVER_SHOULDER: 'Over the Shoulder',
   POV: 'Point of View',
+};
+
+export const CAMERA_ANGLE_DESCRIPTIONS: Record<CameraAngle, string> = {
+  EYE_LEVEL: 'Neutral, natural perspective at subject eye height',
+  HIGH_ANGLE: 'Camera above subject (15-45°), makes subject appear smaller',
+  LOW_ANGLE: 'Camera below subject, makes subject appear powerful',
+  DUTCH: 'Camera tilted on axis, creates tension or disorientation',
+  BIRDS_EYE: 'Directly overhead (90°), aerial/godlike perspective',
+  WORMS_EYE: 'Ground level looking up, extreme low angle',
+  OVER_SHOULDER: 'Behind one subject looking at another',
+  POV: 'First person perspective, what character sees',
 };
 
 export const CAMERA_MOVEMENT_LABELS: Record<CameraMovement, string> = {

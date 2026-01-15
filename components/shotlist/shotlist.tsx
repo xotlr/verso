@@ -405,7 +405,7 @@ export function Shotlist({
                 No scenes found in this screenplay
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Add scene headings to your script to organize shots.
+                Add scene headings in the Editor to organize shots.
               </p>
             </div>
           ) : (

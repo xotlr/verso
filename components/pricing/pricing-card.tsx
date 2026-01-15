@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Check, ArrowRight, Loader2 } from 'lucide-react';
+import { Check, ArrowRight, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface PricingCardProps {
@@ -55,7 +55,7 @@ export function PricingCard({
   return (
     <div
       className={cn(
-        'relative p-4 sm:p-6 rounded-xl border transition-all duration-300',
+        'relative h-full flex flex-col p-4 sm:p-6 rounded-xl border transition-all duration-300',
         highlighted
           ? 'border-primary bg-primary text-primary-foreground shadow-lg lg:scale-[1.02] hover:shadow-xl'
           : 'bg-card hover:border-border/80 hover:shadow-lg hover:-translate-y-1'
@@ -92,7 +92,7 @@ export function PricingCard({
         {description}
       </p>
 
-      <ul className="space-y-2 sm:space-y-3 mb-3 sm:mb-6">
+      <ul className="flex-1 space-y-2 sm:space-y-3 mb-3 sm:mb-6">
         {features.map((feature, i) => (
           <li key={i} className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm font-normal">
             <Check
@@ -112,10 +112,13 @@ export function PricingCard({
               highlighted ? 'text-primary-foreground/50' : 'text-muted-foreground/50'
             )}
           >
-            <span className="h-3 w-3 sm:h-4 sm:w-4 flex items-center justify-center flex-shrink-0">
-              -
-            </span>
-            <span className="line-clamp-1 sm:line-clamp-none">{limitation}</span>
+            <X
+              className={cn(
+                'h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0',
+                highlighted ? 'text-primary-foreground/40' : 'text-muted-foreground/40'
+              )}
+            />
+            <span className="line-clamp-1 sm:line-clamp-none line-through">{limitation}</span>
           </li>
         ))}
       </ul>

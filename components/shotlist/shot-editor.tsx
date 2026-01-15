@@ -10,6 +10,7 @@ import {
   SHOT_STATUSES,
   SHOT_TYPE_LABELS,
   CAMERA_ANGLE_LABELS,
+  CAMERA_ANGLE_DESCRIPTIONS,
   CAMERA_MOVEMENT_LABELS,
   SHOT_STATUS_LABELS,
   COMMON_LENSES,
@@ -279,7 +280,12 @@ export function ShotEditor({
                     <SelectItem value={NONE_VALUE}>None</SelectItem>
                     {CAMERA_ANGLES.map((angle) => (
                       <SelectItem key={angle} value={angle}>
-                        {CAMERA_ANGLE_LABELS[angle]}
+                        <div className="flex flex-col gap-0.5">
+                          <span>{CAMERA_ANGLE_LABELS[angle]}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {CAMERA_ANGLE_DESCRIPTIONS[angle]}
+                          </span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
