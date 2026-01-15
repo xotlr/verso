@@ -37,50 +37,83 @@ export const POST = createApiHandler({
       shotsByScene.set(shot.sceneId, existing)
     }
 
-    const createdShots = await prisma.$transaction(async (tx) => {
-      const results = []
+    const sceneIds = Array.from(shotsByScene.keys())
 
-      for (const [sceneId, sceneShots] of shotsByScene) {
-        // Get the current highest shot number for this scene
-        const lastShot = await tx.shot.findFirst({
-          where: {
-            screenplayId,
-            sceneId,
-          },
-          orderBy: { shotNumber: "desc" },
-          select: { shotNumber: true },
+    // Fetch all last shot numbers in one query (outside transaction for speed)
+    const lastShots = await prisma.shot.groupBy({
+      by: ["sceneId"],
+      where: {
+        screenplayId,
+        sceneId: { in: sceneIds },
+      },
+      _max: { shotNumber: true },
+    })
+
+    const lastShotByScene = new Map(
+      lastShots.map((s) => [s.sceneId, s._max.shotNumber ?? 0])
+    )
+
+    // Prepare all shot data for batch insert
+    const shotsToCreate: Array<{
+      screenplayId: string
+      sceneId: string
+      shotNumber: number
+      description: string
+      shotType: string | null
+      cameraAngle: string | null
+      movement: string | null
+      duration: number | null
+      lens: string | null
+      equipment: string | null
+      lighting: string | null
+      audio: string | null
+      notes: string | null
+      status: string
+      thumbnailUrl: string | null
+      thumbnailType: string | null
+    }> = []
+
+    for (const [sceneId, sceneShots] of shotsByScene) {
+      let nextShotNumber = (lastShotByScene.get(sceneId) ?? 0) + 1
+
+      for (const shotData of sceneShots) {
+        shotsToCreate.push({
+          screenplayId,
+          sceneId,
+          shotNumber: nextShotNumber,
+          description: shotData.description,
+          shotType: shotData.shotType ?? null,
+          cameraAngle: null,
+          movement: null,
+          duration: null,
+          lens: null,
+          equipment: null,
+          lighting: null,
+          audio: null,
+          notes: null,
+          status: shotData.status,
+          thumbnailUrl: null,
+          thumbnailType: null,
         })
-
-        let nextShotNumber = (lastShot?.shotNumber ?? 0) + 1
-
-        // Create all shots for this scene
-        for (const shotData of sceneShots) {
-          const shot = await tx.shot.create({
-            data: {
-              screenplayId,
-              sceneId,
-              shotNumber: nextShotNumber,
-              description: shotData.description,
-              shotType: shotData.shotType ?? null,
-              cameraAngle: null,
-              movement: null,
-              duration: null,
-              lens: null,
-              equipment: null,
-              lighting: null,
-              audio: null,
-              notes: null,
-              status: shotData.status,
-              thumbnailUrl: null,
-              thumbnailType: null,
-            },
-          })
-          results.push(shot)
-          nextShotNumber++
-        }
+        nextShotNumber++
       }
+    }
 
-      return results
+    // Batch insert all shots at once
+    await prisma.shot.createMany({
+      data: shotsToCreate,
+    })
+
+    // Fetch the created shots to return them
+    const createdShots = await prisma.shot.findMany({
+      where: {
+        screenplayId,
+        sceneId: { in: sceneIds },
+        shotNumber: {
+          gte: Math.min(...shotsToCreate.map((s) => s.shotNumber)),
+        },
+      },
+      orderBy: [{ sceneId: "asc" }, { shotNumber: "asc" }],
     })
 
     return { shots: createdShots, count: createdShots.length }

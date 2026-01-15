@@ -13,7 +13,14 @@ import {
   type OfflineDraft,
 } from '@/lib/pwa/offline-db'
 
-export type SyncStatus = 'synced' | 'pending' | 'syncing' | 'offline'
+export type SyncStatus = 'synced' | 'pending' | 'syncing' | 'offline' | 'conflict'
+
+export interface ConflictData {
+  localContent: string
+  localTitle: string
+  serverContent: string
+  serverUpdatedAt: number
+}
 
 interface UseOfflineSaveOptions {
   screenplayId: string
@@ -26,6 +33,9 @@ interface UseOfflineSaveReturn {
   isSyncing: boolean
   pendingCount: number
   forceSync: () => Promise<void>
+  conflictData: ConflictData | null
+  resolveConflict: (resolution: 'local' | 'server', content: string) => Promise<void>
+  clearConflict: () => void
 }
 
 const MAX_SYNC_ATTEMPTS = 5
@@ -44,8 +54,11 @@ export function useOfflineSave({
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('synced')
   const [isSyncing, setIsSyncing] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
+  const [conflictData, setConflictData] = useState<ConflictData | null>(null)
   const localVersionRef = useRef(1)
   const isMountedRef = useRef(true)
+  const pendingLocalContentRef = useRef<string>('')
+  const pendingLocalTitleRef = useRef<string>('')
 
   // Update sync status based on connection
   useEffect(() => {
@@ -84,11 +97,27 @@ export function useOfflineSave({
     }
   }, [])
 
+  // Fetch server version for conflict resolution
+  const fetchServerVersion = useCallback(async (): Promise<{ content: string; updatedAt: number } | null> => {
+    try {
+      const response = await fetch(`/api/screenplays/${screenplayId}`)
+      if (!response.ok) return null
+      const data = await response.json()
+      return {
+        content: data.content || '',
+        updatedAt: new Date(data.updatedAt).getTime(),
+      }
+    } catch {
+      return null
+    }
+  }, [screenplayId])
+
   // Save to server (last-write-wins model)
   const saveToServer = useCallback(async (
     content: string,
-    title: string
-  ): Promise<{ success: boolean; updatedAt?: number }> => {
+    title: string,
+    forceOverwrite = false
+  ): Promise<{ success: boolean; updatedAt?: number; conflict?: boolean }> => {
     try {
       const response = await fetch(`/api/screenplays/${screenplayId}`, {
         method: 'PUT',
@@ -107,6 +136,24 @@ export function useOfflineSave({
           errorData = JSON.parse(errorBody)
         } catch {
           errorData = { message: errorBody }
+        }
+
+        // Handle conflict (409)
+        if (response.status === 409 && !forceOverwrite) {
+          const serverVersion = await fetchServerVersion()
+          if (serverVersion && isMountedRef.current) {
+            // Store local content for conflict resolution
+            pendingLocalContentRef.current = content
+            pendingLocalTitleRef.current = title
+            setConflictData({
+              localContent: content,
+              localTitle: title,
+              serverContent: serverVersion.content,
+              serverUpdatedAt: serverVersion.updatedAt,
+            })
+            setSyncStatus('conflict')
+          }
+          return { success: false, conflict: true }
         }
 
         if (process.env.NODE_ENV === "development") {
@@ -141,7 +188,7 @@ export function useOfflineSave({
       }
       return { success: false }
     }
-  }, [screenplayId])
+  }, [screenplayId, fetchServerVersion])
 
   // Process the sync queue
   const processSyncQueue = useCallback(async () => {
@@ -238,6 +285,11 @@ export function useOfflineSave({
           setSyncStatus('synced')
           setIsSyncing(false)
         }
+      } else if (result.conflict) {
+        // Conflict detected - dialog will be shown via conflictData state
+        if (isMountedRef.current) {
+          setIsSyncing(false)
+        }
       } else {
         // Network error - queue for later
         await queueSync({
@@ -272,6 +324,59 @@ export function useOfflineSave({
     }
   }, [isOnline, processSyncQueue])
 
+  // Resolve conflict by choosing a version
+  const resolveConflict = useCallback(async (resolution: 'local' | 'server', content: string) => {
+    setConflictData(null)
+
+    if (isMountedRef.current) {
+      setIsSyncing(true)
+      setSyncStatus('syncing')
+    }
+
+    // Save the chosen content (force overwrite - no conflict check)
+    const title = resolution === 'local' ? pendingLocalTitleRef.current : 'Untitled'
+
+    // Update local draft first
+    const draft: OfflineDraft = {
+      screenplayId,
+      content,
+      title,
+      lastModified: Date.now(),
+      syncStatus: 'pending',
+      localVersion: ++localVersionRef.current,
+    }
+    await saveDraft(draft)
+
+    // Save to server
+    const result = await saveToServer(content, title, true) // force overwrite
+
+    if (result.success) {
+      await updateDraftStatus(screenplayId, 'synced', result.updatedAt)
+      if (isMountedRef.current) {
+        setSyncStatus('synced')
+        setIsSyncing(false)
+      }
+    } else {
+      // Queue for retry
+      await queueSync({
+        type: 'save',
+        screenplayId,
+        payload: { content, title },
+      })
+      if (isMountedRef.current) {
+        setSyncStatus('pending')
+        setIsSyncing(false)
+        setPendingCount(prev => prev + 1)
+      }
+    }
+  }, [screenplayId, saveToServer])
+
+  // Clear conflict without resolving (dismiss dialog)
+  const clearConflict = useCallback(() => {
+    setConflictData(null)
+    setSyncStatus('pending')
+  }, [])
+
   return {
     save,
     syncStatus,
@@ -279,5 +384,8 @@ export function useOfflineSave({
     isSyncing,
     pendingCount,
     forceSync,
+    conflictData,
+    resolveConflict,
+    clearConflict,
   }
 }

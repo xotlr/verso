@@ -19,6 +19,7 @@ import { createYjsCollaborationPlugins, type YjsCollaborationPluginOptions } fro
 import { createTypingMetricsPlugin, type TypingMetricsOptions } from './typing-metrics';
 import { createMinimumStructurePlugin } from './minimum-structure';
 import { createAutoCapitalizePlugin, type AutoCapitalizeOptions } from './auto-capitalize';
+import { createSearchHighlightPlugin } from './search-highlight';
 
 export interface CreatePluginsOptions {
   // Enable input rules for auto-formatting
@@ -194,6 +195,9 @@ export function createAllPlugins(options: CreatePluginsOptions = {}): Plugin[] {
     plugins.push(createAutoCapitalizePlugin(opts.autoCapitalizeOptions || {}));
   }
 
+  // Search highlight (for Find/Replace panel)
+  plugins.push(createSearchHighlightPlugin());
+
   return plugins;
 }
 
@@ -283,3 +287,6 @@ export {
   updateAutoCapitalizeSettings,
 } from './auto-capitalize';
 export type { AutoCapitalizeOptions, AutoCapitalizeState } from './auto-capitalize';
+
+// Search highlight plugin exports (for Find/Replace)
+export { createSearchHighlightPlugin, searchHighlightKey } from './search-highlight';

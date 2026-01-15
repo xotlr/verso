@@ -33,10 +33,12 @@ import { MobileEditorToolbar } from '@/components/editor/mobile-editor-toolbar';
 import { MobileSceneCharacterSheet } from '@/components/editor/MobileSceneCharacterSheet';
 import { ZoomIndicator } from './ZoomIndicator';
 import { StatsBar } from './StatsBar';
+import { FindReplacePanel } from './FindReplacePanel';
 import { TextSelection } from 'prosemirror-state';
 import { updateTypewriterScrollSettings } from '@/lib/prosemirror/plugins';
 import { useEditorFormatting } from '@/hooks/editor/use-editor-formatting';
 import { useShortcutMatcher } from '@/lib/shortcuts/use-shortcut';
+import { useScrollPersistence } from '@/hooks/use-scroll-persistence';
 // Settings accessed via useEditorSettings hook
 import { useDebugMetrics } from '@/components/analytics/debug-metrics-context';
 import { BeginnerTips } from '@/components/editor/BeginnerTips';
@@ -94,6 +96,8 @@ export interface ProseMirrorEditorProps {
     name: string;
     color: string;
   };
+  /** Document ID for scroll position persistence */
+  documentId?: string;
 }
 
 /**
@@ -133,6 +137,8 @@ export function ProseMirrorEditor({
   yXmlFragment,
   awareness,
   yjsUserInfo,
+  // Scroll persistence
+  documentId,
 }: ProseMirrorEditorProps) {
   // Consolidated editor settings hook
   const {
@@ -165,14 +171,18 @@ export function ProseMirrorEditor({
   const [scenesSheetOpen, setScenesSheetOpen] = useState(false);
   const [scriptCheckOpen, setScriptCheckOpen] = useState(false);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const [showFindReplace, setShowFindReplace] = useState(false);
   const isMobile = useIsMobile();
 
   // Session for plan checking
   const { data: session } = useSession();
   const userPlan = (session?.user?.plan as PlanType) || 'FREE';
 
-  // Ref for scroll container (for zoom gestures)
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // Scroll persistence - saves/restores scroll position when reopening document
+  const { scrollContainerRef } = useScrollPersistence({
+    documentId: documentId || 'default',
+    enabled: !!documentId && !timelapseMode,
+  });
 
   // Responsive scaling - pages are fixed size and scaled with CSS transforms
   const { scale: responsiveScale } = useResponsiveScale(!isInFocusMode);
@@ -379,6 +389,12 @@ export function ProseMirrorEditor({
     }
   }, [userPlan]);
 
+  // Toggle Find/Replace panel
+  const handleToggleFindReplace = useCallback(() => {
+    setShowFindReplace(prev => !prev);
+    onToggleFindReplace?.();
+  }, [onToggleFindReplace]);
+
   // Get screenplay content for analysis
   const screenplayContent = useMemo(() => {
     if (!view) return '';
@@ -476,6 +492,13 @@ export function ProseMirrorEditor({
             behavior: 'smooth'
           });
         }
+        return;
+      }
+
+      // Find/Replace - Cmd/Ctrl+F
+      if (e.key === 'f' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+        e.preventDefault();
+        setShowFindReplace(true);
         return;
       }
 
@@ -609,7 +632,7 @@ export function ProseMirrorEditor({
             )}
 
             {/* Content layer */}
-            <EditorContextMenu view={view} onFindReplace={onToggleFindReplace}>
+            <EditorContextMenu view={view} onFindReplace={handleToggleFindReplace}>
               <div
                 className={cn(
                   'pm-editor-pages',
@@ -632,8 +655,17 @@ export function ProseMirrorEditor({
         </div>
       </EditorScrollArea>
 
-      {/* Element type toolbar (expandable indicator) - hidden in reading mode */}
-      {showElementIndicator && isReady && !isReadingMode && (
+      {/* Find/Replace panel */}
+      <FindReplacePanel
+        view={view}
+        isOpen={showFindReplace}
+        onClose={() => setShowFindReplace(false)}
+        scrollViewportRef={scrollContainerRef}
+        scale={scale}
+      />
+
+      {/* Element type toolbar (expandable indicator) - hidden in reading mode and during find/replace */}
+      {showElementIndicator && isReady && !isReadingMode && !showFindReplace && (
         <ElementToolbar
           view={view}
           currentElementType={currentElementType}
@@ -683,7 +715,7 @@ export function ProseMirrorEditor({
           onUnderline={handleUnderline}
           onAutoFormat={() => {}}
           onSave={() => onSave?.()}
-          onToggleFindReplace={() => onToggleFindReplace?.()}
+          onToggleFindReplace={handleToggleFindReplace}
           onToggleSceneNavigator={() => setScenesSheetOpen(true)}
           onToggleVersionHistory={onToggleVersionHistory}
           onToggleZenMode={toggleFocusMode}

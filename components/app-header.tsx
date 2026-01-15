@@ -15,11 +15,11 @@ import { HeaderIconButton } from "@/components/header-icon-button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { useEditorCommands } from "@/contexts/editor-commands-context";
 import { useEditorBreadcrumb } from "@/contexts/editor-breadcrumb-context";
 import { useEditorStatus } from "@/contexts/editor-status-context";
 import { useCommandPalette } from "@/contexts/command-palette-context";
 import { useGlassStyles } from "@/hooks/use-glass-styles";
+import { useEditorCommandsStore } from "@/stores/editor-commands";
 
 // Get active item label from pathname
 function getActiveItem(pathname: string, dynamicTitle: string | null): {
@@ -100,7 +100,6 @@ interface AppHeaderProps {
 
 export function AppHeader({ className }: AppHeaderProps) {
   const pathname = usePathname();
-  const editorCommands = useEditorCommands();
   const { isGlass, container: glassContainer } = useGlassStyles();
   const [dynamicTitle, setDynamicTitle] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -128,10 +127,27 @@ export function AppHeader({ className }: AppHeaderProps) {
     return () => window.removeEventListener('screenplay-title-update', handleTitleUpdate);
   }, []);
 
-  // Save title via EditorCommands context
+  // Editor commands from Zustand store (registered by editor, called by header)
+  const openShare = useEditorCommandsStore((s) => s.openShare);
+  const openVersionHistory = useEditorCommandsStore((s) => s.openVersionHistory);
+  const openTimelapse = useEditorCommandsStore((s) => s.openTimelapse);
+  const saveTitle = useEditorCommandsStore((s) => s.saveTitle);
+
   const handleTitleSave = useCallback((newTitle: string) => {
-    editorCommands.saveTitle(newTitle);
-  }, [editorCommands]);
+    saveTitle?.(newTitle);
+  }, [saveTitle]);
+
+  const handleShare = useCallback(() => {
+    openShare?.();
+  }, [openShare]);
+
+  const handleTimelapse = useCallback(() => {
+    openTimelapse?.();
+  }, [openTimelapse]);
+
+  const handleVersionHistory = useCallback(() => {
+    openVersionHistory?.();
+  }, [openVersionHistory]);
 
   const activeItem = getActiveItem(pathname, dynamicTitle);
   const pageTitle = getPageTitle(pathname);
@@ -229,20 +245,20 @@ export function AppHeader({ className }: AppHeaderProps) {
                 activeIcon={<IoShare className="h-4 w-4" />}
                 tooltip="Share"
                 isGlass={isGlass}
-                onClick={editorCommands.openShare}
+                onClick={handleShare}
               />
               <HeaderIconButton
                 icon={<History className="h-4 w-4" />}
                 tooltip="History"
                 isGlass={isGlass}
-                onClick={editorCommands.openVersionHistory}
+                onClick={handleVersionHistory}
               />
               <HeaderIconButton
                 icon={<BsRewindBtn className="h-4 w-4" />}
                 activeIcon={<BsRewindBtnFill className="h-4 w-4" />}
                 tooltip="Timelapse"
                 isGlass={isGlass}
-                onClick={editorCommands.openTimelapse}
+                onClick={handleTimelapse}
               />
             </div>
           )}
@@ -277,20 +293,20 @@ export function AppHeader({ className }: AppHeaderProps) {
                 activeIcon={<IoShare className="h-4 w-4" />}
                 tooltip="Share"
                 isGlass={isGlass}
-                onClick={editorCommands.openShare}
+                onClick={handleShare}
               />
               <HeaderIconButton
                 icon={<History className="h-4 w-4" />}
                 tooltip="Version History"
                 isGlass={isGlass}
-                onClick={editorCommands.openVersionHistory}
+                onClick={handleVersionHistory}
               />
               <HeaderIconButton
                 icon={<BsRewindBtn className="h-4 w-4" />}
                 activeIcon={<BsRewindBtnFill className="h-4 w-4" />}
                 tooltip="View Timelapse"
                 isGlass={isGlass}
-                onClick={editorCommands.openTimelapse}
+                onClick={handleTimelapse}
               />
             </div>
           )}

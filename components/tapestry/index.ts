@@ -1,12 +1,49 @@
-// Re-export from v2 (pure React implementation)
-export { Tapestry } from '../tapestry-v2';
+/**
+ * Tapestry - Pure React Implementation
+ *
+ * Story graph visualization using pure React components.
+ *
+ * Benefits:
+ * - Better accessibility (keyboard navigation, ARIA)
+ * - Easier testing (standard React testing patterns)
+ * - Smaller bundle (no D3 dependencies)
+ * - Better DX (standard React patterns)
+ *
+ * Usage:
+ * ```tsx
+ * import { TapestryCanvas } from '@/components/tapestry';
+ *
+ * <TapestryCanvas
+ *   nodes={nodes}
+ *   connections={connections}
+ *   groups={groups}
+ *   onNodesChange={handleNodesChange}
+ *   onConnectionsChange={handleConnectionsChange}
+ * />
+ * ```
+ */
 
-// Supporting components (shared between v1 and v2)
-export { TapestryToolbar } from './tapestry-toolbar';
-export { NoteEditorDialog } from './note-editor-dialog';
-export { EntitySidebar } from './EntitySidebar';
-export { Minimap } from './Minimap';
-export { CharacterProfilePanel } from './character-profile-panel';
+// Main wrapper (backward-compatible with old Tapestry API)
+export { Tapestry } from './TapestryWrapper';
 
-// Legacy D3 implementation (deprecated, will be removed)
-export { Tapestry as TapestryLegacy } from './tapestry';
+// Low-level canvas component
+export { TapestryCanvas, type TapestryCanvasProps, type TapestryCanvasHandle } from './TapestryCanvas';
+
+// Context and state
+export {
+  TapestryProvider,
+  useTapestryContext,
+  useTapestryContextOptional,
+  type TapestryContextValue,
+  type Transform,
+  type SelectionState,
+} from './state/TapestryContext';
+
+// Hooks
+export * from './hooks';
+
+// Node components
+export * from './nodes';
+
+// Canvas components
+export * from './components';

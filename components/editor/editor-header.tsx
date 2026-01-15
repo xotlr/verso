@@ -7,14 +7,13 @@ import { ArrowLeft, Play, History } from "lucide-react";
 import { IoShareOutline } from "react-icons/io5";
 import { cn } from "@/lib/utils";
 import { useIsGlass } from "@/hooks/use-glass-styles";
-import { useEditorCommands } from "@/contexts/editor-commands-context";
+import { useEditorCommandsStore } from "@/stores/editor-commands";
 
 interface EditorHeaderProps {
   className?: string;
 }
 
 export function EditorHeader({ className }: EditorHeaderProps) {
-  const editorCommands = useEditorCommands();
   const isGlass = useIsGlass();
   const [screenplayTitle, setScreenplayTitle] = useState<string>("Loading...");
   const [isOnline, setIsOnline] = useState(true);
@@ -68,14 +67,27 @@ export function EditorHeader({ className }: EditorHeaderProps) {
     return () => window.removeEventListener('yjs-status-update', handleYjsStatus);
   }, []);
 
-  // Use editor commands context instead of window events
-  const handleTitleSave = useCallback((newTitle: string) => {
-    editorCommands.saveTitle(newTitle);
-  }, [editorCommands]);
+  // Editor commands from Zustand store (registered by editor, called by header)
+  const openShare = useEditorCommandsStore((s) => s.openShare);
+  const openVersionHistory = useEditorCommandsStore((s) => s.openVersionHistory);
+  const openTimelapse = useEditorCommandsStore((s) => s.openTimelapse);
+  const saveTitle = useEditorCommandsStore((s) => s.saveTitle);
 
-  const handleShare = editorCommands.openShare;
-  const handleTimelapse = editorCommands.openTimelapse;
-  const handleVersionHistory = editorCommands.openVersionHistory;
+  const handleTitleSave = useCallback((newTitle: string) => {
+    saveTitle?.(newTitle);
+  }, [saveTitle]);
+
+  const handleShare = useCallback(() => {
+    openShare?.();
+  }, [openShare]);
+
+  const handleTimelapse = useCallback(() => {
+    openTimelapse?.();
+  }, [openTimelapse]);
+
+  const handleVersionHistory = useCallback(() => {
+    openVersionHistory?.();
+  }, [openVersionHistory]);
 
   return (
     <header className={cn(

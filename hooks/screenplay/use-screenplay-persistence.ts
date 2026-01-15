@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { useOfflineSave, type SyncStatus } from '@/hooks/use-offline-save';
+import { useOfflineSave, type SyncStatus, type ConflictData } from '@/hooks/use-offline-save';
 import { useTimelapseRecorder } from '@/hooks/timelapse';
 import { parseScreenplayText } from '@/lib/screenplay/utils';
 import type { Scene, Character, Location } from '@/types/screenplay';
@@ -35,6 +35,11 @@ interface UseScreenplayPersistenceReturn {
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
   syncStatus: SyncStatus;
+
+  // Conflict resolution
+  conflictData: ConflictData | null;
+  resolveConflict: (resolution: 'local' | 'server', content: string) => Promise<void>;
+  clearConflict: () => void;
 
   // Version management
   isSaveVersionDialogOpen: boolean;
@@ -79,6 +84,9 @@ export function useScreenplayPersistence({
     save: offlineSave,
     syncStatus,
     isSyncing,
+    conflictData,
+    resolveConflict,
+    clearConflict,
   } = useOfflineSave({ screenplayId });
 
   const isSaving = isSyncing || syncStatus === 'syncing';
@@ -364,6 +372,9 @@ export function useScreenplayPersistence({
     isLoading,
     setIsLoading,
     syncStatus,
+    conflictData,
+    resolveConflict,
+    clearConflict,
     isSaveVersionDialogOpen,
     setIsSaveVersionDialogOpen,
     handleSaveVersionWithMessage,
@@ -381,6 +392,7 @@ export function useScreenplayPersistence({
     isSaving,
     isLoading,
     syncStatus,
+    conflictData,
     isSaveVersionDialogOpen,
     // Stable references (callbacks via useCallback, setState, refs)
     setScreenplayText,
@@ -391,5 +403,7 @@ export function useScreenplayPersistence({
     saveScreenplay,
     recordContentChange,
     initializeTimelapse,
+    resolveConflict,
+    clearConflict,
   ]);
 }

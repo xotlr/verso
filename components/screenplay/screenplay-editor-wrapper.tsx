@@ -25,6 +25,7 @@ import { SHOT_TYPES } from "@/types/shotlist";
 import { useEditorScenesOptional } from "@/contexts/editor-scene-context";
 import { EditorCommandsProvider } from "@/contexts/editor-commands-context";
 import { useEditorDialogs } from "@/hooks/editor/use-editor-dialogs";
+import { useEditorCommandsStore } from "@/stores/editor-commands";
 
 // Lazy-load heavy dialog components to reduce initial bundle size
 const VersionHistorySidebar = dynamic(
@@ -61,6 +62,10 @@ const ShotEditor = dynamic(
 );
 const ExportDialog = dynamic(
   () => import("@/components/export-dialog").then(m => ({ default: m.ExportDialog })),
+  { ssr: false }
+);
+const ConflictDialog = dynamic(
+  () => import("@/components/pwa/conflict-dialog").then(m => ({ default: m.ConflictDialog })),
   { ssr: false }
 );
 
@@ -234,11 +239,21 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
     persistence.setScreenplayTitle(newTitle);
   }, [persistence]);
 
-  // Listen for keyboard shortcut events from parent page
+  // Register editor commands with Zustand store (so header can call them)
+  const registerCommands = useEditorCommandsStore((s) => s.register);
+  const unregisterCommands = useEditorCommandsStore((s) => s.unregister);
+
   useEffect(() => {
-    window.addEventListener('editor-open-export', dialogs.openExport);
-    return () => window.removeEventListener('editor-open-export', dialogs.openExport);
-  }, [dialogs.openExport]);
+    registerCommands({
+      openShare: dialogs.openShare,
+      openExport: dialogs.openExport,
+      openVersionHistory: dialogs.openVersionHistory,
+      openTimelapse: () => router.push(`/screenplay/${screenplayId}/timelapse`),
+      saveTitle: (title: string) => persistence.setScreenplayTitle(title),
+    });
+
+    return () => unregisterCommands();
+  }, [registerCommands, unregisterCommands, dialogs.openShare, dialogs.openExport, dialogs.openVersionHistory, router, screenplayId, persistence]);
 
   // Handle scene/character extraction from ProseMirror
   // Must be declared before early return to follow React hooks rules
@@ -350,6 +365,8 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
             yXmlFragment={yjsEnabled ? yjsCollaboration.yXmlFragment ?? undefined : undefined}
             awareness={yjsEnabled ? yjsCollaboration.awareness ?? undefined : undefined}
             yjsUserInfo={yjsEnabled ? { name: session?.user?.name ?? 'Anonymous', color: userColor } : undefined}
+            // Scroll position persistence
+            documentId={screenplayId}
           />
         </div>
 
@@ -457,6 +474,12 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
         scenes={persistence.scenes}
         sceneNumbering={{ enabled: false, startNumber: 1, side: 'both' }}
         revisionColor="white"
+      />
+      <ConflictDialog
+        isOpen={!!persistence.conflictData}
+        onClose={persistence.clearConflict}
+        conflictData={persistence.conflictData}
+        onResolve={persistence.resolveConflict}
       />
       </div>
     </EditorCommandsProvider>

@@ -1854,3 +1854,28 @@
 .hide-placeholders .pm-title-page-draft:empty::before {
   display: none;
 }
+
+/* =============================================================================
+   Find & Replace Highlights
+   ============================================================================= */
+
+.search-highlight {
+  background-color: rgba(255, 235, 59, 0.4);
+  border-radius: 2px;
+}
+
+.search-highlight-current {
+  background-color: rgba(255, 152, 0, 0.6);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(255, 152, 0, 0.8);
+}
+
+/* Dark mode adjustments */
+.dark .search-highlight {
+  background-color: rgba(255, 235, 59, 0.3);
+}
+
+.dark .search-highlight-current {
+  background-color: rgba(255, 152, 0, 0.5);
+  box-shadow: 0 0 0 1px rgba(255, 152, 0, 0.7);
+}
