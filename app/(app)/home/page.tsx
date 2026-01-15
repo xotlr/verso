@@ -32,10 +32,12 @@ import { getImportQuipShort } from '@/lib/import-quips';
 
 import { useGreeting } from '@/hooks/use-greeting';
 import { useWorkspaceData, type ProjectItem } from '@/hooks/use-workspace-data';
+import { extractScreenplayData } from '@/lib/voice/features/greeting/extract-screenplay-data';
 import { useStackOperations } from '@/hooks/use-stack-operations';
 import { WorkspaceHeader, WorkspaceContentGrid, type TabValue } from '@/components/workspace';
 import { useViewMode } from '@/hooks/use-view-mode';
 import { useScreenplayDataRefresh } from '@/contexts/screenplay-actions-context';
+import { VoiceDevPanel } from '@/components/dev/voice-dev-panel';
 
 function WorkspacePageContent() {
   const router = useRouter();
@@ -73,6 +75,13 @@ function WorkspacePageContent() {
   // Listen for screenplay data changes from context actions
   useScreenplayDataRefresh(loadData);
 
+  // Get most recent screenplay for personalized greetings
+  const mostRecentScreenplay = screenplays.length > 0 ? screenplays[0] : null;
+  const { characters: recentCharacters, locations: recentLocations } = React.useMemo(
+    () => extractScreenplayData(mostRecentScreenplay?.content),
+    [mostRecentScreenplay?.content]
+  );
+
   // Contextual greeting via custom hook
   const greeting = useGreeting({
     userName: session?.user?.name,
@@ -87,6 +96,11 @@ function WorkspacePageContent() {
     lastWriteDate: dashboardStats?.lastWriteDate || null,
     recentGreetings: dashboardStats?.recentGreetings || [],
     recentCategories: dashboardStats?.recentCategories || [],
+    // Screenplay metadata for personalized greetings
+    lastEditedTitle: mostRecentScreenplay?.title || null,
+    lastEditedLogline: mostRecentScreenplay?.logline || null,
+    recentCharacters,
+    recentLocations,
   });
 
   // UI state
@@ -427,6 +441,9 @@ function WorkspacePageContent() {
           </div>
         </div>
       </PageLayout>
+
+      {/* Dev Panel - only renders in development */}
+      <VoiceDevPanel />
     </>
   );
 }

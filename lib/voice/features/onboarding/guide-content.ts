@@ -164,32 +164,31 @@ export interface OnboardingStep {
 export const onboardingSteps: OnboardingStep[] = [
   {
     id: "welcome",
-    title: "The blank page.",
-    description: "Your favorite enemy. Let's fix that.",
-    action: "New Screenplay",
+    title: "Skip the formatting.",
+    description: "Most screenwriting software makes you think about margins. We'd rather you think about your story.",
   },
   {
     id: "scene-heading",
     title: "Type INT. or EXT.",
-    description: "That starts your scene. We handle the formatting.",
+    description: "That starts your scene. We handle the rest.",
     highlight: "[data-element-type='scene-heading']",
   },
   {
     id: "tab-toggle",
     title: "Tab is your friend.",
-    description: "It switches between action and dialogue. That's most of what you need.",
+    description: "It toggles between action and dialogue. That's most of what you need.",
   },
   {
     id: "autocomplete",
-    title: "We remember character names.",
-    description: "Type a few letters. We'll suggest the rest.",
+    title: "We remember names.",
+    description: "Type a few letters of a character name. We'll suggest the rest.",
     highlight: "[data-autocomplete]",
   },
   {
     id: "done",
     title: "That's it.",
-    description: "Go write something.",
-    action: "Start Writing",
+    description: "No menus to dig through. No formatting modes. Just write.",
+    action: "Got it",
   },
 ];
 

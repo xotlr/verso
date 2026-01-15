@@ -1,6 +1,94 @@
 /**
  * Greeting Strategies
  * Strategy pattern for contextual greeting selection
+ *
+ * ARCHITECTURE OVERVIEW
+ * =====================
+ *
+ * The greeting system uses a priority-based strategy pattern to select
+ * contextually appropriate greetings based on user behavior and state.
+ *
+ * SELECTION FLOW
+ * --------------
+ * 1. SPECIAL CASES (bypass normal flow):
+ *    - REFRESH_ADDICT: If user refreshed 2+ times in 5 min → escalating snark
+ *    - NAME_EASTER_EGG: If user name matches known filmmaker → personality response
+ *
+ * 2. STRATEGY EVALUATION:
+ *    - All 18+ strategies are evaluated against current context
+ *    - Each strategy has a priority (lower = higher priority)
+ *    - Multiple strategies may match simultaneously
+ *
+ * 3. VARIETY FILTERING:
+ *    - Recently used categories (last 10) are filtered out if possible
+ *    - Ensures users see different category types over multiple visits
+ *
+ * 4. GREETING SELECTION:
+ *    - From the winning category, a greeting is picked from its pool
+ *    - pickSmart() avoids recently shown greetings (last 30)
+ *    - Seed-based randomness ensures reproducibility within session
+ *
+ * 5. PERSONALIZATION:
+ *    - Screenplay data may be used for templates ({title}, {character})
+ *    - User name may be appended if greeting format allows it
+ *
+ * STRATEGY PRIORITIES (lower = higher priority)
+ * ---------------------------------------------
+ *   0: LEGENDARY (7+ day streak)
+ *   1: NEARLY_LEGENDARY (6-day streak)
+ *   2: GHOST_LONG (7+ days absent)
+ *   3: GHOST_MEDIUM (5-6 days absent)
+ *   4: GHOST_SHORT (3-4 days absent)
+ *   5: COMEBACK_KID (returning after breaking streak)
+ *   6: RETURNING_CHAMP (new personal best streak)
+ *   7: ON_FIRE (3-6 day streak)
+ *   8: MILESTONE_WORDS (hit 1K/5K/10K/25K/50K words)
+ *   9: MILESTONE_SCREENPLAYS (hit 5/10/25 screenplays)
+ *  10: GOAL_PROGRESS (50-99% of daily goal)
+ *  11: CREATOR_NOT_WRITER (5+ screenplays, no writing this week)
+ *  12: STREAK_BROKEN (broke streak recently)
+ *  13: CRUSHING_IT (5x daily goal this week)
+ *  14: SLACKING (under daily goal with some content)
+ *  15: FIRST_TIME (no screenplays yet)
+ *  16: SCREENPLAY_REFERENCE (has recent title/characters/locations)
+ *  17: GENRE_BASED (last edited screenplay has genre)
+ *  18: WEEKEND_WARRIOR (it's Saturday/Sunday)
+ *  99: TIME_BASED (fallback - morning/afternoon/evening/night)
+ *
+ * VARIETY MANAGEMENT
+ * ------------------
+ * Three-layer approach ensures users don't see repetitive greetings:
+ *
+ * Layer 1 - Session Seed:
+ *   - Each browser session gets a random seed (sessionStorage)
+ *   - Combined with daily seed for consistent-yet-varied selection
+ *
+ * Layer 2 - Smart Picking:
+ *   - pickSmart() excludes recently shown items from selection pool
+ *   - Falls back to full pool only when all items exhausted
+ *
+ * Layer 3 - History Tracking:
+ *   - Last 30 greeting texts stored in localStorage
+ *   - Last 10 categories stored separately
+ *   - Prevents exact repeats within rolling window
+ *
+ * FILES IN THIS MODULE
+ * --------------------
+ * strategies.ts  - Strategy evaluation logic (this file)
+ * pools.ts       - Greeting text pools by category
+ * types.ts       - TypeScript interfaces and types
+ * constants.ts   - Tunable thresholds (streak days, milestones, etc.)
+ * history.ts     - localStorage persistence for variety
+ * extract-screenplay-data.ts - Regex-based character/location extraction
+ *
+ * EXTENDING THE SYSTEM
+ * --------------------
+ * To add a new greeting category:
+ * 1. Add category to GreetingCategory union in types.ts
+ * 2. Add greeting pool in pools.ts
+ * 3. Create strategy function in this file
+ * 4. Add strategy to STRATEGIES array with appropriate priority
+ * 5. Add tests to __tests__/lib/greeting-variety.test.ts
  */
 
 import type { GreetingContext, GreetingCategory, GreetingResult, Genre } from './types';
@@ -8,6 +96,7 @@ import { GENRES } from './types';
 import { pickSmart, daysSince, getTimePeriod, getDailySeed, isWeekend, shouldAppendName } from '../../utils';
 import { matchName, shouldTrigger, getNameGreeting } from '../names';
 import {
+  refreshAddictGreetings,
   ghostGreetingsShort,
   ghostGreetingsMedium,
   ghostGreetingsLong,
@@ -26,6 +115,7 @@ import {
   genreGreetings,
   weekendWarriorGreetings,
   timeBasedGreetings,
+  screenplayReferenceTemplates,
 } from './pools';
 import {
   LEGENDARY_STREAK_DAYS,
@@ -348,7 +438,51 @@ const strategies: GreetingStrategy[] = [
     },
   },
 
-  // Priority 17: GENRE_BASED
+  // Priority 17: SCREENPLAY_REFERENCE (personalized based on user's work)
+  {
+    category: 'SCREENPLAY_REFERENCE',
+    matches: ({ ctx }) => {
+      // Need at least one of: title, characters, or locations
+      return !!(
+        ctx.lastEditedTitle ||
+        (ctx.recentCharacters && ctx.recentCharacters.length > 0) ||
+        (ctx.recentLocations && ctx.recentLocations.length > 0)
+      );
+    },
+    getGreeting: ({ ctx, firstName, dailySeed }) => {
+      // Collect available template types
+      const availableTypes: Array<'title' | 'character' | 'location'> = [];
+      if (ctx.lastEditedTitle) availableTypes.push('title');
+      if (ctx.recentCharacters?.length) availableTypes.push('character');
+      if (ctx.recentLocations?.length) availableTypes.push('location');
+
+      // Pick a random type
+      const templateType = availableTypes[dailySeed % availableTypes.length];
+      const templates = screenplayReferenceTemplates[templateType];
+      const template = templates[dailySeed % templates.length];
+
+      // Fill in the placeholder
+      let text = template;
+      if (templateType === 'title' && ctx.lastEditedTitle) {
+        text = template.replace('{title}', ctx.lastEditedTitle);
+      } else if (templateType === 'character' && ctx.recentCharacters?.length) {
+        const character = ctx.recentCharacters[dailySeed % ctx.recentCharacters.length];
+        text = template.replace('{character}', character);
+      } else if (templateType === 'location' && ctx.recentLocations?.length) {
+        const location = ctx.recentLocations[dailySeed % ctx.recentLocations.length];
+        text = template.replace('{location}', location);
+      }
+
+      return {
+        text,
+        showName: false,
+        name: firstName,
+        category: 'SCREENPLAY_REFERENCE',
+      };
+    },
+  },
+
+  // Priority 18: GENRE_BASED
   {
     category: 'GENRE_BASED',
     matches: ({ ctx }) => isValidGenre(ctx.lastEditedGenre),
@@ -416,6 +550,20 @@ export function getContextualGreeting(ctx: GreetingContext): GreetingResult {
   const daysSinceWrite = getDaysSinceLastWrite(ctx.lastWriteDate);
 
   const combinedSeed = dailySeed + sessionSeed;
+
+  // Priority -1: Refresh addict (compulsive refreshers get called out)
+  const refreshCount = ctx.refreshCount ?? 0;
+  if (refreshCount >= 2) {
+    // Cap at 8 for the highest snark level
+    const level = Math.min(refreshCount, 8);
+    const pool = refreshAddictGreetings[level] || refreshAddictGreetings[8];
+    const text = pickSmart(pool, recentGreetings, combinedSeed);
+    return {
+      text,
+      showName: false,
+      category: 'REFRESH_ADDICT',
+    };
+  }
 
   // Priority 0: Name-based easter eggs (check first!)
   const nameMatch = matchName(userName);

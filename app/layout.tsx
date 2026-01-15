@@ -11,6 +11,7 @@ import { WebVitals } from "@/components/analytics/web-vitals";
 import { DebugMetricsProvider } from "@/components/analytics/debug-metrics-context";
 import { PetalsRenderer } from "@/components/effects/petals-renderer";
 import { AuroraRenderer } from "@/components/effects/aurora-renderer";
+import { SplashHider } from "@/components/splash-hider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -270,12 +271,126 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable} ${bodoniModa.variable} ${plaster.variable} ${montserrat.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${dotGothic16.variable} ${audiowide.variable} ${oxanium.variable} ${chakraPetch.variable} ${sixtyfour.variable} ${doto.variable} ${specialElite.variable} ${syne.variable} ${poiretOne.variable} ${caveat.variable} ${bonheurRoyale.variable} ${badeenDisplay.variable} ${bellefair.variable} ${cinzelDecorative.variable}`}
     >
+      <head>
+        {/* Blocking script - ONLY sets theme class, CSS handles the rest */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{
+              var t=document.cookie.match(/verso-theme=([^;]+)/);
+              var s=t?t[1]:localStorage.getItem('verso-theme')||'system';
+              var d=document.documentElement;
+              d.classList.remove('light','dark');
+              if(s==='system'){s=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}
+              d.classList.add(s);
+              d.style.colorScheme=s;
+            }catch(e){}})()`,
+          }}
+        />
+        {/* Splash progress + message rotation - runs client-side only */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){
+              var messages=[
+                "Sharpening pencils...",
+                "Brewing coffee...",
+                "Avoiding writer's block...",
+                "Loading Act One...",
+                "Warming up the cursor...",
+                "Finding the muse...",
+                "Formatting montages...",
+                "Procrastinating professionally...",
+                "Staring at blank page...",
+                "Channeling Sorkin...",
+                "Rewriting the rewrite...",
+                "Almost there...",
+              ];
+              var idx=0;
+              var progress=0;
+              var bar=null;
+              var msgEl=null;
+              var started=false;
+              function update(p){
+                progress=Math.max(progress,p);
+                if(bar)bar.style.width=progress+'%';
+              }
+              function nextMessage(){
+                if(msgEl){
+                  if(!started){
+                    idx=Math.floor(Math.random()*messages.length);
+                    started=true;
+                  }else{
+                    idx=(idx+1)%messages.length;
+                  }
+                  msgEl.textContent=messages[idx];
+                }
+              }
+              document.addEventListener('DOMContentLoaded',function(){
+                update(40);
+                msgEl=document.getElementById('splash-message');
+                nextMessage();
+                setInterval(nextMessage,1800);
+              });
+              window.addEventListener('load',function(){update(80)});
+              window.__splashProgress={update:update,setBar:function(b){bar=b;bar.style.width=progress+'%'}};
+            })()`,
+          }}
+        />
+      </head>
       <body className="antialiased overflow-hidden h-screen">
+        {/* Splash screen - dangerouslySetInnerHTML so React doesn't hydrate it */}
+        <div
+          id="splash-container"
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html: `
+              <div id="splash" style="position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
+                <svg width="56" height="56" viewBox="140 344 720 312" fill="none" style="animation:splash-pulse 1.5s ease-in-out infinite;">
+                  <polygon points="320,368 452,368 452,632 308,632 164,488" fill="currentColor"/>
+                  <polygon points="500,368 620,368 620,512 764,368 836,368 572,632 500,632" fill="currentColor"/>
+                </svg>
+                <div id="splash-progress" style="width:140px;height:2px;border-radius:1px;overflow:hidden;">
+                  <div style="height:100%;width:0%;transition:width 0.4s ease-out;"></div>
+                </div>
+                <p id="splash-message" style="font-size:13px;font-family:system-ui,-apple-system,sans-serif;opacity:0.6;margin:0;min-height:20px;"></p>
+              </div>
+            `,
+          }}
+        />
+        {/* Inline styles for splash - transitions smoothly when theme CSS loads */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes splash-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+          }
+          #splash {
+            background-color: hsl(var(--background, 0 0% 8%));
+            color: hsl(var(--foreground, 0 0% 90%));
+            transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+          #splash svg {
+            color: hsl(var(--primary, 0 0% 90%));
+            opacity: 1;
+            transition: color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+          #splash-progress {
+            background-color: hsl(var(--muted, 0 0% 15%));
+            transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+          #splash-progress > div {
+            background-color: hsl(var(--primary, 0 0% 50%));
+            transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), width 0.4s ease-out;
+          }
+          #splash-message {
+            color: hsl(var(--muted-foreground, 0 0% 45%));
+            transition: color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+          }
+        `}} />
         <WebVitals />
         <AuthProvider>
           <ThemeProvider
             defaultTheme="system"
           >
+            <SplashHider />
             <SettingsProvider>
               <PetalsRenderer />
               <AuroraRenderer />

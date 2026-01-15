@@ -149,20 +149,28 @@ describe('createSmartPicker', () => {
     expect(variants).toContain(result)
   })
 
-  it('should be deterministic with same seed', () => {
-    const picker1 = createSmartPicker({ dailySeed: 123, sessionSeed: 456 })
-    const picker2 = createSmartPicker({ dailySeed: 123, sessionSeed: 456 })
+  it('should return item from pool (non-deterministic for variety)', () => {
+    const picker = createSmartPicker({ dailySeed: 123, sessionSeed: 456 })
     const variants = ['a', 'b', 'c', 'd', 'e']
 
-    expect(picker1(variants)).toBe(picker2(variants))
+    // Run multiple times to verify it picks from the pool
+    for (let i = 0; i < 10; i++) {
+      expect(variants).toContain(picker(variants))
+    }
   })
 
-  it('should produce different results with different seeds', () => {
-    const variants = Array.from({ length: 100 }, (_, i) => `item-${i}`)
-    const picker1 = createSmartPicker({ dailySeed: 1, sessionSeed: 0 })
-    const picker2 = createSmartPicker({ dailySeed: 2, sessionSeed: 0 })
+  it('should provide variety over multiple calls', () => {
+    const picker = createSmartPicker({ dailySeed: 1, sessionSeed: 0 })
+    const variants = Array.from({ length: 20 }, (_, i) => `item-${i}`)
 
-    expect(picker1(variants)).not.toBe(picker2(variants))
+    // With 20 variants, running 50 times should produce some variety
+    const results = new Set<string>()
+    for (let i = 0; i < 50; i++) {
+      results.add(picker(variants))
+    }
+
+    // Should pick more than just one item
+    expect(results.size).toBeGreaterThan(1)
   })
 })
 
@@ -185,19 +193,26 @@ describe('pickSmart', () => {
     expect(pool).toContain(result)
   })
 
-  it('should be deterministic with seed', () => {
+  it('should return item from pool (non-deterministic for variety)', () => {
     const pool = ['a', 'b', 'c', 'd', 'e']
-    const result1 = pickSmart(pool, [], 42)
-    const result2 = pickSmart(pool, [], 42)
-    expect(result1).toBe(result2)
+    // Run multiple times to verify it picks from the pool
+    for (let i = 0; i < 10; i++) {
+      const result = pickSmart(pool, [], 42)
+      expect(pool).toContain(result)
+    }
   })
 
-  it('should cycle through pool based on seed', () => {
-    const pool = ['a', 'b', 'c']
-    expect(pickSmart(pool, [], 0)).toBe('a')
-    expect(pickSmart(pool, [], 1)).toBe('b')
-    expect(pickSmart(pool, [], 2)).toBe('c')
-    expect(pickSmart(pool, [], 3)).toBe('a') // wraps around
+  it('should provide variety over multiple calls', () => {
+    const pool = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+    const results = new Set<string>()
+
+    // With 10 items, running 30 times should produce some variety
+    for (let i = 0; i < 30; i++) {
+      results.add(pickSmart(pool, [], i))
+    }
+
+    // Should pick more than just one item
+    expect(results.size).toBeGreaterThan(1)
   })
 })
 

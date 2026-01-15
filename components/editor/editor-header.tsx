@@ -91,8 +91,7 @@ export function EditorHeader({ className }: EditorHeaderProps) {
 
   return (
     <header className={cn(
-      "sticky top-0 z-40 flex h-11 shrink-0 items-center gap-2 px-4",
-      !isGlass && "bg-sidebar",
+      "sticky top-0 z-40 flex h-11 shrink-0 items-center gap-2 px-4 bg-sidebar",
       className
     )}>
       {/* Mobile: Back button on left */}

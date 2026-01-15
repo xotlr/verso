@@ -20,7 +20,6 @@ interface NavMenuItemProps {
   index?: number;
   onClick?: () => void;
   isActive?: boolean;  // Override URL-based active detection
-  isGlass?: boolean;  // Glass styling for limitless theme (no bg, like ThemeToggle)
 }
 
 export function NavMenuItem({
@@ -33,7 +32,6 @@ export function NavMenuItem({
   index = 0,
   onClick,
   isActive: isActiveProp,
-  isGlass,
 }: NavMenuItemProps) {
   const isActive = isActiveProp ?? (url ? (pathname === url || pathname.startsWith(`${url}/`)) : false);
 
@@ -50,19 +48,13 @@ export function NavMenuItem({
         {url ? (
           <Link
             href={url}
+            data-nav-item=""
+            data-active={isActive ? "" : undefined}
             className={cn(
               "transition-colors duration-150 text-sm group/item flex items-center justify-center rounded-lg",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              isGlass
-                ? isActive
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                : cn(
-                    "hover:bg-accent hover:text-accent-foreground",
-                    isActive
-                      ? "bg-primary text-primary-foreground font-medium"
-                      : "text-muted-foreground"
-                  )
+              "hover:bg-accent hover:text-accent-foreground",
+              isActive ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground"
             )}
             aria-current={isActive ? "page" : undefined}
           >
@@ -70,14 +62,12 @@ export function NavMenuItem({
               {showFilledByDefault && ActiveIcon ? (
                 <ActiveIcon className={cn(
                   "h-4 w-4",
-                  isGlass ? "text-foreground" : "text-primary-foreground"
+                  isActive ? "text-primary-foreground" : "text-muted-foreground"
                 )} />
               ) : (
                 <Icon className={cn(
                   "h-4 w-4",
-                  isGlass
-                    ? isActive ? "text-foreground" : "text-muted-foreground group-hover/item:text-foreground"
-                    : isActive ? "text-primary-foreground" : "text-muted-foreground group-hover/item:text-foreground"
+                  isActive ? "text-primary-foreground" : "text-muted-foreground group-hover/item:text-foreground"
                 )} />
               )}
               {notification && (
@@ -88,33 +78,25 @@ export function NavMenuItem({
         ) : (
           <button
             onClick={onClick}
+            data-nav-item=""
+            data-active={isActive ? "" : undefined}
             className={cn(
               "transition-colors duration-150 text-sm group/item flex items-center justify-center rounded-lg",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              isGlass
-                ? isActive
-                  ? "bg-background shadow-sm text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                : cn(
-                    "hover:bg-accent hover:text-accent-foreground",
-                    isActive
-                      ? "bg-primary text-primary-foreground font-medium"
-                      : "text-muted-foreground"
-                  )
+              "hover:bg-accent hover:text-accent-foreground",
+              isActive ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground"
             )}
           >
             <div className="relative flex-shrink-0">
               {showFilledByDefault && ActiveIcon ? (
                 <ActiveIcon className={cn(
                   "h-4 w-4",
-                  isGlass ? "text-foreground" : "text-primary-foreground"
+                  isActive ? "text-primary-foreground" : "text-muted-foreground"
                 )} />
               ) : (
                 <Icon className={cn(
                   "h-4 w-4",
-                  isGlass
-                    ? isActive ? "text-foreground" : "text-muted-foreground group-hover/item:text-foreground"
-                    : isActive ? "text-primary-foreground" : "text-muted-foreground group-hover/item:text-foreground"
+                  isActive ? "text-primary-foreground" : "text-muted-foreground group-hover/item:text-foreground"
                 )} />
               )}
               {notification && (

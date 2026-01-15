@@ -1,14 +1,16 @@
 'use client';
 
-import { useRef, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
+import { useRef, useCallback, useState, useMemo } from 'react';
 import { Plus, Upload, Loader2 } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
 import { getAcceptString } from '@/lib/parsers';
-import type { GreetingResult } from '@/lib/greeting';
+import type { GreetingResult } from '@/lib/voice/features/greeting';
+import { cn } from '@/lib/utils';
+import { greetingPokeResponses } from '@/lib/voice/features/greeting/pools';
+import { pickSmart } from '@/lib/voice/utils';
 
 interface WorkspaceHeaderProps {
-  greeting: GreetingResult;
+  greeting: GreetingResult & { mounted?: boolean };
   projectCount: number;
   screenplayCount: number;
   onCreateProject: () => void;
@@ -32,6 +34,38 @@ export function WorkspaceHeader({
   isImporting = false,
 }: WorkspaceHeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pokeCount, setPokeCount] = useState(0);
+  const [pokeText, setPokeText] = useState<string | null>(null);
+  const pokeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Handle greeting clicks - escalating responses
+  const handleGreetingClick = useCallback(() => {
+    const newCount = pokeCount + 1;
+    setPokeCount(newCount);
+
+    // Get the appropriate pool (cap at 8)
+    const level = Math.min(newCount, 8);
+    const pool = greetingPokeResponses[level] || greetingPokeResponses[1];
+    const response = pickSmart(pool, [], Date.now());
+    setPokeText(response);
+
+    // Clear any existing timeout
+    if (pokeTimeoutRef.current) {
+      clearTimeout(pokeTimeoutRef.current);
+    }
+
+    // Reset after 3 seconds of no clicking
+    pokeTimeoutRef.current = setTimeout(() => {
+      setPokeText(null);
+      setPokeCount(0);
+    }, 3000);
+  }, [pokeCount]);
+
+  // Display text - either poke response or normal greeting
+  const displayText = useMemo(() => {
+    if (pokeText) return pokeText;
+    return greeting.text;
+  }, [pokeText, greeting.text]);
 
   const handleImportClick = useCallback(() => {
     fileInputRef.current?.click();
@@ -50,15 +84,24 @@ export function WorkspaceHeader({
     },
     [onImportFile]
   );
+  // Extract mounted state, default to true for backwards compatibility
+  const isMounted = 'mounted' in greeting ? greeting.mounted : true;
+
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
       <div className="flex-1 min-w-0">
         <h2
-          className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-1 sm:mb-2 break-words"
+          className={cn(
+            "text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-1 sm:mb-2 break-words",
+            "transition-opacity duration-500 ease-out select-none",
+            isMounted ? "opacity-100" : "opacity-0",
+            pokeText && "cursor-default"
+          )}
+          onClick={handleGreetingClick}
           suppressHydrationWarning
         >
-          {greeting.text}
-          {greeting.showName && greeting.name && (
+          {displayText}
+          {!pokeText && greeting.showName && greeting.name && (
             <span className="italic font-normal">, {greeting.name}</span>
           )}
         </h2>
@@ -76,50 +119,38 @@ export function WorkspaceHeader({
           onChange={handleFileChange}
           className="hidden"
         />
-        {onImportFile && (
-          <Button
-            onClick={handleImportClick}
-            variant="secondary"
-            size="sm"
-            className="touch-manipulation"
-            disabled={isImporting}
+        {/* Button group - glass pill wrapper */}
+        <div
+          data-glass-pill=""
+          className="flex items-center gap-1 p-1 rounded-xl bg-muted border border-border/60"
+        >
+          {onImportFile && (
+            <button
+              onClick={handleImportClick}
+              disabled={isImporting}
+              className="flex items-center gap-2 px-3 h-8 rounded-lg text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+            >
+              {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              <span className="hidden md:inline">Import</span>
+            </button>
+          )}
+          <button
+            onClick={onCreateProject}
+            disabled={isCreatingProject}
+            className="flex items-center gap-2 px-3 h-8 rounded-lg text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
           >
-            {isImporting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-            <span className="hidden md:inline">Import</span>
-          </Button>
-        )}
-        <Button
-          onClick={onCreateProject}
-          variant="secondary"
-          size="sm"
-          className="touch-manipulation"
-          disabled={isCreatingProject}
-        >
-          {isCreatingProject ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RiFolder6Line className="h-4 w-4" />
-          )}
-          <span className="hidden md:inline">New Project</span>
-        </Button>
-        <Button
-          onClick={onCreateScreenplay}
-          variant="secondary"
-          size="sm"
-          className="touch-manipulation"
-          disabled={isCreatingScreenplay}
-        >
-          {isCreatingScreenplay ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}
-          <span className="hidden sm:inline">New Screenplay</span>
-        </Button>
+            {isCreatingProject ? <Loader2 className="h-4 w-4 animate-spin" /> : <RiFolder6Line className="h-4 w-4" />}
+            <span className="hidden md:inline">New Project</span>
+          </button>
+          <button
+            onClick={onCreateScreenplay}
+            disabled={isCreatingScreenplay}
+            className="flex items-center gap-2 px-3 h-8 rounded-lg text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+          >
+            {isCreatingScreenplay ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            <span className="hidden sm:inline">New Screenplay</span>
+          </button>
+        </div>
       </div>
     </div>
   );

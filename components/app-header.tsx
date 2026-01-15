@@ -18,7 +18,6 @@ import { cn } from "@/lib/utils";
 import { useEditorBreadcrumb } from "@/contexts/editor-breadcrumb-context";
 import { useEditorStatus } from "@/contexts/editor-status-context";
 import { useCommandPalette } from "@/contexts/command-palette-context";
-import { useGlassStyles } from "@/hooks/use-glass-styles";
 import { useEditorCommandsStore } from "@/stores/editor-commands";
 
 // Get active item label from pathname
@@ -100,7 +99,6 @@ interface AppHeaderProps {
 
 export function AppHeader({ className }: AppHeaderProps) {
   const pathname = usePathname();
-  const { isGlass, container: glassContainer } = useGlassStyles();
   const [dynamicTitle, setDynamicTitle] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -170,8 +168,7 @@ export function AppHeader({ className }: AppHeaderProps) {
   return (
     <TooltipProvider delayDuration={300}>
       <header className={cn(
-        "sticky top-0 z-40 flex h-11 shrink-0 items-center gap-2 px-4",
-        !isGlass && "bg-sidebar",
+        "sticky top-0 z-40 flex h-11 shrink-0 items-center gap-2 px-4 bg-sidebar",
         className
       )}>
         {/* Desktop: Active item display or breadcrumb */}
@@ -198,12 +195,7 @@ export function AppHeader({ className }: AppHeaderProps) {
         {isDetailPage ? (
           <button
             onClick={() => window.history.back()}
-            className={cn(
-              "md:hidden flex items-center justify-center h-9 w-9 -ml-2 rounded-md",
-              isGlass
-                ? "bg-card/50 backdrop-blur-sm hover:bg-card/60 border border-border/20"
-                : "hover:bg-accent"
-            )}
+            className="md:hidden flex items-center justify-center h-9 w-9 -ml-2 rounded-md hover:bg-accent"
           >
             <ChevronLeft className="h-6 w-6" />
           </button>
@@ -229,45 +221,38 @@ export function AppHeader({ className }: AppHeaderProps) {
         </div>
 
         {/* Mobile: Action buttons + Hamburger menu on right */}
-        <div className={cn(
-          "md:hidden flex items-center gap-1 -mr-1",
-          isGlass && "gap-2"
-        )}>
+        <div className="md:hidden flex items-center gap-1 -mr-1">
           {/* Screenplay-specific buttons on mobile - in pill for limitless */}
           {isScreenplayPage && (
-            <div className={cn(
-              "flex items-center gap-0.5",
-              isGlass && "p-1 rounded-xl",
-              isGlass && glassContainer
-            )}>
+            <div
+              data-glass-pill=""
+              className="flex items-center gap-0.5 p-1 rounded-xl bg-muted border border-border/60"
+            >
               <HeaderIconButton
                 icon={<IoShareOutline className="h-4 w-4" />}
                 activeIcon={<IoShare className="h-4 w-4" />}
                 tooltip="Share"
-                isGlass={isGlass}
                 onClick={handleShare}
               />
               <HeaderIconButton
                 icon={<History className="h-4 w-4" />}
                 tooltip="History"
-                isGlass={isGlass}
                 onClick={handleVersionHistory}
               />
               <HeaderIconButton
                 icon={<BsRewindBtn className="h-4 w-4" />}
                 activeIcon={<BsRewindBtnFill className="h-4 w-4" />}
                 tooltip="Timelapse"
-                isGlass={isGlass}
                 onClick={handleTimelapse}
               />
             </div>
           )}
           {/* Mobile menu - in pill for limitless */}
-          <div className={cn(
-            isGlass && "p-1 rounded-xl",
-            isGlass && glassContainer
-          )}>
-            <MobileHeaderMenu open={menuOpen} onOpenChange={setMenuOpen} isGlass={isGlass} />
+          <div
+            data-glass-pill=""
+            className="p-1 rounded-xl bg-muted border border-border/60"
+          >
+            <MobileHeaderMenu open={menuOpen} onOpenChange={setMenuOpen} />
           </div>
         </div>
 
@@ -283,48 +268,42 @@ export function AppHeader({ className }: AppHeaderProps) {
 
           {/* Screenplay-specific buttons - grouped in pill for limitless */}
           {isScreenplayPage && (
-            <div className={cn(
-              "flex items-center gap-0.5",
-              isGlass && "p-1 rounded-xl",
-              isGlass && glassContainer
-            )}>
+            <div
+              data-glass-pill=""
+              className="flex items-center gap-0.5 p-1 rounded-xl bg-muted border border-border/60"
+            >
               <HeaderIconButton
                 icon={<IoShareOutline className="h-4 w-4" />}
                 activeIcon={<IoShare className="h-4 w-4" />}
                 tooltip="Share"
-                isGlass={isGlass}
                 onClick={handleShare}
               />
               <HeaderIconButton
                 icon={<History className="h-4 w-4" />}
                 tooltip="Version History"
-                isGlass={isGlass}
                 onClick={handleVersionHistory}
               />
               <HeaderIconButton
                 icon={<BsRewindBtn className="h-4 w-4" />}
                 activeIcon={<BsRewindBtnFill className="h-4 w-4" />}
                 tooltip="View Timelapse"
-                isGlass={isGlass}
                 onClick={handleTimelapse}
               />
             </div>
           )}
 
           {/* Global buttons - grouped in pill for limitless */}
-          <div className={cn(
-            "flex items-center gap-0.5",
-            isGlass && "p-1 rounded-xl",
-            isGlass && glassContainer
-          )}>
+          <div
+            data-glass-pill=""
+            className="flex items-center gap-0.5 p-1 rounded-xl bg-muted border border-border/60"
+          >
             <HeaderIconButton
               icon={<Search className="h-4 w-4" />}
               tooltip="Search (⌘K)"
-              isGlass={isGlass}
               onClick={commandPalette.open}
             />
-            <NotificationBell isGlass={isGlass} />
-            <UserAvatarMenu isGlass={isGlass} />
+            <NotificationBell />
+            <UserAvatarMenu />
           </div>
         </div>
       </header>

@@ -19,8 +19,6 @@ interface HeaderIconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEle
   isActive?: boolean;
   /** Side for the tooltip */
   tooltipSide?: 'top' | 'right' | 'bottom' | 'left';
-  /** Whether to use glass styling (for limitless theme) */
-  isGlass?: boolean;
 }
 
 /**
@@ -28,10 +26,11 @@ interface HeaderIconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEle
  * Provides consistent hover states and optional tooltips.
  */
 export const HeaderIconButton = React.forwardRef<HTMLButtonElement, HeaderIconButtonProps>(
-  ({ icon, activeIcon, tooltip, isActive = false, tooltipSide = 'bottom', isGlass = false, className, ...props }, ref) => {
+  ({ icon, activeIcon, tooltip, isActive = false, tooltipSide = 'bottom', className, ...props }, ref) => {
     const button = (
       <button
         ref={ref}
+        data-header-button=""
         className={cn(
           // Base styles matching SidebarMenuButton
           'flex items-center justify-center rounded-lg p-2 text-sm outline-none transition-all duration-150',
@@ -39,18 +38,13 @@ export const HeaderIconButton = React.forwardRef<HTMLButtonElement, HeaderIconBu
           'disabled:pointer-events-none disabled:opacity-50',
           // Size
           'size-8',
-          // Hover and active states - glass (inside pill) vs solid
-          isGlass
-            ? 'text-muted-foreground hover:text-foreground hover:bg-background/40'
-            : 'hover:bg-accent hover:text-accent-foreground',
+          // Default (non-glass) hover state - glass handled via CSS
+          'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
           'active:scale-[0.98]',
-          isActive && (isGlass
-            ? 'bg-background/80 shadow-sm text-foreground'
-            : 'bg-primary text-primary-foreground font-medium'),
+          isActive && 'bg-primary text-primary-foreground font-medium',
           // Icon color
           '[&_svg]:text-muted-foreground [&_svg]:hover:text-foreground',
-          isActive && !isGlass && '[&_svg]:text-primary-foreground',
-          isActive && isGlass && '[&_svg]:text-foreground',
+          isActive && '[&_svg]:text-primary-foreground',
           // Toggle icons on active (pressed) state
           activeIcon && '[&_.icon-default]:active:hidden [&_.icon-active]:hidden [&_.icon-active]:active:block',
           className

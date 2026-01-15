@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import useSWR from 'swr';
-import type { GreetingCategory } from '@/lib/greeting/types';
+import type { GreetingCategory } from '@/lib/voice/features/greeting';
 
 export interface ScreenplayItem {
   id: string;

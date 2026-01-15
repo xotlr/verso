@@ -50,30 +50,33 @@ export function combineSeed(dailySeed: number, sessionSeed: number): number {
 
 /**
  * Smart picker that avoids recently shown items
+ * Uses true randomness with exclusion filtering for variety
  */
 export function createSmartPicker(ctx: SelectionContext): PoolSelector {
   const excluded = new Set(ctx.recentTexts ?? []);
-  const seed = combineSeed(ctx.dailySeed ?? getDailySeed(), ctx.sessionSeed ?? 0);
 
   return (variants: string[]): string => {
     const available = variants.filter(v => !excluded.has(v));
     const pool = available.length > 0 ? available : variants;
-    return pool[seed % pool.length];
+    // True random from filtered pool for actual variety
+    return pool[Math.floor(Math.random() * pool.length)];
   };
 }
 
 /**
  * Pick from pool avoiding recently shown
+ * Uses true randomness with exclusion filtering for variety
  */
 export function pickSmart(
   pool: string[],
   recentlyShown: string[],
-  seed: number
+  _seed: number // kept for API compatibility
 ): string {
   const excluded = new Set(recentlyShown);
   const available = pool.filter(g => !excluded.has(g));
   const targetPool = available.length > 0 ? available : pool;
-  return targetPool[seed % targetPool.length];
+  // True random from filtered pool for actual variety
+  return targetPool[Math.floor(Math.random() * targetPool.length)];
 }
 
 /**

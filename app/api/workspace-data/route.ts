@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createApiHandler } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
-import type { GreetingCategory } from "@/lib/greeting/types"
+import type { GreetingCategory } from "@/lib/voice/features/greeting"
 
 export const GET = createApiHandler({
   auth: "required",

@@ -23,7 +23,6 @@ import { cn } from '@/lib/utils';
 interface MobileHeaderMenuProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  isGlass?: boolean;
 }
 
 const menuItems = [
@@ -33,7 +32,7 @@ const menuItems = [
   { id: 'settings', icon: Settings, label: 'Settings' },
 ];
 
-export function MobileHeaderMenu({ open, onOpenChange, isGlass = false }: MobileHeaderMenuProps) {
+export function MobileHeaderMenu({ open, onOpenChange }: MobileHeaderMenuProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
@@ -73,10 +72,8 @@ export function MobileHeaderMenu({ open, onOpenChange, isGlass = false }: Mobile
       <Button
         variant="ghost"
         size="icon"
-        className={cn(
-          "h-8 w-8",
-          isGlass && "text-muted-foreground hover:text-foreground hover:bg-background/40"
-        )}
+        data-header-button=""
+        className="h-8 w-8 text-muted-foreground"
         aria-label="Open menu"
       >
         <FriesIcon size={20} />
@@ -90,10 +87,8 @@ export function MobileHeaderMenu({ open, onOpenChange, isGlass = false }: Mobile
         <Button
           variant="ghost"
           size="icon"
-          className={cn(
-            "h-8 w-8",
-            isGlass && "text-muted-foreground hover:text-foreground hover:bg-background/40"
-          )}
+          data-header-button=""
+          className="h-8 w-8 text-muted-foreground"
           aria-label="Open menu"
         >
           <div className={cn(

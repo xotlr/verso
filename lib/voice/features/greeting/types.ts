@@ -32,10 +32,21 @@ export interface GreetingContext {
   recentCategories?: GreetingCategory[];
   sessionSeed?: number;
   mounted?: boolean;
+  /** Number of times user has refreshed/revisited in this session */
+  refreshCount?: number;
+  /** Screenplay metadata for personalized greetings */
+  lastEditedTitle?: string | null;
+  lastEditedLogline?: string | null;
+  /** Top characters from recent work (by dialogue count) */
+  recentCharacters?: string[];
+  /** Notable locations from recent work */
+  recentLocations?: string[];
 }
 
 export type GreetingCategory =
+  | 'REFRESH_ADDICT'
   | 'NAME_EASTER_EGG'
+  | 'SCREENPLAY_REFERENCE'
   | 'LEGENDARY'
   | 'NEARLY_LEGENDARY'
   | 'GHOST_LONG'

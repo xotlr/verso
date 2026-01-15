@@ -24,3 +24,11 @@ export {
 
 // Greeting pools (for testing/extension)
 export * from './pools';
+
+// History tracking
+export {
+  getRecentGreetings,
+  getRecentCategories,
+  addToHistory,
+  clearHistory,
+} from './history';

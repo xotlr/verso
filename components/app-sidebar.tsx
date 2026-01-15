@@ -28,7 +28,6 @@ import { Logo } from "@/components/logo";
 import { useEditorUIOptional, type EditorPanelType } from '@/contexts/editor-ui-context';
 
 import { cn } from '@/lib/utils';
-import { useIsGlass } from '@/hooks/use-glass-styles';
 import "@/styles/sidebar-animations.css";
 import {
   DropdownMenu,
@@ -94,7 +93,6 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
   const router = useRouter();
   const mounted = useMounted();
   const { setMode } = useSidebar();
-  const isGlass = useIsGlass();
 
   // Detect screenplay ID from URL if not provided as prop
   const urlScreenplayId = extractScreenplayId(pathname);
@@ -224,11 +222,8 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   tooltip="Create"
-                  className={cn(
-                    "justify-center rounded-lg bg-primary text-primary-foreground",
-                    "hover:bg-primary/90 transition-all",
-                    "data-[state=open]:text-background"
-                  )}
+                  data-create-button=""
+                  className="justify-center rounded-lg transition-all bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   <Plus className="h-4 w-4" />
                 </SidebarMenuButton>
@@ -258,12 +253,11 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
         {mounted && isEditorMode && screenplayId ? (
           <>
             {/* Editor Tools + Panel Toggles - glass pill wrapper for limitless */}
-            <div className={cn(
-              isGlass
-                ? "mx-2 p-1 rounded-xl bg-white/40 dark:bg-black/20 backdrop-blur-md border border-white/30 dark:border-white/10"
-                : "mx-2 p-1 rounded-xl bg-muted border border-border/60"
-            )}>
-              <SidebarMenu className={cn(isGlass && "px-0 gap-0.5")}>
+            <div
+              data-glass-pill=""
+              className="mx-2 p-1 rounded-xl bg-muted border border-border/60"
+            >
+              <SidebarMenu>
                 {screenplayNavItems.map((item, index) => (
                   <NavMenuItem
                     key={item.url}
@@ -273,8 +267,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                     activeIcon={item.activeIcon}
                     pathname={pathname}
                     index={index}
-                    isGlass={isGlass}
-                  />
+                                      />
                 ))}
                 {pathname === `/screenplay/${screenplayId}` && (
                   <>
@@ -286,8 +279,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                       onClick={() => handlePanelToggle('scenes')}
                       isActive={activePanel === 'scenes'}
                       notification={panelCounts.scenes > 0}
-                      isGlass={isGlass}
-                    />
+                                          />
                     <NavMenuItem
                       title={`Characters${panelCounts.characters ? ` (${panelCounts.characters})` : ''}`}
                       icon={RiGroup2Line}
@@ -296,8 +288,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                       onClick={() => handlePanelToggle('characters')}
                       isActive={activePanel === 'characters'}
                       notification={panelCounts.characters > 0}
-                      isGlass={isGlass}
-                    />
+                                          />
                     <NavMenuItem
                       title={`Shotlist${panelCounts.shots ? ` (${panelCounts.shots})` : ''}`}
                       icon={BsCameraReels}
@@ -306,8 +297,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                       onClick={() => handlePanelToggle('shotlist')}
                       isActive={activePanel === 'shotlist'}
                       notification={panelCounts.shots > 0}
-                      isGlass={isGlass}
-                    />
+                                          />
                     <NavMenuItem
                       title={`Notes${panelCounts.notes ? ` (${panelCounts.notes})` : ''}`}
                       icon={FaRegNoteSticky}
@@ -316,8 +306,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                       onClick={() => handlePanelToggle('notes')}
                       isActive={activePanel === 'notes'}
                       notification={panelCounts.notes > 0}
-                      isGlass={isGlass}
-                    />
+                                          />
                   </>
                 )}
               </SidebarMenu>
@@ -351,12 +340,11 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
         ) : (
           <>
             {/* Library Mode: Main Navigation - glass pill wrapper for limitless */}
-            <div className={cn(
-              isGlass
-                ? "mx-2 p-1 rounded-xl bg-white/40 dark:bg-black/20 backdrop-blur-md border border-white/30 dark:border-white/10"
-                : "mx-2 p-1 rounded-xl bg-muted border border-border/60"
-            )}>
-              <SidebarMenu className={cn(isGlass && "px-0 gap-0.5")}>
+            <div
+              data-glass-pill=""
+              className="mx-2 p-1 rounded-xl bg-muted border border-border/60"
+            >
+              <SidebarMenu>
                 {mainNavItems.map((item, index) => (
                   <NavMenuItem
                     key={item.url}
@@ -367,8 +355,7 @@ export function AppSidebar({ screenplayId: propScreenplayId, screenplayTitle: pr
                     pathname={pathname}
                     index={index}
                     notification={item.notification}
-                    isGlass={isGlass}
-                  />
+                                      />
                 ))}
               </SidebarMenu>
             </div>
