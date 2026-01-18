@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -12,18 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
-  ChevronRight,
-  ChevronLeft,
-  Check,
-} from 'lucide-react';
-import { useSettings } from '@/contexts/settings-context';
-import { ThemePreset, themeMetadata, themePresets } from '@/types/settings';
+import { ChevronLeft, Sun, Moon, Compass } from 'lucide-react';
+import { PiFilmScript, PiFilmScriptFill } from 'react-icons/pi';
+import { RiFolder6Line, RiFolder6Fill, RiStackLine, RiStackFill } from 'react-icons/ri';
+import { useTheme } from '@/components/theme-provider';
 
 // ============================================================================
 // TYPES
@@ -37,10 +29,8 @@ interface OnboardingStep {
 const ONBOARDING_STEPS: OnboardingStep[] = [
   { id: 'welcome', label: 'Welcome' },
   { id: 'usecase', label: 'Use Case' },
-  { id: 'theme', label: 'Theme' },
-  { id: 'accessibility', label: 'Comfort' },
-  { id: 'shortcuts', label: 'Tips' },
-  { id: 'done', label: 'Done' },
+  { id: 'tip', label: 'Tip' },
+  { id: 'create', label: 'Create' },
 ];
 
 // ============================================================================
@@ -60,6 +50,8 @@ const USE_CASES = [
 ] as const;
 
 type UseCase = typeof USE_CASES[number]['id'];
+
+export type CreateAction = 'screenplay' | 'project' | 'series' | 'explore';
 
 // ============================================================================
 // STEP INDICATOR (horizontal tabs style)
@@ -105,9 +97,13 @@ function StepIndicator({
 function WelcomeStep({
   displayName,
   setDisplayName,
+  isDark,
+  setIsDark,
 }: {
   displayName: string;
   setDisplayName: (name: string) => void;
+  isDark: boolean;
+  setIsDark: (dark: boolean) => void;
 }) {
   return (
     <div className="space-y-6">
@@ -132,6 +128,20 @@ function WelcomeStep({
         <p className="text-xs text-muted-foreground">
           Used for greetings and comments.
         </p>
+      </div>
+
+      <div className="flex items-center justify-between p-3 rounded-lg border border-border/50">
+        <div className="flex items-center gap-3">
+          {isDark ? (
+            <Moon className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <Sun className="h-4 w-4 text-muted-foreground" />
+          )}
+          <span className="text-sm font-medium">
+            {isDark ? 'Dark mode' : 'Light mode'}
+          </span>
+        </div>
+        <Switch checked={isDark} onCheckedChange={setIsDark} />
       </div>
     </div>
   );
@@ -188,258 +198,29 @@ function UseCaseStep({
 }
 
 // ============================================================================
-// THEME STEP
+// TIP STEP (single quick tip)
 // ============================================================================
 
-const POPULAR_THEMES: ThemePreset[] = [
-  'verso', 'paper', 'spirited', 'akira', 'mr-robot', 'apollo', 'howl', 'limitless', 'sterling',
-];
-
-function ThemeStep({
-  selectedTheme,
-  setSelectedTheme,
-}: {
-  selectedTheme: ThemePreset;
-  setSelectedTheme: (theme: ThemePreset) => void;
-}) {
-  const [isDark, setIsDark] = React.useState(() => {
-    if (typeof document !== 'undefined') {
-      return document.documentElement.classList.contains('dark');
-    }
-    return true;
-  });
-
-  React.useEffect(() => {
-    const checkDark = () => document.documentElement.classList.contains('dark');
-    const observer = new MutationObserver(() => setIsDark(checkDark()));
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
-
+function TipStep() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-semibold">Pick a theme</h2>
-        <p className="text-sm text-muted-foreground mt-1.5">
-          You can change this anytime in Settings.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {POPULAR_THEMES.map((preset) => (
-          <ThemePreviewCard
-            key={preset}
-            preset={preset}
-            selected={selectedTheme === preset}
-            onClick={() => setSelectedTheme(preset)}
-            isDark={isDark}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ThemePreviewCard({
-  preset,
-  selected,
-  onClick,
-  isDark,
-}: {
-  preset: ThemePreset;
-  selected: boolean;
-  onClick: () => void;
-  isDark: boolean;
-}) {
-  const theme = themePresets[preset];
-  const colors = isDark ? theme.darkColors : theme.lightColors;
-  const meta = themeMetadata[preset];
-
-  const bg = `hsl(${colors?.background || (isDark ? '0 0% 10%' : '0 0% 95%')})`;
-  const page = `hsl(${colors?.page || (isDark ? '0 0% 12%' : '0 0% 100%')})`;
-  const fg = `hsl(${colors?.foreground || (isDark ? '0 0% 80%' : '0 0% 20%')})`;
-  const primary = `hsl(${colors?.primary || (isDark ? '0 0% 90%' : '0 0% 15%')})`;
-
-  const radius = theme.borderRadius ?? 8;
-  const scaledRadius = Math.max(2, Math.round(radius / 3));
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          onClick={onClick}
-          className={cn(
-            'relative group text-left',
-            'rounded-md border transition-all',
-            'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none',
-            selected
-              ? 'border-primary ring-1 ring-primary/30'
-              : 'border-border hover:border-primary/50'
-          )}
-          aria-pressed={selected}
-          aria-label={meta.name}
-        >
-          {/* Mini editor preview */}
-          <div
-            className="aspect-[4/3] overflow-hidden flex"
-            style={{ backgroundColor: bg, borderRadius: `${scaledRadius}px` }}
-          >
-            {/* Sidebar hint */}
-            <div className="w-3 h-full opacity-40" style={{ backgroundColor: fg }} />
-            {/* Page area */}
-            <div className="flex-1 p-1.5 flex items-center justify-center">
-              <div
-                className="w-full h-full flex flex-col items-center justify-center gap-0.5"
-                style={{ backgroundColor: page, borderRadius: `${scaledRadius - 1}px` }}
-              >
-                <div className="h-[2px] w-5 rounded-sm" style={{ backgroundColor: fg, opacity: 0.4 }} />
-                <div className="h-[2px] w-3 rounded-sm" style={{ backgroundColor: fg, opacity: 0.25 }} />
-                <div className="h-[2px] w-4 rounded-sm" style={{ backgroundColor: fg, opacity: 0.15 }} />
-              </div>
-            </div>
-            {/* Accent dot */}
-            <div
-              className="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full"
-              style={{ backgroundColor: primary }}
-            />
-          </div>
-          {/* Label */}
-          <div className="px-2 py-1.5 border-t border-border/50">
-            <span
-              className={cn(
-                'text-[10px] block truncate',
-                selected ? 'text-foreground font-medium' : 'text-muted-foreground'
-              )}
-              style={{
-                fontStyle: meta.style === 'italic' ? 'italic' : undefined,
-                textTransform: meta.style === 'uppercase' ? 'uppercase' : meta.style === 'lowercase' ? 'lowercase' : undefined,
-              }}
-            >
-              {meta.name}
-            </span>
-          </div>
-          {/* Selected check */}
-          {selected && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
-              <Check className="h-2.5 w-2.5 text-primary-foreground" />
-            </div>
-          )}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs">
-        {meta.name}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-// ============================================================================
-// ACCESSIBILITY STEP
-// ============================================================================
-
-const FONT_SIZES = [
-  { value: 14, label: 'Default' },
-  { value: 16, label: 'Large' },
-  { value: 18, label: 'Larger' },
-] as const;
-
-function AccessibilityStep({
-  reduceMotion,
-  setReduceMotion,
-  fontSize,
-  setFontSize,
-}: {
-  reduceMotion: boolean;
-  setReduceMotion: (v: boolean) => void;
-  fontSize: number;
-  setFontSize: (v: number) => void;
-}) {
-  return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-xl font-semibold">Make it yours</h2>
-        <p className="text-sm text-muted-foreground mt-1.5">
-          Adjust for comfort. Change anytime in Settings.
-        </p>
-      </div>
-
-      {/* Reduce motion toggle */}
-      <div className="flex items-center justify-between p-3 rounded-lg border border-border/50">
-        <div>
-          <p className="text-sm font-medium">Reduce motion</p>
-          <p className="text-xs text-muted-foreground">Less animation throughout</p>
-        </div>
-        <Switch checked={reduceMotion} onCheckedChange={setReduceMotion} />
-      </div>
-
-      {/* Font size selector */}
-      <div className="space-y-2">
-        <p className="text-sm font-medium">Text size</p>
-        <div className="grid grid-cols-3 gap-2">
-          {FONT_SIZES.map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => setFontSize(value)}
-              className={cn(
-                'p-2 rounded-md border text-xs transition-colors',
-                'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-                fontSize === value
-                  ? 'border-primary bg-primary/10 text-foreground'
-                  : 'border-border text-muted-foreground hover:text-foreground'
-              )}
-              aria-pressed={fontSize === value}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// SHORTCUTS STEP (editor-like tips)
-// ============================================================================
-
-function ShortcutsStep() {
-  return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-xl font-semibold">Two things to know</h2>
+        <h2 className="text-xl font-semibold">One thing to know</h2>
         <p className="text-sm text-muted-foreground mt-1.5">
           That's really it.
         </p>
       </div>
 
-      <div className="space-y-2">
-        {/* Tip 1 */}
-        <div className="p-3 rounded-lg border border-border/50 bg-card/50">
-          <div className="flex items-start gap-3">
-            <code className="shrink-0 px-2 py-1 rounded bg-muted text-[11px] font-mono font-medium">
-              INT.
-            </code>
-            <div className="min-w-0">
-              <p className="text-sm font-medium">Scene headings</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Type <code className="text-[10px] bg-muted px-1 rounded">INT.</code> or <code className="text-[10px] bg-muted px-1 rounded">EXT.</code> to start a scene. Auto-formatted.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Tip 2 */}
-        <div className="p-3 rounded-lg border border-border/50 bg-card/50">
-          <div className="flex items-start gap-3">
-            <kbd className="shrink-0 px-2 py-1 rounded bg-muted text-[11px] font-mono font-medium">
-              Tab
-            </kbd>
-            <div className="min-w-0">
-              <p className="text-sm font-medium">Toggle elements</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Action → Character → Parenthetical. Just keep pressing Tab.
-              </p>
-            </div>
+      <div className="p-4 rounded-lg border border-border/50 bg-card/50">
+        <div className="flex items-start gap-3">
+          <code className="shrink-0 px-2 py-1 rounded bg-muted text-[11px] font-mono font-medium">
+            INT.
+          </code>
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Scene headings</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Type <code className="text-[10px] bg-muted px-1 rounded">INT.</code> or <code className="text-[10px] bg-muted px-1 rounded">EXT.</code> to start a scene. Verso handles the formatting.
+            </p>
           </div>
         </div>
       </div>
@@ -452,31 +233,59 @@ function ShortcutsStep() {
 }
 
 // ============================================================================
-// DONE STEP
+// CREATE STEP (action-oriented final step)
 // ============================================================================
 
-function DoneStep({ displayName }: { displayName: string }) {
+const CREATE_OPTIONS: {
+  id: CreateAction;
+  label: string;
+  icon: React.ElementType;
+  activeIcon: React.ElementType;
+}[] = [
+  { id: 'screenplay', label: 'Screenplay', icon: PiFilmScript, activeIcon: PiFilmScriptFill },
+  { id: 'project', label: 'Project', icon: RiFolder6Line, activeIcon: RiFolder6Fill },
+  { id: 'series', label: 'Series', icon: RiStackLine, activeIcon: RiStackFill },
+  { id: 'explore', label: 'Just exploring', icon: Compass, activeIcon: Compass },
+];
+
+function CreateStep({
+  selectedAction,
+  setSelectedAction,
+}: {
+  selectedAction: CreateAction | null;
+  setSelectedAction: (action: CreateAction) => void;
+}) {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-semibold">
-          {displayName ? `Ready, ${displayName}` : "You're ready"}
-        </h2>
+        <h2 className="text-xl font-semibold">What do you want to create?</h2>
         <p className="text-sm text-muted-foreground mt-1.5">
-          No menus. No formatting modes. Just write.
+          You can always change your mind later.
         </p>
       </div>
 
-      <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
-        <p className="text-xs text-muted-foreground font-mono">
-          FADE IN:
-        </p>
-        <p className="text-xs text-muted-foreground font-mono mt-2 pl-4">
-          INT. YOUR IMAGINATION - DAY
-        </p>
-        <p className="text-xs text-muted-foreground font-mono mt-2 pl-4">
-          The cursor blinks. Waiting.
-        </p>
+      <div className="grid grid-cols-2 gap-2">
+        {CREATE_OPTIONS.map((option) => {
+          const isSelected = selectedAction === option.id;
+          const Icon = isSelected ? option.activeIcon : option.icon;
+          return (
+            <button
+              key={option.id}
+              onClick={() => setSelectedAction(option.id)}
+              className={cn(
+                'flex items-center gap-2.5 px-4 py-3 rounded-lg text-sm font-medium transition-colors border',
+                'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none',
+                isSelected
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+              aria-pressed={isSelected}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              {option.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -490,56 +299,65 @@ interface OnboardingFlowProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete?: () => void;
+  onAction?: (action: CreateAction) => void;
 }
 
 export function OnboardingFlow({
   open,
   onOpenChange,
   onComplete,
+  onAction,
 }: OnboardingFlowProps) {
   const { data: session } = useSession();
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState<'forward' | 'back'>('forward');
   const [displayName, setDisplayName] = useState('');
   const [selectedUseCases, setSelectedUseCases] = useState<UseCase[]>([]);
-  const { setThemePreset, settings, updateInterfaceSettings, updateVisualSettings } = useSettings();
-  const initialThemeRef = useRef(settings.visual.themePreset);
-  const [selectedTheme, setSelectedTheme] = useState<ThemePreset>(settings.visual.themePreset);
+  const [selectedAction, setSelectedAction] = useState<CreateAction | null>(null);
+  const { theme, setTheme } = useTheme();
+
+  // Derive dark mode state from theme
+  const isDark = theme === 'dark' || (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  const setIsDark = useCallback((dark: boolean) => {
+    setTheme(dark ? 'dark' : 'light');
+  }, [setTheme]);
 
   const steps = ONBOARDING_STEPS;
   const step = steps[currentStep];
   const isFirst = currentStep === 0;
   const isLast = currentStep === steps.length - 1;
 
-  // Apply theme immediately when selected
-  useEffect(() => {
-    if (selectedTheme !== settings.visual.themePreset) {
-      setThemePreset(selectedTheme);
-    }
-  }, [selectedTheme, setThemePreset, settings.visual.themePreset]);
-
   const savePreferences = useCallback(async () => {
-    // Save display name
+    // Save to localStorage as fallback
     if (displayName.trim()) {
       localStorage.setItem('verso-display-name', displayName.trim());
+    }
+    if (selectedUseCases.length > 0) {
+      localStorage.setItem('verso-use-cases', JSON.stringify(selectedUseCases));
+    }
 
-      // Also update user profile if logged in
-      if (session?.user?.id) {
-        try {
+    // Save to Supabase if logged in
+    if (session?.user?.id) {
+      try {
+        const payload: { name?: string; useCases?: string[] } = {};
+        if (displayName.trim()) {
+          payload.name = displayName.trim();
+        }
+        if (selectedUseCases.length > 0) {
+          payload.useCases = selectedUseCases;
+        }
+
+        if (Object.keys(payload).length > 0) {
           await fetch(`/api/users/${session.user.id}/settings-profile`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: displayName.trim() }),
+            body: JSON.stringify(payload),
           });
-        } catch (e) {
-          // Silently fail - localStorage is the fallback
         }
+      } catch {
+        // Silently fail - localStorage is the fallback
       }
-    }
-
-    // Save use cases
-    if (selectedUseCases.length > 0) {
-      localStorage.setItem('verso-use-cases', JSON.stringify(selectedUseCases));
     }
   }, [displayName, selectedUseCases, session?.user?.id]);
 
@@ -549,10 +367,14 @@ export function OnboardingFlow({
       savePreferences();
       onComplete?.();
       onOpenChange(false);
+      // Trigger action after closing (delay to allow dialog to close)
+      if (selectedAction && onAction) {
+        setTimeout(() => onAction(selectedAction), 100);
+      }
     } else {
       setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
     }
-  }, [isLast, onComplete, onOpenChange, steps.length, savePreferences]);
+  }, [isLast, onComplete, onOpenChange, steps.length, savePreferences, selectedAction, onAction]);
 
   const handlePrev = useCallback(() => {
     setDirection('back');
@@ -589,12 +411,12 @@ export function OnboardingFlow({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open, handleNext]);
 
-  // Reset only when dialog opens (not when theme changes!)
+  // Reset only when dialog opens
   useEffect(() => {
     if (open) {
       setCurrentStep(0);
       setDirection('forward');
-      setSelectedTheme(initialThemeRef.current);
+      setSelectedAction(null);
 
       // Load existing preferences
       const savedName = localStorage.getItem('verso-display-name');
@@ -614,24 +436,20 @@ export function OnboardingFlow({
   const renderStep = () => {
     switch (step.id) {
       case 'welcome':
-        return <WelcomeStep displayName={displayName} setDisplayName={setDisplayName} />;
-      case 'usecase':
-        return <UseCaseStep selectedUseCases={selectedUseCases} setSelectedUseCases={setSelectedUseCases} />;
-      case 'theme':
-        return <ThemeStep selectedTheme={selectedTheme} setSelectedTheme={setSelectedTheme} />;
-      case 'accessibility':
         return (
-          <AccessibilityStep
-            reduceMotion={settings.interface.reduceMotion}
-            setReduceMotion={(v) => updateInterfaceSettings({ reduceMotion: v })}
-            fontSize={settings.visual.fontSize}
-            setFontSize={(v) => updateVisualSettings({ fontSize: v })}
+          <WelcomeStep
+            displayName={displayName}
+            setDisplayName={setDisplayName}
+            isDark={isDark}
+            setIsDark={setIsDark}
           />
         );
-      case 'shortcuts':
-        return <ShortcutsStep />;
-      case 'done':
-        return <DoneStep displayName={displayName} />;
+      case 'usecase':
+        return <UseCaseStep selectedUseCases={selectedUseCases} setSelectedUseCases={setSelectedUseCases} />;
+      case 'tip':
+        return <TipStep />;
+      case 'create':
+        return <CreateStep selectedAction={selectedAction} setSelectedAction={setSelectedAction} />;
       default:
         return null;
     }
@@ -690,7 +508,17 @@ export function OnboardingFlow({
 
           {/* Right: Next/Done with Enter hint */}
           <Button onClick={handleNext} size="sm" className="h-8 gap-1.5">
-            {isLast ? 'Start Writing' : 'Continue'}
+            {isLast
+              ? selectedAction === 'screenplay'
+                ? 'Create Screenplay'
+                : selectedAction === 'project'
+                  ? 'Create Project'
+                  : selectedAction === 'series'
+                    ? 'Create Series'
+                    : selectedAction === 'explore'
+                      ? 'Start Exploring'
+                      : 'Get Started'
+              : 'Continue'}
             {!isLast && <span className="text-xs opacity-60">↵</span>}
           </Button>
         </div>

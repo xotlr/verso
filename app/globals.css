@@ -255,6 +255,9 @@
   [data-ui-font="cinzel-decorative"] {
     font-family: var(--font-cinzel-decorative), Georgia, serif;
   }
+  [data-ui-font="manrope"] {
+    font-family: var(--font-manrope), system-ui, sans-serif;
+  }
 
   /* ===== HEADING & BODY FONTS ===== */
   /* Header fonts are theme-controlled via data-header-font attribute */

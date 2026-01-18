@@ -4,6 +4,7 @@ import React from 'react';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { DisplayScaleSlider, ReduceMotionToggle } from '@/components/ui/accessibility-controls';
 import { cn } from '@/lib/utils';
 import type { InterfaceSettings, EditorSettings, AccessibilityFont } from '@/types/settings';
 
@@ -20,8 +21,6 @@ export function AccessibilitySection({
   updateInterfaceSettings,
   updateEditorSettings,
 }: AccessibilitySectionProps) {
-  const scalePercent = Math.round((interfaceSettings.displayScale ?? 1.0) * 100);
-
   const fontOptions: { value: AccessibilityFont; label: string }[] = [
     { value: 'default', label: 'Default' },
     { value: 'sans', label: 'Sans' },
@@ -85,26 +84,11 @@ export function AccessibilitySection({
           <CardTitle className="text-base">Display Scale</CardTitle>
           <CardDescription>Adjust the size of the entire app</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium">Interface Size</label>
-                <span className="text-xs text-muted-foreground ml-2">Entire app</span>
-              </div>
-              <span className="text-sm text-muted-foreground tabular-nums">{scalePercent}%</span>
-            </div>
-            <Slider
-              value={[interfaceSettings.displayScale ?? 1.0]}
-              onValueChange={([value]) => updateInterfaceSettings({ displayScale: value })}
-              min={0.8}
-              max={1.4}
-              step={0.05}
-            />
-            <p className="text-xs text-muted-foreground">
-              Makes everything bigger or smaller — buttons, text, panels, and menus.
-            </p>
-          </div>
+        <CardContent>
+          <DisplayScaleSlider
+            value={interfaceSettings.displayScale ?? 1.0}
+            onChange={(value) => updateInterfaceSettings({ displayScale: value })}
+          />
         </CardContent>
       </Card>
 
@@ -144,23 +128,10 @@ export function AccessibilitySection({
           <CardDescription>App-wide accessibility preferences</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between py-0.5">
-            <div>
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Reduce Motion</label>
-                <span className="text-xs text-muted-foreground">Entire app</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Disables animations, transitions, and theme ambient effects
-              </p>
-            </div>
-            <Switch
-              checked={interfaceSettings.reduceMotion}
-              onCheckedChange={(checked) => updateInterfaceSettings({
-                reduceMotion: checked as boolean
-              })}
-            />
-          </div>
+          <ReduceMotionToggle
+            checked={interfaceSettings.reduceMotion}
+            onCheckedChange={(checked) => updateInterfaceSettings({ reduceMotion: checked })}
+          />
 
           <div className="flex items-center justify-between py-0.5">
             <div>

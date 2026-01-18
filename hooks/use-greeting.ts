@@ -42,11 +42,36 @@ function getSessionSeed(): number {
 }
 
 /**
+ * Check if this page load is an actual refresh (F5/Cmd+R) vs normal navigation
+ * Uses the Navigation Timing API to detect reload events
+ */
+function isActualRefresh(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const navEntries = performance.getEntriesByType('navigation');
+  if (navEntries.length > 0) {
+    const navEntry = navEntries[0] as PerformanceNavigationTiming;
+    return navEntry.type === 'reload';
+  }
+
+  return false;
+}
+
+/**
  * Track refresh count within a time window
- * Resets after 5 minutes of inactivity
+ * Only counts actual page refreshes (F5/Cmd+R), not navigations
+ * Resets after 5 minutes of inactivity or on normal navigation
  */
 function getAndIncrementRefreshCount(): number {
   if (typeof window === 'undefined') return 0;
+
+  // Only count actual page refreshes, not navigations
+  if (!isActualRefresh()) {
+    // Reset the counter on normal navigation
+    sessionStorage.removeItem(REFRESH_COUNT_KEY);
+    sessionStorage.removeItem(REFRESH_TIMESTAMP_KEY);
+    return 0;
+  }
 
   const now = Date.now();
   const lastTimestamp = parseInt(sessionStorage.getItem(REFRESH_TIMESTAMP_KEY) || '0', 10);

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunces, Plus_Jakarta_Sans, Bodoni_Moda, Plaster, Montserrat, Space_Grotesk, Space_Mono, DotGothic16, Audiowide, Oxanium, Chakra_Petch, Sixtyfour, Doto, Special_Elite, Syne, Poiret_One, Caveat, Bonheur_Royale, Badeen_Display, Bellefair, Cinzel_Decorative } from "next/font/google";
+import { Geist, Geist_Mono, Inter, IBM_Plex_Sans, Courier_Prime, Outfit, Fraunces, Plus_Jakarta_Sans, Bodoni_Moda, Plaster, Montserrat, Space_Grotesk, Space_Mono, DotGothic16, Audiowide, Oxanium, Chakra_Petch, Sixtyfour, Doto, Special_Elite, Syne, Poiret_One, Caveat, Bonheur_Royale, Badeen_Display, Bellefair, Cinzel_Decorative, Manrope } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SettingsProvider } from "@/contexts/settings-context";
@@ -197,6 +197,13 @@ const cinzelDecorative = Cinzel_Decorative({
   preload: false,
 });
 
+const manrope = Manrope({
+  weight: ['200', '300', '400', '500', '600', '700', '800'],
+  variable: "--font-manrope",
+  subsets: ["latin"],
+  preload: false,
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://verso.ac'),
   alternates: {
@@ -269,7 +276,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable} ${bodoniModa.variable} ${plaster.variable} ${montserrat.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${dotGothic16.variable} ${audiowide.variable} ${oxanium.variable} ${chakraPetch.variable} ${sixtyfour.variable} ${doto.variable} ${specialElite.variable} ${syne.variable} ${poiretOne.variable} ${caveat.variable} ${bonheurRoyale.variable} ${badeenDisplay.variable} ${bellefair.variable} ${cinzelDecorative.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${ibmPlexSans.variable} ${courierPrime.variable} ${outfit.variable} ${fraunces.variable} ${plusJakartaSans.variable} ${bodoniModa.variable} ${plaster.variable} ${montserrat.variable} ${spaceGrotesk.variable} ${spaceMono.variable} ${dotGothic16.variable} ${audiowide.variable} ${oxanium.variable} ${chakraPetch.variable} ${sixtyfour.variable} ${doto.variable} ${specialElite.variable} ${syne.variable} ${poiretOne.variable} ${caveat.variable} ${bonheurRoyale.variable} ${badeenDisplay.variable} ${bellefair.variable} ${cinzelDecorative.variable} ${manrope.variable}`}
     >
       <head>
         {/* Blocking script - ONLY sets theme class, CSS handles the rest */}

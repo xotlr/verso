@@ -19,7 +19,7 @@ import type { VisualSettings, PetalPalette } from '@/types/settings';
 const ALL_THEME_PRESETS: ThemePreset[] = [
   'verso', 'paper', 'spirited', 'sterling', 'koe', 'supernatural',
   'apollo', 'zoltraak', 'akira', 'mr-robot',
-  'howl', 'the-office', 'maelle', 'shire', 'limitless'
+  'howl', 'the-office', 'maelle', 'limitless', 'pluto'
 ];
 
 interface AppearanceSectionProps {

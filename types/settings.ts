@@ -2,7 +2,7 @@ export type ThemePreset =
   | 'verso' | 'paper'  // Essential
   | 'spirited' | 'sterling'  // Vintage
   | 'koe' | 'supernatural'  // Genre
-  | 'apollo' | 'zoltraak' | 'akira' | 'mr-robot' | 'howl' | 'the-office' | 'maelle' | 'shire' | 'limitless';  // Premium
+  | 'apollo' | 'zoltraak' | 'akira' | 'mr-robot' | 'howl' | 'the-office' | 'maelle' | 'limitless' | 'pluto';  // Premium
 
 export type ThemeNameStyle = 'normal' | 'italic' | 'uppercase' | 'lowercase';
 
@@ -30,11 +30,11 @@ export const themeMetadata: Record<ThemePreset, ThemeMetadata> = {
   howl: { name: 'Howl', subtitle: 'Meadow pastoral' },
   'the-office': { name: 'The Office', subtitle: 'Dunder Mifflin beige' },
   maelle: { name: 'Maëlle', subtitle: 'Art Deco elegance', style: 'italic' },
-  shire: { name: 'Shire', subtitle: 'Middle-earth warmth' },
   limitless: { name: 'Limitless', subtitle: 'Infinite void blue', style: 'uppercase' },
+  pluto: { name: 'Pluto', subtitle: 'Deep space minimal' },
 };
 
-export type UIFont = 'inter' | 'sf-pro' | 'geist' | 'geist-mono' | 'ibm-plex' | 'plus-jakarta' | 'space-grotesk' | 'dot-gothic' | 'audiowide' | 'oxanium' | 'chakra-petch' | 'sixtyfour' | 'doto' | 'special-elite' | 'syne' | 'poiret-one' | 'bellefair' | 'cinzel-decorative';
+export type UIFont = 'inter' | 'sf-pro' | 'geist' | 'geist-mono' | 'ibm-plex' | 'plus-jakarta' | 'space-grotesk' | 'dot-gothic' | 'audiowide' | 'oxanium' | 'chakra-petch' | 'sixtyfour' | 'doto' | 'special-elite' | 'syne' | 'poiret-one' | 'bellefair' | 'cinzel-decorative' | 'manrope';
 export type HeaderFont = 'default' | 'badeen-display' | 'bonheur-royale' | 'fraunces' | 'bodoni-moda' | 'plaster' | 'montserrat' | 'doto' | 'bellefair' | 'cinzel-decorative' | 'syne';
 export type ScreenplayFont = 'courier-prime' | 'courier-new' | 'courier-final-draft';
 export type AccessibilityFont = 'default' | 'sans' | 'system' | 'dyslexic' | 'courier';
@@ -1723,123 +1723,6 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
     },
   },
 
-  // Shire: Middle-earth warmth - LOTR inspired (Rivendell light, Mordor dark)
-  shire: {
-    themePreset: 'shire',
-    lightColors: {
-      background: '145 25% 96%',          // Ethereal pale green (Rivendell)
-      foreground: '150 20% 18%',          // Deep forest ink
-      card: '145 20% 98%',
-      cardForeground: '150 20% 18%',
-      page: '140 30% 93%',                // Elvish parchment
-      pageForeground: '150 25% 15%',
-      primary: '145 45% 38%',             // Rivendell green
-      primaryForeground: '0 0% 100%',
-      secondary: '145 15% 90%',
-      secondaryForeground: '150 18% 25%',
-      muted: '145 18% 88%',
-      mutedForeground: '150 12% 45%',
-      accent: '42 85% 48%',               // One Ring gold
-      accentForeground: '150 25% 12%',
-      destructive: '0 60% 50%',
-      destructiveForeground: '0 0% 100%',
-      border: '145 15% 82%',
-      input: '145 15% 84%',
-      ring: '42 85% 48%',                 // Gold ring focus
-    },
-    darkColors: {
-      background: '0 8% 5%',              // Mordor black (warm undertone)
-      foreground: '45 20% 85%',           // Aged parchment text
-      card: '0 6% 8%',
-      cardForeground: '45 20% 85%',
-      page: '15 10% 10%',                 // Dark volcanic paper
-      pageForeground: '45 18% 80%',
-      primary: '140 50% 45%',             // Muted elvish green
-      primaryForeground: '0 0% 100%',
-      secondary: '0 5% 13%',
-      secondaryForeground: '45 15% 75%',
-      muted: '0 5% 11%',
-      mutedForeground: '45 10% 50%',
-      accent: '42 90% 55%',               // Glowing One Ring gold
-      accentForeground: '0 8% 5%',
-      destructive: '15 70% 50%',          // Mordor fire red-orange
-      destructiveForeground: '0 0% 100%',
-      border: '0 5% 18%',
-      input: '0 5% 15%',
-      ring: '42 90% 55%',
-    },
-    lightVisualization: {
-      beatColors: [
-        '#047857', '#059669', '#10B981', '#34D399',  // Elvish greens
-        '#B8860B', '#DAA520', '#FFD700', '#D4AF37',  // Ring golds
-      ],
-      actColors: {
-        act1: { bg: 'rgba(4, 120, 87, 0.1)', border: 'rgba(4, 120, 87, 0.3)' },     // Shire
-        act2a: { bg: 'rgba(218, 165, 32, 0.1)', border: 'rgba(218, 165, 32, 0.3)' }, // Journey
-        act2b: { bg: 'rgba(184, 134, 11, 0.12)', border: 'rgba(184, 134, 11, 0.35)' }, // Darkness
-        act3: { bg: 'rgba(212, 175, 55, 0.1)', border: 'rgba(212, 175, 55, 0.3)' },  // Return
-      },
-      sceneColors: [
-        '#047857', '#059669', '#DAA520', '#D4AF37',
-        '#10B981', '#34D399', '#B8860B', '#FFD700',
-      ],
-      characterColors: [
-        '#047857', '#059669', '#10B981', '#34D399', '#DAA520',
-        '#D4AF37', '#065F46', '#064E3B', '#B8860B', '#FFD700',
-      ],
-      locationColors: [
-        '#064E3B', '#065F46', '#047857', '#059669', '#78350F',
-        '#92400E', '#B8860B', '#DAA520', '#D4AF37', '#FFD700',
-      ],
-    },
-    darkVisualization: {
-      beatColors: [
-        '#34D399', '#10B981', '#059669', '#047857',  // Ethereal greens
-        '#FFD700', '#DAA520', '#F59E0B', '#D97706',  // Molten golds
-      ],
-      actColors: {
-        act1: { bg: 'rgba(52, 211, 153, 0.12)', border: 'rgba(52, 211, 153, 0.35)' },
-        act2a: { bg: 'rgba(255, 215, 0, 0.1)', border: 'rgba(255, 215, 0, 0.3)' },
-        act2b: { bg: 'rgba(217, 119, 6, 0.12)', border: 'rgba(217, 119, 6, 0.35)' },
-        act3: { bg: 'rgba(218, 165, 32, 0.12)', border: 'rgba(218, 165, 32, 0.35)' },
-      },
-      sceneColors: [
-        '#34D399', '#10B981', '#FFD700', '#DAA520',
-        '#059669', '#047857', '#F59E0B', '#D97706',
-      ],
-      characterColors: [
-        '#34D399', '#10B981', '#059669', '#047857', '#FFD700',
-        '#DAA520', '#6EE7B7', '#A7F3D0', '#F59E0B', '#D97706',
-      ],
-      locationColors: [
-        '#047857', '#059669', '#065F46', '#064E3B', '#10B981',
-        '#D97706', '#DAA520', '#FFD700', '#B8860B', '#D4AF37',
-      ],
-    },
-    uiFont: 'plus-jakarta',
-    headerFont: 'bodoni-moda',            // Elegant, cinematic
-    borderRadius: 6,
-    animationSpeed: 0.25,                 // Slightly slower, epic feel
-    cursor: {
-      mode: 'line',
-      blinkStyle: 'smooth',
-      blinkSpeed: 600,
-      color: '42 90% 52%',                // Ring gold cursor
-      glowEnabled: true,
-      glowIntensity: 0.4,
-      width: 2,
-    },
-    premium: {
-      backgroundPattern: 'parchment',     // Aged manuscript feel
-      patternOpacity: 0.05,
-      pageChrome: 'illuminated-border',   // Elvish manuscript borders
-      chromeOpacity: 0.2,
-      ambientEffect: 'candlelight',       // Subtle warm flicker
-      ambientIntensity: 0.1,
-      uiChrome: 'default',
-    },
-  },
-
   // Limitless: Infinite void blue - Gojo-inspired ethereal baby blue
   limitless: {
     themePreset: 'limitless',
@@ -1954,6 +1837,123 @@ export const themePresets: Record<ThemePreset, Partial<VisualSettings>> = {
       ambientEffect: 'aurora',            // WebGL flowing aurora background
       ambientIntensity: 1.0,
       uiChrome: 'glassmorphic',
+    },
+  },
+
+  // Pluto: Deep space minimal - Pluto brand identity
+  pluto: {
+    themePreset: 'pluto',
+    lightColors: {
+      background: '0 0% 100%',            // Pure white (brand doc)
+      foreground: '200 50% 10%',          // Near-black with teal tint
+      card: '200 30% 98%',
+      cardForeground: '200 50% 10%',
+      page: '0 0% 100%',                  // Pure white page
+      pageForeground: '200 50% 8%',
+      primary: '175 75% 40%',             // Pluto teal (from brand)
+      primaryForeground: '0 0% 100%',
+      secondary: '200 20% 95%',
+      secondaryForeground: '200 40% 15%',
+      muted: '200 15% 93%',
+      mutedForeground: '200 15% 40%',
+      accent: '175 80% 45%',              // Bright teal accent
+      accentForeground: '0 0% 100%',
+      destructive: '0 70% 50%',
+      destructiveForeground: '0 0% 100%',
+      border: '200 20% 88%',
+      input: '200 20% 90%',
+      ring: '175 75% 40%',
+    },
+    darkColors: {
+      background: '200 50% 4%',           // Deep space black (brand doc)
+      foreground: '0 0% 95%',             // Pure white text
+      card: '200 45% 7%',
+      cardForeground: '0 0% 95%',
+      page: '200 40% 6%',                 // Deep space page
+      pageForeground: '0 0% 92%',
+      primary: '175 80% 50%',             // Pluto teal
+      primaryForeground: '200 50% 4%',
+      secondary: '200 40% 12%',
+      secondaryForeground: '0 0% 90%',
+      muted: '200 35% 10%',
+      mutedForeground: '200 15% 55%',
+      accent: '175 85% 55%',              // Bright teal glow
+      accentForeground: '200 50% 4%',
+      destructive: '0 60% 50%',
+      destructiveForeground: '0 0% 100%',
+      border: '200 30% 15%',
+      input: '200 35% 12%',
+      ring: '175 80% 50%',
+    },
+    lightVisualization: {
+      beatColors: [
+        '#0D9488', '#0891B2', '#0E7490', '#155E75',
+        '#14B8A6', '#06B6D4', '#22D3EE', '#67E8F9',
+      ],
+      actColors: {
+        act1: { bg: 'rgba(13, 148, 136, 0.08)', border: 'rgba(13, 148, 136, 0.25)' },
+        act2a: { bg: 'rgba(8, 145, 178, 0.08)', border: 'rgba(8, 145, 178, 0.25)' },
+        act2b: { bg: 'rgba(14, 116, 144, 0.08)', border: 'rgba(14, 116, 144, 0.25)' },
+        act3: { bg: 'rgba(21, 94, 117, 0.08)', border: 'rgba(21, 94, 117, 0.25)' },
+      },
+      sceneColors: [
+        '#0D9488', '#0891B2', '#0E7490', '#155E75',
+        '#14B8A6', '#06B6D4', '#22D3EE', '#67E8F9',
+      ],
+      characterColors: [
+        '#0D9488', '#0891B2', '#0E7490', '#155E75', '#14B8A6',
+        '#06B6D4', '#22D3EE', '#67E8F9', '#0F766E', '#164E63',
+      ],
+      locationColors: [
+        '#134E4A', '#115E59', '#0F766E', '#0D9488', '#14B8A6',
+        '#155E75', '#164E63', '#0E7490', '#0891B2', '#06B6D4',
+      ],
+    },
+    darkVisualization: {
+      beatColors: [
+        '#2DD4BF', '#22D3EE', '#67E8F9', '#A5F3FC',
+        '#14B8A6', '#06B6D4', '#5EEAD4', '#99F6E4',
+      ],
+      actColors: {
+        act1: { bg: 'rgba(45, 212, 191, 0.12)', border: 'rgba(45, 212, 191, 0.35)' },
+        act2a: { bg: 'rgba(34, 211, 238, 0.12)', border: 'rgba(34, 211, 238, 0.35)' },
+        act2b: { bg: 'rgba(103, 232, 249, 0.12)', border: 'rgba(103, 232, 249, 0.35)' },
+        act3: { bg: 'rgba(165, 243, 252, 0.10)', border: 'rgba(165, 243, 252, 0.30)' },
+      },
+      sceneColors: [
+        '#2DD4BF', '#22D3EE', '#67E8F9', '#A5F3FC',
+        '#14B8A6', '#06B6D4', '#5EEAD4', '#99F6E4',
+      ],
+      characterColors: [
+        '#2DD4BF', '#22D3EE', '#67E8F9', '#A5F3FC', '#14B8A6',
+        '#06B6D4', '#5EEAD4', '#99F6E4', '#CFFAFE', '#CCFBF1',
+      ],
+      locationColors: [
+        '#14B8A6', '#0D9488', '#06B6D4', '#0891B2', '#2DD4BF',
+        '#22D3EE', '#67E8F9', '#5EEAD4', '#A5F3FC', '#99F6E4',
+      ],
+    },
+    uiFont: 'manrope',                    // Geometric sans-serif (Pluto brand)
+    headerFont: 'default',                // Clean, uses Manrope
+    borderRadius: 8,                      // Sharp, modern (brand doc style)
+    animationSpeed: 0.15,                 // Snappy
+    cursor: {
+      mode: 'line',
+      blinkStyle: 'smooth',
+      blinkSpeed: 530,
+      color: '175 80% 50%',               // Pluto teal cursor
+      glowEnabled: true,
+      glowIntensity: 0.35,
+      width: 2,
+    },
+    premium: {
+      backgroundPattern: 'none',
+      patternOpacity: 0,
+      pageChrome: 'none',
+      chromeOpacity: 0,
+      ambientEffect: 'none',
+      ambientIntensity: 0,
+      uiChrome: 'glassmorphic',           // Frosted glass UI elements
     },
   },
 };

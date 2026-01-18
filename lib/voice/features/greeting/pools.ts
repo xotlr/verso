@@ -521,17 +521,24 @@ export const timeBasedGreetings: Record<TimePeriod, string[]> = {
 // SCREENPLAY_REFERENCE templates - personalized based on user's work
 // Use {title}, {character}, {location} as placeholders
 export const screenplayReferenceTemplates = {
-  // Title-based (when we have a screenplay title)
-  title: [
-    'Back to "{title}"',
-    '"{title}" awaits',
-    'Where were we with "{title}"?',
-    '"{title}" isn\'t going to write itself',
-    'The "{title}" draft needs you',
-    'Picking up "{title}"',
-    '"{title}". Scene one. Action',
-    'Previously on "{title}"...',
-  ],
+  // Title-based - split into nudge (for inactive users) and acknowledgment (for productive users)
+  title: {
+    // Nudge templates: Only show when user has NOT been productive recently
+    // (wordsThisWeek = 0 AND currentStreak = 0)
+    nudge: [
+      '"{title}" isn\'t going to write itself',
+      'The "{title}" draft needs you',
+    ],
+    // Acknowledgment templates: Neutral/positive, safe for all users
+    acknowledgment: [
+      'Back to "{title}"',
+      '"{title}" awaits',
+      'Where were we with "{title}"?',
+      'Picking up "{title}"',
+      '"{title}". Scene one. Action',
+      'Previously on "{title}"...',
+    ],
+  },
   // Character-based (when we have character names)
   character: [
     "{character}'s waiting",

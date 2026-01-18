@@ -563,7 +563,19 @@ const strategies: GreetingStrategy[] = [
 
       // Pick a random type
       const templateType = availableTypes[dailySeed % availableTypes.length];
-      const templates = screenplayReferenceTemplates[templateType];
+
+      // For title templates, check productivity to determine nudge vs acknowledgment
+      // Nudge greetings are inappropriate for users who have been writing
+      let templates: string[];
+      if (templateType === 'title') {
+        const isProductive = (ctx.wordsThisWeek ?? 0) > 0 || (ctx.currentStreak ?? 0) > 0;
+        templates = isProductive
+          ? screenplayReferenceTemplates.title.acknowledgment
+          : screenplayReferenceTemplates.title.nudge;
+      } else {
+        templates = screenplayReferenceTemplates[templateType];
+      }
+
       const template = templates[dailySeed % templates.length];
 
       // Fill in the placeholder

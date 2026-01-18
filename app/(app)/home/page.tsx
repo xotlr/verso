@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
@@ -38,6 +38,7 @@ import { WorkspaceHeader, WorkspaceContentGrid, type TabValue } from '@/componen
 import { useViewMode } from '@/hooks/use-view-mode';
 import { useScreenplayDataRefresh } from '@/contexts/screenplay-actions-context';
 import { VoiceDevPanel } from '@/components/dev/voice-dev-panel';
+import { OnboardingFlow, useOnboarding, type CreateAction } from '@/components/onboarding';
 
 function WorkspacePageContent() {
   const router = useRouter();
@@ -121,6 +122,39 @@ function WorkspacePageContent() {
   const [activeTab, setActiveTab] = useState<TabValue>('screenplays');
   const [showFavorites, setShowFavorites] = useState(false);
   const [viewMode, setViewMode] = useViewMode('home');
+
+  // Onboarding state
+  const {
+    hasCompletedOnboarding,
+    showOnboarding,
+    setShowOnboarding,
+    completeOnboarding,
+  } = useOnboarding();
+
+  // Show onboarding for new users
+  useEffect(() => {
+    if (!hasCompletedOnboarding && !isLoading) {
+      setShowOnboarding(true);
+    }
+  }, [hasCompletedOnboarding, isLoading, setShowOnboarding]);
+
+  // Handle action from onboarding
+  const handleOnboardingAction = useCallback((action: CreateAction) => {
+    switch (action) {
+      case 'screenplay':
+        setTemplateSelectorOpen(true);
+        break;
+      case 'project':
+        setNewProjectOpen(true);
+        break;
+      case 'series':
+        setNewSeriesOpen(true);
+        break;
+      case 'explore':
+        // Just close - user wants to look around
+        break;
+    }
+  }, []);
 
   // File import hook for the Import button
   const { importFile } = useFileImport({
@@ -273,6 +307,12 @@ function WorkspacePageContent() {
         open={newSeriesOpen}
         onOpenChange={setNewSeriesOpen}
         onSuccess={loadData}
+      />
+      <OnboardingFlow
+        open={showOnboarding}
+        onOpenChange={setShowOnboarding}
+        onComplete={completeOnboarding}
+        onAction={handleOnboardingAction}
       />
 
       {/* Drag-drop import overlay */}

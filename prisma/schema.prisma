@@ -109,6 +109,7 @@ model User {
 
   // User preferences
   shortcuts Json? // Custom keyboard shortcuts
+  useCases  String[] @default([]) // Onboarding: feature, tv, short, stage, etc.
 
   // Subscription
   plan                   Plan      @default(FREE)

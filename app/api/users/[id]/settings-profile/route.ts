@@ -1,5 +1,27 @@
+import { z } from "zod"
 import { createApiHandler, UnauthorizedError, NotFoundError } from "@/lib/api"
 import { prisma } from "@/lib/prisma"
+
+// Valid use case IDs from onboarding
+const validUseCases = [
+  "feature",
+  "tv",
+  "short",
+  "stage",
+  "music-video",
+  "commercial",
+  "podcast",
+  "student",
+  "exploring",
+] as const
+
+const updateSettingsProfileSchema = z.object({
+  name: z.string().max(100).optional(),
+  useCases: z
+    .array(z.enum(validUseCases))
+    .max(validUseCases.length)
+    .optional(),
+})
 
 export const GET = createApiHandler({
   auth: "required",
@@ -25,6 +47,7 @@ export const GET = createApiHandler({
         plan: true,
         location: true,
         website: true,
+        useCases: true,
       },
     })
 
@@ -33,5 +56,29 @@ export const GET = createApiHandler({
     }
 
     return userData
+  },
+})
+
+export const PATCH = createApiHandler({
+  auth: "required",
+  schema: updateSettingsProfileSchema,
+  handler: async ({ user, params, data }) => {
+    const { id } = params
+
+    if (user.id !== id) {
+      throw new UnauthorizedError()
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        name: true,
+        useCases: true,
+      },
+    })
+
+    return updatedUser
   },
 })
