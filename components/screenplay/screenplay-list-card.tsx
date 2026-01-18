@@ -3,31 +3,16 @@
 import React from 'react';
 import Link from 'next/link';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Clock,
-  MoreVertical,
-  Trash2,
-  Edit3,
-  Download,
   Star,
-  FolderInput,
-  FolderPlus,
   Layers,
-  Unlink,
   Users,
-  Pencil,
-  Archive,
 } from 'lucide-react';
 import { PiFilmScript } from 'react-icons/pi';
 import { HiOutlineRectangleGroup } from 'react-icons/hi2';
-import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import type { DisplayScreenplayType } from '@/types/templates';
+import { ItemActionsDropdown } from '@/components/common/item-actions-dropdown';
 
 export interface ScreenplayListCardData {
   id: string;
@@ -253,98 +238,27 @@ export function ScreenplayListCard({
         {/* Dropdown Menu - positioned absolutely, OUTSIDE the Link */}
         {hasActions && (
           <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  onClick={createMenuHandler()}
-                  onPointerDown={stopPointerPropagation}
-                  className="card-action-btn"
-                  aria-label="More options"
-                >
-                  <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {onEdit && (
-                  <DropdownMenuItem onClick={createMenuHandler(onEdit)}>
-                    <Edit3 className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                )}
-                {onRename && (
-                  <DropdownMenuItem onClick={createMenuHandler(onRename)}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Rename
-                  </DropdownMenuItem>
-                )}
-                {onToggleFavorite && (
-                  <DropdownMenuItem onClick={createMenuHandler(onToggleFavorite)}>
-                    <Star className={cn('mr-2 h-4 w-4', screenplay.isFavorite && 'fill-current')} />
-                    {screenplay.isFavorite ? 'Unfavorite' : 'Favorite'}
-                  </DropdownMenuItem>
-                )}
-                {onExport && (
-                  <DropdownMenuItem onClick={createMenuHandler(onExport)}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Export
-                  </DropdownMenuItem>
-                )}
-                {onMoveToProject && (
-                  <DropdownMenuItem onClick={createMenuHandler(onMoveToProject)}>
-                    <FolderInput className="mr-2 h-4 w-4" />
-                    Move to Project
-                  </DropdownMenuItem>
-                )}
-                {onRemoveFromProject && (
-                  <DropdownMenuItem onClick={createMenuHandler(onRemoveFromProject)}>
-                    <Unlink className="mr-2 h-4 w-4" />
-                    Unlink
-                  </DropdownMenuItem>
-                )}
-                {onCreateProject && (
-                  <DropdownMenuItem onClick={createMenuHandler(onCreateProject)}>
-                    <FolderPlus className="mr-2 h-4 w-4" />
-                    Create Project
-                  </DropdownMenuItem>
-                )}
-                {onMoveToTeam && (
-                  <DropdownMenuItem onClick={createMenuHandler(onMoveToTeam)}>
-                    <Users className="mr-2 h-4 w-4" />
-                    Move to Team
-                  </DropdownMenuItem>
-                )}
-                {onRemoveFromTeam && (
-                  <DropdownMenuItem onClick={createMenuHandler(onRemoveFromTeam)}>
-                    <Unlink className="mr-2 h-4 w-4" />
-                    Remove from Team
-                  </DropdownMenuItem>
-                )}
-                {onAddToStack && (
-                  <DropdownMenuItem onClick={createMenuHandler(onAddToStack)}>
-                    <HiOutlineRectangleGroup className="mr-2 h-4 w-4" />
-                    Add to Stack
-                  </DropdownMenuItem>
-                )}
-                {onArchive && (
-                  <DropdownMenuItem onClick={createMenuHandler(onArchive)}>
-                    <Archive className="mr-2 h-4 w-4" />
-                    {screenplay.isArchived ? 'Unarchive' : 'Archive'}
-                  </DropdownMenuItem>
-                )}
-                {onDelete && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={createMenuHandler(onDelete)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ItemActionsDropdown
+              resourceId={screenplay.id}
+              resourceTitle={screenplay.title}
+              resourceType="screenplay"
+              isFavorite={screenplay.isFavorite}
+              isArchived={screenplay.isArchived}
+              hasProject={!!screenplay.project}
+              hasTeam={!!screenplay.team}
+              onEdit={onEdit}
+              onRename={onRename}
+              onExport={onExport}
+              onDelete={onDelete}
+              onToggleFavorite={onToggleFavorite}
+              onMoveToProject={onMoveToProject}
+              onRemoveFromProject={onRemoveFromProject}
+              onCreateProject={onCreateProject}
+              onAddToStack={onAddToStack}
+              onMoveToTeam={onMoveToTeam}
+              onRemoveFromTeam={onRemoveFromTeam}
+              onArchive={onArchive}
+            />
           </div>
         )}
 

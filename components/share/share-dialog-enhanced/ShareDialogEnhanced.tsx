@@ -23,19 +23,47 @@ import type {
 } from './types'
 import { getExpirationDate } from './types'
 
+type ResourceType = 'screenplay' | 'project' | 'series'
+
 interface ShareDialogEnhancedProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  screenplayId: string
-  screenplayTitle: string
+  resourceId: string
+  resourceTitle: string
+  resourceType: ResourceType
+  // Legacy props for backwards compatibility
+  screenplayId?: string
+  screenplayTitle?: string
 }
 
 export function ShareDialogEnhanced({
   open,
   onOpenChange,
+  resourceId: propResourceId,
+  resourceTitle: propResourceTitle,
+  resourceType: propResourceType = 'screenplay',
+  // Legacy support
   screenplayId,
   screenplayTitle,
 }: ShareDialogEnhancedProps) {
+  // Support legacy props
+  const resourceId = propResourceId || screenplayId!
+  const resourceTitle = propResourceTitle || screenplayTitle!
+  const resourceType = propResourceType
+
+  // Helper to get API URLs based on resource type
+  const getApiUrl = (endpoint: 'shares' | 'share') => {
+    const basePath = {
+      screenplay: 'screenplays',
+      project: 'projects',
+      series: 'series',
+    }[resourceType]
+    return `/api/${basePath}/${resourceId}/${endpoint}`
+  }
+
+  // Link-based sharing is only supported for screenplays currently
+  const supportsLinkSharing = resourceType === 'screenplay'
+
   // User sharing state
   const [owner, setOwner] = useState<ShareUser | null>(null)
   const [shares, setShares] = useState<Share[]>([])
@@ -55,17 +83,19 @@ export function ShareDialogEnhanced({
 
   // Load data when dialog opens
   useEffect(() => {
-    if (open && screenplayId) {
+    if (open && resourceId) {
       fetchShares()
-      fetchShareLink()
+      if (supportsLinkSharing) {
+        fetchShareLink()
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, screenplayId])
+  }, [open, resourceId])
 
   const fetchShares = async () => {
     setIsLoadingShares(true)
     try {
-      const response = await fetch(`/api/screenplays/${screenplayId}/shares`)
+      const response = await fetch(getApiUrl('shares'))
       if (response.ok) {
         const data = await response.json()
         setOwner(data.owner)
@@ -80,9 +110,11 @@ export function ShareDialogEnhanced({
   }
 
   const fetchShareLink = async () => {
+    if (!supportsLinkSharing) return
+
     setIsLoadingLink(true)
     try {
-      const response = await fetch(`/api/screenplays/${screenplayId}/share`)
+      const response = await fetch(getApiUrl('share'))
       if (response.ok) {
         const data = await response.json()
         setShareLink(data.shareLink || null)
@@ -101,7 +133,7 @@ export function ShareDialogEnhanced({
   const handleUserSelect = async (user: ShareUser) => {
     setIsSavingShare(true)
     try {
-      const response = await fetch(`/api/screenplays/${screenplayId}/shares`, {
+      const response = await fetch(getApiUrl('shares'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, role: selectedRole }),
@@ -131,7 +163,7 @@ export function ShareDialogEnhanced({
 
     setIsSavingShare(true)
     try {
-      const response = await fetch(`/api/screenplays/${screenplayId}/shares`, {
+      const response = await fetch(getApiUrl('shares'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailInput.trim(), role: selectedRole }),
@@ -161,7 +193,7 @@ export function ShareDialogEnhanced({
 
   const updateShareRole = async (shareId: string, newRole: ShareRole) => {
     try {
-      const response = await fetch(`/api/screenplays/${screenplayId}/shares/${shareId}`, {
+      const response = await fetch(`${getApiUrl('shares')}/${shareId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: newRole }),
@@ -179,7 +211,7 @@ export function ShareDialogEnhanced({
 
   const removeShare = async (shareId: string) => {
     try {
-      const response = await fetch(`/api/screenplays/${screenplayId}/shares/${shareId}`, {
+      const response = await fetch(`${getApiUrl('shares')}/${shareId}`, {
         method: 'DELETE',
       })
 
@@ -196,9 +228,11 @@ export function ShareDialogEnhanced({
 
   // Link sharing handlers
   const createShareLink = async () => {
+    if (!supportsLinkSharing) return
+
     setIsSavingLink(true)
     try {
-      const response = await fetch(`/api/screenplays/${screenplayId}/share`, {
+      const response = await fetch(getApiUrl('share'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -221,11 +255,11 @@ export function ShareDialogEnhanced({
   }
 
   const updateShareLink = async (permission: LinkPermission) => {
-    if (!shareLink) return
+    if (!shareLink || !supportsLinkSharing) return
 
     setIsSavingLink(true)
     try {
-      const response = await fetch(`/api/screenplays/${screenplayId}/share`, {
+      const response = await fetch(getApiUrl('share'), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ permission }),
@@ -243,9 +277,11 @@ export function ShareDialogEnhanced({
   }
 
   const revokeShareLink = async () => {
+    if (!supportsLinkSharing) return
+
     setIsSavingLink(true)
     try {
-      const response = await fetch(`/api/screenplays/${screenplayId}/share`, {
+      const response = await fetch(getApiUrl('share'), {
         method: 'DELETE',
       })
 
@@ -279,21 +315,34 @@ export function ShareDialogEnhanced({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Share &quot;{screenplayTitle}&quot;</DialogTitle>
-          <DialogDescription>Share with specific people or create a shareable link</DialogDescription>
+          <DialogTitle>Share &quot;{resourceTitle}&quot;</DialogTitle>
+          <DialogDescription>
+            {supportsLinkSharing
+              ? 'Share with specific people or create a shareable link'
+              : 'Share with specific people'}
+          </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="people" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="people" className="gap-2">
-              <Users className="h-4 w-4" />
-              People
-            </TabsTrigger>
-            <TabsTrigger value="link" className="gap-2">
-              <Link2 className="h-4 w-4" />
-              Link
-            </TabsTrigger>
-          </TabsList>
+          {supportsLinkSharing ? (
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="people" className="gap-2">
+                <Users className="h-4 w-4" />
+                People
+              </TabsTrigger>
+              <TabsTrigger value="link" className="gap-2">
+                <Link2 className="h-4 w-4" />
+                Link
+              </TabsTrigger>
+            </TabsList>
+          ) : (
+            <TabsList className="grid w-full grid-cols-1">
+              <TabsTrigger value="people" className="gap-2">
+                <Users className="h-4 w-4" />
+                People
+              </TabsTrigger>
+            </TabsList>
+          )}
 
           <TabsContent value="people" className="mt-4">
             <PeopleTab
@@ -314,23 +363,25 @@ export function ShareDialogEnhanced({
             />
           </TabsContent>
 
-          <TabsContent value="link" className="mt-4">
-            <LinkTab
-              shareLink={shareLink}
-              linkPermission={linkPermission}
-              linkExpiration={linkExpiration}
-              isLoadingLink={isLoadingLink}
-              isSavingLink={isSavingLink}
-              copied={copied}
-              onPermissionChange={setLinkPermission}
-              onExpirationChange={setLinkExpiration}
-              onCreateLink={createShareLink}
-              onUpdateLink={updateShareLink}
-              onRevokeLink={revokeShareLink}
-              onCopyLink={copyLink}
-              onRefreshLink={refreshLink}
-            />
-          </TabsContent>
+          {supportsLinkSharing && (
+            <TabsContent value="link" className="mt-4">
+              <LinkTab
+                shareLink={shareLink}
+                linkPermission={linkPermission}
+                linkExpiration={linkExpiration}
+                isLoadingLink={isLoadingLink}
+                isSavingLink={isSavingLink}
+                copied={copied}
+                onPermissionChange={setLinkPermission}
+                onExpirationChange={setLinkExpiration}
+                onCreateLink={createShareLink}
+                onUpdateLink={updateShareLink}
+                onRevokeLink={revokeShareLink}
+                onCopyLink={copyLink}
+                onRefreshLink={refreshLink}
+              />
+            </TabsContent>
+          )}
         </Tabs>
       </DialogContent>
     </Dialog>

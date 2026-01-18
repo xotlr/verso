@@ -2,20 +2,14 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Clock, MoreVertical, FilePlus, FolderInput, Pencil, Settings, Trash2, Users, Unlink, Archive, Star } from 'lucide-react';
+import { Clock, Star } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient';
 import { cardStyles, textStyles, layoutStyles, skeletonStyles } from '@/lib/ui/styles';
 import type { ProjectFolderCardData } from './project-folder-card';
+import { ItemActionsDropdown } from '@/components/common/item-actions-dropdown';
 
 // Format time compactly
 function formatTimeCompact(date: Date): string {
@@ -192,92 +186,24 @@ export function ProjectListRow({
 
       {/* Dropdown Menu */}
       {hasActions && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              onClick={createMenuHandler()}
-              onPointerDown={stopPointerPropagation}
-              className="card-action-btn"
-              aria-label="More options"
-            >
-              <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            {onOpen && (
-              <DropdownMenuItem onClick={createMenuHandler(onOpen)}>
-                <RiFolder6Line className="mr-2 h-4 w-4" />
-                Open Project
-              </DropdownMenuItem>
-            )}
-            {onToggleFavorite && (
-              <DropdownMenuItem onClick={createMenuHandler(onToggleFavorite)}>
-                <Star className={cn("mr-2 h-4 w-4", project.isFavorite && "text-yellow-500 fill-yellow-500")} />
-                {project.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
-              </DropdownMenuItem>
-            )}
-            {(onNewScreenplay || onAddExistingScreenplay) && (onOpen || onToggleFavorite) && (
-              <DropdownMenuSeparator />
-            )}
-            {onNewScreenplay && (
-              <DropdownMenuItem onClick={createMenuHandler(onNewScreenplay)}>
-                <FilePlus className="mr-2 h-4 w-4" />
-                New Screenplay
-              </DropdownMenuItem>
-            )}
-            {onAddExistingScreenplay && (
-              <DropdownMenuItem onClick={createMenuHandler(onAddExistingScreenplay)}>
-                <FolderInput className="mr-2 h-4 w-4" />
-                Add Existing Screenplay
-              </DropdownMenuItem>
-            )}
-            {(onRename || onSettings) && (
-              <DropdownMenuSeparator />
-            )}
-            {onRename && (
-              <DropdownMenuItem onClick={createMenuHandler(onRename)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Rename Project
-              </DropdownMenuItem>
-            )}
-            {onSettings && (
-              <DropdownMenuItem onClick={createMenuHandler(onSettings)}>
-                <Settings className="mr-2 h-4 w-4" />
-                Project Settings
-              </DropdownMenuItem>
-            )}
-            {onMoveToTeam && (
-              <DropdownMenuItem onClick={createMenuHandler(onMoveToTeam)}>
-                <Users className="mr-2 h-4 w-4" />
-                Move to Team
-              </DropdownMenuItem>
-            )}
-            {onRemoveFromTeam && (
-              <DropdownMenuItem onClick={createMenuHandler(onRemoveFromTeam)}>
-                <Unlink className="mr-2 h-4 w-4" />
-                Remove from Team
-              </DropdownMenuItem>
-            )}
-            {onArchive && (
-              <DropdownMenuItem onClick={createMenuHandler(onArchive)}>
-                <Archive className="mr-2 h-4 w-4" />
-                {project.isArchived ? 'Unarchive' : 'Archive'}
-              </DropdownMenuItem>
-            )}
-            {onDelete && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={createMenuHandler(onDelete)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Project
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ItemActionsDropdown
+          resourceId={project.id}
+          resourceTitle={project.name}
+          resourceType="project"
+          isFavorite={project.isFavorite}
+          isArchived={project.isArchived}
+          hasTeam={!!project.team}
+          onOpen={onOpen}
+          onToggleFavorite={onToggleFavorite}
+          onNewScreenplay={onNewScreenplay}
+          onAddExistingScreenplay={onAddExistingScreenplay}
+          onRename={onRename}
+          onProjectSettings={onSettings}
+          onMoveToTeam={onMoveToTeam}
+          onRemoveFromTeam={onRemoveFromTeam}
+          onArchive={onArchive}
+          onDelete={onDelete}
+        />
       )}
     </div>
   );

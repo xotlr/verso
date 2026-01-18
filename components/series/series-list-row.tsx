@@ -2,17 +2,11 @@
 
 import React from 'react';
 import Link from 'next/link';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Clock, MoreVertical, Edit3, Pencil, FolderInput, Unlink, Trash2, Layers, Archive, Star } from 'lucide-react';
-import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
+import { Clock, Layers, Star } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { cardStyles, textStyles, layoutStyles, skeletonStyles, badgeStyles } from '@/lib/ui/styles';
 import type { SeriesCardData } from './series-card';
+import { ItemActionsDropdown } from '@/components/common/item-actions-dropdown';
 
 // Format time compactly
 function formatTimeCompact(date: Date): string {
@@ -150,71 +144,21 @@ export function SeriesListRow({
 
       {/* Dropdown menu */}
       {hasActions && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              onClick={createMenuHandler()}
-              onPointerDown={stopPointerPropagation}
-              className="card-action-btn"
-              aria-label="More options"
-            >
-              <MoreVertical className="h-5 w-5 sm:h-4 sm:w-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {onEdit && (
-              <DropdownMenuItem onClick={createMenuHandler(onEdit)}>
-                <Edit3 className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-            )}
-            {onToggleFavorite && (
-              <DropdownMenuItem onClick={createMenuHandler(onToggleFavorite)}>
-                <Star className={cn("mr-2 h-4 w-4", series.isFavorite && "text-yellow-500 fill-yellow-500")} />
-                {series.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
-              </DropdownMenuItem>
-            )}
-            {onRename && (
-              <DropdownMenuItem onClick={createMenuHandler(onRename)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Rename
-              </DropdownMenuItem>
-            )}
-            {(onMoveToProject || onRemoveFromProject) && (onEdit || onRename) && (
-              <DropdownMenuSeparator />
-            )}
-            {onMoveToProject && (
-              <DropdownMenuItem onClick={createMenuHandler(onMoveToProject)}>
-                <FolderInput className="mr-2 h-4 w-4" />
-                Move to Project
-              </DropdownMenuItem>
-            )}
-            {onRemoveFromProject && (
-              <DropdownMenuItem onClick={createMenuHandler(onRemoveFromProject)}>
-                <Unlink className="mr-2 h-4 w-4" />
-                Remove from Project
-              </DropdownMenuItem>
-            )}
-            {onArchive && (
-              <DropdownMenuItem onClick={createMenuHandler(onArchive)}>
-                <Archive className="mr-2 h-4 w-4" />
-                {series.isArchived ? 'Unarchive' : 'Archive'}
-              </DropdownMenuItem>
-            )}
-            {onDelete && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={createMenuHandler(onDelete)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ItemActionsDropdown
+          resourceId={series.id}
+          resourceTitle={series.title}
+          resourceType="series"
+          isFavorite={series.isFavorite}
+          isArchived={series.isArchived}
+          hasProject={!!series.project}
+          onEdit={onEdit}
+          onToggleFavorite={onToggleFavorite}
+          onRename={onRename}
+          onMoveToProject={onMoveToProject}
+          onRemoveFromProject={onRemoveFromProject}
+          onArchive={onArchive}
+          onDelete={onDelete}
+        />
       )}
     </div>
   );
