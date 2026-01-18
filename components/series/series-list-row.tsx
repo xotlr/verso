@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Clock, MoreVertical, Edit3, Pencil, FolderInput, Unlink, Trash2, Layers, Archive } from 'lucide-react';
+import { Clock, MoreVertical, Edit3, Pencil, FolderInput, Unlink, Trash2, Layers, Archive, Star } from 'lucide-react';
 import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
 import { cardStyles, textStyles, layoutStyles, skeletonStyles, badgeStyles } from '@/lib/ui/styles';
 import type { SeriesCardData } from './series-card';
@@ -45,6 +45,7 @@ interface SeriesListRowProps {
   onRemoveFromProject?: () => void;
   onArchive?: () => void;
   onDelete?: () => void;
+  onToggleFavorite?: () => void;
 }
 
 export function SeriesListRow({
@@ -56,10 +57,11 @@ export function SeriesListRow({
   onRemoveFromProject,
   onArchive,
   onDelete,
+  onToggleFavorite,
 }: SeriesListRowProps) {
   const linkHref = href || `/series/${series.id}`;
   const episodeCount = series._count?.episodes || 0;
-  const hasActions = onEdit || onRename || onMoveToProject || onRemoveFromProject || onArchive || onDelete;
+  const hasActions = onEdit || onRename || onMoveToProject || onRemoveFromProject || onArchive || onDelete || onToggleFavorite;
 
   return (
     <div
@@ -79,8 +81,11 @@ export function SeriesListRow({
           <div className="flex-1 min-w-0">
             {/* Title row */}
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className={cn(textStyles.boldTitle, 'truncate max-w-full sm:max-w-[300px] md:max-w-[400px]')}>
-                {series.title}
+              <h3 className={cn(textStyles.boldTitle, 'truncate max-w-full sm:max-w-[300px] md:max-w-[400px] flex items-center gap-1.5')}>
+                {series.isFavorite && (
+                  <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                )}
+                <span className="truncate">{series.title}</span>
               </h3>
 
               {/* Episode count badge - clean format */}
@@ -161,6 +166,12 @@ export function SeriesListRow({
               <DropdownMenuItem onClick={createMenuHandler(onEdit)}>
                 <Edit3 className="mr-2 h-4 w-4" />
                 Edit
+              </DropdownMenuItem>
+            )}
+            {onToggleFavorite && (
+              <DropdownMenuItem onClick={createMenuHandler(onToggleFavorite)}>
+                <Star className={cn("mr-2 h-4 w-4", series.isFavorite && "text-yellow-500 fill-yellow-500")} />
+                {series.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
               </DropdownMenuItem>
             )}
             {onRename && (

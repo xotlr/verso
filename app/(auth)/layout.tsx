@@ -6,7 +6,7 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <div className="relative z-10 min-h-screen flex items-center justify-center overflow-hidden">
       {/* Aurora Background */}
       <div className="absolute inset-0 -z-10">
         <Aurora speed={0.4} />

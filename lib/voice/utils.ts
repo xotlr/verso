@@ -72,6 +72,10 @@ export function pickSmart(
   recentlyShown: string[],
   _seed: number // kept for API compatibility
 ): string {
+  // Defensive check for undefined/empty pool
+  if (!pool || pool.length === 0) {
+    return 'Welcome back';
+  }
   const excluded = new Set(recentlyShown);
   const available = pool.filter(g => !excluded.has(g));
   const targetPool = available.length > 0 ? available : pool;

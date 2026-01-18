@@ -229,7 +229,9 @@ export function extractCharacters(doc: ProseMirrorNode): CharacterInfo[] {
       // Strip extensions like (V.O.), (O.S.), (CONT'D) before generating ID
       // This ensures "LYRA", "LYRA (V.O.)", "LYRA (O.S.)" all get the same ID
       const name = node.textContent.replace(/\s*\([^)]+\)\s*$/, '').trim();
-      const id = node.attrs.characterId || name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      // Always generate ID from name to ensure consistency regardless of import source
+      // (node.attrs.characterId may be set inconsistently by different parsers)
+      const id = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
 
       if (characterMap.has(id)) {
         const existing = characterMap.get(id)!;
@@ -424,7 +426,8 @@ export function extractAll(doc: ProseMirrorNode): ExtractionResult {
         characterPositions.push({ name, position: offset });
 
         // Count for dialogue stats
-        const charId = node.attrs.characterId || name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        // Always generate ID from name to ensure consistency regardless of import source
+        const charId = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
         if (characterMap.has(charId)) {
           characterMap.get(charId)!.dialogueCount++;
         } else {

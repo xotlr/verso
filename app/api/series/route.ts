@@ -28,13 +28,14 @@ export const GET = createApiHandler({
   handler: async ({ user }) => {
     const series = await prisma.series.findMany({
       where: { userId: user.id },
-      orderBy: { updatedAt: "desc" },
+      orderBy: [{ isFavorite: "desc" }, { updatedAt: "desc" }],
       select: {
         id: true,
         title: true,
         logline: true,
         genre: true,
         format: true,
+        isFavorite: true,
         createdAt: true,
         updatedAt: true,
         projectId: true,

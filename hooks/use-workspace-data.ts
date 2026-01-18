@@ -82,6 +82,24 @@ export interface StackItem {
   _count?: { screenplays: number };
 }
 
+export interface RecentActivityItem {
+  type: string;
+  entityId: string | null;
+  entityTitle: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface LastEditedInfo {
+  id: string;
+  title: string;
+  wordCount: number;
+  updatedAt: string;
+  genre: string | null;
+  seriesTitle: string | null;
+  projectName: string | null;
+}
+
 export interface DashboardStats {
   screenplayCount: number;
   projectCount: number;
@@ -95,6 +113,9 @@ export interface DashboardStats {
   lastWriteDate: string | null;
   recentGreetings: string[];
   recentCategories: GreetingCategory[];
+  // Activity-aware contextual greetings
+  recentActivity?: RecentActivityItem[];
+  lastEdited?: LastEditedInfo | null;
 }
 
 interface WorkspaceData {

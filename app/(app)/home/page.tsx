@@ -101,6 +101,9 @@ function WorkspacePageContent() {
     lastEditedLogline: mostRecentScreenplay?.logline || null,
     recentCharacters,
     recentLocations,
+    // Activity-aware contextual greetings
+    recentActivity: dashboardStats?.recentActivity || [],
+    lastEdited: dashboardStats?.lastEdited || null,
   });
 
   // UI state

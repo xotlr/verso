@@ -20,6 +20,7 @@ import {
   Users,
   Unlink,
   Archive,
+  Star,
 } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
 import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
@@ -61,6 +62,7 @@ export interface ProjectFolderCardData {
   teamId?: string | null;
   team?: { id: string; name: string } | null;
   isArchived?: boolean;
+  isFavorite?: boolean;
   _count?: {
     screenplays: number;
     notes: number;
@@ -97,6 +99,7 @@ interface ProjectFolderCardProps {
   onRemoveFromTeam?: () => void;
   onArchive?: () => void;
   onDelete?: () => void;
+  onToggleFavorite?: () => void;
 }
 
 // ============================================================================
@@ -138,10 +141,11 @@ export function ProjectFolderCard({
   onMoveToTeam,
   onRemoveFromTeam,
   onArchive,
+  onToggleFavorite,
 }: ProjectFolderCardProps) {
   const linkHref = href || `/project/${project.id}`;
   const screenplayCount = project._count?.screenplays || project.screenplays?.length || 0;
-  const hasActions = onDelete || onOpen || onNewScreenplay || onAddExistingScreenplay || onRename || onSettings || onMoveToTeam || onRemoveFromTeam || onArchive;
+  const hasActions = onDelete || onOpen || onNewScreenplay || onAddExistingScreenplay || onRename || onSettings || onMoveToTeam || onRemoveFromTeam || onArchive || onToggleFavorite;
 
   // Get key roles (Director, Writer, Producer) - only show filled roles
   const keyRoles = React.useMemo(() => {
@@ -240,7 +244,13 @@ export function ProjectFolderCard({
                     Open Project
                   </DropdownMenuItem>
                 )}
-                {(onNewScreenplay || onAddExistingScreenplay) && onOpen && (
+                {onToggleFavorite && (
+                  <DropdownMenuItem onClick={createMenuHandler(onToggleFavorite)}>
+                    <Star className={cn("mr-2 h-4 w-4", project.isFavorite && "text-yellow-500 fill-yellow-500")} />
+                    {project.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+                  </DropdownMenuItem>
+                )}
+                {(onNewScreenplay || onAddExistingScreenplay) && (onOpen || onToggleFavorite) && (
                   <DropdownMenuSeparator />
                 )}
                 {onNewScreenplay && (
@@ -324,8 +334,11 @@ export function ProjectFolderCard({
               </div>
 
               {/* Title */}
-              <h3 className="font-bold uppercase tracking-tight line-clamp-1 text-foreground group-hover/folder:text-primary group-hover/folder:underline transition-colors text-sm sm:text-base md:text-lg">
-                {project.name}
+              <h3 className="font-bold uppercase tracking-tight line-clamp-1 text-foreground group-hover/folder:text-primary group-hover/folder:underline transition-colors text-sm sm:text-base md:text-lg flex items-center gap-1.5">
+                {project.isFavorite && (
+                  <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                )}
+                <span className="truncate">{project.name}</span>
               </h3>
             </div>
 

@@ -56,7 +56,13 @@ export function SplashHider() {
         splash.style.opacity = '0';
 
         setTimeout(() => {
-          splashContainer.remove();
+          // Hide instead of remove to avoid breaking React's DOM references
+          // The splash container is rendered by React, so removing it can cause
+          // "Node.insertBefore" errors when React tries to use it as a sibling reference
+          splashContainer.style.display = 'none';
+          splashContainer.style.pointerEvents = 'none';
+          // Clean up the inner content to free memory but keep the container
+          splash.innerHTML = '';
         }, 500);
       }, 600); // Wait for theme color transition to settle
     };

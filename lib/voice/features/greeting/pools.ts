@@ -561,3 +561,59 @@ export const screenplayReferenceTemplates = {
     "Act two problems",
   ],
 };
+
+// =============================================================================
+// ACTIVITY-AWARE CONTEXTUAL GREETINGS
+// =============================================================================
+
+// WROTE_YESTERDAY - User wrote meaningful amount yesterday
+// Uses {wordCount} and {title} placeholders
+export const wroteYesterdayGreetings = [
+  '{wordCount} words on "{title}" yesterday. Nice momentum',
+  '"{title}" grew by {wordCount} words. Keep that energy',
+  'Yesterday: {wordCount} words on "{title}". Today: ?',
+  'You left "{title}" at {wordCount} words. Pick up where you left off',
+  '"{title}" — {wordCount} words and counting',
+  'Last session: {wordCount} words. "{title}" remembers',
+  'The {wordCount}-word day. "{title}" noticed',
+  '"{title}" at {wordCount}. More incoming?',
+];
+
+// CREATED_PROJECT - User created a new project recently
+// Uses {projectName} placeholder
+export const createdProjectGreetings = [
+  '"{projectName}" is ready. What goes in first?',
+  'New project: "{projectName}". Fresh start',
+  '"{projectName}" exists now. Time to fill it',
+  'Project created. "{projectName}" awaits its first draft',
+  '"{projectName}" — the collection begins',
+  'Fresh project. "{projectName}" needs scripts',
+  '"{projectName}". Empty for now. Fix that',
+  'The "{projectName}" era begins',
+];
+
+// WORKING_ON_SERIES - User has active series episode
+// Uses {seriesTitle} and {title} (episode) placeholders
+export const workingOnSeriesGreetings = [
+  '"{seriesTitle}" — "{title}" is waiting',
+  'Episode "{title}" of "{seriesTitle}". Where were we?',
+  'Back to "{seriesTitle}"? "{title}" needs you',
+  '"{title}" ({seriesTitle}) at {wordCount} words',
+  '"{seriesTitle}" production continues. "{title}" up next',
+  'The "{seriesTitle}" writers room is open',
+  '"{title}" — part of the "{seriesTitle}" saga',
+  'Previously on "{seriesTitle}"... now "{title}"',
+];
+
+// SPECIFIC_PROGRESS - Show specific word count on recent doc
+// Uses {title} and {wordCount} placeholders
+export const specificProgressGreetings = [
+  '"{title}" — {wordCount} words and counting',
+  '{wordCount} words into "{title}". What happens next?',
+  '"{title}" sits at {wordCount} words. Add more',
+  'Last seen: "{title}" at {wordCount} words',
+  '"{title}". {wordCount} words deep',
+  'Current progress: "{title}" — {wordCount}',
+  '{wordCount} words. "{title}" continues',
+  'The "{title}" draft: {wordCount} words',
+];

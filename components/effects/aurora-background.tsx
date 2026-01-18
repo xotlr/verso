@@ -186,6 +186,9 @@ export function AuroraBackground({
   const frameRef = useRef<number>(0);
   const targetThemeRef = useRef<number>(0);
   const currentThemeRef = useRef<number>(0);
+  // Track our canvas specifically to avoid removing React-managed nodes
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isMountedRef = useRef(true);
 
   // Get initial theme
   const getThemeValue = useCallback(() => {
@@ -196,9 +199,10 @@ export function AuroraBackground({
   const init = useCallback(() => {
     if (!containerRef.current) return;
 
-    // Clean up any existing canvas from previous render
-    while (containerRef.current.firstChild) {
-      containerRef.current.removeChild(containerRef.current.firstChild);
+    // Remove ONLY our previous canvas, not all children (avoids React DOM conflicts)
+    if (canvasRef.current && canvasRef.current.parentNode === containerRef.current) {
+      containerRef.current.removeChild(canvasRef.current);
+      canvasRef.current = null;
     }
 
     // Use window dimensions for fixed full-viewport element
@@ -221,6 +225,8 @@ export function AuroraBackground({
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
 
+    // Track and append our canvas
+    canvasRef.current = renderer.domElement;
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -284,16 +290,22 @@ export function AuroraBackground({
       renderer.dispose();
       geometry.dispose();
       material.dispose();
-      if (containerRef.current && renderer.domElement.parentNode === containerRef.current) {
-        containerRef.current.removeChild(renderer.domElement);
+      // Only remove if still mounted and canvas is our child
+      if (canvasRef.current && containerRef.current && canvasRef.current.parentNode === containerRef.current) {
+        containerRef.current.removeChild(canvasRef.current);
+        canvasRef.current = null;
       }
     };
   }, [transitionDuration, getThemeValue]);
 
   // Initialize
   useEffect(() => {
+    isMountedRef.current = true;
     const cleanup = init();
-    return cleanup;
+    return () => {
+      isMountedRef.current = false;
+      cleanup?.();
+    };
   }, [init]);
 
   // Watch for theme changes

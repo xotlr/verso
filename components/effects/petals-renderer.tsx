@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useSettings } from '@/contexts/settings-context';
 import { Petals } from './petals';
 
@@ -15,17 +16,34 @@ export function PetalsRenderer() {
   const { settings } = useSettings();
   const petals = settings.visual.petals;
   const themePreset = settings.visual.themePreset;
+  const reduceMotion = settings.interface.reduceMotion;
 
-  // Auto-enable for Maelle theme, or use explicit setting
+  // Track theme state via effect to avoid hydration mismatch
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    // Set initial dark mode state
+    setIsDark(document.documentElement.classList.contains('dark'));
+
+    // Watch for theme changes
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Auto-enable for Maelle theme (petal themes always show petals)
+  // For other themes: only enabled if user explicitly enabled
+  // Disable if user has reduce motion enabled in settings
   const isPetalTheme = PETAL_THEMES.includes(themePreset as typeof PETAL_THEMES[number]);
-  const isEnabled = petals?.enabled ?? isPetalTheme;
+  const isEnabled = !reduceMotion && (isPetalTheme || petals?.enabled === true);
 
   if (!isEnabled) {
     return null;
   }
 
   // Get primary color from current theme for 'primary' palette
-  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
   const colors = isDark ? settings.visual.darkColors : settings.visual.lightColors;
   const primaryColor = colors?.primary;
 
@@ -37,7 +55,7 @@ export function PetalsRenderer() {
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 1,
+        zIndex: 50,
         pointerEvents: 'none',
       }}
     />

@@ -28,7 +28,7 @@ export default function PublicLayout({
   return (
     <ThemeProvider defaultTheme="system">
       <SettingsProvider>
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-background relative z-10">
           {children}
         </div>
         <Toaster />

@@ -62,9 +62,10 @@ export function WorkspaceHeader({
   }, [pokeCount]);
 
   // Display text - either poke response or normal greeting
+  // Defensive fallback in case greeting.text is undefined
   const displayText = useMemo(() => {
     if (pokeText) return pokeText;
-    return greeting.text;
+    return greeting.text || 'Welcome back';
   }, [pokeText, greeting.text]);
 
   const handleImportClick = useCallback(() => {

@@ -41,6 +41,7 @@ export const GET = createApiHandler({
       writingSessions,
       lastEditedScreenplay,
       recentGreetingHistory,
+      recentActivity,
     ] = await Promise.all([
       prisma.screenplay.findMany({
         where: userOrTeamWhere,
@@ -182,13 +183,33 @@ export const GET = createApiHandler({
       prisma.screenplay.findFirst({
         where: userOrTeamWhere,
         orderBy: { updatedAt: "desc" },
-        select: { genre: true },
+        select: {
+          id: true,
+          title: true,
+          genre: true,
+          wordCount: true,
+          updatedAt: true,
+          series: { select: { title: true } },
+          project: { select: { name: true } },
+        },
       }),
       prisma.greetingHistory.findMany({
         where: { userId },
         orderBy: { shownAt: "desc" },
         take: 15,
         select: { text: true, category: true },
+      }),
+      prisma.activity.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: {
+          type: true,
+          entityId: true,
+          entityTitle: true,
+          metadata: true,
+          createdAt: true,
+        },
       }),
     ])
 
@@ -229,6 +250,19 @@ export const GET = createApiHandler({
       recentCategories: recentGreetingHistory
         .map((g) => g.category)
         .filter((c): c is GreetingCategory => c !== null) as GreetingCategory[],
+      // Activity-aware contextual greeting data
+      recentActivity,
+      lastEdited: lastEditedScreenplay
+        ? {
+            id: lastEditedScreenplay.id,
+            title: lastEditedScreenplay.title,
+            wordCount: lastEditedScreenplay.wordCount,
+            updatedAt: lastEditedScreenplay.updatedAt,
+            genre: lastEditedScreenplay.genre,
+            seriesTitle: lastEditedScreenplay.series?.title || null,
+            projectName: lastEditedScreenplay.project?.name || null,
+          }
+        : null,
     }
 
     const response = NextResponse.json({

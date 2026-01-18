@@ -57,7 +57,7 @@ export const GET = createApiHandler({
 
     const projects = await prisma.project.findMany({
       where,
-      orderBy: { updatedAt: "desc" },
+      orderBy: [{ isFavorite: "desc" }, { updatedAt: "desc" }],
       select: {
         id: true,
         name: true,
@@ -68,6 +68,7 @@ export const GET = createApiHandler({
         type: true,
         status: true,
         budget: true,
+        isFavorite: true,
         createdAt: true,
         updatedAt: true,
         teamId: true,

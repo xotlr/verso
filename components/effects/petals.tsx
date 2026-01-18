@@ -59,6 +59,8 @@ export function Petals({
   const animationIdRef = useRef<number>(0);
   const clockRef = useRef<THREE.Clock | null>(null);
   const mouseTargetRef = useRef<THREE.Vector2>(new THREE.Vector2());
+  // Track mounted state to prevent cleanup race conditions with React reconciliation
+  const isMountedRef = useRef(true);
 
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -73,6 +75,7 @@ export function Petals({
   useEffect(() => {
     if (reducedMotion || !containerRef.current) return;
 
+    isMountedRef.current = true;
     const container = containerRef.current;
     const colors = getColors(palette, primaryColor);
     const config = createPetalsConfig(count, colors);
@@ -263,6 +266,7 @@ export function Petals({
 
     // Cleanup
     return () => {
+      isMountedRef.current = false;
       cancelAnimationFrame(animationIdRef.current);
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("resize", handleResize);
@@ -283,7 +287,8 @@ export function Petals({
       composer.dispose();
       renderer.dispose();
 
-      if (container && renderer.domElement.parentNode === container) {
+      // Only remove if canvas is still our child (prevents React reconciliation conflicts)
+      if (container && renderer.domElement && renderer.domElement.parentNode === container) {
         container.removeChild(renderer.domElement);
       }
     };

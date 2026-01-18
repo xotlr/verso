@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Clock, MoreVertical, FilePlus, FolderInput, Pencil, Settings, Trash2, Users, Unlink, Archive } from 'lucide-react';
+import { Clock, MoreVertical, FilePlus, FolderInput, Pencil, Settings, Trash2, Users, Unlink, Archive, Star } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -47,6 +47,7 @@ interface ProjectListRowProps {
   onRemoveFromTeam?: () => void;
   onArchive?: () => void;
   onDelete?: () => void;
+  onToggleFavorite?: () => void;
   // Keep for backwards compatibility but no longer used
   isHovered?: boolean;
   onHover?: () => void;
@@ -67,10 +68,11 @@ export function ProjectListRow({
   onRemoveFromTeam,
   onArchive,
   onDelete,
+  onToggleFavorite,
 }: ProjectListRowProps) {
   const linkHref = href || `/project/${project.id}`;
   const screenplayCount = project._count?.screenplays || project.screenplays?.length || 0;
-  const hasActions = onOpen || onNewScreenplay || onAddExistingScreenplay || onRename || onSettings || onMoveToTeam || onRemoveFromTeam || onArchive || onDelete;
+  const hasActions = onOpen || onNewScreenplay || onAddExistingScreenplay || onRename || onSettings || onMoveToTeam || onRemoveFromTeam || onArchive || onDelete || onToggleFavorite;
 
   // Get unique team members with avatars
   const teamMembers = project.roles
@@ -99,8 +101,11 @@ export function ProjectListRow({
           <div className="flex-1 min-w-0">
             {/* Title row */}
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className={cn(textStyles.boldTitle, 'truncate max-w-full sm:max-w-[300px] md:max-w-[400px]')}>
-                {project.name}
+              <h3 className={cn(textStyles.boldTitle, 'truncate max-w-full sm:max-w-[300px] md:max-w-[400px] flex items-center gap-1.5')}>
+                {project.isFavorite && (
+                  <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                )}
+                <span className="truncate">{project.name}</span>
               </h3>
 
               {/* Screenplay count badge */}
@@ -205,7 +210,13 @@ export function ProjectListRow({
                 Open Project
               </DropdownMenuItem>
             )}
-            {(onNewScreenplay || onAddExistingScreenplay) && onOpen && (
+            {onToggleFavorite && (
+              <DropdownMenuItem onClick={createMenuHandler(onToggleFavorite)}>
+                <Star className={cn("mr-2 h-4 w-4", project.isFavorite && "text-yellow-500 fill-yellow-500")} />
+                {project.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+              </DropdownMenuItem>
+            )}
+            {(onNewScreenplay || onAddExistingScreenplay) && (onOpen || onToggleFavorite) && (
               <DropdownMenuSeparator />
             )}
             {onNewScreenplay && (

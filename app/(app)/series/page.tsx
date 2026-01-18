@@ -32,7 +32,14 @@ import type { ImportResult } from '@/components/import-drop-zone/types';
 import { getImportQuipShort } from '@/lib/import-quips';
 import { getAcceptString } from '@/lib/parsers';
 
-const fetcher = (url: string) => fetch(url).then(res => res.json());
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    const error = new Error('Failed to fetch');
+    throw error;
+  }
+  return res.json();
+};
 
 interface Series {
   id: string;
@@ -42,6 +49,7 @@ interface Series {
   format: string | null;
   createdAt: string;
   updatedAt: string;
+  isFavorite?: boolean;
   _count: { episodes: number };
 }
 
@@ -74,6 +82,23 @@ export default function SeriesListPage() {
       setDeleteTarget(null);
     }
   };
+
+  // Toggle favorite handler
+  const toggleFavorite = useCallback(async (seriesId: string) => {
+    try {
+      const response = await fetch(`/api/series/${seriesId}/favorite`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        const { isFavorite } = await response.json();
+        mutate();
+        toast.success(isFavorite ? 'Added to favorites' : 'Removed from favorites');
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast.error('Failed to update favorite');
+    }
+  }, [mutate]);
 
   // Import handler - creates standalone screenplay
   const handleImportComplete = async (result: ImportResult) => {
@@ -126,12 +151,14 @@ export default function SeriesListPage() {
     [importFile]
   );
 
-  // Filter series by search query
-  const filteredSeries = seriesList?.filter(series =>
-    series.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    series.logline?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    series.genre?.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  // Filter series by search query (defensive Array.isArray check for error responses)
+  const filteredSeries = Array.isArray(seriesList)
+    ? seriesList.filter(series =>
+        series.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        series.logline?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        series.genre?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
 
   const isLoading = !seriesList && !error;
 
@@ -273,10 +300,12 @@ export default function SeriesListPage() {
                   genre: series.genre,
                   format: series.format,
                   updatedAt: series.updatedAt,
+                  isFavorite: series.isFavorite,
                   _count: series._count,
                 }}
                 onEdit={() => router.push(`/series/${series.id}`)}
                 onDelete={() => setDeleteTarget(series.id)}
+                onToggleFavorite={() => toggleFavorite(series.id)}
               />
             ))}
           </div>
@@ -292,10 +321,12 @@ export default function SeriesListPage() {
                   genre: series.genre,
                   format: series.format,
                   updatedAt: series.updatedAt,
+                  isFavorite: series.isFavorite,
                   _count: series._count,
                 }}
                 onEdit={() => router.push(`/series/${series.id}`)}
                 onDelete={() => setDeleteTarget(series.id)}
+                onToggleFavorite={() => toggleFavorite(series.id)}
               />
             ))}
           </div>

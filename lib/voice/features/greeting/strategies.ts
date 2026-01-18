@@ -116,6 +116,11 @@ import {
   weekendWarriorGreetings,
   timeBasedGreetings,
   screenplayReferenceTemplates,
+  // Activity-aware contextual greetings
+  wroteYesterdayGreetings,
+  createdProjectGreetings,
+  workingOnSeriesGreetings,
+  specificProgressGreetings,
 } from './pools';
 import {
   LEGENDARY_STREAK_DAYS,
@@ -309,6 +314,106 @@ const strategies: GreetingStrategy[] = [
       name: firstName,
       category: 'ON_FIRE',
     }),
+  },
+
+  // ==========================================================================
+  // ACTIVITY-AWARE CONTEXTUAL STRATEGIES
+  // ==========================================================================
+
+  // Priority 8.5: WROTE_YESTERDAY - User wrote meaningful amount yesterday
+  {
+    category: 'WROTE_YESTERDAY',
+    matches: ({ ctx }) => {
+      if (!ctx.lastEdited) return false;
+      const updatedAt = new Date(ctx.lastEdited.updatedAt);
+      const hoursAgo = (Date.now() - updatedAt.getTime()) / (1000 * 60 * 60);
+      // Yesterday window: 12-36 hours ago, with meaningful content
+      return hoursAgo >= 12 && hoursAgo <= 36 && ctx.lastEdited.wordCount >= 100;
+    },
+    getGreeting: ({ ctx, firstName, smartPick }) => {
+      const template = smartPick(wroteYesterdayGreetings);
+      const text = template
+        .replace('{title}', ctx.lastEdited!.title)
+        .replace('{wordCount}', ctx.lastEdited!.wordCount.toLocaleString());
+      return {
+        text,
+        showName: false,
+        name: firstName,
+        category: 'WROTE_YESTERDAY',
+      };
+    },
+  },
+
+  // Priority 8.6: CREATED_PROJECT - User created a project recently
+  {
+    category: 'CREATED_PROJECT',
+    matches: ({ ctx }) => {
+      const projectCreation = ctx.recentActivity?.find(a => a.type === 'project_created');
+      if (!projectCreation || !projectCreation.entityTitle) return false;
+      const createdAt = new Date(projectCreation.createdAt);
+      const hoursAgo = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
+      return hoursAgo <= 48;
+    },
+    getGreeting: ({ ctx, firstName, smartPick }) => {
+      const projectCreation = ctx.recentActivity!.find(a => a.type === 'project_created')!;
+      const template = smartPick(createdProjectGreetings);
+      const text = template.replace('{projectName}', projectCreation.entityTitle!);
+      return {
+        text,
+        showName: false,
+        name: firstName,
+        category: 'CREATED_PROJECT',
+      };
+    },
+  },
+
+  // Priority 8.7: WORKING_ON_SERIES - User has active series episode
+  {
+    category: 'WORKING_ON_SERIES',
+    matches: ({ ctx }) => {
+      if (!ctx.lastEdited?.seriesTitle) return false;
+      // Only trigger if edited within last 72 hours
+      const updatedAt = new Date(ctx.lastEdited.updatedAt);
+      const hoursAgo = (Date.now() - updatedAt.getTime()) / (1000 * 60 * 60);
+      return hoursAgo <= 72;
+    },
+    getGreeting: ({ ctx, firstName, smartPick }) => {
+      const template = smartPick(workingOnSeriesGreetings);
+      const text = template
+        .replace('{seriesTitle}', ctx.lastEdited!.seriesTitle!)
+        .replace('{title}', ctx.lastEdited!.title)
+        .replace('{wordCount}', ctx.lastEdited!.wordCount.toLocaleString());
+      return {
+        text,
+        showName: false,
+        name: firstName,
+        category: 'WORKING_ON_SERIES',
+      };
+    },
+  },
+
+  // Priority 8.8: SPECIFIC_PROGRESS - Show specific word count on recent doc
+  {
+    category: 'SPECIFIC_PROGRESS',
+    matches: ({ ctx }) => {
+      if (!ctx.lastEdited) return false;
+      const updatedAt = new Date(ctx.lastEdited.updatedAt);
+      const hoursAgo = (Date.now() - updatedAt.getTime()) / (1000 * 60 * 60);
+      // Within last 72 hours and has meaningful content
+      return hoursAgo <= 72 && ctx.lastEdited.wordCount >= 50;
+    },
+    getGreeting: ({ ctx, firstName, smartPick }) => {
+      const template = smartPick(specificProgressGreetings);
+      const text = template
+        .replace('{title}', ctx.lastEdited!.title)
+        .replace('{wordCount}', ctx.lastEdited!.wordCount.toLocaleString());
+      return {
+        text,
+        showName: false,
+        name: firstName,
+        category: 'SPECIFIC_PROGRESS',
+      };
+    },
   },
 
   // Priority 9: MILESTONE_WORDS

@@ -4,6 +4,30 @@
 
 export { type TimePeriod } from '../../types';
 
+/**
+ * Recent activity item from Activity model
+ */
+export interface RecentActivityItem {
+  type: string; // 'screenplay_created' | 'screenplay_edited' | 'project_created' | 'screenplay_published'
+  entityId: string | null;
+  entityTitle: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string | Date;
+}
+
+/**
+ * Last edited screenplay info for contextual greetings
+ */
+export interface LastEditedInfo {
+  id: string;
+  title: string;
+  wordCount: number;
+  updatedAt: string | Date;
+  genre: string | null;
+  seriesTitle: string | null;
+  projectName: string | null;
+}
+
 export const GENRES = [
   'thriller',
   'comedy',
@@ -41,6 +65,10 @@ export interface GreetingContext {
   recentCharacters?: string[];
   /** Notable locations from recent work */
   recentLocations?: string[];
+  /** Recent activity for contextual greetings */
+  recentActivity?: RecentActivityItem[];
+  /** Last edited screenplay with full context */
+  lastEdited?: LastEditedInfo | null;
 }
 
 export type GreetingCategory =
@@ -65,7 +93,12 @@ export type GreetingCategory =
   | 'FIRST_TIME'
   | 'GENRE_BASED'
   | 'WEEKEND_WARRIOR'
-  | 'TIME_BASED';
+  | 'TIME_BASED'
+  // Activity-aware contextual categories
+  | 'WROTE_YESTERDAY'
+  | 'CREATED_PROJECT'
+  | 'WORKING_ON_SERIES'
+  | 'SPECIFIC_PROGRESS';
 
 export interface GreetingResult {
   text: string;

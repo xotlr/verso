@@ -52,6 +52,7 @@ interface ProjectItem {
   logo: string | null;
   budget: number | null;
   updatedAt: string;
+  isFavorite?: boolean;
   roles: ProjectRole[];
   screenplays?: { id: string; title: string }[];
   _count: {
@@ -117,6 +118,24 @@ export default function ProjectsPage() {
       setDeleteTarget(null);
     }
   };
+
+  const toggleFavorite = useCallback(async (projectId: string) => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/favorite`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        const { isFavorite } = await response.json();
+        setProjects((prev) =>
+          prev.map((p) => (p.id === projectId ? { ...p, isFavorite } : p))
+        );
+        toast.success(isFavorite ? 'Added to favorites' : 'Removed from favorites');
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast.error('Failed to update favorite');
+    }
+  }, []);
 
   const handleImportComplete = async (result: ImportResult) => {
     if (!result.success || !result.content) return;
@@ -331,6 +350,7 @@ export default function ProjectsPage() {
                   type: project.type ?? undefined,
                   status: project.status ?? undefined,
                   updatedAt: project.updatedAt,
+                  isFavorite: project.isFavorite,
                   roles: project.roles,
                   screenplays: project.screenplays,
                   _count: project._count,
@@ -338,6 +358,7 @@ export default function ProjectsPage() {
                 onDelete={() => setDeleteTarget(project.id)}
                 onOpen={() => router.push(`/project/${project.id}`)}
                 onRename={() => setRenameTarget(project)}
+                onToggleFavorite={() => toggleFavorite(project.id)}
               />
             ))}
           </div>
@@ -351,6 +372,7 @@ export default function ProjectsPage() {
                   name: project.name,
                   description: project.description,
                   updatedAt: project.updatedAt,
+                  isFavorite: project.isFavorite,
                   roles: project.roles,
                   screenplays: project.screenplays,
                   _count: project._count,
@@ -358,6 +380,7 @@ export default function ProjectsPage() {
                 onOpen={() => router.push(`/project/${project.id}`)}
                 onDelete={() => setDeleteTarget(project.id)}
                 onRename={() => setRenameTarget(project)}
+                onToggleFavorite={() => toggleFavorite(project.id)}
               />
             ))}
           </div>

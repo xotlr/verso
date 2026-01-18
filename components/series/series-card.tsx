@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Layers, Clock, MoreVertical, Edit3, Pencil, FolderInput, Unlink, Trash2, Archive } from 'lucide-react';
+import { Layers, Clock, MoreVertical, Edit3, Pencil, FolderInput, Unlink, Trash2, Archive, Star } from 'lucide-react';
 import { cn, createMenuHandler, stopPointerPropagation } from '@/lib/utils';
 
 export interface SeriesCardData {
@@ -22,6 +22,7 @@ export interface SeriesCardData {
   projectId?: string | null;
   project?: { id: string; name: string } | null;
   isArchived?: boolean;
+  isFavorite?: boolean;
   _count?: { episodes: number };
 }
 
@@ -61,13 +62,14 @@ interface SeriesCardProps {
   onRemoveFromProject?: () => void;
   onArchive?: () => void;
   onDelete?: () => void;
+  onToggleFavorite?: () => void;
 }
 
-export function SeriesCard({ series, href, onEdit, onRename, onMoveToProject, onRemoveFromProject, onArchive, onDelete }: SeriesCardProps) {
+export function SeriesCard({ series, href, onEdit, onRename, onMoveToProject, onRemoveFromProject, onArchive, onDelete, onToggleFavorite }: SeriesCardProps) {
   const linkHref = href || `/series/${series.id}`;
   const episodeCount = series._count?.episodes || 0;
   const seasonCount = estimateSeasonCount(episodeCount);
-  const hasActions = onEdit || onRename || onMoveToProject || onRemoveFromProject || onArchive || onDelete;
+  const hasActions = onEdit || onRename || onMoveToProject || onRemoveFromProject || onArchive || onDelete || onToggleFavorite;
 
   // Calculate stack layers based on season count (min 1, max 3)
   const stackLayers = Math.min(Math.max(seasonCount, 1), 3);
@@ -146,13 +148,19 @@ export function SeriesCard({ series, href, onEdit, onRename, onMoveToProject, on
                     Edit
                   </DropdownMenuItem>
                 )}
+                {onToggleFavorite && (
+                  <DropdownMenuItem onClick={createMenuHandler(onToggleFavorite)}>
+                    <Star className={cn("mr-2 h-4 w-4", series.isFavorite && "text-yellow-500 fill-yellow-500")} />
+                    {series.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+                  </DropdownMenuItem>
+                )}
                 {onRename && (
                   <DropdownMenuItem onClick={createMenuHandler(onRename)}>
                     <Pencil className="mr-2 h-4 w-4" />
                     Rename
                   </DropdownMenuItem>
                 )}
-                {(onMoveToProject || onRemoveFromProject) && (onEdit || onRename) && (
+                {(onMoveToProject || onRemoveFromProject) && (onEdit || onToggleFavorite || onRename) && (
                   <DropdownMenuSeparator />
                 )}
                 {onMoveToProject && (
@@ -203,8 +211,11 @@ export function SeriesCard({ series, href, onEdit, onRename, onMoveToProject, on
               </div>
 
               {/* Title */}
-              <h3 className="font-bold uppercase tracking-tight line-clamp-1 text-foreground group-hover/stack:text-primary group-hover/stack:underline transition-colors text-base sm:text-lg md:text-xl">
-                {series.title}
+              <h3 className="font-bold uppercase tracking-tight line-clamp-1 text-foreground group-hover/stack:text-primary group-hover/stack:underline transition-colors text-base sm:text-lg md:text-xl flex items-center gap-1.5">
+                {series.isFavorite && (
+                  <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                )}
+                <span className="truncate">{series.title}</span>
               </h3>
 
               {/* Season/Episode info - compact on mobile */}

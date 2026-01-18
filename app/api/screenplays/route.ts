@@ -71,9 +71,10 @@ export const GET = createApiHandler({
     const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100)
     const offset = parseInt(searchParams.get("offset") || "0")
 
-    const orderBy: Prisma.ScreenplayOrderByWithRelationInput = recent === "true"
-      ? { lastOpenedAt: "desc" }
-      : { updatedAt: "desc" }
+    // Always pin favorites to top, then sort by recent or updated
+    const orderBy: Prisma.ScreenplayOrderByWithRelationInput[] = recent === "true"
+      ? [{ isFavorite: "desc" }, { lastOpenedAt: "desc" }]
+      : [{ isFavorite: "desc" }, { updatedAt: "desc" }]
 
     const [screenplays, total] = await Promise.all([
       prisma.screenplay.findMany({

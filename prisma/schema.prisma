@@ -291,6 +291,9 @@ model Project {
   // Archive
   isArchived Boolean @default(false)
 
+  // Favorites
+  isFavorite Boolean @default(false)
+
   // Ownership
   userId String
   teamId String?
@@ -364,6 +367,9 @@ model Series {
 
   // Archive
   isArchived Boolean @default(false)
+
+  // Favorites
+  isFavorite Boolean @default(false)
 
   // Ownership
   userId String

@@ -152,7 +152,7 @@ export default function LandingLayout({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <ScrollArea className="h-screen">
+      <ScrollArea className="h-screen relative z-10">
         <div className="min-h-screen flex flex-col">
           <Navbar />
           <main className="flex-1">

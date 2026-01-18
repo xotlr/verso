@@ -84,6 +84,10 @@ function getContextHash(ctx: GreetingInput): string {
     ctx.lastWriteDate ?? '',
     ctx.recentGreetings.join(','),
     (ctx.recentCategories ?? []).join(','),
+    // Activity-aware context
+    ctx.lastEdited?.id ?? '',
+    ctx.lastEdited?.wordCount ?? 0,
+    (ctx.recentActivity ?? []).map(a => a.type + a.createdAt).join(','),
   ].join('|');
 }
 
