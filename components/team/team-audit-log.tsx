@@ -5,6 +5,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getSimpleGradientStyle } from '@/lib/ui/avatar-gradient'
 import { Button } from '@/components/ui/button'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   Users,
   Settings,
   Trash2,
@@ -17,8 +23,12 @@ import {
   CreditCard,
   Loader2,
   ChevronDown,
+  Download,
+  FileJson,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
+import { toast } from 'sonner'
 import {
   AUDIT_ACTION_LABELS,
   AUDIT_ACTION_ICONS,
@@ -61,9 +71,53 @@ export function TeamAuditLog({ teamId }: TeamAuditLogProps) {
   const [logs, setLogs] = useState<AuditLogEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const handleExport = useCallback(async (format: 'csv' | 'json') => {
+    setIsExporting(true)
+    try {
+      const url = new URL(`/api/teams/${teamId}/audit-log/export`, window.location.origin)
+      url.searchParams.set('format', format)
+
+      const response = await fetch(url.toString())
+      if (!response.ok) {
+        if (response.status === 403) {
+          toast.error('You do not have permission to export audit logs')
+          return
+        }
+        throw new Error('Export failed')
+      }
+
+      // Get filename from Content-Disposition header or generate one
+      const disposition = response.headers.get('Content-Disposition')
+      let filename = `audit-log.${format}`
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/)
+        if (match) filename = match[1]
+      }
+
+      // Download the file
+      const blob = await response.blob()
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(downloadUrl)
+
+      toast.success(`Exported ${logs.length > 0 ? 'audit logs' : 'empty log'} as ${format.toUpperCase()}`)
+    } catch (err) {
+      console.error('Export failed:', err)
+      toast.error('Failed to export audit logs')
+    } finally {
+      setIsExporting(false)
+    }
+  }, [teamId, logs.length])
 
   const fetchLogs = useCallback(async (cursor?: string) => {
     try {
@@ -171,7 +225,38 @@ export function TeamAuditLog({ teamId }: TeamAuditLogProps) {
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-4">
+      {/* Header with export button */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {logs.length} {logs.length === 1 ? 'event' : 'events'}
+        </p>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" disabled={isExporting}>
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleExport('csv')}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Export as CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport('json')}>
+              <FileJson className="h-4 w-4 mr-2" />
+              Export as JSON
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Timeline */}
+      <div className="space-y-1">
       {logs.map((entry, index) => {
         const Icon = getActionIcon(entry.action)
         const isLast = index === logs.length - 1
@@ -235,6 +320,7 @@ export function TeamAuditLog({ teamId }: TeamAuditLogProps) {
           </Button>
         </div>
       )}
+      </div>
     </div>
   )
 }

@@ -344,6 +344,22 @@ export async function updateUserProfile(updates: {
 }
 
 // =============================================================================
+// Session Token Access (for session tracking)
+// =============================================================================
+
+/**
+ * Get the current Supabase session's access token.
+ * Used for session tracking to identify the current session.
+ */
+export async function getAccessToken(): Promise<string | null> {
+  const supabase = await createServerComponentClient()
+
+  const { data: { session } } = await supabase.auth.getSession()
+
+  return session?.access_token ?? null
+}
+
+// =============================================================================
 // Edge-Compatible Auth Check
 // =============================================================================
 

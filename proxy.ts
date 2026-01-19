@@ -198,6 +198,17 @@ function isAppSubdomain(host: string): boolean {
   return host.startsWith("app.")
 }
 
+// Check if we're on the status subdomain (status.verso.ac or status.lvh.me)
+function isStatusSubdomain(host: string): boolean {
+  if (host.includes("localhost") && !host.includes("lvh.me")) {
+    return false
+  }
+  if (host.includes("127.0.0.1")) {
+    return false
+  }
+  return host.startsWith("status.")
+}
+
 // Get the main domain from host (app.verso.ac -> verso.ac, www.verso.ac -> verso.ac)
 function getMainDomain(host: string): string {
   let domain = host
@@ -220,7 +231,7 @@ function getAppUrl(host: string, pathname: string, protocol: string): string {
 }
 
 export const proxy = authUnified((req) => {
-  const { pathname } = req.nextUrl
+  const { pathname, searchParams } = req.nextUrl
   const isLoggedIn = !!req.auth
   const host = req.headers.get("host") || ""
   // Use x-forwarded-proto header (set by Vercel) or default to https in production
@@ -231,12 +242,45 @@ export const proxy = authUnified((req) => {
   const existingCorrelationId = req.headers.get(CORRELATION_ID_HEADER)
   const correlationId = existingCorrelationId || generateCorrelationId()
 
+  // Handle OAuth callback code on root URL (Supabase sometimes redirects here instead of /auth/callback)
+  // Forward to the proper callback handler to exchange the code for a session
+  const authCode = searchParams.get("code")
+  if (authCode && pathname === "/") {
+    const callbackUrl = new URL("/auth/callback", req.nextUrl.origin)
+    callbackUrl.searchParams.set("code", authCode)
+    // Preserve any other params (like error, error_description)
+    const error = searchParams.get("error")
+    const errorDescription = searchParams.get("error_description")
+    if (error) callbackUrl.searchParams.set("error", error)
+    if (errorDescription) callbackUrl.searchParams.set("error_description", errorDescription)
+    return NextResponse.redirect(callbackUrl)
+  }
+
   // CSRF protection for API routes (except webhooks which have their own verification)
   if (pathname.startsWith("/api/") && !pathname.startsWith("/api/stripe/webhook")) {
     const csrfError = checkCsrf(req, host)
     if (csrfError) {
       return csrfError
     }
+  }
+
+  // Handle status subdomain - rewrite to /status routes
+  if (isStatusSubdomain(host)) {
+    // API routes pass through for health checks (e.g., /api/health)
+    if (pathname.startsWith("/api/")) {
+      return addSecurityHeaders(NextResponse.next(), host, correlationId)
+    }
+
+    // status.verso.ac/ → /status
+    // status.verso.ac/incidents → /status/incidents (if exists)
+    // status.verso.ac/foo → /status/foo
+    const statusPath = pathname === "/" ? "/status" : pathname.startsWith("/status") ? pathname : `/status${pathname}`
+
+    return addSecurityHeaders(
+      NextResponse.rewrite(new URL(statusPath, req.nextUrl.origin)),
+      host,
+      correlationId
+    )
   }
 
   // Handle legacy route redirects (before auth checks)

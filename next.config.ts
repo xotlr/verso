@@ -6,6 +6,10 @@ import bundleAnalyzer from "@next/bundle-analyzer";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const WebpackObfuscator = require("webpack-obfuscator");
 
+// Extract Supabase hostname from env var (removes hardcoded project ID from config)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseHost = supabaseUrl ? new URL(supabaseUrl).hostname : '';
+
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
@@ -41,11 +45,11 @@ const nextConfig: NextConfig = {
               // Styles: self + inline for Tailwind/styled components
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               // Images: self + data URIs + Supabase storage + Google/GitHub avatars
-              "img-src 'self' data: blob: https://akqcitwkiabfyyqukzus.supabase.co https://*.googleusercontent.com https://avatars.githubusercontent.com",
+              `img-src 'self' data: blob: https://${supabaseHost} https://*.googleusercontent.com https://avatars.githubusercontent.com`,
               // Fonts: self + Google Fonts
               "font-src 'self' https://fonts.gstatic.com",
               // Connect: self + Supabase + Stripe
-              "connect-src 'self' https://akqcitwkiabfyyqukzus.supabase.co wss://akqcitwkiabfyyqukzus.supabase.co https://api.stripe.com",
+              `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://api.stripe.com`,
               // Frames: Stripe checkout only
               "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
               // Object/media restrictions
@@ -95,11 +99,11 @@ const nextConfig: NextConfig = {
   // Allow Supabase storage images with optimization
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'akqcitwkiabfyyqukzus.supabase.co',
+      ...(supabaseHost ? [{
+        protocol: 'https' as const,
+        hostname: supabaseHost,
         pathname: '/storage/v1/object/public/**',
-      },
+      }] : []),
       {
         protocol: 'https',
         hostname: '*.googleusercontent.com',

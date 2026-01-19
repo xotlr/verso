@@ -169,6 +169,12 @@ export const RATE_LIMITS = {
   AI: { maxRequests: 20, windowMs: 60 * 1000 },
   // Project creation: 10 per hour
   PROJECT_CREATE: { maxRequests: 10, windowMs: 60 * 60 * 1000 },
+  // MFA operations: 5 per minute (brute force protection)
+  MFA: { maxRequests: 5, windowMs: 60 * 1000 },
+  // SSO configuration: 10 per hour (admin only, low volume)
+  SSO_CONFIG: { maxRequests: 10, windowMs: 60 * 60 * 1000 },
+  // Session management: 20 per minute
+  SESSION: { maxRequests: 20, windowMs: 60 * 1000 },
 } as const;
 
 /**

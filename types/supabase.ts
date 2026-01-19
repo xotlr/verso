@@ -99,6 +99,8 @@ export interface Database {
           stripeSubscriptionId: string | null
           stripePriceId: string | null
           stripeCurrentPeriodEnd: string | null
+          mfaEnabled: boolean
+          mfaVerifiedAt: string | null
         }
         Insert: {
           id?: string
@@ -141,6 +143,8 @@ export interface Database {
           stripeSubscriptionId?: string | null
           stripePriceId?: string | null
           stripeCurrentPeriodEnd?: string | null
+          mfaEnabled?: boolean
+          mfaVerifiedAt?: string | null
         }
         Update: {
           id?: string
@@ -183,6 +187,8 @@ export interface Database {
           stripeSubscriptionId?: string | null
           stripePriceId?: string | null
           stripeCurrentPeriodEnd?: string | null
+          mfaEnabled?: boolean
+          mfaVerifiedAt?: string | null
         }
       }
       Team: {
@@ -202,6 +208,12 @@ export interface Database {
           stripePriceId: string | null
           stripeCurrentPeriodEnd: string | null
           maxSeats: number
+          ssoEnabled: boolean
+          ssoProvider: string | null
+          ssoConfig: Json | null
+          ssoDomain: string | null
+          ssoEnforced: boolean
+          mfaRequired: boolean
         }
         Insert: {
           id?: string
@@ -219,6 +231,12 @@ export interface Database {
           stripePriceId?: string | null
           stripeCurrentPeriodEnd?: string | null
           maxSeats?: number
+          ssoEnabled?: boolean
+          ssoProvider?: string | null
+          ssoConfig?: Json | null
+          ssoDomain?: string | null
+          ssoEnforced?: boolean
+          mfaRequired?: boolean
         }
         Update: {
           id?: string
@@ -236,6 +254,12 @@ export interface Database {
           stripePriceId?: string | null
           stripeCurrentPeriodEnd?: string | null
           maxSeats?: number
+          ssoEnabled?: boolean
+          ssoProvider?: string | null
+          ssoConfig?: Json | null
+          ssoDomain?: string | null
+          ssoEnforced?: boolean
+          mfaRequired?: boolean
         }
       }
       TeamMember: {
@@ -259,6 +283,44 @@ export interface Database {
           userId?: string
           role?: TeamRole
           createdAt?: string
+        }
+      }
+      UserSession: {
+        Row: {
+          id: string
+          userId: string
+          sessionToken: string
+          deviceInfo: string | null
+          ipAddress: string | null
+          country: string | null
+          city: string | null
+          lastActive: string
+          createdAt: string
+          revokedAt: string | null
+        }
+        Insert: {
+          id?: string
+          userId: string
+          sessionToken: string
+          deviceInfo?: string | null
+          ipAddress?: string | null
+          country?: string | null
+          city?: string | null
+          lastActive?: string
+          createdAt?: string
+          revokedAt?: string | null
+        }
+        Update: {
+          id?: string
+          userId?: string
+          sessionToken?: string
+          deviceInfo?: string | null
+          ipAddress?: string | null
+          country?: string | null
+          city?: string | null
+          lastActive?: string
+          createdAt?: string
+          revokedAt?: string | null
         }
       }
       Project: {

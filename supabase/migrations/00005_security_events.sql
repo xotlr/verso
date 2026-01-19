@@ -51,11 +51,12 @@ ALTER TABLE public."SecurityEvent" ENABLE ROW LEVEL SECURITY;
 -- RLS Policies
 
 -- Users can view their own security events
+-- Note: userId is the application user ID (TEXT), auth_id is UUID
 CREATE POLICY "security_event_select_own"
   ON public."SecurityEvent"
   FOR SELECT
   TO authenticated
-  USING ("userId" = auth.uid()::text OR "userId" = (SELECT id FROM public."User" WHERE "authId" = auth.uid()::text));
+  USING ("userId" = (SELECT id FROM public."User" WHERE auth_id = auth.uid()));
 
 -- Only server can insert (no direct client inserts)
 -- We use a service role for inserts, so no INSERT policy for authenticated users

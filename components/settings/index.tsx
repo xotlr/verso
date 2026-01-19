@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSession, signOut } from '@/components/providers/auth-provider';
 import useSWR from 'swr';
-import { Download, Upload, RotateCcw, Palette, Type, Keyboard, LogOut, Accessibility, CreditCard, User, Users, Clapperboard } from 'lucide-react';
+import { Download, Upload, RotateCcw, Palette, Type, Keyboard, LogOut, Accessibility, CreditCard, User, Users, Clapperboard, Shield } from 'lucide-react';
 import { useSettings } from '@/contexts/settings-context';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -19,6 +19,7 @@ import { AccessibilitySection } from './AccessibilitySection';
 import { BillingSection } from './BillingSection';
 import { TeamsSection } from './TeamsSection';
 import { ShotlistSection } from './ShotlistSection';
+import { SecuritySection } from './SecuritySection';
 
 interface SettingsContentProps {
   defaultTab?: string;
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { value: 'shotlist', icon: Clapperboard, label: 'Shotlist' },
   { value: 'accessibility', icon: Accessibility, label: 'Accessibility' },
   { value: 'shortcuts', icon: Keyboard, label: 'Shortcuts' },
+  { value: 'security', icon: Shield, label: 'Security' },
   { value: 'billing', icon: CreditCard, label: 'Billing' },
   { value: 'teams', icon: Users, label: 'Teams' },
 ] as const;
@@ -352,6 +354,11 @@ export function SettingsContent({ defaultTab = 'profile', onDone, showDoneButton
             <KeyboardSection />
           </TabsContent>
 
+          {/* Security Settings */}
+          <TabsContent value="security" className="m-0">
+            <SecuritySection />
+          </TabsContent>
+
           {/* Billing Settings */}
           <TabsContent value="billing" className="m-0">
             <BillingSection currentPlan={currentPlan} />
@@ -410,6 +417,7 @@ export { AppearanceSection } from './AppearanceSection';
 export { EditorSection } from './EditorSection';
 export { AccessibilitySection } from './AccessibilitySection';
 export { KeyboardSection } from './KeyboardSection';
+export { SecuritySection } from './SecuritySection';
 export { BillingSection } from './BillingSection';
 export { TeamsSection } from './TeamsSection';
 export { ShotlistSection } from './ShotlistSection';

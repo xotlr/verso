@@ -16,12 +16,14 @@ import {
   Mail,
   CreditCard,
   History,
+  Key,
 } from 'lucide-react';
 import { TeamAuditLog } from '../team-audit-log';
 import { GeneralTab } from './GeneralTab';
 import { MembersTab } from './MembersTab';
 import { InvitesTab } from './InvitesTab';
 import { BillingTab } from './BillingTab';
+import { SsoTab } from './SsoTab';
 import { TeamSettingsDialogProps, TeamMember, TeamInvite } from './types';
 
 export function TeamSettingsDialog({
@@ -78,7 +80,7 @@ export function TeamSettingsDialog({
 
         <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="general" className="gap-2">
                 <Settings className="h-4 w-4" />
                 <span className="hidden sm:inline">General</span>
@@ -90,6 +92,10 @@ export function TeamSettingsDialog({
               <TabsTrigger value="invites" className="gap-2">
                 <Mail className="h-4 w-4" />
                 <span className="hidden sm:inline">Invites</span>
+              </TabsTrigger>
+              <TabsTrigger value="sso" className="gap-2">
+                <Key className="h-4 w-4" />
+                <span className="hidden sm:inline">SSO</span>
               </TabsTrigger>
               <TabsTrigger value="activity" className="gap-2">
                 <History className="h-4 w-4" />
@@ -131,6 +137,10 @@ export function TeamSettingsDialog({
                 isLoading={isLoadingInvites}
                 onInvitesChange={setInvites}
               />
+            </TabsContent>
+
+            <TabsContent value="sso" className="mt-4">
+              <SsoTab teamId={team.id} isOwner={isOwner} />
             </TabsContent>
 
             <TabsContent value="activity" className="mt-4">
