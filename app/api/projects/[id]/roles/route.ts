@@ -1,39 +1,6 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, BadRequestError, ConflictError } from "@/lib/api"
-import { createServerActionClient } from "@/lib/supabase/server"
-
-interface ProjectWithTeam {
-  id: string
-  userId: string
-  team: { id: string; members: Array<{ userId: string }> } | null
-}
-
-async function hasProjectAccess(projectId: string, userId: string): Promise<boolean> {
-  const supabase = await createServerActionClient()
-
-  const result = await supabase
-    .from("Project")
-    .select(`
-      id,
-      userId,
-      team:Team(
-        id,
-        members:TeamMember(userId)
-      )
-    `)
-    .eq("id", projectId)
-    .single()
-
-  const project = result.data as ProjectWithTeam | null
-  if (result.error || !project) return false
-  if (project.userId === userId) return true
-  if (project.team && Array.isArray(project.team.members)) {
-    const isMember = project.team.members.some((m: { userId: string }) => m.userId === userId)
-    if (isMember) return true
-  }
-
-  return false
-}
+import { createApiHandler, NotFoundError, BadRequestError, ConflictError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
+import { hasProjectAccess, requirePermission } from "@/lib/project-access"
 
 const createRoleSchema = z.object({
   role: z.string().min(1, "Role is required"),
@@ -47,7 +14,7 @@ export const GET = createApiHandler({
   handler: async ({ user, params, supabase }) => {
     const { id: projectId } = params
 
-    const hasAccess = await hasProjectAccess(projectId, user.id)
+    const hasAccess = await hasProjectAccess(supabase, projectId, user.id)
     if (!hasAccess) {
       throw new NotFoundError("Project")
     }
@@ -61,7 +28,7 @@ export const GET = createApiHandler({
       .eq("projectId", projectId)
       .order("role", { ascending: true })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Role")
 
     return roles || []
   },
@@ -70,13 +37,12 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: createRoleSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id: projectId } = params
 
-    const hasAccess = await hasProjectAccess(projectId, user.id)
-    if (!hasAccess) {
-      throw new NotFoundError("Project")
-    }
+    // Only owner can add roles
+    await requirePermission(supabase, projectId, user.id, "owner")
 
     let finalName = data.name
     let finalUserId = data.userId
@@ -141,7 +107,7 @@ export const POST = createApiHandler({
       `)
       .single()
 
-    if (createError) throw createError
+    if (createError) handleSupabaseError(createError, "Role")
 
     return role
   },

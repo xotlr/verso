@@ -48,6 +48,7 @@ import {
   InternalError,
   CsrfError,
 } from './errors';
+import { alertCsrfViolation, alertRateLimitViolation } from '@/lib/security-alerts';
 import {
   logger,
   withLogContextAsync,
@@ -252,6 +253,8 @@ export function createApiHandler<
                 host: hostBase,
                 method,
               });
+              // Track for threshold-based alerting
+              void alertCsrfViolation(getClientIp(request), origin || undefined);
               throw new CsrfError('Origin mismatch');
             }
           }
@@ -302,6 +305,9 @@ export function createApiHandler<
               limit: rateLimitConfig.maxRequests,
               windowMs: rateLimitConfig.windowMs,
             });
+            // Track for threshold-based alerting (many violations = potential attack)
+            const path = new URL(request.url).pathname;
+            void alertRateLimitViolation(identifier, path);
             const retryAfter = Math.ceil((result.resetAt - Date.now()) / 1000);
             throw new RateLimitError('Rate limit exceeded', retryAfter);
           }

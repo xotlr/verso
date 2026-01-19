@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler } from "@/lib/api"
+import { createApiHandler, handleSupabaseError } from "@/lib/api"
 
 const createSessionSchema = z.object({
   wordCount: z.number().min(0),
@@ -23,7 +23,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (sessionError) throw sessionError
+    if (sessionError) handleSupabaseError(sessionError, "Session")
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -98,7 +98,7 @@ export const GET = createApiHandler({
       .gte("date", startDate.toISOString())
       .order("date", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Session")
 
     return sessions || []
   },

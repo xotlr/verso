@@ -1,7 +1,9 @@
 import { z } from "zod"
-import { createApiHandler, BadRequestError, RateLimitError } from "@/lib/api"
+import { createApiHandler, BadRequestError, RateLimitError, handleSupabaseError } from "@/lib/api"
 import { hashPassword } from "@/lib/password"
 import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit"
+import { checkPasswordBreach } from "@/lib/password-security"
+import { logger } from "@/lib/logger"
 
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name is too long"),
@@ -39,6 +41,19 @@ export const POST = createApiHandler({
       throw new BadRequestError("An account with this email already exists")
     }
 
+    // Check password against known breached passwords (HaveIBeenPwned)
+    const breachCheck = await checkPasswordBreach(data.password)
+    if (breachCheck.isBreached) {
+      logger.security("Signup blocked: breached password attempt", {
+        email: data.email,
+        breachCount: breachCheck.breachCount,
+        ip: clientIp,
+      })
+      throw new BadRequestError(
+        "This password has been found in data breaches. Please choose a different password for your security."
+      )
+    }
+
     const hashedPassword = await hashPassword(data.password)
 
     const { data: user, error } = await supabase
@@ -51,7 +66,7 @@ export const POST = createApiHandler({
       .select("id, name, email")
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "User")
 
     return {
       user: {

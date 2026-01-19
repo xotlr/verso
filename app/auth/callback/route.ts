@@ -3,9 +3,13 @@
  *
  * Handles OAuth callback from Supabase Auth providers (Google).
  * Exchanges the code for a session and redirects to the app.
+ *
+ * SECURITY: Uses structured logger (never console), generic error codes to users
  */
 
 import { createServerActionClient } from "@/lib/supabase/server"
+import { logger } from "@/lib/logger"
+import { logLoginSuccess } from "@/lib/security-events"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
@@ -15,21 +19,21 @@ export async function GET(request: NextRequest) {
   const error = requestUrl.searchParams.get("error")
   const errorDescription = requestUrl.searchParams.get("error_description")
 
-  // Handle OAuth errors
+  // Handle OAuth errors - log details server-side, generic code to user
   if (error) {
-    console.error("[Auth Callback] OAuth error:", error, errorDescription)
-    const loginUrl = new URL("/login", requestUrl.origin)
-    loginUrl.searchParams.set("error", error)
-    if (errorDescription) {
-      loginUrl.searchParams.set("error_description", errorDescription)
-    }
-    return NextResponse.redirect(loginUrl)
+    logger.security("OAuth callback error", {
+      error,
+      errorDescription,
+      // Don't log full URL to avoid leaking state tokens
+    })
+    // Return generic error code - don't expose OAuth provider error details
+    return NextResponse.redirect(new URL("/login?error=oauth_failed", requestUrl.origin))
   }
 
   // No code means something went wrong
   if (!code) {
-    console.error("[Auth Callback] No code provided")
-    return NextResponse.redirect(new URL("/login?error=no_code", requestUrl.origin))
+    logger.security("OAuth callback missing code")
+    return NextResponse.redirect(new URL("/login?error=oauth_failed", requestUrl.origin))
   }
 
   try {
@@ -39,10 +43,29 @@ export async function GET(request: NextRequest) {
     const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
     if (exchangeError) {
-      console.error("[Auth Callback] Code exchange failed:", exchangeError)
-      return NextResponse.redirect(
-        new URL(`/login?error=${encodeURIComponent(exchangeError.message)}`, requestUrl.origin)
-      )
+      logger.error("OAuth code exchange failed", exchangeError)
+      // Return generic error - don't expose Supabase error details to client
+      return NextResponse.redirect(new URL("/login?error=auth_failed", requestUrl.origin))
+    }
+
+    // Log successful OAuth login (fire-and-forget)
+    if (data?.user?.id) {
+      const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+        request.headers.get("x-real-ip") ||
+        undefined
+      const userAgent = request.headers.get("user-agent") || undefined
+      const provider = data.user.app_metadata?.provider || "oauth"
+
+      // Get internal user ID from auth ID
+      const { data: userData } = await supabase
+        .from("User")
+        .select("id")
+        .eq("authId", data.user.id)
+        .single() as { data: { id: string } | null }
+
+      if (userData?.id) {
+        void logLoginSuccess(userData.id, "oauth", ipAddress, userAgent, provider)
+      }
     }
 
     // Determine redirect URL
@@ -64,7 +87,7 @@ export async function GET(request: NextRequest) {
 
     return response
   } catch (error) {
-    console.error("[Auth Callback] Unexpected error:", error)
-    return NextResponse.redirect(new URL("/login?error=unexpected", requestUrl.origin))
+    logger.error("OAuth callback unexpected error", error instanceof Error ? error : undefined)
+    return NextResponse.redirect(new URL("/login?error=auth_failed", requestUrl.origin))
   }
 }

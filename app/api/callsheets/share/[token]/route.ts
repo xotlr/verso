@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError, ForbiddenError, GoneError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, GoneError, handleSupabaseError } from "@/lib/api"
 import type { CallsheetData, CrewMember } from "@/types/callsheet"
 
 function filterCallsheetData(
@@ -62,10 +62,8 @@ export const GET = createApiHandler({
       .eq("token", token)
       .single()
 
-    if (error?.code === "PGRST116" || !shareLink) {
-      throw new NotFoundError("Callsheet share link not found")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Callsheet")
+    if (!shareLink) throw new NotFoundError("Callsheet share link not found")
 
     if (!shareLink.isActive) {
       throw new GoneError("This share link has been revoked")
@@ -116,10 +114,8 @@ export const DELETE = createApiHandler({
       .eq("token", token)
       .single()
 
-    if (fetchError?.code === "PGRST116" || !shareLink) {
-      throw new NotFoundError("Share link")
-    }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Share link")
+    if (!shareLink) throw new NotFoundError("Share link")
 
     if (shareLink.userId !== user.id) {
       throw new ForbiddenError("Access denied")
@@ -130,7 +126,7 @@ export const DELETE = createApiHandler({
       .update({ isActive: false })
       .eq("token", token)
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Callsheet")
 
     return { success: true }
   },

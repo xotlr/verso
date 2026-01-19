@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createApiHandler, NotFoundError } from "@/lib/api"
+import { createApiHandler, NotFoundError, handleSupabaseError } from "@/lib/api"
 
 export const GET = createApiHandler({
   auth: "required",
@@ -74,7 +74,7 @@ export const GET = createApiHandler({
     if (projectError?.code === "PGRST116" || !project) {
       throw new NotFoundError("Project")
     }
-    if (projectError) throw projectError
+    if (projectError) handleSupabaseError(projectError, "Project")
 
     const isOwner = project.userId === user.id
     const isTeamMember = project.team && Array.isArray(project.team.members) &&

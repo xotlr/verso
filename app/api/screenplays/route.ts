@@ -1,4 +1,4 @@
-import { createApiHandler, BadRequestError, RateLimitError } from "@/lib/api"
+import { createApiHandler, BadRequestError, RateLimitError, handleSupabaseError } from "@/lib/api"
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 import { initializeScreenplayContent } from "@/lib/screenplay"
 import { createScreenplaySchema } from "@/lib/validation"
@@ -65,9 +65,7 @@ export const GET = createApiHandler({
 
     const { data: screenplays, count, error } = await query
 
-    if (error) {
-      throw error
-    }
+    if (error) handleSupabaseError(error, "Screenplay")
 
     return {
       screenplays: screenplays || [],
@@ -134,9 +132,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (error) {
-      throw error
-    }
+    if (error) handleSupabaseError(error, "Screenplay")
 
     // Log activity
     await supabase.from("Activity").insert({

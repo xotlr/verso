@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 
 async function checkScheduleAccess(scheduleId: string, userId: string, supabase: any) {
   const { data: schedule, error } = await supabase
@@ -14,10 +14,10 @@ async function checkScheduleAccess(scheduleId: string, userId: string, supabase:
     .eq("id", scheduleId)
     .single()
 
-  if (error?.code === "PGRST116" || !schedule) {
+  if (error) handleSupabaseError(error, "Schedule")
+  if (!schedule) {
     return { allowed: false, notFound: true, schedule: null }
   }
-  if (error) throw error
 
   if (schedule.userId === userId) {
     return { allowed: true, notFound: false, schedule }
@@ -85,7 +85,7 @@ export const PUT = createApiHandler({
       .select()
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Schedule")
 
     return schedule
   },
@@ -111,7 +111,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", id)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Schedule")
 
     return { success: true }
   },

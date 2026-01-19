@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, BadRequestError, handleSupabaseError } from "@/lib/api"
 import { getStripe } from "@/lib/stripe"
 import { reconcileUserSubscription } from "@/lib/stripe-helpers"
 
@@ -14,10 +14,8 @@ export const GET = createApiHandler({
       .eq("id", user.id)
       .single()
 
-    if (error?.code === "PGRST116" || !userData) {
-      throw new NotFoundError("User")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "User")
+    if (!userData) throw new NotFoundError("User")
 
     const isActive =
       userData.plan !== "FREE" &&
@@ -53,10 +51,8 @@ export const POST = createApiHandler({
       .eq("id", user.id)
       .single()
 
-    if (error?.code === "PGRST116" || !userData) {
-      throw new NotFoundError("User")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "User")
+    if (!userData) throw new NotFoundError("User")
 
     const stripe = getStripe()
 

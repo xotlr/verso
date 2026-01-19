@@ -1,52 +1,19 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, BadRequestError } from "@/lib/api"
-import { createServerActionClient } from "@/lib/supabase/server"
+import { createApiHandler, NotFoundError, BadRequestError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
+import { hasProjectAccess } from "@/lib/project-access"
 
 const createInviteSchema = z.object({
   email: z.string().email("Invalid email address"),
   role: z.string().min(1, "Role is required"),
 })
 
-interface ProjectWithTeam {
-  id: string
-  userId: string
-  name?: string
-  team: { id: string; members: Array<{ userId: string }> } | null
-}
-
 export const GET = createApiHandler({
   auth: "required",
   handler: async ({ user, params, supabase }) => {
     const { id: projectId } = params
 
-    // Check project access
-    const accessSupabase = await createServerActionClient()
-    const projectResult = await accessSupabase
-      .from("Project")
-      .select(`
-        id,
-        userId,
-        team:Team(
-          id,
-          members:TeamMember(userId)
-        )
-      `)
-      .eq("id", projectId)
-      .single()
-
-    const project = projectResult.data as ProjectWithTeam | null
-    const projectError = projectResult.error
-
-    if (projectError?.code === "PGRST116" || !project) {
-      throw new NotFoundError("Project")
-    }
-    if (projectError) throw projectError
-
-    const isOwner = project.userId === user.id
-    const isMember = project.team && Array.isArray(project.team.members) &&
-      project.team.members.some((m: { userId: string }) => m.userId === user.id)
-
-    if (!isOwner && !isMember) {
+    const hasAccess = await hasProjectAccess(supabase, projectId, user.id)
+    if (!hasAccess) {
       throw new NotFoundError("Project")
     }
 
@@ -69,7 +36,7 @@ export const GET = createApiHandler({
       .gt("expiresAt", new Date().toISOString())
       .order("createdAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Invite")
 
     return invites || []
   },
@@ -78,38 +45,12 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: createInviteSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id: projectId } = params
 
-    // Check project access
-    const accessSupabase = await createServerActionClient()
-    const projectResult = await accessSupabase
-      .from("Project")
-      .select(`
-        id,
-        name,
-        userId,
-        team:Team(
-          id,
-          members:TeamMember(userId)
-        )
-      `)
-      .eq("id", projectId)
-      .single()
-
-    const project = projectResult.data as ProjectWithTeam | null
-    const projectError = projectResult.error
-
-    if (projectError?.code === "PGRST116" || !project) {
-      throw new NotFoundError("Project")
-    }
-    if (projectError) throw projectError
-
-    const isOwner = project.userId === user.id
-    const isMember = project.team && Array.isArray(project.team.members) &&
-      project.team.members.some((m: { userId: string }) => m.userId === user.id)
-
-    if (!isOwner && !isMember) {
+    const hasAccess = await hasProjectAccess(supabase, projectId, user.id)
+    if (!hasAccess) {
       throw new NotFoundError("Project")
     }
 
@@ -177,7 +118,7 @@ export const POST = createApiHandler({
       `)
       .single()
 
-    if (createError) throw createError
+    if (createError) handleSupabaseError(createError, "Invite")
 
     const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || ''}/project-invite/${invite.token}`
 

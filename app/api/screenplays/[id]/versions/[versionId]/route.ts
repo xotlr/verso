@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
 const updateVersionSchema = z.object({
@@ -29,10 +29,8 @@ export const GET = createApiHandler({
       .eq("id", versionId)
       .single()
 
-    if (error?.code === "PGRST116" || !version) {
-      throw new NotFoundError("Version")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Version")
+    if (!version) throw new NotFoundError("Version")
 
     if (version.screenplayId !== id) {
       throw new NotFoundError("Version")
@@ -64,7 +62,7 @@ export const PATCH = createApiHandler({
       .select()
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Version")
 
     return version
   },
@@ -90,10 +88,8 @@ export const POST = createApiHandler({
       .eq("id", versionId)
       .single()
 
-    if (versionError?.code === "PGRST116" || !versionToRestore) {
-      throw new NotFoundError("Version")
-    }
-    if (versionError) throw versionError
+    if (versionError) handleSupabaseError(versionError, "Version")
+    if (!versionToRestore) throw new NotFoundError("Version")
 
     if (versionToRestore.screenplayId !== id) {
       throw new NotFoundError("Version")
@@ -105,10 +101,8 @@ export const POST = createApiHandler({
       .eq("id", id)
       .single()
 
-    if (screenplayError?.code === "PGRST116" || !screenplay) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (screenplayError) throw screenplayError
+    if (screenplayError) handleSupabaseError(screenplayError, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
 
     const { data: lastVersion } = await supabase
       .from("ScreenplayVersion")
@@ -145,7 +139,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Version")
 
     return {
       success: true,
@@ -175,10 +169,8 @@ export const DELETE = createApiHandler({
       .eq("id", versionId)
       .single()
 
-    if (fetchError?.code === "PGRST116" || !version) {
-      throw new NotFoundError("Version")
-    }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Version")
+    if (!version) throw new NotFoundError("Version")
 
     if (version.screenplayId !== id) {
       throw new NotFoundError("Version")
@@ -189,7 +181,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", versionId)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "Version")
 
     return { success: true }
   },

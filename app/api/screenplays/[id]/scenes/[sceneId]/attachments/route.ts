@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { validateImageUrl } from "@/lib/file-validation"
 import { logger } from "@/lib/logger"
@@ -22,7 +22,7 @@ export const GET = createApiHandler({
       .eq("sceneId", sceneId)
       .order("displayOrder", { ascending: true })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Attachment")
 
     return attachments || []
   },
@@ -65,7 +65,7 @@ export const POST = createApiHandler({
       .eq("screenplayId", id)
       .eq("sceneId", sceneId)
 
-    if (countError) throw countError
+    if (countError) handleSupabaseError(countError, "Attachment")
 
     if ((count || 0) >= 10) {
       throw new BadRequestError("Maximum 10 attachments per scene")
@@ -96,7 +96,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (createError) throw createError
+    if (createError) handleSupabaseError(createError, "Attachment")
 
     logger.audit('create', 'sceneAttachment', attachment.id, {
       screenplayId: id,

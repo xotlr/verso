@@ -1,7 +1,7 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
-import { canUseProduction, type PlanType } from "@/lib/stripe"
+import { canAccessProductionFeatures, type PlanType } from "@/lib/stripe"
 import { SHOT_STATUSES } from "@/types/shotlist"
 
 const updateStatusSchema = z.object({
@@ -21,18 +21,21 @@ export const PATCH = createApiHandler({
   handler: async ({ user, params, data, supabase }) => {
     const { id: screenplayId, shotId } = params
 
+    // Fetch both plan AND stripeCurrentPeriodEnd for proper validation
     const { data: dbUser, error: userError } = await supabase
       .from("User")
-      .select("plan")
+      .select("plan, stripeCurrentPeriodEnd")
       .eq("id", user.id)
       .single()
 
-    if (userError) throw userError
+    if (userError) handleSupabaseError(userError, "User")
 
     const plan = (dbUser?.plan as PlanType) || "FREE"
+    const periodEnd = dbUser?.stripeCurrentPeriodEnd as string | null
 
-    if (!canUseProduction(plan)) {
-      throw new ForbiddenError("Production features require PRO plan")
+    // SECURITY: Validate both plan AND subscription period
+    if (!canAccessProductionFeatures(plan, periodEnd)) {
+      throw new ForbiddenError("Production features require an active PRO subscription")
     }
 
     const access = await checkScreenplayAccess(screenplayId, user.id, "EDITOR")
@@ -53,7 +56,7 @@ export const PATCH = createApiHandler({
     if (fetchError?.code === "PGRST116" || !existingShot) {
       throw new NotFoundError("Shot")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Shot")
 
     const {
       status,
@@ -87,7 +90,7 @@ export const PATCH = createApiHandler({
       .select()
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Shot")
 
     return { shot: updatedShot }
   },

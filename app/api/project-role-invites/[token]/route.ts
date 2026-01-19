@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError, GoneError, ForbiddenError, BadRequestError, UnauthorizedError } from "@/lib/api"
+import { createApiHandler, NotFoundError, GoneError, ForbiddenError, BadRequestError, UnauthorizedError, handleSupabaseError } from "@/lib/api"
 
 export const GET = createApiHandler({
   auth: "none",
@@ -29,10 +29,8 @@ export const GET = createApiHandler({
       .eq("token", token)
       .single()
 
-    if (error?.code === "PGRST116" || !invite) {
-      throw new NotFoundError("Invite")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Invite")
+    if (!invite) throw new NotFoundError("Invite")
 
     if (new Date() > new Date(invite.expiresAt)) {
       throw new GoneError("Invite has expired")
@@ -67,10 +65,8 @@ export const POST = createApiHandler({
       .eq("token", token)
       .single()
 
-    if (fetchError?.code === "PGRST116" || !invite) {
-      throw new NotFoundError("Invite")
-    }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Invite")
+    if (!invite) throw new NotFoundError("Invite")
 
     if (new Date() > new Date(invite.expiresAt)) {
       await supabase.from("ProjectRoleInvite").delete().eq("id", invite.id)
@@ -116,7 +112,7 @@ export const POST = createApiHandler({
       `)
       .single()
 
-    if (createError) throw createError
+    if (createError) handleSupabaseError(createError, "Invite")
 
     // Delete invite
     await supabase.from("ProjectRoleInvite").delete().eq("id", invite.id)
@@ -144,10 +140,8 @@ export const DELETE = createApiHandler({
       .eq("token", token)
       .single()
 
-    if (fetchError?.code === "PGRST116" || !invite) {
-      throw new NotFoundError("Invite")
-    }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Invite")
+    if (!invite) throw new NotFoundError("Invite")
 
     if (invite.email.toLowerCase() !== user.email.toLowerCase()) {
       throw new ForbiddenError("This invite is for a different email address")
@@ -158,7 +152,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", invite.id)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "Invite")
 
     return { success: true }
   },

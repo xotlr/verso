@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, UnauthorizedError, NotFoundError } from "@/lib/api"
+import { createApiHandler, UnauthorizedError, NotFoundError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
 
 // Valid use case IDs from onboarding
 const validUseCases = [
@@ -40,10 +40,8 @@ export const GET = createApiHandler({
       .eq("id", id)
       .single()
 
-    if (error?.code === "PGRST116" || !userData) {
-      throw new NotFoundError("User")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "User")
+    if (!userData) throw new NotFoundError("User")
 
     return userData
   },
@@ -52,6 +50,7 @@ export const GET = createApiHandler({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateSettingsProfileSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
@@ -66,7 +65,7 @@ export const PATCH = createApiHandler({
       .select("id, name, useCases")
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Profile")
 
     return updatedUser
   },

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createApiHandler } from '@/lib/api';
+import { createApiHandler, handleSupabaseError } from '@/lib/api';
 import { NotFoundError, UnauthorizedError } from '@/lib/api/errors';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').filter(Boolean);
@@ -31,7 +31,7 @@ export const GET = createApiHandler({
     if (incidentError?.code === 'PGRST116' || !incident) {
       throw new NotFoundError('Incident');
     }
-    if (incidentError) throw incidentError;
+    if (incidentError) handleSupabaseError(incidentError, "IncidentUpdate");
 
     const { data: updates, error } = await supabase
       .from('IncidentUpdate')
@@ -39,7 +39,7 @@ export const GET = createApiHandler({
       .eq('incidentId', params.id)
       .order('createdAt', { ascending: false });
 
-    if (error) throw error;
+    if (error) handleSupabaseError(error, "IncidentUpdate");
 
     return updates || [];
   },
@@ -60,7 +60,7 @@ export const POST = createApiHandler({
       .eq('id', user.id)
       .single();
 
-    if (userError) throw userError;
+    if (userError) handleSupabaseError(userError, "IncidentUpdate");
 
     if (!isAdmin(dbUser?.email)) {
       throw new UnauthorizedError('Admin access required');
@@ -76,7 +76,7 @@ export const POST = createApiHandler({
     if (incidentError?.code === 'PGRST116' || !incident) {
       throw new NotFoundError('Incident');
     }
-    if (incidentError) throw incidentError;
+    if (incidentError) handleSupabaseError(incidentError, "IncidentUpdate");
 
     // Create update
     const { data: update, error: createError } = await supabase
@@ -89,7 +89,7 @@ export const POST = createApiHandler({
       .select()
       .single();
 
-    if (createError) throw createError;
+    if (createError) handleSupabaseError(createError, "IncidentUpdate");
 
     // Also update the incident status
     const updateData: Record<string, unknown> = { status: data.status };

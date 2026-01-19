@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
 const sceneMetaSchema = z.object({
@@ -31,10 +31,10 @@ export const GET = createApiHandler({
       .eq("sceneId", sceneId)
       .single()
 
-    if (error?.code === "PGRST116" || !sceneMeta) {
+    if (error) handleSupabaseError(error, "SceneMeta")
+    if (!sceneMeta) {
       return { sceneId, color: null, notes: null, mood: null, act: null, customGroupId: null }
     }
-    if (error) throw error
 
     return sceneMeta
   },
@@ -82,7 +82,7 @@ export const PUT = createApiHandler({
         .select()
         .single()
 
-      if (updateError) throw updateError
+      if (updateError) handleSupabaseError(updateError, "Scene")
       sceneMeta = updated
     } else {
       const { data: created, error: createError } = await supabase
@@ -99,7 +99,7 @@ export const PUT = createApiHandler({
         .select()
         .single()
 
-      if (createError) throw createError
+      if (createError) handleSupabaseError(createError, "Scene")
       sceneMeta = created
     }
 

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
 import { logTeamAction } from "@/lib/audit-log"
 
 const updateRoleSchema = z.object({
@@ -9,6 +9,7 @@ const updateRoleSchema = z.object({
 export const PUT = createApiHandler({
   auth: "required",
   schema: updateRoleSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id, userId: targetUserId } = params
 
@@ -22,7 +23,7 @@ export const PUT = createApiHandler({
     if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
-    if (teamError) throw teamError
+    if (teamError) handleSupabaseError(teamError, "Team")
 
     // Check current user's membership
     const { data: currentMembership } = await supabase
@@ -71,7 +72,7 @@ export const PUT = createApiHandler({
     if (updateError?.code === "PGRST116" || !updatedMember) {
       throw new NotFoundError("Team member")
     }
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "TeamMember")
 
     await logTeamAction({
       teamId: id,
@@ -92,6 +93,7 @@ export const PUT = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, supabase }) => {
     const { id, userId: targetUserId } = params
 
@@ -105,7 +107,7 @@ export const DELETE = createApiHandler({
     if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
-    if (teamError) throw teamError
+    if (teamError) handleSupabaseError(teamError, "Team")
 
     if (targetUserId === team.ownerId) {
       throw new BadRequestError("Cannot remove the team owner")
@@ -148,7 +150,7 @@ export const DELETE = createApiHandler({
       .eq("teamId", id)
       .eq("userId", targetUserId)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "TeamMember")
 
     await logTeamAction({
       teamId: id,

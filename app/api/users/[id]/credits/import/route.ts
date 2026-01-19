@@ -1,4 +1,4 @@
-import { createApiHandler, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, ForbiddenError, BadRequestError, handleSupabaseError } from "@/lib/api"
 
 export const POST = createApiHandler({
   auth: "required",
@@ -18,7 +18,7 @@ export const POST = createApiHandler({
       `)
       .eq("userId", id)
 
-    if (rolesError) throw rolesError
+    if (rolesError) handleSupabaseError(rolesError, "ProjectRole")
 
     if (!projectRoles || projectRoles.length === 0) {
       return { message: "No project roles found to import", imported: 0 }
@@ -30,7 +30,7 @@ export const POST = createApiHandler({
       .select("title, role, year")
       .eq("userId", id)
 
-    if (creditsError) throw creditsError
+    if (creditsError) handleSupabaseError(creditsError, "Credit")
 
     const existingSet = new Set(
       (existingCredits || []).map((c: { title: string; role: string; year: number }) => `${c.title}|${c.role}|${c.year}`)
@@ -99,7 +99,7 @@ export const POST = createApiHandler({
       .from("Credit")
       .insert(creditsToCreate)
 
-    if (insertError) throw insertError
+    if (insertError) handleSupabaseError(insertError, "Credit")
 
     return {
       message: `Successfully imported ${creditsToCreate.length} credit(s)`,

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import {
   SHOT_TYPES,
   CAMERA_ANGLES,
@@ -42,7 +42,7 @@ export const GET = createApiHandler({
       if (error.message?.includes("policy")) {
         throw new ForbiddenError("Access denied")
       }
-      throw error
+      handleSupabaseError(error, "Shot")
     }
 
     return { shots: shots || [] }
@@ -98,7 +98,7 @@ export const POST = createApiHandler({
       if (error.message?.includes("policy")) {
         throw new ForbiddenError("You don't have edit access to this screenplay")
       }
-      throw error
+      handleSupabaseError(error, "Shot")
     }
 
     return shot

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, RATE_LIMITS } from "@/lib/api"
+import { createApiHandler, RATE_LIMITS, handleSupabaseError } from "@/lib/api"
 import { getSession } from "@/lib/supabase-auth"
 
 const rolesQuerySchema = z.object({
@@ -74,7 +74,7 @@ export const GET = createApiHandler({
 
     const { data: roleNeeds, count, error } = await query
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Role")
 
     // Filter for public projects and transform
     interface RoleNeedResult {

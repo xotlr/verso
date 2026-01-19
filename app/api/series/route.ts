@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, ForbiddenError, RATE_LIMITS } from "@/lib/api"
+import { createApiHandler, ForbiddenError, RATE_LIMITS, handleSupabaseError } from "@/lib/api"
 
 const PLAN_LIMITS: Record<string, number> = {
   FREE: 2,
@@ -58,7 +58,7 @@ export const GET = createApiHandler({
       .order("isFavorite", { ascending: false })
       .order("updatedAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Series")
 
     // Get episodes for each series
     const seriesWithEpisodes = await Promise.all(
@@ -135,7 +135,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (createError) throw createError
+    if (createError) handleSupabaseError(createError, "Series")
 
     await supabase.from("Activity").insert({
       userId: user.id,

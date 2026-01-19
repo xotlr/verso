@@ -5,6 +5,7 @@ import { createServerActionClient } from "@/lib/supabase/server"
 import Stripe from "stripe"
 import { updateTeamSubscription, cancelTeamSubscription } from "@/lib/stripe-helpers"
 import { logger } from "@/lib/logger"
+import { alertWebhookSignatureInvalid } from "@/lib/security-alerts"
 
 export const dynamic = "force-dynamic"
 
@@ -13,28 +14,52 @@ const VALID_PLANS = ["FREE", "PLUS", "PRO", "MAX"] as const
 type Plan = (typeof VALID_PLANS)[number]
 
 /**
- * Check if a webhook event has already been processed (database-backed idempotency)
+ * Attempt to claim a webhook event for processing (atomic lock).
+ * Uses INSERT to atomically claim - if insert fails with duplicate key, another
+ * request already claimed it.
+ *
+ * SECURITY: This prevents race conditions where two concurrent webhook deliveries
+ * could both process the same event.
  */
-async function isEventProcessed(eventId: string): Promise<boolean> {
+async function claimEventForProcessing(eventId: string, eventType: string): Promise<boolean> {
   const supabase = await createServerActionClient()
-  const result = await supabase
-    .from("ProcessedWebhookEvent")
-    .select("id")
-    .eq("id", eventId)
-    .single()
-  return result.data !== null
+
+  // Atomic INSERT - if it succeeds, we claimed the event. If it fails with
+  // duplicate key error (23505), another request already claimed it.
+  const { error } = await (supabase.from("ProcessedWebhookEvent") as ReturnType<typeof supabase.from>)
+    .insert({ id: eventId, eventType })
+
+  if (!error) {
+    // Insert succeeded - we claimed the event
+    return true
+  }
+
+  // Check for duplicate key violation (PostgreSQL error code 23505)
+  // Supabase wraps this as code '23505' or message containing 'duplicate'
+  if (error.code === '23505' || error.message?.toLowerCase().includes('duplicate')) {
+    // Another request already claimed this event
+    logger.debug("Webhook event already claimed", { eventId })
+    return false
+  }
+
+  // Unexpected error - log and fail open (allow processing) to avoid missing webhooks
+  // Stripe will retry if we return 500, but we prefer to process once if possible
+  logger.warn("Error claiming webhook event, allowing processing", {
+    eventId,
+    error: error.message,
+    code: error.code
+  })
+  return true
 }
 
 /**
- * Mark a webhook event as processed in the database
+ * Mark event processing as complete.
+ * This is a no-op now since we claim at the start, but kept for clarity.
  */
-async function markEventProcessed(eventId: string, eventType: string): Promise<void> {
-  const supabase = await createServerActionClient()
-  await (supabase.from("ProcessedWebhookEvent") as ReturnType<typeof supabase.from>)
-    .insert({
-      id: eventId,
-      eventType,
-    })
+async function markEventCompleted(eventId: string): Promise<void> {
+  // Event was already marked when claimed - nothing to do
+  // In a more sophisticated system, you might update a 'status' column here
+  logger.debug("Event processing completed", { eventId })
 }
 
 export async function POST(request: Request) {
@@ -66,12 +91,15 @@ export async function POST(request: Request) {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
     } catch (err) {
       logger.error("Webhook signature verification failed", err instanceof Error ? err : undefined)
+      // Track for threshold-based alerting (multiple invalid signatures = potential attack)
+      void alertWebhookSignatureInvalid("stripe")
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
     }
 
-    // Check for duplicate event processing (database-backed idempotency)
-    if (await isEventProcessed(event.id)) {
-      logger.info("Webhook event already processed, skipping", { eventId: event.id })
+    // Atomically claim event for processing (prevents race conditions)
+    const claimed = await claimEventForProcessing(event.id, event.type)
+    if (!claimed) {
+      logger.info("Webhook event already claimed by another request, skipping", { eventId: event.id })
       return NextResponse.json({ received: true, duplicate: true })
     }
 
@@ -125,8 +153,8 @@ export async function POST(request: Request) {
           logger.debug("Unhandled webhook event type", { eventType: event.type })
       }
 
-      // Mark as processed in database
-      await markEventProcessed(event.id, event.type)
+      // Mark event as completed (logging only - event was claimed at start)
+      await markEventCompleted(event.id)
 
       const processingTime = Date.now() - startTime
       logger.info("Webhook processed successfully", {

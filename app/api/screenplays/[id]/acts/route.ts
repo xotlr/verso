@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { DEFAULT_ACTS } from "@/types/beat-board"
 
@@ -31,10 +31,8 @@ export const GET = createApiHandler({
       .eq("id", id)
       .single()
 
-    if (error?.code === "PGRST116" || !screenplay) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
 
     return screenplay.acts || DEFAULT_ACTS
   },
@@ -62,7 +60,7 @@ export const PUT = createApiHandler({
       .select("acts")
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Act")
 
     return screenplay.acts
   },

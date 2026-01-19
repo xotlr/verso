@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { z } from "zod"
 
@@ -38,7 +38,7 @@ export const GET = createApiHandler({
       .eq("screenplayId", id)
       .order("order", { ascending: true })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "CardGroup")
 
     return groups || []
   },
@@ -76,7 +76,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "CardGroup")
 
     return group
   },
@@ -115,7 +115,7 @@ export const PUT = createApiHandler({
         .eq("screenplayId", id)
         .in("id", groupIds)
 
-      if (fetchError) throw fetchError
+      if (fetchError) handleSupabaseError(fetchError, "CardGroup")
 
       if ((existingGroups?.length || 0) !== groupIds.length) {
         throw new ForbiddenError("Some groups don't belong to this screenplay")
@@ -138,7 +138,7 @@ export const PUT = createApiHandler({
           .select()
           .single()
 
-        if (error) throw error
+        if (error) handleSupabaseError(error, "CardGroup")
         return updated
       })
     )

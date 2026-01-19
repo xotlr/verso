@@ -1,8 +1,9 @@
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
 import { logTeamAction } from "@/lib/audit-log"
 
 export const DELETE = createApiHandler({
   auth: "required",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, supabase }) => {
     const { id, inviteId } = params
 
@@ -19,7 +20,7 @@ export const DELETE = createApiHandler({
     if (inviteError?.code === "PGRST116" || !invite) {
       throw new NotFoundError("Invite")
     }
-    if (inviteError) throw inviteError
+    if (inviteError) handleSupabaseError(inviteError, "Invite")
 
     if (invite.teamId !== id) {
       throw new NotFoundError("Invite")
@@ -48,7 +49,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", inviteId)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "Invite")
 
     await logTeamAction({
       teamId: id,

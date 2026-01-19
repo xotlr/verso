@@ -1,6 +1,24 @@
 import { createApiHandler, UnauthorizedError } from "@/lib/api"
 import { runAllChecks, saveHealthChecks } from "@/lib/health"
 import { createServerActionClient } from "@/lib/supabase/server"
+import { timingSafeEqual } from "crypto"
+
+/**
+ * Constant-time comparison for secret tokens.
+ * Prevents timing attacks by always comparing in the same time regardless of match.
+ */
+function secureTokenCompare(provided: string, expected: string): boolean {
+  if (!provided || !expected) return false
+  // Ensure same length comparison to prevent length-based timing attacks
+  const providedBuffer = Buffer.from(provided)
+  const expectedBuffer = Buffer.from(expected)
+  if (providedBuffer.length !== expectedBuffer.length) {
+    // Compare against expected anyway to maintain constant time
+    timingSafeEqual(expectedBuffer, expectedBuffer)
+    return false
+  }
+  return timingSafeEqual(providedBuffer, expectedBuffer)
+}
 
 async function updateDailyUptime() {
   const supabase = await createServerActionClient()
@@ -48,10 +66,17 @@ export const GET = createApiHandler({
   auth: "none",
   handler: async ({ request }) => {
     const authHeader = request.headers.get("authorization")
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      if (process.env.NODE_ENV === "production" && process.env.CRON_SECRET) {
+    const cronSecret = process.env.CRON_SECRET
+
+    // Always validate token in production, or when CRON_SECRET is configured
+    if (cronSecret) {
+      const providedToken = authHeader?.replace("Bearer ", "") || ""
+      if (!secureTokenCompare(providedToken, cronSecret)) {
         throw new UnauthorizedError()
       }
+    } else if (process.env.NODE_ENV === "production") {
+      // In production without CRON_SECRET configured, reject all requests
+      throw new UnauthorizedError()
     }
 
     const health = await runAllChecks()

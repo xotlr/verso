@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, ForbiddenError, RATE_LIMITS } from "@/lib/api"
+import { createApiHandler, ForbiddenError, RATE_LIMITS, handleSupabaseError } from "@/lib/api"
 
 const PLAN_LIMITS: Record<string, number> = {
   FREE: 1,
@@ -51,7 +51,7 @@ export const GET = createApiHandler({
       .order("isFavorite", { ascending: false })
       .order("updatedAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Project")
 
     // Transform to match expected shape with counts
     const transformedProjects = (projects || []).map((p: any) => ({
@@ -117,7 +117,7 @@ export const POST = createApiHandler({
       if (projectError.message?.includes("policy")) {
         throw new ForbiddenError("Access denied to team")
       }
-      throw projectError
+      handleSupabaseError(projectError, "Project")
     }
 
     // Get creator name for role

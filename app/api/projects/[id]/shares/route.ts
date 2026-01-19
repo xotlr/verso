@@ -1,5 +1,6 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
+import { INVITE_EXPIRATION_MS } from "@/lib/constants"
 
 type ShareRole = "VIEWER" | "COMMENTER" | "EDITOR" | "ADMIN"
 
@@ -31,10 +32,10 @@ async function checkShareAccess(
     .eq("shares.userId", userId)
     .single()
 
-  if (error?.code === "PGRST116" || !project) {
+  if (error) handleSupabaseError(error, "Project")
+  if (!project) {
     return { allowed: false, isOwner: false, error: "Project not found", status: 404 }
   }
-  if (error) throw error
 
   if (project.userId === userId) {
     return {
@@ -88,6 +89,7 @@ async function checkShareAccess(
 
 export const GET = createApiHandler({
   auth: "required",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, supabase }) => {
     const { id } = params
 
@@ -138,6 +140,7 @@ const createShareSchema = z.object({
 export const POST = createApiHandler({
   auth: "required",
   schema: createShareSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id } = params
     const { userId: targetUserId, email, role } = data
@@ -163,9 +166,8 @@ export const POST = createApiHandler({
         throw new ForbiddenError(access.error)
       }
 
-      if (targetUserResult.error?.code === "PGRST116" || !targetUserResult.data) {
-        throw new NotFoundError("User")
-      }
+      if (targetUserResult.error) handleSupabaseError(targetUserResult.error, "User")
+      if (!targetUserResult.data) throw new NotFoundError("User")
 
       if (existingShareResult.data) {
         throw new BadRequestError("User already has access to this project")
@@ -185,7 +187,7 @@ export const POST = createApiHandler({
         `)
         .single()
 
-      if (createError) throw createError
+      if (createError) handleSupabaseError(createError, "Share")
 
       return share
     }
@@ -233,7 +235,7 @@ export const POST = createApiHandler({
           `)
           .single()
 
-        if (createError) throw createError
+        if (createError) handleSupabaseError(createError, "Share")
 
         return share
       }
@@ -257,12 +259,12 @@ export const POST = createApiHandler({
           email,
           role: role as ShareRole,
           invitedBy: user.id,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          expiresAt: new Date(Date.now() + INVITE_EXPIRATION_MS).toISOString(),
         })
         .select("id, email, role, token, createdAt, expiresAt")
         .single()
 
-      if (inviteError) throw inviteError
+      if (inviteError) handleSupabaseError(inviteError, "Invite")
 
       return {
         type: "invite",

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, BadRequestError, NotFoundError } from "@/lib/api"
+import { createApiHandler, BadRequestError, NotFoundError, handleSupabaseError, ConflictError } from "@/lib/api"
 
 const createConnectionSchema = z.object({
   userId: z.string().min(1, "User ID is required"),
@@ -20,7 +20,7 @@ export const GET = createApiHandler({
       .or(`requesterId.eq.${user.id},addresseeId.eq.${user.id}`)
       .order("updatedAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Connection")
 
     type ConnectionWithUsers = {
       id: string
@@ -65,7 +65,7 @@ export const POST = createApiHandler({
     if (targetError?.code === "PGRST116" || !targetUser) {
       throw new NotFoundError("User")
     }
-    if (targetError) throw targetError
+    if (targetError) handleSupabaseError(targetError, "User")
 
     // Check for existing connection
     const { data: existingConnections } = await supabase
@@ -88,7 +88,7 @@ export const POST = createApiHandler({
             .select()
             .single()
 
-          if (updateError) throw updateError
+          if (updateError) handleSupabaseError(updateError, "Connection")
           return { connection: updated, message: "Connection request accepted" }
         }
         throw new BadRequestError("Connection request already sent")
@@ -116,7 +116,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (createError) throw createError
+    if (createError) handleSupabaseError(createError, "Connection")
 
     return { connection }
   },

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, ForbiddenError, RATE_LIMITS } from "@/lib/api"
+import { createApiHandler, ForbiddenError, RATE_LIMITS, handleSupabaseError } from "@/lib/api"
 
 const PLAN_LIMITS: Record<string, number> = {
   FREE: 10,
@@ -27,7 +27,7 @@ export const GET = createApiHandler({
       .eq("userId", user.id)
       .order("updatedAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Stack")
 
     // Add counts
     type StackData = {
@@ -119,7 +119,7 @@ export const POST = createApiHandler({
       `)
       .single()
 
-    if (createError) throw createError
+    if (createError) handleSupabaseError(createError, "Stack")
 
     // Connect screenplays to stack
     if (screenplayIds && screenplayIds.length > 0) {
@@ -128,7 +128,7 @@ export const POST = createApiHandler({
         .update({ stackId: stack.id })
         .in("id", screenplayIds)
 
-      if (updateError) throw updateError
+      if (updateError) handleSupabaseError(updateError, "Screenplay")
     }
 
     // Get screenplays for response

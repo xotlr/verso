@@ -1,9 +1,8 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, BadRequestError } from "@/lib/api"
-import { createServiceRoleClient } from "@/lib/supabase/server"
-import { getSession } from "@/lib/supabase-auth"
-import { NextResponse } from "next/server"
-import { logger } from "@/lib/logger"
+import { createApiHandler, NotFoundError, BadRequestError, ForbiddenError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
+import { MAX_TIMELAPSE_OPERATIONS_LIMIT } from "@/lib/constants"
+
+const MAX_BATCH_SIZE = 100
 
 const recordOperationSchema = z.object({
   operations: z.array(z.object({
@@ -11,12 +10,13 @@ const recordOperationSchema = z.object({
     position: z.number().nullable().optional(),
     content: z.string().nullable().optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
-  })),
+  })).min(1).max(MAX_BATCH_SIZE),
 })
 
 export const POST = createApiHandler({
   auth: "required",
   schema: recordOperationSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id: screenplayId } = params
 
@@ -27,10 +27,8 @@ export const POST = createApiHandler({
       .eq("userId", user.id)
       .single()
 
-    if (error?.code === "PGRST116" || !screenplay) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
 
     if (!screenplay.timelapseEnabled) {
       throw new BadRequestError("Timelapse recording is disabled")
@@ -56,48 +54,59 @@ export const POST = createApiHandler({
       .from("ScreenplayOperation")
       .insert(operations)
 
-    if (insertError) throw insertError
+    if (insertError) handleSupabaseError(insertError, "Operation")
 
     return { success: true, count: operations.length }
   },
 })
 
-// GET - mixed auth (owner OR public timelapse) - custom handler needed
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id: screenplayId } = await params
+const getOperationsSchema = z.object({
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(MAX_TIMELAPSE_OPERATIONS_LIMIT).default(1000),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+})
 
-  try {
-    const { searchParams } = new URL(request.url)
-    const session = await getSession()
-    const userId = session?.user?.id
+export const GET = createApiHandler({
+  auth: "optional",
+  rateLimit: RATE_LIMITS.API,
+  handler: async ({ user, params, searchParams, supabase }) => {
+    const { id: screenplayId } = params
 
-    const supabase = await createServiceRoleClient()
+    // Parse and validate query params
+    const queryResult = getOperationsSchema.safeParse({
+      cursor: searchParams.get("cursor") || undefined,
+      limit: searchParams.get("limit") || undefined,
+      from: searchParams.get("from") || undefined,
+      to: searchParams.get("to") || undefined,
+    })
 
-    const cursor = searchParams.get("cursor")
-    const limit = Math.min(parseInt(searchParams.get("limit") || "1000"), 5000)
-    const fromTimestamp = searchParams.get("from")
-    const toTimestamp = searchParams.get("to")
+    if (!queryResult.success) {
+      throw new BadRequestError("Invalid query parameters")
+    }
 
-    // Check screenplay access (owner or has shareId)
-    interface ScreenplayData { id: string; userId: string; timelapseEnabled: boolean; timelapseStarted: string | null; timelapseShareId: string | null }
-    const screenplayResult = await supabase
+    const { cursor, limit, from: fromTimestamp, to: toTimestamp } = queryResult.data
+
+    // Check screenplay access using RLS-enabled client
+    // User can view if they own it OR if timelapse is shared
+    const { data: screenplay, error: screenplayError } = await supabase
       .from("Screenplay")
       .select("id, userId, timelapseEnabled, timelapseStarted, timelapseShareId")
       .eq("id", screenplayId)
       .single()
 
-    const screenplay = screenplayResult.data as ScreenplayData | null
-    if (screenplayResult.error?.code === "PGRST116" || !screenplay) {
-      return NextResponse.json({ error: "Screenplay not found" }, { status: 404 })
+    if (screenplayError) handleSupabaseError(screenplayError, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
+
+    // Check access: must be owner OR timelapse must be shared
+    const isOwner = user?.id === screenplay.userId
+    const isShared = !!screenplay.timelapseShareId
+
+    if (!isOwner && !isShared) {
+      throw new ForbiddenError("Access denied")
     }
 
-    if (screenplay.userId !== userId && !screenplay.timelapseShareId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
+    // Build operations query
     let query = supabase
       .from("ScreenplayOperation")
       .select(`
@@ -122,15 +131,27 @@ export async function GET(
 
     const { data: operations, error: opError } = await query
 
-    if (opError) throw opError
+    if (opError) handleSupabaseError(opError, "Operation")
 
+    // Get total count
     const { count: totalCount } = await supabase
       .from("ScreenplayOperation")
       .select("*", { count: "exact", head: true })
       .eq("screenplayId", screenplayId)
 
-    interface OpData { id: string; operationType: string; position: number | null; content: string | null; metadata: unknown; timestamp: string; sequenceNumber: number; user: { id: string; name: string | null; image: string | null } | null }
+    interface OpData {
+      id: string
+      operationType: string
+      position: number | null
+      content: string | null
+      metadata: unknown
+      timestamp: string
+      sequenceNumber: number
+      user: { id: string; name: string | null; image: string | null } | null
+    }
     const typedOps = (operations || []) as OpData[]
+
+    // Serialize sequenceNumber to string for safe JSON transport
     const serializedOperations = typedOps.map((op) => ({
       ...op,
       sequenceNumber: op.sequenceNumber?.toString(),
@@ -140,25 +161,18 @@ export async function GET(
       ? typedOps[typedOps.length - 1].sequenceNumber?.toString()
       : null
 
-    return NextResponse.json({
+    return {
       operations: serializedOperations,
       nextCursor,
       totalCount: totalCount || 0,
       timelapseStarted: screenplay.timelapseStarted,
-    })
-  } catch (error) {
-    logger.error("Failed to fetch timelapse operations", error instanceof Error ? error : undefined, {
-      screenplayId,
-    })
-    return NextResponse.json(
-      { error: "Failed to fetch operations" },
-      { status: 500 }
-    )
-  }
-}
+    }
+  },
+})
 
 export const DELETE = createApiHandler({
   auth: "required",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, supabase }) => {
     const { id: screenplayId } = params
 
@@ -169,10 +183,8 @@ export const DELETE = createApiHandler({
       .eq("userId", user.id)
       .single()
 
-    if (error?.code === "PGRST116" || !screenplay) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
 
     // Delete all operations
     await supabase
@@ -189,7 +201,7 @@ export const DELETE = createApiHandler({
       })
       .eq("id", screenplayId)
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Operation")
 
     return { success: true }
   },

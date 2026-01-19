@@ -1,19 +1,6 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { createServerActionClient } from "@/lib/supabase/server"
-
-async function isProjectOwner(projectId: string, userId: string): Promise<boolean> {
-  const supabase = await createServerActionClient()
-
-  const result = await supabase
-    .from("Project")
-    .select("userId")
-    .eq("id", projectId)
-    .single()
-
-  const project = result.data as { userId: string } | null
-  return project?.userId === userId
-}
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
+import { isProjectOwner } from "@/lib/project-access"
 
 const updateRoleNeedSchema = z.object({
   role: z.string().min(1).optional(),
@@ -25,10 +12,11 @@ const updateRoleNeedSchema = z.object({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateRoleNeedSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id: projectId, needId } = params
 
-    const isOwner = await isProjectOwner(projectId, user.id)
+    const isOwner = await isProjectOwner(supabase, projectId, user.id)
     if (!isOwner) {
       throw new ForbiddenError("Only project owner can update role needs")
     }
@@ -43,7 +31,7 @@ export const PATCH = createApiHandler({
     if (fetchError?.code === "PGRST116" || !existingRoleNeed) {
       throw new NotFoundError("Role need")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "RoleNeed")
 
     const { data: roleNeed, error: updateError } = await supabase
       .from("ProjectRoleNeed")
@@ -52,7 +40,7 @@ export const PATCH = createApiHandler({
       .select()
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "RoleNeed")
 
     return roleNeed
   },
@@ -60,10 +48,11 @@ export const PATCH = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, supabase }) => {
     const { id: projectId, needId } = params
 
-    const isOwner = await isProjectOwner(projectId, user.id)
+    const isOwner = await isProjectOwner(supabase, projectId, user.id)
     if (!isOwner) {
       throw new ForbiddenError("Only project owner can delete role needs")
     }
@@ -78,14 +67,14 @@ export const DELETE = createApiHandler({
     if (fetchError?.code === "PGRST116" || !existingRoleNeed) {
       throw new NotFoundError("Role need")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "RoleNeed")
 
     const { error: deleteError } = await supabase
       .from("ProjectRoleNeed")
       .delete()
       .eq("id", needId)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "RoleNeed")
 
     return { success: true }
   },

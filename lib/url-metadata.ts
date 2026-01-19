@@ -3,10 +3,94 @@
  *
  * Fetches Open Graph and meta information from URLs for link preview cards.
  * Enhanced with embed detection for YouTube, Pinterest, Google Docs, etc.
+ *
+ * SECURITY: Includes SSRF protection to prevent requests to internal networks.
  */
 
 import * as cheerio from 'cheerio';
 import { detectEmbedType, type EmbedType, type EmbedInfo } from './export/embed';
+import { logger } from './logger';
+
+/**
+ * Check if a URL is safe from SSRF attacks.
+ * Blocks requests to internal/private IP addresses and localhost.
+ *
+ * @param url - The URL to validate
+ * @returns true if safe, false if potentially dangerous
+ */
+function isSafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+
+    // Only allow http and https schemes
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return false;
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+
+    // Block localhost variations
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname === '0.0.0.0' ||
+      hostname.endsWith('.localhost')
+    ) {
+      return false;
+    }
+
+    // Block internal/private IP ranges
+    // IPv4 private ranges: 10.x.x.x, 172.16-31.x.x, 192.168.x.x
+    // IPv4 loopback: 127.x.x.x
+    // IPv4 link-local: 169.254.x.x
+    const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (ipv4Match) {
+      const [, a, b] = ipv4Match.map(Number);
+      if (
+        a === 10 || // 10.0.0.0/8
+        a === 127 || // 127.0.0.0/8
+        (a === 172 && b >= 16 && b <= 31) || // 172.16.0.0/12
+        (a === 192 && b === 168) || // 192.168.0.0/16
+        (a === 169 && b === 254) || // 169.254.0.0/16 (link-local)
+        a === 0 // 0.0.0.0/8
+      ) {
+        return false;
+      }
+    }
+
+    // Block IPv6 private/reserved addresses
+    if (hostname.startsWith('[')) {
+      // IPv6 in URL format [::1]
+      const ipv6 = hostname.slice(1, -1).toLowerCase();
+      if (
+        ipv6 === '::1' ||
+        ipv6.startsWith('fe80:') || // Link-local
+        ipv6.startsWith('fc') || // Unique local
+        ipv6.startsWith('fd') || // Unique local
+        ipv6 === '::' // Unspecified
+      ) {
+        return false;
+      }
+    }
+
+    // Block cloud metadata endpoints (AWS, GCP, Azure)
+    const metadataHosts = [
+      '169.254.169.254', // AWS/GCP metadata
+      'metadata.google.internal',
+      'metadata.google',
+      '169.254.170.2', // AWS ECS metadata
+    ];
+    if (metadataHosts.includes(hostname)) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    // Invalid URL
+    return false;
+  }
+}
 
 export interface UrlMetadata {
   url: string;
@@ -82,9 +166,31 @@ async function fetchVimeoMetadata(url: string, _embedInfo: EmbedInfo): Promise<P
 }
 
 /**
- * Fetch metadata from a URL with enhanced embed detection
+ * Fetch metadata from a URL with enhanced embed detection.
+ * Includes SSRF protection to prevent requests to internal networks.
  */
 export async function fetchUrlMetadata(url: string): Promise<UrlMetadata> {
+  // SECURITY: SSRF protection - validate URL before fetching
+  if (!isSafeUrl(url)) {
+    logger.security('SSRF: Blocked request to potentially dangerous URL', {
+      url: url.substring(0, 100), // Truncate for logging
+    });
+    // Return empty metadata for blocked URLs
+    return {
+      url,
+      title: null,
+      description: null,
+      image: null,
+      favicon: null,
+      siteName: null,
+      embedType: 'generic',
+      embedId: null,
+      embedUrl: null,
+      thumbnailUrl: null,
+      isPlayable: false,
+    };
+  }
+
   // First, detect embed type
   const embedInfo = detectEmbedType(url);
 

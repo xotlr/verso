@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
 import { logTeamAction } from "@/lib/audit-log"
 
 const updateTeamSchema = z.object({
@@ -32,10 +32,8 @@ export const GET = createApiHandler({
       .eq("id", id)
       .single()
 
-    if (error?.code === "PGRST116" || !team) {
-      throw new NotFoundError("Team")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Team")
+    if (!team) throw new NotFoundError("Team")
 
     // Verify membership (RLS should handle this, but double-check)
     const isMember = team.members?.some((m: any) => m.userId === user.id)
@@ -57,6 +55,7 @@ export const GET = createApiHandler({
 export const PUT = createApiHandler({
   auth: "required",
   schema: updateTeamSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
@@ -102,7 +101,7 @@ export const PUT = createApiHandler({
       `)
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Team")
 
     await logTeamAction({
       teamId: id,
@@ -125,6 +124,7 @@ export const PUT = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, supabase }) => {
     const { id } = params
 
@@ -154,7 +154,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", id)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Team")
 
     return { success: true }
   },

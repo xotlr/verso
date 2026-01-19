@@ -2,6 +2,7 @@ import { z } from "zod"
 import { createApiHandler, RateLimitError } from "@/lib/api"
 import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit"
 import { logger } from "@/lib/logger"
+import { logPasswordResetRequested } from "@/lib/security-events"
 import crypto from "crypto"
 
 const forgotPasswordSchema = z.object({
@@ -49,6 +50,10 @@ export const POST = createApiHandler({
         })
 
       if (!createError) {
+        // Log the security event (fire-and-forget)
+        const userAgent = request.headers.get("user-agent") || undefined
+        void logPasswordResetRequested(user.id, ip, userAgent)
+
         await sendPasswordResetEmail(normalizedEmail, token)
       }
     }
@@ -66,7 +71,7 @@ async function sendPasswordResetEmail(email: string, token: string) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://verso.ac"
 
   if (!resendApiKey) {
-    console.warn("RESEND_API_KEY not configured, skipping email send")
+    logger.warn("RESEND_API_KEY not configured, skipping email send")
     return
   }
 

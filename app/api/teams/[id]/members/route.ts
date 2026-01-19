@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
 import { logTeamAction } from "@/lib/audit-log"
 
 const addMemberSchema = z.object({
@@ -33,7 +33,7 @@ export const GET = createApiHandler({
       .eq("teamId", id)
       .order("createdAt", { ascending: true })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Member")
 
     return members || []
   },
@@ -42,6 +42,7 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: addMemberSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
@@ -63,7 +64,7 @@ export const POST = createApiHandler({
     if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
-    if (teamError) throw teamError
+    if (teamError) handleSupabaseError(teamError, "Member")
 
     const canInvite =
       team.ownerId === user.id ||
@@ -105,7 +106,7 @@ export const POST = createApiHandler({
     if (userError?.code === "PGRST116" || !userToAdd) {
       throw new NotFoundError("User not found. They need to create an account first.")
     }
-    if (userError) throw userError
+    if (userError) handleSupabaseError(userError, "Member")
 
     // Check if already a member
     const { data: existingMembership } = await supabase
@@ -133,7 +134,7 @@ export const POST = createApiHandler({
       `)
       .single()
 
-    if (insertError) throw insertError
+    if (insertError) handleSupabaseError(insertError, "Member")
 
     await logTeamAction({
       teamId: id,

@@ -29,10 +29,8 @@ export const GET = createApiHandler({
         .eq("screenplayId", id),
     ])
 
-    if (screenplayResult.error?.code === "PGRST116" || !screenplayResult.data) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (screenplayResult.error) throw screenplayResult.error
+    if (screenplayResult.error) throw new NotFoundError("Screenplay")
+    if (!screenplayResult.data) throw new NotFoundError("Screenplay")
     if (sceneMetasResult.error) throw sceneMetasResult.error
 
     const screenplay = screenplayResult.data

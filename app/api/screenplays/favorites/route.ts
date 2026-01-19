@@ -1,4 +1,4 @@
-import { createApiHandler } from "@/lib/api"
+import { createApiHandler, handleSupabaseError } from "@/lib/api"
 
 export const GET = createApiHandler({
   auth: "required",
@@ -16,7 +16,7 @@ export const GET = createApiHandler({
       .order("updatedAt", { ascending: false })
       .limit(limit)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
 
     return favorites || []
   },

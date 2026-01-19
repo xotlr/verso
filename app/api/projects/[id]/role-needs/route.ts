@@ -1,55 +1,10 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
 import { getSession } from "@/lib/supabase-auth"
 import { NextResponse } from "next/server"
 import { logger } from "@/lib/logger"
 import { createServerActionClient } from "@/lib/supabase/server"
-
-interface ProjectWithTeam {
-  id: string
-  userId: string
-  team: { id: string; members: Array<{ userId: string }> } | null
-}
-
-async function hasProjectAccess(projectId: string, userId: string): Promise<boolean> {
-  const supabase = await createServerActionClient()
-
-  const result = await supabase
-    .from("Project")
-    .select(`
-      id,
-      userId,
-      team:Team(
-        id,
-        members:TeamMember(userId)
-      )
-    `)
-    .eq("id", projectId)
-    .single()
-
-  const project = result.data as ProjectWithTeam | null
-  if (result.error || !project) return false
-  if (project.userId === userId) return true
-  if (project.team && Array.isArray(project.team.members)) {
-    const isMember = project.team.members.some((m: { userId: string }) => m.userId === userId)
-    if (isMember) return true
-  }
-
-  return false
-}
-
-async function isProjectOwner(projectId: string, userId: string): Promise<boolean> {
-  const supabase = await createServerActionClient()
-
-  const result = await supabase
-    .from("Project")
-    .select("userId")
-    .eq("id", projectId)
-    .single()
-
-  const project = result.data as { userId: string } | null
-  return project?.userId === userId
-}
+import { hasProjectAccess, isProjectOwner } from "@/lib/project-access"
 
 const createRoleNeedSchema = z.object({
   role: z.string().min(1, "Role is required"),
@@ -79,7 +34,7 @@ export async function GET(
     if (projectError?.code === "PGRST116" || !project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
-    if (projectError) throw projectError
+    if (projectError) handleSupabaseError(projectError, "Project")
 
     const session = await getSession()
     const isOwner = session?.user?.id === project.userId
@@ -89,7 +44,7 @@ export async function GET(
         return NextResponse.json({ error: "Authentication required" }, { status: 401 })
       }
 
-      const hasAccess = await hasProjectAccess(projectId, session.user.id)
+      const hasAccess = await hasProjectAccess(supabase, projectId, session.user.id)
       if (!hasAccess) {
         return NextResponse.json({ error: "Project not found" }, { status: 404 })
       }
@@ -107,7 +62,7 @@ export async function GET(
         .eq("projectId", projectId)
         .order("createdAt", { ascending: false })
 
-      if (error) throw error
+      if (error) handleSupabaseError(error, "RoleNeed")
 
       // Transform to include _count
       roleNeeds = (data || []).map((need: { applications?: { id: string }[] }) => ({
@@ -124,7 +79,7 @@ export async function GET(
         .eq("projectId", projectId)
         .order("createdAt", { ascending: false })
 
-      if (error) throw error
+      if (error) handleSupabaseError(error, "RoleNeed")
       roleNeeds = data || []
     }
 
@@ -140,10 +95,11 @@ export async function GET(
 export const POST = createApiHandler({
   auth: "required",
   schema: createRoleNeedSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id: projectId } = params
 
-    const isOwner = await isProjectOwner(projectId, user.id)
+    const isOwner = await isProjectOwner(supabase, projectId, user.id)
     if (!isOwner) {
       throw new ForbiddenError("Only project owner can add role needs")
     }
@@ -160,7 +116,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "RoleNeed")
 
     return roleNeed
   },

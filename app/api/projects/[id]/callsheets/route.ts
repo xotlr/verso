@@ -1,22 +1,6 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError } from "@/lib/api"
-
-async function hasProjectAccess(projectId: string, userId: string, supabase: any): Promise<boolean> {
-  const { data: project } = await supabase
-    .from("Project")
-    .select(`
-      id, userId, teamId,
-      team:Team(id, members:TeamMember(userId))
-    `)
-    .eq("id", projectId)
-    .single()
-
-  if (!project) return false
-  if (project.userId === userId) return true
-  if (project.team?.members?.some((m: { userId: string }) => m.userId === userId)) return true
-
-  return false
-}
+import { createApiHandler, NotFoundError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
+import { hasProjectAccess, requirePermission } from "@/lib/project-access"
 
 const createCallsheetSchema = z.object({
   title: z.string().min(1, "Title is required").max(255),
@@ -35,7 +19,7 @@ export const GET = createApiHandler({
   handler: async ({ user, params, supabase }) => {
     const { id: projectId } = params
 
-    const hasAccess = await hasProjectAccess(projectId, user.id, supabase)
+    const hasAccess = await hasProjectAccess(supabase, projectId, user.id)
     if (!hasAccess) {
       throw new NotFoundError("Project")
     }
@@ -46,7 +30,7 @@ export const GET = createApiHandler({
       .eq("projectId", projectId)
       .order("shootDate", { ascending: true })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Callsheet")
 
     return callsheets
   },
@@ -55,13 +39,12 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: createCallsheetSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id: projectId } = params
 
-    const hasAccess = await hasProjectAccess(projectId, user.id, supabase)
-    if (!hasAccess) {
-      throw new NotFoundError("Project")
-    }
+    // Require editor permission to create callsheets
+    await requirePermission(supabase, projectId, user.id, "editor")
 
     const { data: callsheet, error } = await supabase
       .from("Callsheet")
@@ -81,7 +64,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Callsheet")
 
     return callsheet
   },

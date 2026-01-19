@@ -1,5 +1,6 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
+import { logger } from "@/lib/logger"
 
 const updateProjectSchema = z.object({
   name: z.string().min(1).max(255).optional(),
@@ -22,6 +23,7 @@ const updateProjectSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ params, supabase }) => {
     const { id } = params
 
@@ -41,10 +43,8 @@ export const GET = createApiHandler({
       .eq("id", id)
       .single()
 
-    if (error?.code === "PGRST116" || !project) {
-      throw new NotFoundError("Project")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Project")
+    if (!project) throw new NotFoundError("Project")
 
     // Add counts
     const result = {
@@ -64,6 +64,7 @@ export const GET = createApiHandler({
 export const PUT = createApiHandler({
   auth: "required",
   schema: updateProjectSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
@@ -75,15 +76,8 @@ export const PUT = createApiHandler({
       .select()
       .single()
 
-    if (error?.code === "PGRST116" || !project) {
-      throw new NotFoundError("Project")
-    }
-    if (error) {
-      if (error.message?.includes("policy")) {
-        throw new ForbiddenError("You don't have edit access to this project")
-      }
-      throw error
-    }
+    if (error) handleSupabaseError(error, "Project")
+    if (!project) throw new NotFoundError("Project")
 
     return project
   },
@@ -91,6 +85,7 @@ export const PUT = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, supabase }) => {
     const { id } = params
 
@@ -129,7 +124,9 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", id)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Project")
+
+    logger.audit("delete", "project", id, { userId: user.id, isOwner, isTeamAdmin })
 
     return { success: true }
   },

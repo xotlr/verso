@@ -1,4 +1,4 @@
-import { createApiHandler } from "@/lib/api"
+import { createApiHandler, handleSupabaseError } from "@/lib/api"
 
 export const POST = createApiHandler({
   auth: "required",
@@ -9,7 +9,7 @@ export const POST = createApiHandler({
       .eq("userId", user.id)
       .eq("isRead", false)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Notification")
 
     return { success: true }
   },

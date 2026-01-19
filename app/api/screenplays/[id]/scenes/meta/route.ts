@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
 export const GET = createApiHandler({
@@ -20,7 +20,7 @@ export const GET = createApiHandler({
       .select("*")
       .eq("screenplayId", id)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Scene")
 
     const metaMap: Record<string, {
       color: string | null

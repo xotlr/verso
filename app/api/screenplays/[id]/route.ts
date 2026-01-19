@@ -1,8 +1,10 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, ConflictError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, ConflictError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
+import { logger } from "@/lib/logger"
 
 export const GET = createApiHandler({
   auth: "required",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ params, supabase }) => {
     const { id } = params
 
@@ -19,10 +21,8 @@ export const GET = createApiHandler({
       .eq("id", id)
       .single()
 
-    if (error?.code === "PGRST116" || !screenplay) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
 
     // Update lastOpenedAt (RLS allows if user can view)
     await supabase
@@ -126,16 +126,11 @@ async function handleUpdate(
     .select()
     .single()
 
-  if (error?.code === "PGRST116" || !screenplay) {
-    throw new NotFoundError("Screenplay")
-  }
   if (error) {
-    // RLS denial or other error
-    if (error.message?.includes("policy")) {
-      throw new ForbiddenError("You don't have edit access to this screenplay")
-    }
-    throw error
+    // handleSupabaseError already handles PGRST116 (not found) and RLS policy errors
+    handleSupabaseError(error, "Screenplay")
   }
+  if (!screenplay) throw new NotFoundError("Screenplay")
 
   return screenplay
 }
@@ -143,17 +138,20 @@ async function handleUpdate(
 export const PUT = createApiHandler({
   auth: "required",
   schema: updateScreenplaySchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ params, data, supabase }) => handleUpdate(params, data, supabase),
 })
 
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateScreenplaySchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ params, data, supabase }) => handleUpdate(params, data, supabase),
 })
 
 export const DELETE = createApiHandler({
   auth: "required",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, supabase }) => {
     const { id } = params
 
@@ -177,7 +175,9 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", id)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
+
+    logger.audit("delete", "screenplay", id, { userId: user.id })
 
     return { success: true }
   },

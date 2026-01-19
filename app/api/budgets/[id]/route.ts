@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 
 async function checkBudgetAccess(budgetId: string, userId: string, supabase: any) {
   const { data: budget, error } = await supabase
@@ -14,10 +14,10 @@ async function checkBudgetAccess(budgetId: string, userId: string, supabase: any
     .eq("id", budgetId)
     .single()
 
-  if (error?.code === "PGRST116" || !budget) {
+  if (error) handleSupabaseError(error, "Budget")
+  if (!budget) {
     return { allowed: false, notFound: true, budget: null }
   }
-  if (error) throw error
 
   if (budget.userId === userId) {
     return { allowed: true, notFound: false, budget }
@@ -78,7 +78,7 @@ export const PUT = createApiHandler({
       .select()
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Budget")
 
     return budget
   },
@@ -104,7 +104,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", id)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Budget")
 
     return { success: true }
   },

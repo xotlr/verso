@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, RATE_LIMITS } from "@/lib/api"
+import { createApiHandler, RATE_LIMITS, handleSupabaseError } from "@/lib/api"
 
 const activityQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -33,7 +33,7 @@ export const GET = createApiHandler({
       .order("createdAt", { ascending: false })
       .limit(limit)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Activity")
 
     // Enrich with screenplay data
     const enrichedActivities = await Promise.all(

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, UnauthorizedError, ForbiddenError, NotFoundError } from "@/lib/api"
+import { createApiHandler, UnauthorizedError, ForbiddenError, NotFoundError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
 import { validateUsername, normalizeUsername } from "@/lib/username"
 
 const optionalUrl = z.preprocess(
@@ -56,126 +56,143 @@ const updateProfileSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "optional",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, supabase }) => {
     const { id } = params
     const isOwnProfile = user?.id === id
 
-    // Fetch user data with related data
+    // Fetch user data with email only if own profile
+    const userSelect = isOwnProfile
+      ? `id, name, username, email, emailVerified, image, banner,
+         location, website, twitter, linkedin, imdb, isPublic, createdAt, plan,
+         oneLiner, roles, reelUrl, availability, featuredProjectId,
+         showcaseTimelapse, responseRate, projectsCompleted, influences,
+         lookingFor, gear, languages, bio, title, interests, skills`
+      : `id, name, username, emailVerified, image, banner,
+         location, website, twitter, linkedin, imdb, isPublic, createdAt, plan,
+         oneLiner, roles, reelUrl, availability, featuredProjectId,
+         showcaseTimelapse, responseRate, projectsCompleted, influences,
+         lookingFor, gear, languages, bio, title, interests, skills`
+
     const { data: userData, error: userError } = await supabase
       .from("User")
-      .select(`
-        id, name, username, emailVerified, image, banner,
-        location, website, twitter, linkedin, imdb, isPublic, createdAt, plan,
-        oneLiner, roles, reelUrl, availability, featuredProjectId,
-        showcaseTimelapse, responseRate, projectsCompleted, influences,
-        lookingFor, gear, languages, bio, title, interests, skills
-      `)
+      .select(userSelect)
       .eq("id", id)
       .single()
 
     if (userError?.code === "PGRST116" || !userData) {
       throw new NotFoundError("User")
     }
-    if (userError) throw userError
+    if (userError) handleSupabaseError(userError, "User")
 
+    // Check privacy BEFORE fetching any other data
     if (!isOwnProfile && !userData.isPublic) {
       throw new ForbiddenError("Profile is private")
     }
 
-    // Fetch credits
-    const { data: credits } = await supabase
-      .from("Credit")
-      .select("id, title, role, year, projectId, isManual, displayOrder")
-      .eq("userId", id)
-      .order("displayOrder", { ascending: true })
-      .order("year", { ascending: false })
-      .limit(10)
+    // Batch fetch related data in parallel to avoid N+1 queries
+    const projectFilter = isOwnProfile ? {} : { teamId: null }
 
-    // Fetch featured project if set
-    let featuredProject = null
-    if (userData.featuredProjectId) {
-      const { data: fp } = await supabase
-        .from("Project")
-        .select("id, name, coverImage, description")
-        .eq("id", userData.featuredProjectId)
-        .single()
-      featuredProject = fp
-    }
-
-    // Fetch projects with optional team filtering
-    const projectQuery = supabase
+    // Fetch projects with screenplay counts in a single join query
+    let projectQuery = supabase
       .from("Project")
-      .select("id, name, description, coverImage, createdAt")
+      .select(`
+        id, name, description, coverImage, createdAt,
+        screenplays:Screenplay(id)
+      `)
       .eq("userId", id)
       .order("updatedAt", { ascending: false })
       .limit(12)
 
     if (!isOwnProfile) {
-      projectQuery.is("teamId", null)
+      projectQuery = projectQuery.is("teamId", null)
     }
 
-    const { data: projects } = await projectQuery
+    // Run parallel queries for better performance
+    const [
+      creditsResult,
+      featuredProjectResult,
+      projectsResult,
+      screenplaysResult,
+      projectCountResult,
+      screenplayCountResult,
+    ] = await Promise.all([
+      // Credits
+      supabase
+        .from("Credit")
+        .select("id, title, role, year, projectId, isManual, displayOrder")
+        .eq("userId", id)
+        .order("displayOrder", { ascending: true })
+        .order("year", { ascending: false })
+        .limit(10),
 
-    // Get screenplay counts per project
-    type ProjectItem = { id: string; name: string; description: string | null; coverImage: string | null; createdAt: string }
-    const projectsWithCounts = await Promise.all(
-      (projects || []).map(async (p: ProjectItem) => {
-        const { count } = await supabase
+      // Featured project (only if set)
+      userData.featuredProjectId
+        ? supabase
+            .from("Project")
+            .select("id, name, coverImage, description")
+            .eq("id", userData.featuredProjectId)
+            .single()
+        : Promise.resolve({ data: null }),
+
+      // Projects with screenplay counts (using join instead of N+1)
+      projectQuery,
+
+      // Screenplays with timelapse
+      (async () => {
+        let query = supabase
           .from("Screenplay")
-          .select("*", { count: "exact", head: true })
-          .eq("projectId", p.id)
-        return { ...p, _count: { screenplays: count || 0 } }
-      })
-    )
+          .select("id, title, synopsis, timelapseShareId, createdAt, updatedAt")
+          .eq("userId", id)
+          .not("timelapseShareId", "is", null)
+          .order("updatedAt", { ascending: false })
+          .limit(20)
+        if (!isOwnProfile) {
+          query = query.is("teamId", null)
+        }
+        return query
+      })(),
 
-    // Fetch screenplays with timelapse share
-    let screenplayQuery = supabase
-      .from("Screenplay")
-      .select("id, title, synopsis, timelapseShareId, createdAt, updatedAt")
-      .eq("userId", id)
-      .not("timelapseShareId", "is", null)
-      .order("updatedAt", { ascending: false })
-      .limit(20)
-
-    if (!isOwnProfile) {
-      screenplayQuery = screenplayQuery.is("teamId", null)
-    }
-
-    const { data: screenplays } = await screenplayQuery
-
-    // Get counts
-    const [projectCount, screenplayCount] = await Promise.all([
+      // Total project count
       supabase
         .from("Project")
         .select("*", { count: "exact", head: true })
         .eq("userId", id),
+
+      // Total screenplay count
       supabase
         .from("Screenplay")
         .select("*", { count: "exact", head: true })
         .eq("userId", id),
     ])
 
-    // Get email only for own profile
-    let email = null
-    if (isOwnProfile) {
-      const { data: emailData } = await supabase
-        .from("User")
-        .select("email")
-        .eq("id", id)
-        .single()
-      email = emailData?.email
+    // Transform projects to include _count (avoiding N+1)
+    type ProjectWithScreenplays = {
+      id: string
+      name: string
+      description: string | null
+      coverImage: string | null
+      createdAt: string
+      screenplays: Array<{ id: string }> | null
     }
+    const projectsWithCounts = (projectsResult.data as ProjectWithScreenplays[] || []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      coverImage: p.coverImage,
+      createdAt: p.createdAt,
+      _count: { screenplays: (p.screenplays || []).length },
+    }))
 
     return {
       ...userData,
-      email,
-      credits: credits || [],
-      featuredProject,
+      credits: creditsResult.data || [],
+      featuredProject: featuredProjectResult.data,
       projects: projectsWithCounts,
-      screenplays: screenplays || [],
+      screenplays: screenplaysResult.data || [],
       _count: {
-        projects: projectCount.count || 0,
-        screenplays: screenplayCount.count || 0,
+        projects: projectCountResult.count || 0,
+        screenplays: screenplayCountResult.count || 0,
       },
     }
   },
@@ -184,6 +201,7 @@ export const GET = createApiHandler({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateProfileSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
@@ -247,7 +265,7 @@ export const PATCH = createApiHandler({
       `)
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "User")
 
     // Fetch credits for response
     const { data: credits } = await supabase

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
 const createSideSchema = z.object({
@@ -33,7 +33,7 @@ export const GET = createApiHandler({
       .eq("screenplayId", id)
       .order("createdAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Side")
 
     return { sides: sides || [] }
   },
@@ -66,7 +66,7 @@ export const POST = createApiHandler({
       if (callsheetError?.code === "PGRST116" || !callsheet) {
         throw new NotFoundError("Callsheet")
       }
-      if (callsheetError) throw callsheetError
+      if (callsheetError) handleSupabaseError(callsheetError, "Side")
     }
 
     // Fetch screenplay title for default title generation
@@ -98,7 +98,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (createError) throw createError
+    if (createError) handleSupabaseError(createError, "Side")
 
     return { side }
   },

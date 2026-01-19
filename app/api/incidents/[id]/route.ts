@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createApiHandler } from '@/lib/api';
+import { createApiHandler, handleSupabaseError } from '@/lib/api';
 import { NotFoundError, UnauthorizedError } from '@/lib/api/errors';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').filter(Boolean);
@@ -35,10 +35,8 @@ export const GET = createApiHandler({
       .eq('id', params.id)
       .single();
 
-    if (error?.code === 'PGRST116' || !incident) {
-      throw new NotFoundError('Incident');
-    }
-    if (error) throw error;
+    if (error) handleSupabaseError(error, "Incident");
+    if (!incident) throw new NotFoundError('Incident');
 
     // Sort updates by createdAt descending
     const sortedUpdates = ((incident.updates as unknown[]) || []).sort(
@@ -66,7 +64,7 @@ export const PUT = createApiHandler({
       .eq('id', user.id)
       .single();
 
-    if (userError) throw userError;
+    if (userError) handleSupabaseError(userError, "Incident");
 
     if (!isAdmin(dbUser?.email)) {
       throw new UnauthorizedError('Admin access required');
@@ -79,10 +77,8 @@ export const PUT = createApiHandler({
       .eq('id', params.id)
       .single();
 
-    if (existingError?.code === 'PGRST116' || !existing) {
-      throw new NotFoundError('Incident');
-    }
-    if (existingError) throw existingError;
+    if (existingError) handleSupabaseError(existingError, "Incident");
+    if (!existing) throw new NotFoundError('Incident');
 
     // Build update data
     const updateData: Record<string, unknown> = {};
@@ -108,7 +104,7 @@ export const PUT = createApiHandler({
       .select()
       .single();
 
-    if (updateError) throw updateError;
+    if (updateError) handleSupabaseError(updateError, "Incident");
 
     // Fetch updates
     const { data: updates } = await supabase
@@ -135,7 +131,7 @@ export const DELETE = createApiHandler({
       .eq('id', user.id)
       .single();
 
-    if (userError) throw userError;
+    if (userError) handleSupabaseError(userError, "Incident");
 
     if (!isAdmin(dbUser?.email)) {
       throw new UnauthorizedError('Admin access required');
@@ -148,17 +144,15 @@ export const DELETE = createApiHandler({
       .eq('id', params.id)
       .single();
 
-    if (existingError?.code === 'PGRST116' || !existing) {
-      throw new NotFoundError('Incident');
-    }
-    if (existingError) throw existingError;
+    if (existingError) handleSupabaseError(existingError, "Incident");
+    if (!existing) throw new NotFoundError('Incident');
 
     const { error: deleteError } = await supabase
       .from('Incident')
       .delete()
       .eq('id', params.id);
 
-    if (deleteError) throw deleteError;
+    if (deleteError) handleSupabaseError(deleteError, "Incident");
 
     return { success: true };
   },

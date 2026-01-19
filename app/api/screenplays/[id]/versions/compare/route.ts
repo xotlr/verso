@@ -41,15 +41,11 @@ export const GET = createApiHandler({
         .single(),
     ])
 
-    if (fromResult.error?.code === "PGRST116" || !fromResult.data) {
-      throw new NotFoundError("'from' version")
-    }
-    if (fromResult.error) throw fromResult.error
+    if (fromResult.error) throw new NotFoundError("'from' version")
+    if (!fromResult.data) throw new NotFoundError("'from' version")
 
-    if (toResult.error?.code === "PGRST116" || !toResult.data) {
-      throw new NotFoundError("'to' version")
-    }
-    if (toResult.error) throw toResult.error
+    if (toResult.error) throw new NotFoundError("'to' version")
+    if (!toResult.data) throw new NotFoundError("'to' version")
 
     const fromVersion = fromResult.data
     const toVersion = toResult.data

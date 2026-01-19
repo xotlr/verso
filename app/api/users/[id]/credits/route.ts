@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, ForbiddenError, BadRequestError, handleSupabaseError } from "@/lib/api"
 
 const createCreditSchema = z.object({
   title: z.string().min(1).max(200),
@@ -27,7 +27,7 @@ export const GET = createApiHandler({
       .order("displayOrder", { ascending: true })
       .order("year", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Credit")
 
     return credits || []
   },
@@ -80,7 +80,7 @@ export const POST = createApiHandler({
       .select("id, title, role, year, projectId, isManual, displayOrder")
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Credit")
 
     return credit
   },
@@ -104,7 +104,7 @@ export const PUT = createApiHandler({
         .eq("id", data.creditIds[i])
         .eq("userId", id)
 
-      if (error) throw error
+      if (error) handleSupabaseError(error, "Credit")
     }
 
     return { success: true }

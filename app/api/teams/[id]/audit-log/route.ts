@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 
 export const GET = createApiHandler({
   auth: "required",
@@ -23,7 +23,7 @@ export const GET = createApiHandler({
     if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
-    if (teamError) throw teamError
+    if (teamError) handleSupabaseError(teamError, "AuditLog")
 
     const canViewAudit =
       team.ownerId === user.id ||
@@ -67,7 +67,7 @@ export const GET = createApiHandler({
 
     const { data: auditLogs, error } = await query
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "AuditLog")
 
     let nextCursor: string | null = null
     const logs = auditLogs || []

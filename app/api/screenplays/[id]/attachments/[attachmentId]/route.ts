@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { logger } from "@/lib/logger"
 
@@ -29,7 +29,7 @@ export const PATCH = createApiHandler({
     if (fetchError?.code === "PGRST116" || !attachment) {
       throw new NotFoundError("Attachment")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Attachment")
 
     if (attachment.screenplayId !== id) {
       throw new NotFoundError("Attachment")
@@ -46,7 +46,7 @@ export const PATCH = createApiHandler({
       .select()
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Attachment")
 
     logger.audit('update', 'sceneAttachment', attachmentId, {
       screenplayId: id,
@@ -77,7 +77,7 @@ export const DELETE = createApiHandler({
     if (fetchError?.code === "PGRST116" || !attachment) {
       throw new NotFoundError("Attachment")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Attachment")
 
     if (attachment.screenplayId !== id) {
       throw new NotFoundError("Attachment")
@@ -88,7 +88,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", attachmentId)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "Attachment")
 
     logger.audit('delete', 'sceneAttachment', attachmentId, {
       screenplayId: id,

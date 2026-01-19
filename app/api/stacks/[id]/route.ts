@@ -1,5 +1,6 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
+import { logger } from "@/lib/logger"
 
 const updateStackSchema = z.object({
   name: z.string().min(1).max(255).optional(),
@@ -22,10 +23,8 @@ export const GET = createApiHandler({
       .eq("userId", user.id)
       .single()
 
-    if (error?.code === "PGRST116" || !stack) {
-      throw new NotFoundError("Stack")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Stack")
+    if (!stack) throw new NotFoundError("Stack")
 
     return {
       ...stack,
@@ -37,6 +36,7 @@ export const GET = createApiHandler({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateStackSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id } = params
     const { name, projectId } = data
@@ -49,10 +49,8 @@ export const PATCH = createApiHandler({
       .eq("userId", user.id)
       .single()
 
-    if (fetchError?.code === "PGRST116" || !existingStack) {
-      throw new NotFoundError("Stack")
-    }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Stack")
+    if (!existingStack) throw new NotFoundError("Stack")
 
     // Verify project access if provided
     if (projectId) {
@@ -83,7 +81,7 @@ export const PATCH = createApiHandler({
       `)
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Stack")
 
     return {
       ...stack,
@@ -94,6 +92,7 @@ export const PATCH = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, supabase }) => {
     const { id } = params
 
@@ -105,10 +104,8 @@ export const DELETE = createApiHandler({
       .eq("userId", user.id)
       .single()
 
-    if (fetchError?.code === "PGRST116" || !existingStack) {
-      throw new NotFoundError("Stack")
-    }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Stack")
+    if (!existingStack) throw new NotFoundError("Stack")
 
     // Remove stack reference from screenplays
     await supabase
@@ -122,7 +119,9 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", id)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "Stack")
+
+    logger.audit("delete", "stack", id, { userId: user.id })
 
     return { success: true }
   },

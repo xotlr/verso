@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 
 export const PATCH = createApiHandler({
   auth: "required",
@@ -15,7 +15,7 @@ export const PATCH = createApiHandler({
     if (fetchError?.code === "PGRST116" || !notification) {
       throw new NotFoundError("Notification")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Notification")
 
     if (notification.userId !== user.id) {
       throw new ForbiddenError()
@@ -29,7 +29,7 @@ export const PATCH = createApiHandler({
       .select()
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Notification")
 
     return { notification: updated }
   },

@@ -45,3 +45,12 @@ export const SCREEN_READER_TIMEOUT_MS = 1000;
 // UI Timing
 export const DEBOUNCE_DELAY_MS = 300;
 export const SCROLL_INTO_VIEW_DELAY_MS = 100;
+
+// API Limits
+export const MAX_PAGINATION_OFFSET = 10000;
+export const MAX_TIMELAPSE_OPERATIONS_LIMIT = 5000;
+export const URL_FETCH_TIMEOUT_MS = 5000;
+
+// Time Durations
+export const INVITE_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000;  // 7 days
+export const TRIAL_PERIOD_MS = 14 * 24 * 60 * 60 * 1000;       // 14 days

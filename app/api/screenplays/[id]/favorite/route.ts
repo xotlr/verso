@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError } from "@/lib/api"
+import { createApiHandler, NotFoundError, handleSupabaseError } from "@/lib/api"
 
 export const POST = createApiHandler({
   auth: "required",
@@ -16,7 +16,7 @@ export const POST = createApiHandler({
     if (fetchError?.code === "PGRST116" || !screenplay) {
       throw new NotFoundError("Screenplay")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Screenplay")
 
     // Toggle favorite
     const { data: updated, error: updateError } = await supabase
@@ -26,7 +26,7 @@ export const POST = createApiHandler({
       .select("id, isFavorite")
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Screenplay")
 
     return updated
   },

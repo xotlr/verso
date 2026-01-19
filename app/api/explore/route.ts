@@ -1,11 +1,23 @@
 import { z } from "zod"
-import { createApiHandler, RATE_LIMITS } from "@/lib/api"
+import { createApiHandler, RATE_LIMITS, handleSupabaseError } from "@/lib/api"
+import { MAX_PAGINATION_OFFSET } from "@/lib/constants"
+
+/**
+ * Sanitize search input to prevent SQL injection in ILIKE patterns.
+ * Escapes special PostgreSQL pattern characters: %, _, \
+ */
+function sanitizeSearchInput(input: string): string {
+  return input
+    .replace(/\\/g, '\\\\')  // Escape backslashes first
+    .replace(/%/g, '\\%')     // Escape percent signs
+    .replace(/_/g, '\\_')     // Escape underscores
+}
 
 const exploreQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
-  offset: z.coerce.number().int().min(0).default(0),
+  offset: z.coerce.number().int().min(0).max(MAX_PAGINATION_OFFSET).default(0),
   genre: z.string().max(100).optional(),
-  search: z.string().max(500).optional(),
+  search: z.string().max(200).optional(), // Reduced max length
   type: z.enum(["screenplays", "genres"]).default("screenplays"),
 })
 
@@ -22,7 +34,8 @@ export const GET = createApiHandler({
     })
 
     if (!queryResult.success) {
-      return { error: "Invalid query parameters", details: queryResult.error.issues }
+      // Don't expose validation details to prevent schema leakage
+      return { error: "Invalid query parameters" }
     }
 
     const { limit, offset, genre, search, type } = queryResult.data
@@ -34,7 +47,7 @@ export const GET = createApiHandler({
         .eq("isPublic", true)
         .not("genre", "is", null)
 
-      if (error) throw error
+      if (error) handleSupabaseError(error, "Explore")
 
       // Get distinct genres
       const uniqueGenres = [...new Set((genreData || []).map((g: { genre: string | null }) => g.genre).filter(Boolean))]
@@ -63,12 +76,13 @@ export const GET = createApiHandler({
     }
 
     if (search) {
-      query = query.or(`title.ilike.%${search}%,synopsis.ilike.%${search}%`)
+      const sanitizedSearch = sanitizeSearchInput(search)
+      query = query.or(`title.ilike.%${sanitizedSearch}%,synopsis.ilike.%${sanitizedSearch}%`)
     }
 
     const { data: screenplays, count, error } = await query
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Explore")
 
     const total = count || 0
 

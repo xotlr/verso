@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { REVISION_COLORS } from "@/types/version"
 
@@ -147,7 +147,7 @@ export const POST = createApiHandler({
       `)
       .single()
 
-    if (createError) throw createError
+    if (createError) handleSupabaseError(createError, "Version")
 
     return version
   },

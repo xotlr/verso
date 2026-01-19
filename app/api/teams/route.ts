@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler } from "@/lib/api"
+import { createApiHandler, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
 import { logTeamAction } from "@/lib/audit-log"
 
 const createTeamSchema = z.object({
@@ -25,7 +25,7 @@ export const GET = createApiHandler({
       `)
       .order("createdAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Team")
 
     // Transform to include counts
     const transformedTeams = (teams || []).map((team: any) => ({
@@ -44,6 +44,7 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: createTeamSchema,
+  rateLimit: RATE_LIMITS.PROJECT_CREATE,
   handler: async ({ user, data, supabase }) => {
     const { name, description, logo } = data
 
@@ -59,7 +60,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (teamError) throw teamError
+    if (teamError) handleSupabaseError(teamError, "Team")
 
     // Add owner as member with OWNER role
     const { error: memberError } = await supabase
@@ -70,7 +71,7 @@ export const POST = createApiHandler({
         role: "OWNER",
       })
 
-    if (memberError) throw memberError
+    if (memberError) handleSupabaseError(memberError, "Team")
 
     // Fetch complete team with relations
     const { data: completeTeam, error: fetchError } = await supabase
@@ -86,7 +87,7 @@ export const POST = createApiHandler({
       .eq("id", team.id)
       .single()
 
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Team")
 
     await logTeamAction({
       teamId: team.id,

@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError, RATE_LIMITS } from "@/lib/api"
+import { createApiHandler, NotFoundError, RATE_LIMITS, handleSupabaseError } from "@/lib/api"
 
 export const GET = createApiHandler({
   auth: "optional",
@@ -23,7 +23,7 @@ export const GET = createApiHandler({
     if (userError?.code === "PGRST116" || !userData) {
       throw new NotFoundError("Profile not available")
     }
-    if (userError) throw userError
+    if (userError) handleSupabaseError(userError, "User")
 
     const isOwnProfile = sessionUser?.id === userData.id
     const isAccessible = isOwnProfile || userData.isPublic

@@ -1,4 +1,4 @@
-import { createApiHandler } from '@/lib/api';
+import { createApiHandler, handleSupabaseError } from '@/lib/api';
 import { SERVICES, type ServiceName, type UptimeData } from '@/lib/health';
 
 /**
@@ -23,7 +23,7 @@ export const GET = createApiHandler({
       .gte('date', startDate.toISOString())
       .order('date', { ascending: false });
 
-    if (error) throw error;
+    if (error) handleSupabaseError(error, "HealthCheck");
 
     // Group by service
     const history: Record<ServiceName, UptimeData[]> = {

@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError } from "@/lib/api"
+import { createApiHandler, NotFoundError, handleSupabaseError } from "@/lib/api"
 
 export const GET = createApiHandler({
   auth: "required",
@@ -21,7 +21,7 @@ export const GET = createApiHandler({
     if (screenplayError?.code === "PGRST116" || !screenplay) {
       throw new NotFoundError("Screenplay")
     }
-    if (screenplayError) throw screenplayError
+    if (screenplayError) handleSupabaseError(screenplayError, "Screenplay")
 
     // Update lastOpenedAt (silently fails if no edit access, which is fine for viewers)
     await supabase
@@ -37,7 +37,7 @@ export const GET = createApiHandler({
       .order("sceneId", { ascending: true })
       .order("shotNumber", { ascending: true })
 
-    if (shotsError) throw shotsError
+    if (shotsError) handleSupabaseError(shotsError, "Shot")
 
     // Determine access level for UI hints
     const isOwner = screenplay.userId === user.id

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
 const updateRolesSchema = z.object({
@@ -25,7 +25,7 @@ export const GET = createApiHandler({
       .select("characterName, role")
       .eq("screenplayId", id)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Character")
 
     const roles: Record<string, string> = {}
     for (const meta of characterMetas || []) {

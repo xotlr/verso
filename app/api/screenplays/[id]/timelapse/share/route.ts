@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, BadRequestError, handleSupabaseError } from "@/lib/api"
 import { createId } from "@paralleldrive/cuid2"
 
 export const POST = createApiHandler({
@@ -13,10 +13,8 @@ export const POST = createApiHandler({
       .eq("userId", user.id)
       .single()
 
-    if (error?.code === "PGRST116" || !screenplay) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
 
     if (!screenplay.timelapseStarted) {
       throw new BadRequestError("No timelapse recording exists for this screenplay")
@@ -29,7 +27,7 @@ export const POST = createApiHandler({
       .update({ timelapseShareId: shareId })
       .eq("id", screenplayId)
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Timelapse")
 
     return {
       shareId,
@@ -50,17 +48,15 @@ export const DELETE = createApiHandler({
       .eq("userId", user.id)
       .single()
 
-    if (error?.code === "PGRST116" || !screenplay) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
 
     const { error: updateError } = await supabase
       .from("Screenplay")
       .update({ timelapseShareId: null })
       .eq("id", screenplayId)
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Timelapse")
 
     return { success: true }
   },

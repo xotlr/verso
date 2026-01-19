@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
 const reorderSchema = z.object({
@@ -32,7 +32,7 @@ export const POST = createApiHandler({
       .eq("sceneId", sceneId)
       .in("id", shotIds)
 
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Shot")
 
     const existingIds = new Set((existingShots || []).map((s: { id: string }) => s.id))
     const missingIds = shotIds.filter((id) => !existingIds.has(id))
@@ -48,7 +48,7 @@ export const POST = createApiHandler({
         .update({ shotNumber: i + 1 })
         .eq("id", shotIds[i])
 
-      if (updateError) throw updateError
+      if (updateError) handleSupabaseError(updateError, "Shot")
     }
 
     // Fetch updated shots
@@ -59,7 +59,7 @@ export const POST = createApiHandler({
       .eq("sceneId", sceneId)
       .order("shotNumber", { ascending: true })
 
-    if (resultError) throw resultError
+    if (resultError) handleSupabaseError(resultError, "Shot")
 
     return { shots: updatedShots || [] }
   },

@@ -1,5 +1,6 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
+import { hasProjectAccess } from "@/lib/project-access"
 
 const moveScreenplaySchema = z.object({
   projectId: z.string().nullable().optional(),
@@ -9,6 +10,7 @@ const moveScreenplaySchema = z.object({
 export const PUT = createApiHandler({
   auth: "required",
   schema: moveScreenplaySchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
@@ -22,58 +24,20 @@ export const PUT = createApiHandler({
       .eq("id", id)
       .single()
 
-    if (error?.code === "PGRST116" || !screenplay) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
 
-    let hasAccess = screenplay.userId === user.id
-
-    if (!hasAccess) {
-      const teamId = screenplay.teamId || screenplay.project?.teamId
-      if (teamId) {
-        const { data: membership } = await supabase
-          .from("TeamMember")
-          .select("id")
-          .eq("teamId", teamId)
-          .eq("userId", user.id)
-          .single()
-        hasAccess = !!membership
-      }
-    }
-
-    if (!hasAccess) {
-      throw new ForbiddenError()
+    // Only screenplay owner can move it
+    if (screenplay.userId !== user.id) {
+      throw new ForbiddenError("Only the screenplay owner can move it")
     }
 
     const { projectId, teamId } = data
 
     // Validate target project access if moving to a project
     if (projectId) {
-      const { data: targetProject, error: projectError } = await supabase
-        .from("Project")
-        .select("userId, teamId")
-        .eq("id", projectId)
-        .single()
-
-      if (projectError?.code === "PGRST116" || !targetProject) {
-        throw new NotFoundError("Target project")
-      }
-      if (projectError) throw projectError
-
-      let hasProjectAccess = targetProject.userId === user.id
-
-      if (!hasProjectAccess && targetProject.teamId) {
-        const { data: membership } = await supabase
-          .from("TeamMember")
-          .select("id")
-          .eq("teamId", targetProject.teamId)
-          .eq("userId", user.id)
-          .single()
-        hasProjectAccess = !!membership
-      }
-
-      if (!hasProjectAccess) {
+      const hasAccess = await hasProjectAccess(supabase, projectId, user.id)
+      if (!hasAccess) {
         throw new ForbiddenError("Access denied to target project")
       }
     }
@@ -112,7 +76,7 @@ export const PUT = createApiHandler({
       `)
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Screenplay")
 
     return updatedScreenplay
   },

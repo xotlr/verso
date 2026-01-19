@@ -1,4 +1,4 @@
-import { createApiHandler, UnauthorizedError } from "@/lib/api"
+import { createApiHandler, UnauthorizedError, handleSupabaseError } from "@/lib/api"
 
 export const GET = createApiHandler({
   auth: "required",
@@ -32,7 +32,7 @@ export const GET = createApiHandler({
       .gt("expiresAt", new Date().toISOString())
       .order("createdAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Invite")
 
     return invites || []
   },

@@ -32,19 +32,31 @@ function LoginForm() {
     setErrorMessage("")
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      // Use server-side login endpoint with lockout protection
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       })
 
-      if (error) {
-        setErrorMessage(error.message === "Invalid login credentials"
-          ? "Invalid email or password"
-          : error.message)
-      } else {
-        router.push(callbackUrl)
-        router.refresh()
+      const data = await response.json()
+
+      if (!response.ok) {
+        // Handle rate limit / lockout errors
+        if (response.status === 429) {
+          const retryAfter = data.retryAfter || 900
+          const minutes = Math.ceil(retryAfter / 60)
+          setErrorMessage(data.error?.message || `Too many attempts. Try again in ${minutes} minutes.`)
+        } else {
+          setErrorMessage(data.error?.message || "Invalid email or password")
+        }
+        return
       }
+
+      // Session is automatically set via HTTP-only cookies by the server.
+      // Just redirect - the cookies will be sent with subsequent requests.
+      router.push(callbackUrl)
+      router.refresh()
     } catch {
       setErrorMessage("Something went wrong. Please try again.")
     } finally {

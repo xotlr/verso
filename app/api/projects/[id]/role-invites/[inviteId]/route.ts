@@ -1,7 +1,8 @@
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
 
 export const DELETE = createApiHandler({
   auth: "required",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, supabase }) => {
     const { id: projectId, inviteId } = params
 
@@ -24,7 +25,7 @@ export const DELETE = createApiHandler({
     if (fetchError?.code === "PGRST116" || !invite) {
       throw new NotFoundError("Invite")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Invite")
 
     const project = invite.project as {
       userId: string
@@ -46,7 +47,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", inviteId)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "Invite")
 
     return { success: true }
   },

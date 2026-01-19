@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, BadRequestError, RATE_LIMITS } from "@/lib/api"
+import { createApiHandler, NotFoundError, BadRequestError, RATE_LIMITS, handleSupabaseError } from "@/lib/api"
 
 const createEpisodeSchema = z.object({
   season: z.number().int().min(1).max(99),
@@ -24,7 +24,7 @@ export const POST = createApiHandler({
     if (seriesError?.code === "PGRST116" || !series) {
       throw new NotFoundError("Series")
     }
-    if (seriesError) throw seriesError
+    if (seriesError) handleSupabaseError(seriesError, "Series")
 
     const { data: existingEpisode } = await supabase
       .from("Screenplay")
@@ -66,7 +66,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (createError) throw createError
+    if (createError) handleSupabaseError(createError, "Screenplay")
 
     await supabase.from("Activity").insert({
       userId: user.id,

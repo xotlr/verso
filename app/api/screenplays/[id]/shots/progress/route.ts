@@ -1,6 +1,6 @@
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
-import { canUseProduction, type PlanType } from "@/lib/stripe"
+import { canAccessProductionFeatures, type PlanType } from "@/lib/stripe"
 import type { ProductionProgress, SceneProgress, ShotProgress, ShotStatus } from "@/types/production-tracking"
 
 export const GET = createApiHandler({
@@ -8,18 +8,21 @@ export const GET = createApiHandler({
   handler: async ({ user, params, supabase }) => {
     const { id: screenplayId } = params
 
+    // Fetch both plan AND stripeCurrentPeriodEnd for proper validation
     const { data: dbUser, error: userError } = await supabase
       .from("User")
-      .select("plan")
+      .select("plan, stripeCurrentPeriodEnd")
       .eq("id", user.id)
       .single()
 
-    if (userError) throw userError
+    if (userError) handleSupabaseError(userError, "User")
 
     const plan = (dbUser?.plan as PlanType) || "FREE"
+    const periodEnd = dbUser?.stripeCurrentPeriodEnd as string | null
 
-    if (!canUseProduction(plan)) {
-      throw new ForbiddenError("Production features require PRO plan")
+    // SECURITY: Validate both plan AND subscription period
+    if (!canAccessProductionFeatures(plan, periodEnd)) {
+      throw new ForbiddenError("Production features require an active PRO subscription")
     }
 
     const access = await checkScreenplayAccess(screenplayId, user.id)
@@ -37,7 +40,7 @@ export const GET = createApiHandler({
       .order("sceneId", { ascending: true })
       .order("shotNumber", { ascending: true })
 
-    if (shotsError) throw shotsError
+    if (shotsError) handleSupabaseError(shotsError, "Shot")
 
     const statusCounts = {
       planned: 0,

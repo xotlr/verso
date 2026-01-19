@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, BadRequestError, handleSupabaseError } from "@/lib/api"
 
 const updateShortcutsSchema = z.object({
   shortcuts: z.record(z.string(), z.unknown()),
@@ -14,10 +14,8 @@ export const GET = createApiHandler({
       .eq("id", user.id)
       .single()
 
-    if (error?.code === "PGRST116" || !userData) {
-      throw new NotFoundError("User")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "User")
+    if (!userData) throw new NotFoundError("User")
 
     return { shortcuts: userData.shortcuts || {} }
   },
@@ -38,7 +36,7 @@ export const PUT = createApiHandler({
       .update({ shortcuts: shortcuts as object })
       .eq("id", user.id)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Shortcut")
 
     return { success: true }
   },

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, handleSupabaseError } from "@/lib/api"
 import { createTeamCheckoutSession } from "@/lib/stripe-helpers"
 import { logTeamAction } from "@/lib/audit-log"
 
@@ -27,7 +27,7 @@ export const POST = createApiHandler({
     if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
-    if (teamError) throw teamError
+    if (teamError) handleSupabaseError(teamError, "Team")
 
     if (team.ownerId !== user.id) {
       throw new ForbiddenError("Only the team owner can manage billing")

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
 import { logTeamAction } from "@/lib/audit-log"
 
 const createInviteSchema = z.object({
@@ -30,7 +30,7 @@ export const GET = createApiHandler({
     if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
-    if (teamError) throw teamError
+    if (teamError) handleSupabaseError(teamError, "Invite")
 
     const isMember = membership || team.ownerId === user.id
     if (!isMember) {
@@ -46,7 +46,7 @@ export const GET = createApiHandler({
       .eq("teamId", id)
       .order("createdAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Invite")
 
     return invites || []
   },
@@ -55,6 +55,7 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: createInviteSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
@@ -76,7 +77,7 @@ export const POST = createApiHandler({
     if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
-    if (teamError) throw teamError
+    if (teamError) handleSupabaseError(teamError, "Invite")
 
     const canInvite =
       team.ownerId === user.id ||
@@ -160,7 +161,7 @@ export const POST = createApiHandler({
       `)
       .single()
 
-    if (insertError) throw insertError
+    if (insertError) handleSupabaseError(insertError, "Invite")
 
     await logTeamAction({
       teamId: id,

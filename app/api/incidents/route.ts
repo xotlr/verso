@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createApiHandler } from '@/lib/api';
+import { createApiHandler, handleSupabaseError } from '@/lib/api';
 import { UnauthorizedError } from '@/lib/api/errors';
 
 // Admin emails - in production, this would be in a database or environment variable
@@ -47,7 +47,7 @@ export const GET = createApiHandler({
 
     const { data: incidents, error } = await query;
 
-    if (error) throw error;
+    if (error) handleSupabaseError(error, "Incident");
 
     // Sort updates by createdAt descending
     interface IncidentResult {
@@ -89,7 +89,7 @@ export const POST = createApiHandler({
       .eq('id', user.id)
       .single();
 
-    if (userError) throw userError;
+    if (userError) handleSupabaseError(userError, "Incident");
 
     if (!isAdmin(dbUser?.email)) {
       throw new UnauthorizedError('Admin access required');
@@ -108,7 +108,7 @@ export const POST = createApiHandler({
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) handleSupabaseError(error, "Incident");
 
     return { ...incident, updates: [] };
   },

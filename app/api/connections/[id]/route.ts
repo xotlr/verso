@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, handleSupabaseError } from "@/lib/api"
 
 const updateConnectionSchema = z.object({
   status: z.enum(["ACCEPTED", "DECLINED"]),
@@ -21,7 +21,7 @@ export const PATCH = createApiHandler({
     if (fetchError?.code === "PGRST116" || !connection) {
       throw new NotFoundError("Connection")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Connection")
 
     if (connection.addresseeId !== user.id) {
       throw new ForbiddenError("Only the recipient can respond to this request")
@@ -38,7 +38,7 @@ export const PATCH = createApiHandler({
       .select()
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Connection")
 
     return {
       connection: updated,
@@ -61,7 +61,7 @@ export const DELETE = createApiHandler({
     if (fetchError?.code === "PGRST116" || !connection) {
       throw new NotFoundError("Connection")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Connection")
 
     if (connection.requesterId !== user.id && connection.addresseeId !== user.id) {
       throw new ForbiddenError()
@@ -72,7 +72,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", connectionId)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "Connection")
 
     return {
       message: connection.status === "PENDING" ? "Request cancelled" : "Connection removed",

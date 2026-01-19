@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError } from "@/lib/api"
+import { createApiHandler, NotFoundError, handleSupabaseError } from "@/lib/api"
 
 const updateSettingsSchema = z.object({
   enabled: z.boolean().optional(),
@@ -17,10 +17,8 @@ export const GET = createApiHandler({
       .eq("userId", user.id)
       .single()
 
-    if (error?.code === "PGRST116" || !screenplay) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
 
     // Get operation count
     const { count: operationCount } = await supabase
@@ -77,10 +75,8 @@ export const PATCH = createApiHandler({
       .eq("userId", user.id)
       .single()
 
-    if (fetchError?.code === "PGRST116" || !screenplay) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
 
     const { data: updated, error: updateError } = await supabase
       .from("Screenplay")
@@ -89,7 +85,7 @@ export const PATCH = createApiHandler({
       .select("timelapseEnabled, timelapseStarted, timelapseShareId")
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Timelapse")
 
     return {
       enabled: updated.timelapseEnabled,

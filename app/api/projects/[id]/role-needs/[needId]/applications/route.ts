@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, ConflictError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, ConflictError, handleSupabaseError } from "@/lib/api"
 import { RATE_LIMITS } from "@/lib/rate-limit"
 import { createServerActionClient } from "@/lib/supabase/server"
 
@@ -40,7 +40,7 @@ export const GET = createApiHandler({
     if (needError?.code === "PGRST116" || !roleNeed) {
       throw new NotFoundError("Role need")
     }
-    if (needError) throw needError
+    if (needError) handleSupabaseError(needError, "RoleNeed")
 
     const { data: applications, error } = await supabase
       .from("ProjectRoleApplication")
@@ -61,7 +61,7 @@ export const GET = createApiHandler({
       .eq("roleNeedId", needId)
       .order("createdAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Application")
 
     return { applications: applications || [] }
   },
@@ -92,7 +92,7 @@ export const POST = createApiHandler({
     if (needError?.code === "PGRST116" || !roleNeed) {
       throw new NotFoundError("Role need not found or project is not public")
     }
-    if (needError) throw needError
+    if (needError) handleSupabaseError(needError, "RoleNeed")
 
     const project = roleNeed.project as { userId: string; name: string; isPublic: boolean }
 
@@ -125,7 +125,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (createError) throw createError
+    if (createError) handleSupabaseError(createError, "Application")
 
     // Create activity
     await supabase

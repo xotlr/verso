@@ -1,6 +1,8 @@
 import { z } from "zod"
-import { createApiHandler } from "@/lib/api"
+import { createApiHandler, handleSupabaseError, InternalError, RATE_LIMITS } from "@/lib/api"
 import { logger } from "@/lib/logger"
+import { logAccountDeleted } from "@/lib/security-events"
+import { getClientIp } from "@/lib/rate-limit"
 
 const deleteAccountSchema = z.object({
   confirmation: z.literal("DELETE MY ACCOUNT"),
@@ -9,13 +11,20 @@ const deleteAccountSchema = z.object({
 export const POST = createApiHandler({
   auth: "required",
   schema: deleteAccountSchema,
-  handler: async ({ user, data, supabase }) => {
+  rateLimit: RATE_LIMITS.AUTH,
+  handler: async ({ user, data, request, supabase }) => {
     // Verify the confirmation text matches
     if (data.confirmation !== "DELETE MY ACCOUNT") {
       return { error: "Invalid confirmation", status: 400 }
     }
 
     logger.info("Account deletion requested", { userId: user.id })
+
+    // Log the security event BEFORE deletion (will be deleted with cascade)
+    // This is primarily for the centralized logger, not the DB
+    const ip = getClientIp(request)
+    const userAgent = request.headers.get("user-agent") || undefined
+    void logAccountDeleted(user.id, ip, userAgent)
 
     try {
       // Delete password reset tokens
@@ -42,7 +51,7 @@ export const POST = createApiHandler({
         .delete()
         .eq("id", user.id)
 
-      if (deleteError) throw deleteError
+      if (deleteError) handleSupabaseError(deleteError, "User")
 
       logger.info("Account deleted successfully", { userId: user.id })
 
@@ -54,7 +63,7 @@ export const POST = createApiHandler({
       logger.error("Failed to delete account", error instanceof Error ? error : undefined, {
         userId: user.id,
       })
-      throw error
+      throw new InternalError("Failed to delete account")
     }
   },
 })

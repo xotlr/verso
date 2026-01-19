@@ -18,7 +18,7 @@
 // Handler factory
 export { createApiHandler, type ApiRouteHandler } from './handler';
 
-// Error classes
+// Error classes and utilities
 export {
   ApiError,
   BadRequestError,
@@ -32,6 +32,8 @@ export {
   CsrfError,
   InternalError,
   isApiError,
+  handleSupabaseError,
+  unwrapSupabaseResult,
 } from './errors';
 
 // Re-export rate limit configs for convenience

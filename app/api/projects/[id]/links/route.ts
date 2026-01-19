@@ -1,22 +1,6 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError } from "@/lib/api"
-
-async function hasProjectAccess(projectId: string, userId: string, supabase: any): Promise<boolean> {
-  const { data: project } = await supabase
-    .from("Project")
-    .select(`
-      id, userId, teamId,
-      team:Team(id, members:TeamMember(userId))
-    `)
-    .eq("id", projectId)
-    .single()
-
-  if (!project) return false
-  if (project.userId === userId) return true
-  if (project.team?.members?.some((m: { userId: string }) => m.userId === userId)) return true
-
-  return false
-}
+import { createApiHandler, NotFoundError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
+import { hasProjectAccess, requirePermission } from "@/lib/project-access"
 
 const createLinkSchema = z.object({
   url: z.string().url("Invalid URL"),
@@ -39,7 +23,7 @@ export const GET = createApiHandler({
   handler: async ({ user, params, supabase }) => {
     const { id: projectId } = params
 
-    const hasAccess = await hasProjectAccess(projectId, user.id, supabase)
+    const hasAccess = await hasProjectAccess(supabase, projectId, user.id)
     if (!hasAccess) {
       throw new NotFoundError("Project")
     }
@@ -50,7 +34,7 @@ export const GET = createApiHandler({
       .eq("projectId", projectId)
       .order("createdAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Link")
 
     return links
   },
@@ -59,13 +43,12 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: createLinkSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id: projectId } = params
 
-    const hasAccess = await hasProjectAccess(projectId, user.id, supabase)
-    if (!hasAccess) {
-      throw new NotFoundError("Project")
-    }
+    // Require editor permission to add links
+    await requirePermission(supabase, projectId, user.id, "editor")
 
     const { data: link, error } = await supabase
       .from("ExternalLink")
@@ -77,7 +60,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Link")
 
     return link
   },

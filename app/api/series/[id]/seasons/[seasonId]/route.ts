@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError } from "@/lib/api"
+import { createApiHandler, NotFoundError, handleSupabaseError } from "@/lib/api"
 
 const updateSeasonSchema = z.object({
   title: z.string().max(255).optional().nullable(),
@@ -22,7 +22,7 @@ export const GET = createApiHandler({
     if (seriesError?.code === "PGRST116" || !series) {
       throw new NotFoundError("Series")
     }
-    if (seriesError) throw seriesError
+    if (seriesError) handleSupabaseError(seriesError, "Series")
 
     const { data: season, error: seasonError } = await supabase
       .from("Season")
@@ -34,7 +34,7 @@ export const GET = createApiHandler({
     if (seasonError?.code === "PGRST116" || !season) {
       throw new NotFoundError("Season")
     }
-    if (seasonError) throw seasonError
+    if (seasonError) handleSupabaseError(seasonError, "Season")
 
     // Get episodes
     const { data: episodes } = await supabase
@@ -67,7 +67,7 @@ export const PATCH = createApiHandler({
     if (seriesError?.code === "PGRST116" || !series) {
       throw new NotFoundError("Series")
     }
-    if (seriesError) throw seriesError
+    if (seriesError) handleSupabaseError(seriesError, "Series")
 
     const { data: existingSeason, error: fetchError } = await supabase
       .from("Season")
@@ -79,7 +79,7 @@ export const PATCH = createApiHandler({
     if (fetchError?.code === "PGRST116" || !existingSeason) {
       throw new NotFoundError("Season")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Season")
 
     const { data: season, error: updateError } = await supabase
       .from("Season")
@@ -88,7 +88,7 @@ export const PATCH = createApiHandler({
       .select()
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Season")
 
     // Get episodes
     const { data: episodes } = await supabase
@@ -120,7 +120,7 @@ export const DELETE = createApiHandler({
     if (seriesError?.code === "PGRST116" || !series) {
       throw new NotFoundError("Series")
     }
-    if (seriesError) throw seriesError
+    if (seriesError) handleSupabaseError(seriesError, "Series")
 
     const { data: season, error: fetchError } = await supabase
       .from("Season")
@@ -132,7 +132,7 @@ export const DELETE = createApiHandler({
     if (fetchError?.code === "PGRST116" || !season) {
       throw new NotFoundError("Season")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Season")
 
     // Count episodes
     const { count: episodeCount } = await supabase
@@ -154,7 +154,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", seasonId)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "Season")
 
     return { success: true, deletedEpisodes: episodeCount || 0 }
   },

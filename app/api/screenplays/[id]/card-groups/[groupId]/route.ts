@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { z } from "zod"
 
@@ -37,7 +37,7 @@ export const PATCH = createApiHandler({
     if (fetchError?.code === "PGRST116" || !existingGroup) {
       throw new NotFoundError("Custom card group")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "CustomCardGroup")
 
     const body = await request.json()
     const data = UpdateGroupSchema.parse(body)
@@ -49,7 +49,7 @@ export const PATCH = createApiHandler({
       .select()
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "CustomCardGroup")
 
     return updatedGroup
   },
@@ -84,7 +84,7 @@ export const DELETE = createApiHandler({
     if (fetchError?.code === "PGRST116" || !existingGroup) {
       throw new NotFoundError("Custom card group")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "CustomCardGroup")
 
     // Delete the group (cascade will set customGroupId to null in SceneMeta due to onDelete: SetNull)
     const { error: deleteError } = await supabase
@@ -92,7 +92,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", groupId)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "CustomCardGroup")
 
     return { success: true }
   },

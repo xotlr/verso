@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 
 type SharePermission = "VIEW" | "COMMENT" | "EDIT"
 
@@ -15,10 +15,10 @@ async function checkScreenplayOwnership(screenplayId: string, userId: string, su
     .eq("id", screenplayId)
     .single()
 
-  if (error?.code === "PGRST116" || !screenplay) {
+  if (error) handleSupabaseError(error, "Screenplay")
+  if (!screenplay) {
     return { allowed: false, error: "Screenplay not found", status: 404, screenplay: null }
   }
-  if (error) throw error
 
   if (screenplay.userId === userId) {
     return { allowed: true, screenplay }
@@ -123,7 +123,7 @@ export const POST = createApiHandler({
         .select()
         .single()
 
-      if (updateError) throw updateError
+      if (updateError) handleSupabaseError(updateError, "Share")
       shareLink = updated
     } else {
       // Create new
@@ -138,7 +138,7 @@ export const POST = createApiHandler({
         .select()
         .single()
 
-      if (createError) throw createError
+      if (createError) handleSupabaseError(createError, "Share")
       shareLink = created
     }
 
@@ -194,7 +194,7 @@ export const PATCH = createApiHandler({
       .select()
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Share")
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || ''
     const shareUrl = buildShareUrl(shareLink.token, baseUrl)
@@ -234,7 +234,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("screenplayId", id)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "Share")
 
     return { success: true }
   },

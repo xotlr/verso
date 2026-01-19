@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError } from "@/lib/api"
+import { createApiHandler, NotFoundError, handleSupabaseError } from "@/lib/api"
 
 async function hasLinkAccess(linkId: string, userId: string, supabase: any): Promise<boolean> {
   // Get link with project and team membership info
@@ -60,7 +60,7 @@ export const GET = createApiHandler({
       .eq("id", id)
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Link")
 
     return link
   },
@@ -84,7 +84,7 @@ export const PATCH = createApiHandler({
       .select()
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Link")
 
     return link
   },
@@ -105,7 +105,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", id)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Link")
 
     return { success: true }
   },

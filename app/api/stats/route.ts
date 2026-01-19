@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler } from "@/lib/api"
+import { createApiHandler, handleSupabaseError } from "@/lib/api"
 
 const updateStatsSchema = z.object({
   dailyGoal: z.number().min(100).max(10000).optional(),
@@ -28,10 +28,10 @@ export const GET = createApiHandler({
         .select()
         .single()
 
-      if (createError) throw createError
+      if (createError) handleSupabaseError(createError, "Stats")
       stats = newStats
     } else if (fetchError) {
-      throw fetchError
+      handleSupabaseError(fetchError, "Stats")
     }
 
     const today = new Date()
@@ -44,7 +44,7 @@ export const GET = createApiHandler({
       .eq("userId", user.id)
       .gte("date", today.toISOString())
 
-    if (sessionsError) throw sessionsError
+    if (sessionsError) handleSupabaseError(sessionsError, "Stats")
 
     type SessionData = { wordCount: number; duration: number }
     const todayWordCount = (todaySessions || []).reduce((sum: number, s: SessionData) => sum + s.wordCount, 0)
@@ -98,7 +98,7 @@ export const PUT = createApiHandler({
         .select()
         .single()
 
-      if (error) throw error
+      if (error) handleSupabaseError(error, "Stats")
       stats = updated
     } else {
       const { data: created, error } = await supabase
@@ -110,7 +110,7 @@ export const PUT = createApiHandler({
         .select()
         .single()
 
-      if (error) throw error
+      if (error) handleSupabaseError(error, "Stats")
       stats = created
     }
 

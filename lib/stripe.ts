@@ -54,6 +54,52 @@ export function canUseProduction(plan: PlanType): boolean {
   return PLAN_LIMITS[plan].production
 }
 
+/**
+ * Check if a subscription is currently active (not expired).
+ * SECURITY: This validates both the plan AND the subscription period end date.
+ * Always use this for server-side feature gating, not just canUseProduction().
+ *
+ * @param plan - The user's plan type
+ * @param periodEnd - The stripeCurrentPeriodEnd date string (ISO format)
+ * @returns true if the subscription is active and not expired
+ */
+export function isSubscriptionActive(
+  plan: PlanType,
+  periodEnd: string | Date | null | undefined
+): boolean {
+  // FREE plan is always "active" (no subscription required)
+  if (plan === "FREE") return true
+
+  // Paid plans require valid periodEnd
+  if (!periodEnd) return false
+
+  const endDate = typeof periodEnd === "string" ? new Date(periodEnd) : periodEnd
+  const now = new Date()
+
+  // Add 1-day grace period for webhook processing delays
+  const gracePeriodMs = 24 * 60 * 60 * 1000
+  const endWithGrace = new Date(endDate.getTime() + gracePeriodMs)
+
+  return endWithGrace > now
+}
+
+/**
+ * Server-side validation for production feature access.
+ * SECURITY: This is the correct function to use in API routes.
+ * It validates both the plan AND the subscription period.
+ *
+ * @param plan - The user's plan type
+ * @param periodEnd - The stripeCurrentPeriodEnd date
+ * @returns true if user can access production features
+ */
+export function canAccessProductionFeatures(
+  plan: PlanType,
+  periodEnd: string | Date | null | undefined
+): boolean {
+  // Must have production-enabled plan AND active subscription
+  return canUseProduction(plan) && isSubscriptionActive(plan, periodEnd)
+}
+
 export function canUseScriptCheck(plan: PlanType): boolean {
   return PLAN_LIMITS[plan].scriptCheck
 }

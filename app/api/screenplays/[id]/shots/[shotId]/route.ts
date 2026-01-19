@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import {
   SHOT_TYPES,
@@ -46,10 +46,8 @@ export const GET = createApiHandler({
       .eq("screenplayId", screenplayId)
       .single()
 
-    if (error?.code === "PGRST116" || !shot) {
-      throw new NotFoundError("Shot")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Shot")
+    if (!shot) throw new NotFoundError("Shot")
 
     return shot
   },
@@ -76,10 +74,8 @@ export const PUT = createApiHandler({
       .eq("screenplayId", screenplayId)
       .single()
 
-    if (fetchError?.code === "PGRST116" || !existingShot) {
-      throw new NotFoundError("Shot")
-    }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Shot")
+    if (!existingShot) throw new NotFoundError("Shot")
 
     const updateData: Record<string, any> = {}
     if (data.sceneId !== undefined) updateData.sceneId = data.sceneId
@@ -105,7 +101,7 @@ export const PUT = createApiHandler({
       .select()
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Shot")
 
     return shot
   },
@@ -131,17 +127,15 @@ export const DELETE = createApiHandler({
       .eq("screenplayId", screenplayId)
       .single()
 
-    if (fetchError?.code === "PGRST116" || !existingShot) {
-      throw new NotFoundError("Shot")
-    }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Shot")
+    if (!existingShot) throw new NotFoundError("Shot")
 
     const { error: deleteError } = await supabase
       .from("Shot")
       .delete()
       .eq("id", shotId)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "Shot")
 
     return { success: true }
   },

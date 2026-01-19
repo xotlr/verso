@@ -8,6 +8,7 @@ const createMockSupabaseChain = () => {
     single: vi.fn().mockResolvedValue({ data: null, error: null }),
     insert: vi.fn().mockReturnThis(),
     update: vi.fn().mockReturnThis(),
+    upsert: vi.fn().mockReturnThis(),
   }
   return chain
 }

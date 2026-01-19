@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, handleSupabaseError } from "@/lib/api"
 import { createServerActionClient } from "@/lib/supabase/server"
 
 async function isProjectOwner(projectId: string, userId: string): Promise<boolean> {
@@ -54,7 +54,7 @@ export const PATCH = createApiHandler({
     if (fetchError?.code === "PGRST116" || !application) {
       throw new NotFoundError("Application")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Application")
 
     const roleNeed = application.roleNeed as { id: string; role: string; projectId: string }
     const appUser = application.user as { id: string; name: string | null }
@@ -70,7 +70,7 @@ export const PATCH = createApiHandler({
       .select()
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Application")
 
     if (data.status === "ACCEPTED") {
       // Check if user already has this role
@@ -148,7 +148,7 @@ export const DELETE = createApiHandler({
     if (fetchError?.code === "PGRST116" || !application) {
       throw new NotFoundError("Application")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Application")
 
     const roleNeed = application.roleNeed as { projectId: string }
 
@@ -169,7 +169,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", appId)
 
-    if (deleteError) throw deleteError
+    if (deleteError) handleSupabaseError(deleteError, "Application")
 
     return { success: true }
   },

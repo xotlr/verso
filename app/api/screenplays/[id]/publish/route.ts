@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError } from "@/lib/api"
+import { createApiHandler, NotFoundError, handleSupabaseError } from "@/lib/api"
 
 const publishSchema = z.object({
   isPublic: z.boolean(),
@@ -18,10 +18,8 @@ export const GET = createApiHandler({
       .eq("userId", user.id)
       .single()
 
-    if (error?.code === "PGRST116" || !screenplay) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
 
     return screenplay
   },
@@ -40,10 +38,8 @@ export const POST = createApiHandler({
       .eq("userId", user.id)
       .single()
 
-    if (fetchError?.code === "PGRST116" || !screenplay) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
 
     const { isPublic, genre } = data
 
@@ -58,7 +54,7 @@ export const POST = createApiHandler({
       .select("id, isPublic, genre, publishedAt, views")
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Screenplay")
 
     return updated
   },

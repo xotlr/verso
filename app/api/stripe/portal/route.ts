@@ -1,4 +1,4 @@
-import { createApiHandler, BadRequestError } from "@/lib/api"
+import { createApiHandler, BadRequestError, handleSupabaseError } from "@/lib/api"
 import { stripe } from "@/lib/stripe"
 
 export const POST = createApiHandler({
@@ -10,7 +10,7 @@ export const POST = createApiHandler({
       .eq("id", user.id)
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Portal")
 
     if (!dbUser?.stripeCustomerId) {
       throw new BadRequestError("No billing account found")

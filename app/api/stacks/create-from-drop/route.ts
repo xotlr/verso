@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, BadRequestError, ForbiddenError, RATE_LIMITS } from "@/lib/api"
+import { createApiHandler, BadRequestError, ForbiddenError, RATE_LIMITS, handleSupabaseError } from "@/lib/api"
 
 const PLAN_LIMITS: Record<string, number> = {
   FREE: 10,
@@ -155,7 +155,7 @@ export const POST = createApiHandler({
       .select("id, name, createdAt, updatedAt, projectId, project:Project(id, name)")
       .single()
 
-    if (createError) throw createError
+    if (createError) handleSupabaseError(createError, "Stack")
 
     // Connect screenplays to the new stack
     await supabase

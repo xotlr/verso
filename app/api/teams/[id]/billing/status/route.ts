@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { getTeamBillingStatus } from "@/lib/stripe-helpers"
 
 export const GET = createApiHandler({
@@ -24,7 +24,7 @@ export const GET = createApiHandler({
     if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
-    if (teamError) throw teamError
+    if (teamError) handleSupabaseError(teamError, "Team")
 
     const isMember = membership || team.ownerId === user.id
     if (!isMember) {

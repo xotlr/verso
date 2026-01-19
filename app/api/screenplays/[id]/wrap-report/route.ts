@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
 interface CallsheetScene {
@@ -79,7 +79,7 @@ export const GET = createApiHandler({
         .eq("id", callsheetId)
         .single()
 
-      if (callsheetError && callsheetError.code !== "PGRST116") throw callsheetError
+      if (callsheetError && callsheetError.code !== "PGRST116") handleSupabaseError(callsheetError, "Callsheet")
       callsheet = callsheetData
 
       const callsheetContent = callsheet?.data as CallsheetData | null
@@ -127,7 +127,7 @@ export const GET = createApiHandler({
 
     const { data: shots, error: shotsError } = await query
 
-    if (shotsError) throw shotsError
+    if (shotsError) handleSupabaseError(shotsError, "Shot")
 
     // Fetch screenplay content separately
     const { data: fullScreenplay } = await supabase

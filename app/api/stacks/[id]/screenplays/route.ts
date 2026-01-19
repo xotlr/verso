@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 
 const screenplayIdsSchema = z.object({
   screenplayIds: z.array(z.string()).min(1, "At least one screenplay required"),
@@ -47,7 +47,7 @@ export const POST = createApiHandler({
     if (stackError?.code === "PGRST116" || !stack) {
       throw new NotFoundError("Stack")
     }
-    if (stackError) throw stackError
+    if (stackError) handleSupabaseError(stackError, "Stack")
 
     const { count: ownedCount } = await supabase
       .from("Screenplay")
@@ -91,7 +91,7 @@ export const DELETE = createApiHandler({
     if (stackError?.code === "PGRST116" || !stack) {
       throw new NotFoundError("Stack")
     }
-    if (stackError) throw stackError
+    if (stackError) handleSupabaseError(stackError, "Stack")
 
     // Remove screenplays from stack (must be owned by user and in this stack)
     await supabase

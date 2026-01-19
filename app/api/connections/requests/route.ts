@@ -1,4 +1,4 @@
-import { createApiHandler } from "@/lib/api"
+import { createApiHandler, handleSupabaseError } from "@/lib/api"
 
 type ConnectionRequest = {
   id: string
@@ -27,7 +27,7 @@ export const GET = createApiHandler({
       .eq("status", "PENDING")
       .order("createdAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Connection")
 
     return {
       requests: (requests || []).map((req: ConnectionRequest) => ({

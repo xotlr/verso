@@ -1,7 +1,8 @@
 import { z } from "zod"
-import { createApiHandler, BadRequestError, RateLimitError } from "@/lib/api"
+import { createApiHandler, BadRequestError, RateLimitError, handleSupabaseError } from "@/lib/api"
 import bcrypt from "bcryptjs"
 import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit"
+import { logPasswordResetCompleted } from "@/lib/security-events"
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1, "Token is required"),
@@ -33,7 +34,7 @@ export const POST = createApiHandler({
       .eq("token", data.token)
       .single()
 
-    if (tokenError?.code === "PGRST116" || !resetToken) {
+    if (tokenError || !resetToken) {
       throw new BadRequestError("Invalid or expired reset link. Please request a new one.")
     }
 
@@ -51,7 +52,7 @@ export const POST = createApiHandler({
       .eq("email", resetToken.email)
       .single()
 
-    if (userError?.code === "PGRST116" || !user) {
+    if (userError || !user) {
       await supabase
         .from("PasswordResetToken")
         .delete()
@@ -67,13 +68,17 @@ export const POST = createApiHandler({
       .update({ password: hashedPassword })
       .eq("id", user.id)
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "User")
 
     // Delete all reset tokens for this email
     await supabase
       .from("PasswordResetToken")
       .delete()
       .eq("email", resetToken.email)
+
+    // Log the security event (fire-and-forget)
+    const userAgent = request.headers.get("user-agent") || undefined
+    void logPasswordResetCompleted(user.id, ip, userAgent)
 
     return {
       success: true,
@@ -98,7 +103,7 @@ export const GET = createApiHandler({
       .eq("token", token)
       .single()
 
-    if (error?.code === "PGRST116" || !resetToken) {
+    if (error || !resetToken) {
       throw new BadRequestError("Invalid or expired reset link")
     }
 

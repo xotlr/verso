@@ -1,6 +1,6 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { createServerActionClient } from "@/lib/supabase/server"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, handleSupabaseError } from "@/lib/api"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
 interface CallsheetAccessResult {
   allowed: boolean
@@ -8,9 +8,7 @@ interface CallsheetAccessResult {
   callsheet: { id: string; userId: string } | null
 }
 
-async function checkCallsheetAccess(callsheetId: string, userId: string): Promise<CallsheetAccessResult> {
-  const supabase = await createServerActionClient()
-
+async function checkCallsheetAccess(supabase: SupabaseClient, callsheetId: string, userId: string): Promise<CallsheetAccessResult> {
   const { data, error } = await supabase
     .from("Callsheet")
     .select(`
@@ -27,19 +25,19 @@ async function checkCallsheetAccess(callsheetId: string, userId: string): Promis
     .eq("id", callsheetId)
     .single()
 
-  if (error?.code === "PGRST116" || !data) {
+  if (error) handleSupabaseError(error, "Callsheet")
+  if (!data) {
     return { allowed: false, notFound: true, callsheet: null }
   }
-  if (error) throw error
 
-  // Type the callsheet data
-  const callsheet = data as {
+  // Type the callsheet data - use unknown first due to Supabase nested relation typing
+  const callsheet = data as unknown as {
     id: string
     userId: string
     project: {
       id: string
       team: { id: string; members: { userId: string }[] } | null
-    }
+    } | null
   }
 
   if (callsheet.userId === userId) {
@@ -67,7 +65,7 @@ export const GET = createApiHandler({
   handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const access = await checkCallsheetAccess(id, user.id)
+    const access = await checkCallsheetAccess(supabase, id, user.id)
 
     if (access.notFound) {
       throw new NotFoundError("Callsheet")
@@ -83,7 +81,7 @@ export const GET = createApiHandler({
       .eq("callsheetId", id)
       .order("checkedInAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "CheckIn")
 
     return { checkIns: checkIns || [] }
   },
@@ -95,7 +93,7 @@ export const POST = createApiHandler({
   handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
-    const access = await checkCallsheetAccess(id, user.id)
+    const access = await checkCallsheetAccess(supabase, id, user.id)
 
     if (access.notFound) {
       throw new NotFoundError("Callsheet")
@@ -129,7 +127,7 @@ export const POST = createApiHandler({
         .select()
         .single()
 
-      if (updateError) throw updateError
+      if (updateError) handleSupabaseError(updateError, "CheckIn")
       checkIn = updated
     } else {
       const { data: created, error: createError } = await supabase
@@ -144,7 +142,7 @@ export const POST = createApiHandler({
         .select()
         .single()
 
-      if (createError) throw createError
+      if (createError) handleSupabaseError(createError, "CheckIn")
       checkIn = created
     }
 
@@ -174,7 +172,7 @@ export const DELETE = createApiHandler({
   handler: async ({ user, params, searchParams, supabase }) => {
     const { id } = params
 
-    const access = await checkCallsheetAccess(id, user.id)
+    const access = await checkCallsheetAccess(supabase, id, user.id)
 
     if (access.notFound) {
       throw new NotFoundError("Callsheet")
@@ -196,7 +194,7 @@ export const DELETE = createApiHandler({
       .eq("callsheetId", id)
       .eq("crewName", crewName)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "CheckIn")
 
     return { success: true }
   },

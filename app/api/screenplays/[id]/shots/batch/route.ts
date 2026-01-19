@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { SHOT_TYPES, SHOT_STATUSES } from "@/types/shotlist"
 
@@ -17,6 +17,7 @@ const batchCreateSchema = z.object({
 export const POST = createApiHandler({
   auth: "required",
   schema: batchCreateSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id: screenplayId } = params
 
@@ -46,7 +47,7 @@ export const POST = createApiHandler({
       .in("sceneId", sceneIds)
       .order("shotNumber", { ascending: false })
 
-    if (lastShotsError) throw lastShotsError
+    if (lastShotsError) handleSupabaseError(lastShotsError, "Shot")
 
     // Get max shot number per scene
     const lastShotByScene = new Map<string, number>()
@@ -107,7 +108,7 @@ export const POST = createApiHandler({
       .from("Shot")
       .insert(shotsToCreate)
 
-    if (insertError) throw insertError
+    if (insertError) handleSupabaseError(insertError, "Shot")
 
     // Fetch the created shots to return them
     const minShotNumber = Math.min(...shotsToCreate.map((s) => s.shotNumber))
@@ -120,7 +121,7 @@ export const POST = createApiHandler({
       .order("sceneId", { ascending: true })
       .order("shotNumber", { ascending: true })
 
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Shot")
 
     return { shots: createdShots || [], count: createdShots?.length || 0 }
   },

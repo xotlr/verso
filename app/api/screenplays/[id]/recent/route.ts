@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError } from "@/lib/api"
+import { createApiHandler, NotFoundError, handleSupabaseError } from "@/lib/api"
 
 export const DELETE = createApiHandler({
   auth: "required",
@@ -27,10 +27,8 @@ export const DELETE = createApiHandler({
 
     const { data: screenplay, error } = await query.single()
 
-    if (error?.code === "PGRST116" || !screenplay) {
-      throw new NotFoundError("Screenplay")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
+    if (!screenplay) throw new NotFoundError("Screenplay")
 
     await supabase
       .from("Screenplay")

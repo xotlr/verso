@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, RATE_LIMITS } from "@/lib/api"
+import { createApiHandler, RATE_LIMITS, handleSupabaseError } from "@/lib/api"
 
 const projectsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -52,7 +52,7 @@ export const GET = createApiHandler({
 
     const { data: projects, count, error } = await query
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Project")
 
     // Transform to include _count and limit roles
     interface ProjectResult {

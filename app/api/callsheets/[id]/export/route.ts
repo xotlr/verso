@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 import { generateCallsheetHTML, generateCallsheetText } from "@/lib/export/callsheet"
 import { CallsheetData } from "@/types/callsheet"
-import { createServerActionClient } from "@/lib/supabase/server"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
 interface CallsheetAccessResult {
   allowed: boolean
@@ -10,9 +10,7 @@ interface CallsheetAccessResult {
   callsheet: { id: string; userId: string } | null
 }
 
-async function checkCallsheetAccess(callsheetId: string, userId: string): Promise<CallsheetAccessResult> {
-  const supabase = await createServerActionClient()
-
+async function checkCallsheetAccess(supabase: SupabaseClient, callsheetId: string, userId: string): Promise<CallsheetAccessResult> {
   const { data, error } = await supabase
     .from("Callsheet")
     .select(`
@@ -29,18 +27,19 @@ async function checkCallsheetAccess(callsheetId: string, userId: string): Promis
     .eq("id", callsheetId)
     .single()
 
-  if (error?.code === "PGRST116" || !data) {
+  if (error) handleSupabaseError(error, "Callsheet")
+  if (!data) {
     return { allowed: false, notFound: true, callsheet: null }
   }
-  if (error) throw error
 
-  const callsheet = data as {
+  // Type the callsheet data - use unknown first due to Supabase nested relation typing
+  const callsheet = data as unknown as {
     id: string
     userId: string
     project: {
       id: string
       team: { id: string; members: { userId: string }[] } | null
-    }
+    } | null
   }
 
   if (callsheet.userId === userId) {
@@ -62,7 +61,7 @@ export const GET = createApiHandler({
   handler: async ({ user, params, searchParams, supabase }) => {
     const { id } = params
 
-    const access = await checkCallsheetAccess(id, user.id)
+    const access = await checkCallsheetAccess(supabase, id, user.id)
 
     if (access.notFound) {
       throw new NotFoundError("Callsheet")
@@ -83,10 +82,8 @@ export const GET = createApiHandler({
       .eq("id", id)
       .single()
 
-    if (error?.code === "PGRST116" || !callsheet) {
-      throw new NotFoundError("Callsheet")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Callsheet")
+    if (!callsheet) throw new NotFoundError("Callsheet")
 
     const callsheetForExport = {
       ...callsheet,

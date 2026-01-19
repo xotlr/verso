@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, ForbiddenError, NotFoundError } from "@/lib/api"
+import { createApiHandler, ForbiddenError, NotFoundError, handleSupabaseError } from "@/lib/api"
 
 const updateCreditSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -28,7 +28,7 @@ export const PATCH = createApiHandler({
     if (existingError?.code === "PGRST116" || !existing) {
       throw new NotFoundError("Credit")
     }
-    if (existingError) throw existingError
+    if (existingError) handleSupabaseError(existingError, "Credit")
 
     const { data: credit, error } = await supabase
       .from("Credit")
@@ -37,7 +37,7 @@ export const PATCH = createApiHandler({
       .select("id, title, role, year, projectId, isManual, displayOrder")
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Credit")
 
     return credit
   },
@@ -63,14 +63,14 @@ export const DELETE = createApiHandler({
     if (existingError?.code === "PGRST116" || !existing) {
       throw new NotFoundError("Credit")
     }
-    if (existingError) throw existingError
+    if (existingError) handleSupabaseError(existingError, "Credit")
 
     const { error } = await supabase
       .from("Credit")
       .delete()
       .eq("id", creditId)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Credit")
 
     return { success: true }
   },

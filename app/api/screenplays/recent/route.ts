@@ -1,4 +1,4 @@
-import { createApiHandler } from "@/lib/api"
+import { createApiHandler, handleSupabaseError } from "@/lib/api"
 
 export const GET = createApiHandler({
   auth: "required",
@@ -16,7 +16,7 @@ export const GET = createApiHandler({
       .order("lastOpenedAt", { ascending: false })
       .limit(limit)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
 
     return recentScreenplays || []
   },
@@ -31,7 +31,7 @@ export const DELETE = createApiHandler({
       .update({ lastOpenedAt: null })
       .eq("userId", user.id)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Screenplay")
 
     return { success: true }
   },

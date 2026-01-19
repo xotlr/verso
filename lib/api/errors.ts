@@ -136,3 +136,118 @@ export class InternalError extends ApiError {
 export function isApiError(error: unknown): error is ApiError {
   return error instanceof ApiError;
 }
+
+/**
+ * Supabase/Postgrest error shape
+ */
+interface SupabaseError {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+}
+
+/**
+ * Convert a Supabase/Postgrest error to an appropriate ApiError.
+ * SECURITY: This prevents raw database errors from leaking to clients.
+ *
+ * This function handles common PostgreSQL/PostgREST error codes:
+ * - PGRST116: Row not found (throws NotFoundError)
+ * - PGRST301: RLS policy violation (throws ForbiddenError)
+ * - 23505: Unique constraint violation (throws ConflictError)
+ * - 23503: Foreign key violation (throws BadRequestError)
+ *
+ * PREFERRED PATTERN:
+ * ```typescript
+ * const { data, error } = await supabase.from("Table").select().single()
+ * if (error) handleSupabaseError(error, "Resource")  // Handles PGRST116 automatically
+ * if (!data) throw new NotFoundError("Resource")     // Fallback if data is null
+ * ```
+ *
+ * AVOID (redundant):
+ * ```typescript
+ * if (error?.code === "PGRST116" || !data) throw new NotFoundError("Resource")
+ * if (error) handleSupabaseError(error, "Resource")  // PGRST116 already thrown above
+ * ```
+ *
+ * @param error - The Supabase error object
+ * @param resourceName - Optional name for 404 errors (e.g., "Project", "Screenplay")
+ * @returns Never returns - always throws an ApiError subclass
+ */
+export function handleSupabaseError(
+  error: SupabaseError | null | undefined,
+  resourceName = "Resource"
+): never {
+  if (!error) {
+    throw new InternalError();
+  }
+
+  const code = error.code || "";
+  const message = error.message || "";
+
+  // PGRST116: Row not found (single() returned no rows)
+  if (code === "PGRST116") {
+    throw new NotFoundError(resourceName);
+  }
+
+  // PGRST301: Row-level security violation (RLS policy blocked access)
+  if (code === "PGRST301" || message.includes("policy")) {
+    throw new ForbiddenError(`You don't have access to this ${resourceName.toLowerCase()}`);
+  }
+
+  // 23505: Unique constraint violation
+  if (code === "23505") {
+    throw new ConflictError(`${resourceName} already exists`);
+  }
+
+  // 23503: Foreign key constraint violation
+  if (code === "23503") {
+    throw new BadRequestError("Referenced resource does not exist");
+  }
+
+  // 23502: Not null constraint violation
+  if (code === "23502") {
+    throw new BadRequestError("Required field is missing");
+  }
+
+  // 22P02: Invalid text representation (e.g., invalid UUID)
+  if (code === "22P02") {
+    throw new BadRequestError("Invalid identifier format");
+  }
+
+  // 42501: Insufficient privilege
+  if (code === "42501") {
+    throw new ForbiddenError();
+  }
+
+  // 42P01: Undefined table (should never happen in production)
+  if (code === "42P01") {
+    throw new InternalError();
+  }
+
+  // Default: Internal error (don't expose database details)
+  throw new InternalError();
+}
+
+/**
+ * Safely handle a Supabase query result.
+ * Throws an appropriate ApiError if there's an error.
+ *
+ * @param result - The Supabase query result { data, error }
+ * @param resourceName - Optional name for 404 errors
+ * @returns The data if successful
+ */
+export function unwrapSupabaseResult<T>(
+  result: { data: T | null; error: SupabaseError | null },
+  resourceName = "Resource"
+): T {
+  if (result.error) {
+    handleSupabaseError(result.error, resourceName);
+  }
+
+  if (result.data === null) {
+    throw new NotFoundError(resourceName);
+  }
+
+  return result.data;
+}

@@ -1,4 +1,4 @@
-import { createApiHandler, NotFoundError } from "@/lib/api"
+import { createApiHandler, NotFoundError, handleSupabaseError } from "@/lib/api"
 
 export const POST = createApiHandler({
   auth: "required",
@@ -15,7 +15,7 @@ export const POST = createApiHandler({
     if (fetchError?.code === "PGRST116" || !project) {
       throw new NotFoundError("Project")
     }
-    if (fetchError) throw fetchError
+    if (fetchError) handleSupabaseError(fetchError, "Project")
 
     const { data: updated, error: updateError } = await supabase
       .from("Project")
@@ -24,7 +24,7 @@ export const POST = createApiHandler({
       .select("id, isFavorite")
       .single()
 
-    if (updateError) throw updateError
+    if (updateError) handleSupabaseError(updateError, "Project")
 
     return updated
   },

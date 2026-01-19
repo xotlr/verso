@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, BadRequestError, handleSupabaseError } from "@/lib/api"
 
 const createSeasonSchema = z.object({
   number: z.number().int().min(1).max(99),
@@ -33,7 +33,7 @@ export const GET = createApiHandler({
     if (seriesError?.code === "PGRST116" || !series) {
       throw new NotFoundError("Series")
     }
-    if (seriesError) throw seriesError
+    if (seriesError) handleSupabaseError(seriesError, "Series")
 
     const { data: seasons, error: seasonsError } = await supabase
       .from("Season")
@@ -41,7 +41,7 @@ export const GET = createApiHandler({
       .eq("seriesId", seriesId)
       .order("number", { ascending: true })
 
-    if (seasonsError) throw seasonsError
+    if (seasonsError) handleSupabaseError(seasonsError, "Season")
 
     // Get episodes for each season
     const seasonsWithEpisodes = await Promise.all(
@@ -80,7 +80,7 @@ export const POST = createApiHandler({
     if (seriesError?.code === "PGRST116" || !series) {
       throw new NotFoundError("Series")
     }
-    if (seriesError) throw seriesError
+    if (seriesError) handleSupabaseError(seriesError, "Series")
 
     const { data: existingSeason } = await supabase
       .from("Season")
@@ -105,7 +105,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (createError) throw createError
+    if (createError) handleSupabaseError(createError, "Season")
 
     // Get episodes (will be empty for new season)
     return {

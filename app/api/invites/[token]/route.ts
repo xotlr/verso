@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createApiHandler, NotFoundError, RATE_LIMITS } from "@/lib/api"
+import { createApiHandler, NotFoundError, RATE_LIMITS, handleSupabaseError } from "@/lib/api"
 
 export const GET = createApiHandler({
   auth: "none",
@@ -17,10 +17,8 @@ export const GET = createApiHandler({
       .eq("token", token)
       .single()
 
-    if (error?.code === "PGRST116" || !invite) {
-      throw new NotFoundError("Invite")
-    }
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Invite")
+    if (!invite) throw new NotFoundError("Invite")
 
     if (new Date() > new Date(invite.expiresAt)) {
       await supabase.from("TeamInvite").delete().eq("token", token)

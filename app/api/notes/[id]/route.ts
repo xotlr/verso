@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError } from "@/lib/api"
 
 async function checkNoteAccess(noteId: string, userId: string, supabase: any) {
   // Get note with project and team membership info
@@ -18,10 +18,10 @@ async function checkNoteAccess(noteId: string, userId: string, supabase: any) {
     .eq("id", noteId)
     .single()
 
-  if (error?.code === "PGRST116" || !note) {
+  if (error) handleSupabaseError(error, "Note")
+  if (!note) {
     return { allowed: false, note: null, reason: "not_found" as const }
   }
-  if (error) throw error
 
   // Owner has access
   if (note.userId === userId) {
@@ -81,7 +81,7 @@ export const PUT = createApiHandler({
       .select()
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Note")
 
     return note
   },
@@ -103,7 +103,7 @@ export const DELETE = createApiHandler({
       .delete()
       .eq("id", id)
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Note")
 
     return { success: true }
   },

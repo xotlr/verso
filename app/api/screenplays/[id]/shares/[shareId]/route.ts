@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, handleSupabaseError } from "@/lib/api"
 
 type ShareRole = "VIEWER" | "COMMENTER" | "EDITOR" | "ADMIN"
 
@@ -10,10 +10,10 @@ async function canManageShares(screenplayId: string, userId: string, supabase: a
     .eq("id", screenplayId)
     .single()
 
-  if (error?.code === "PGRST116" || !screenplay) {
+  if (error) handleSupabaseError(error, "Screenplay")
+  if (!screenplay) {
     return { allowed: false, error: "Screenplay not found", status: 404 }
   }
-  if (error) throw error
 
   if (screenplay.userId === userId) {
     return { allowed: true, isOwner: true }
@@ -85,7 +85,7 @@ export const PATCH = createApiHandler({
         `)
         .single()
 
-      if (updateError) throw updateError
+      if (updateError) handleSupabaseError(updateError, "Share")
 
       return updatedShare
     }
@@ -105,7 +105,7 @@ export const PATCH = createApiHandler({
         .select("id, email, role, expiresAt")
         .single()
 
-      if (updateError) throw updateError
+      if (updateError) handleSupabaseError(updateError, "Share")
 
       return { type: "invite", invite: updatedInvite }
     }
@@ -138,7 +138,7 @@ export const DELETE = createApiHandler({
         .delete()
         .eq("id", shareId)
 
-      if (deleteError) throw deleteError
+      if (deleteError) handleSupabaseError(deleteError, "Share")
       return { success: true }
     }
 
@@ -155,7 +155,7 @@ export const DELETE = createApiHandler({
         .delete()
         .eq("id", shareId)
 
-      if (deleteError) throw deleteError
+      if (deleteError) handleSupabaseError(deleteError, "Share")
       return { success: true }
     }
 

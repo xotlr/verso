@@ -1,6 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { createServerActionClient } from "@/lib/supabase/server"
+import { createApiHandler, NotFoundError, ForbiddenError, handleSupabaseError, RATE_LIMITS } from "@/lib/api"
 
 interface CallsheetAccessResult {
   allowed: boolean
@@ -8,9 +7,8 @@ interface CallsheetAccessResult {
   callsheet: { id: string; userId: string } | null
 }
 
-async function checkCallsheetAccess(callsheetId: string, userId: string): Promise<CallsheetAccessResult> {
-  const supabase = await createServerActionClient()
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function checkCallsheetAccess(supabase: any, callsheetId: string, userId: string): Promise<CallsheetAccessResult> {
   const { data, error } = await supabase
     .from("Callsheet")
     .select(`
@@ -27,18 +25,19 @@ async function checkCallsheetAccess(callsheetId: string, userId: string): Promis
     .eq("id", callsheetId)
     .single()
 
-  if (error?.code === "PGRST116" || !data) {
+  if (error) handleSupabaseError(error, "Callsheet")
+  if (!data) {
     return { allowed: false, notFound: true, callsheet: null }
   }
-  if (error) throw error
 
-  const callsheet = data as {
+  // Type the callsheet data - use unknown first due to Supabase nested relation typing
+  const callsheet = data as unknown as {
     id: string
     userId: string
     project: {
       id: string
       team: { id: string; members: { userId: string }[] } | null
-    }
+    } | null
   }
 
   if (callsheet.userId === userId) {
@@ -63,10 +62,11 @@ const createShareLinkSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const access = await checkCallsheetAccess(id, user.id)
+    const access = await checkCallsheetAccess(supabase, id, user.id)
 
     if (access.notFound) {
       throw new NotFoundError("Callsheet")
@@ -85,7 +85,7 @@ export const GET = createApiHandler({
       .eq("callsheetId", id)
       .order("createdAt", { ascending: false })
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Share")
 
     return { shareLinks: shareLinks || [] }
   },
@@ -94,10 +94,11 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: createShareLinkSchema,
+  rateLimit: RATE_LIMITS.API,
   handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
-    const access = await checkCallsheetAccess(id, user.id)
+    const access = await checkCallsheetAccess(supabase, id, user.id)
 
     if (access.notFound) {
       throw new NotFoundError("Callsheet")
@@ -119,7 +120,7 @@ export const POST = createApiHandler({
       .select()
       .single()
 
-    if (error) throw error
+    if (error) handleSupabaseError(error, "Share")
 
     return { shareLink }
   },

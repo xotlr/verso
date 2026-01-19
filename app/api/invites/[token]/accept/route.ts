@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createApiHandler, UnauthorizedError, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, UnauthorizedError, NotFoundError, ForbiddenError, BadRequestError, handleSupabaseError } from "@/lib/api"
 import { logTeamAction } from "@/lib/audit-log"
 
 export const POST = createApiHandler({
@@ -23,7 +23,7 @@ export const POST = createApiHandler({
     if (inviteError?.code === "PGRST116" || !invite) {
       throw new NotFoundError("Invite")
     }
-    if (inviteError) throw inviteError
+    if (inviteError) handleSupabaseError(inviteError, "Invite")
 
     if (new Date() > new Date(invite.expiresAt)) {
       await supabase.from("TeamInvite").delete().eq("token", token)
@@ -71,7 +71,7 @@ export const POST = createApiHandler({
       `)
       .single()
 
-    if (memberError) throw memberError
+    if (memberError) handleSupabaseError(memberError, "TeamMember")
 
     // Delete the invite
     await supabase.from("TeamInvite").delete().eq("token", token)
@@ -111,7 +111,7 @@ export const DELETE = createApiHandler({
     if (inviteError?.code === "PGRST116" || !invite) {
       throw new NotFoundError("Invite")
     }
-    if (inviteError) throw inviteError
+    if (inviteError) handleSupabaseError(inviteError, "Invite")
 
     if (invite.email.toLowerCase() !== user.email.toLowerCase()) {
       throw new ForbiddenError("This invite was sent to a different email address")

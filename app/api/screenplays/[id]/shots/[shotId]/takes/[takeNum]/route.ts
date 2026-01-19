@@ -1,7 +1,7 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, handleSupabaseError } from "@/lib/api"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
-import { canUseProduction, type PlanType } from "@/lib/stripe"
+import { canAccessProductionFeatures, type PlanType } from "@/lib/stripe"
 
 const takeNoteSchema = z.object({
   rating: z.enum(["good", "bad", "circle", "print"]).optional().nullable(),
@@ -16,18 +16,21 @@ export const PUT = createApiHandler({
     const { id: screenplayId, shotId, takeNum: takeNumStr } = params
     const takeNum = parseInt(takeNumStr, 10)
 
+    // Fetch both plan AND stripeCurrentPeriodEnd for proper validation
     const { data: dbUser, error: userError } = await supabase
       .from("User")
-      .select("plan")
+      .select("plan, stripeCurrentPeriodEnd")
       .eq("id", user.id)
       .single()
 
-    if (userError) throw userError
+    if (userError) handleSupabaseError(userError, "User")
 
     const plan = (dbUser?.plan as PlanType) || "FREE"
+    const periodEnd = dbUser?.stripeCurrentPeriodEnd as string | null
 
-    if (!canUseProduction(plan)) {
-      throw new ForbiddenError("Production features require PRO plan")
+    // SECURITY: Validate both plan AND subscription period
+    if (!canAccessProductionFeatures(plan, periodEnd)) {
+      throw new ForbiddenError("Production features require an active PRO subscription")
     }
 
     if (isNaN(takeNum) || takeNum < 1) {
@@ -52,7 +55,7 @@ export const PUT = createApiHandler({
     if (shotError?.code === "PGRST116" || !existingShot) {
       throw new NotFoundError("Shot")
     }
-    if (shotError) throw shotError
+    if (shotError) handleSupabaseError(shotError, "Shot")
 
     if (takeNum > existingShot.takeCount) {
       throw new BadRequestError("Take number exceeds shot take count")
@@ -82,7 +85,7 @@ export const PUT = createApiHandler({
         .select()
         .single()
 
-      if (updateError) throw updateError
+      if (updateError) handleSupabaseError(updateError, "TakeNote")
       takeNote = updated
     } else {
       const { data: created, error: createError } = await supabase
@@ -98,7 +101,7 @@ export const PUT = createApiHandler({
         .select()
         .single()
 
-      if (createError) throw createError
+      if (createError) handleSupabaseError(createError, "TakeNote")
       takeNote = created
     }
 
@@ -131,7 +134,7 @@ export const GET = createApiHandler({
       .eq("takeNum", takeNum)
       .single()
 
-    if (error && error.code !== "PGRST116") throw error
+    if (error && error.code !== "PGRST116") handleSupabaseError(error, "TakeNote")
 
     return { takeNote: takeNote || null }
   },
