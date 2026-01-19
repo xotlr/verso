@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Plus, Upload } from 'lucide-react';
 import { RiFolder6Line } from 'react-icons/ri';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/components/providers/auth-provider';
 import { ImportDropZoneOverlay, useFileImport } from '@/components/import-drop-zone';
 import type { ImportResult } from '@/components/import-drop-zone/types';
 import { getImportQuipShort } from '@/lib/import-quips';

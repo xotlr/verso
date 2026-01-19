@@ -2,8 +2,7 @@
  * Server-side audit logging functions
  */
 
-import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { createServerActionClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
 
 // Re-export types and constants for convenience
@@ -34,16 +33,15 @@ export async function logTeamAction(params: LogTeamActionParams): Promise<void> 
   const { teamId, actorId, action, targetType, targetId, metadata, ipAddress } = params;
 
   try {
-    await prisma.teamAuditLog.create({
-      data: {
-        teamId,
-        actorId,
-        action,
-        targetType,
-        targetId,
-        metadata: metadata as Prisma.InputJsonValue ?? Prisma.JsonNull,
-        ipAddress,
-      },
+    const supabase = await createServerActionClient();
+    await (supabase.from("TeamAuditLog") as ReturnType<typeof supabase.from>).insert({
+      teamId,
+      actorId,
+      action,
+      targetType,
+      targetId,
+      metadata: metadata ?? null,
+      ipAddress,
     });
   } catch (error) {
     // Log error but don't throw - audit logging shouldn't break the main operation

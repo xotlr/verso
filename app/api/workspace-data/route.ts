@@ -1,11 +1,56 @@
 import { NextResponse } from "next/server"
 import { createApiHandler } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import type { GreetingCategory } from "@/lib/voice/features/greeting"
+
+interface ProjectData {
+  id: string
+  name: string
+  description: string | null
+  coverImage: string | null
+  banner: string | null
+  logo: string | null
+  type: string | null
+  status: string | null
+  budget: number | null
+  createdAt: string
+  updatedAt: string
+  teamId: string | null
+  isArchived: boolean
+  team: { id: string; name: string } | null
+  roles: unknown[]
+  screenplays: unknown[]
+  notes: unknown[]
+  schedules: unknown[]
+  budgets: unknown[]
+}
+
+interface SeriesData {
+  id: string
+  title: string
+  logline: string | null
+  genre: string | null
+  format: string | null
+  createdAt: string
+  updatedAt: string
+  isArchived: boolean
+  projectId: string | null
+  project: { id: string; name: string } | null
+  episodes: unknown[]
+}
+
+interface StackData {
+  id: string
+  name: string
+  createdAt: string
+  updatedAt: string
+  projectId: string | null
+  project: { id: string; name: string } | null
+  screenplays: unknown[]
+}
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, searchParams }) => {
+  handler: async ({ user, searchParams, supabase }) => {
     const userId = user.id
 
     const screenplayLimit = Math.min(parseInt(searchParams.get("limit") || "50"), 100)
@@ -21,208 +66,252 @@ export const GET = createApiHandler({
     const weekAgo = new Date(today)
     weekAgo.setDate(weekAgo.getDate() - 7)
 
-    const teamMemberships = await prisma.teamMember.findMany({
-      where: { userId },
-      select: { teamId: true },
-    })
-    const teamIds = teamMemberships.map((m) => m.teamId)
+    // Get team memberships first
+    const membershipResult = await supabase
+      .from("TeamMember")
+      .select("teamId")
+      .eq("userId", userId)
+    const teamMemberships = membershipResult.data as { teamId: string }[] | null
 
-    const userOrTeamWhere =
-      teamIds.length > 0 ? { OR: [{ userId }, { teamId: { in: teamIds } }] } : { userId }
+    const teamIds = (teamMemberships || []).map((m) => m.teamId)
 
+    // Build parallel queries
     const [
-      screenplays,
-      screenplayTotal,
-      projects,
-      series,
-      stacks,
-      counts,
-      userStats,
-      writingSessions,
-      lastEditedScreenplay,
-      recentGreetingHistory,
-      recentActivity,
+      screenplaysResult,
+      screenplayTotalResult,
+      projectsResult,
+      seriesResult,
+      stacksResult,
+      screenplayCountResult,
+      projectCountResult,
+      userStatsResult,
+      writingSessionsResult,
+      lastEditedScreenplayResult,
+      recentGreetingHistoryResult,
+      recentActivityResult,
     ] = await Promise.all([
-      prisma.screenplay.findMany({
-        where: userOrTeamWhere,
-        orderBy: { updatedAt: "desc" },
-        take: screenplayLimit,
-        skip: screenplayOffset,
-        select: {
-          id: true,
-          title: true,
-          wordCount: true,
-          synopsis: true,
-          logline: true,
-          createdAt: true,
-          updatedAt: true,
-          projectId: true,
-          teamId: true,
-          stackId: true,
-          isFavorite: true,
-          isArchived: true,
-          lastOpenedAt: true,
-          genre: true,
-          author: true,
-          type: true,
-          season: true,
-          episode: true,
-          episodeTitle: true,
-          seriesId: true,
-          series: { select: { id: true, title: true } },
-          project: { select: { id: true, name: true } },
-          team: { select: { id: true, name: true } },
-          user: { select: { id: true, name: true } },
-        },
-      }),
-      prisma.screenplay.count({ where: userOrTeamWhere }),
-      prisma.project.findMany({
-        where:
-          teamIds.length > 0
-            ? { OR: [{ userId, teamId: null }, { teamId: { in: teamIds } }] }
-            : { userId, teamId: null },
-        orderBy: { updatedAt: "desc" },
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          coverImage: true,
-          banner: true,
-          logo: true,
-          type: true,
-          status: true,
-          budget: true,
-          createdAt: true,
-          updatedAt: true,
-          teamId: true,
-          team: { select: { id: true, name: true } },
-          isArchived: true,
-          roles: {
-            select: {
-              id: true,
-              role: true,
-              name: true,
-              userId: true,
-              user: { select: { id: true, name: true, image: true } },
-            },
-            orderBy: { role: "asc" },
-          },
-          screenplays: {
-            take: 3,
-            select: { id: true, title: true },
-            orderBy: { updatedAt: "desc" },
-          },
-          _count: { select: { screenplays: true, notes: true, schedules: true, budgets: true } },
-        },
-      }),
-      prisma.series.findMany({
-        where: { userId },
-        orderBy: { updatedAt: "desc" },
-        select: {
-          id: true,
-          title: true,
-          logline: true,
-          genre: true,
-          format: true,
-          createdAt: true,
-          updatedAt: true,
-          isArchived: true,
-          projectId: true,
-          project: { select: { id: true, name: true } },
-          episodes: {
-            take: 10,
-            select: {
-              id: true,
-              title: true,
-              season: true,
-              episode: true,
-              episodeTitle: true,
-              wordCount: true,
-              updatedAt: true,
-            },
-            orderBy: [{ season: "asc" }, { episode: "asc" }],
-          },
-          _count: { select: { episodes: true } },
-        },
-      }),
-      prisma.stack.findMany({
-        where: { userId },
-        orderBy: { updatedAt: "desc" },
-        select: {
-          id: true,
-          name: true,
-          createdAt: true,
-          updatedAt: true,
-          projectId: true,
-          project: { select: { id: true, name: true } },
-          screenplays: {
-            take: 5,
-            select: { id: true, title: true, wordCount: true, updatedAt: true, type: true, genre: true },
-            orderBy: { updatedAt: "desc" },
-          },
-          _count: { select: { screenplays: true } },
-        },
-      }),
-      prisma.$transaction([
-        prisma.screenplay.count({ where: userOrTeamWhere }),
-        prisma.project.count({
-          where:
-            teamIds.length > 0
-              ? { OR: [{ userId, teamId: null }, { teamId: { in: teamIds } }] }
-              : { userId, teamId: null },
-        }),
-      ]),
-      prisma.userStats.findUnique({
-        where: { userId },
-        select: { currentStreak: true, longestStreak: true, dailyGoal: true, lastWriteDate: true },
-      }),
-      prisma.writingSession.findMany({
-        where: { userId, date: { gte: weekAgo } },
-        select: { wordCount: true, date: true },
-      }),
-      prisma.screenplay.findFirst({
-        where: userOrTeamWhere,
-        orderBy: { updatedAt: "desc" },
-        select: {
-          id: true,
-          title: true,
-          genre: true,
-          wordCount: true,
-          updatedAt: true,
-          series: { select: { title: true } },
-          project: { select: { name: true } },
-        },
-      }),
-      prisma.greetingHistory.findMany({
-        where: { userId },
-        orderBy: { shownAt: "desc" },
-        take: 15,
-        select: { text: true, category: true },
-      }),
-      prisma.activity.findMany({
-        where: { userId },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-        select: {
-          type: true,
-          entityId: true,
-          entityTitle: true,
-          metadata: true,
-          createdAt: true,
-        },
-      }),
+      // Screenplays
+      teamIds.length > 0
+        ? supabase
+            .from("Screenplay")
+            .select(`
+              id, title, wordCount, synopsis, logline, createdAt, updatedAt,
+              projectId, teamId, stackId, isFavorite, isArchived, lastOpenedAt,
+              genre, author, type, season, episode, episodeTitle, seriesId,
+              series:Series!seriesId(id, title),
+              project:Project!projectId(id, name),
+              team:Team!teamId(id, name),
+              user:User!userId(id, name)
+            `)
+            .or(`userId.eq.${userId},teamId.in.(${teamIds.join(",")})`)
+            .order("updatedAt", { ascending: false })
+            .range(screenplayOffset, screenplayOffset + screenplayLimit - 1)
+        : supabase
+            .from("Screenplay")
+            .select(`
+              id, title, wordCount, synopsis, logline, createdAt, updatedAt,
+              projectId, teamId, stackId, isFavorite, isArchived, lastOpenedAt,
+              genre, author, type, season, episode, episodeTitle, seriesId,
+              series:Series!seriesId(id, title),
+              project:Project!projectId(id, name),
+              team:Team!teamId(id, name),
+              user:User!userId(id, name)
+            `)
+            .eq("userId", userId)
+            .order("updatedAt", { ascending: false })
+            .range(screenplayOffset, screenplayOffset + screenplayLimit - 1),
+
+      // Screenplay total count
+      teamIds.length > 0
+        ? supabase
+            .from("Screenplay")
+            .select("id", { count: "exact", head: true })
+            .or(`userId.eq.${userId},teamId.in.(${teamIds.join(",")})`)
+        : supabase
+            .from("Screenplay")
+            .select("id", { count: "exact", head: true })
+            .eq("userId", userId),
+
+      // Projects with related data
+      teamIds.length > 0
+        ? supabase
+            .from("Project")
+            .select(`
+              id, name, description, coverImage, banner, logo, type, status,
+              budget, createdAt, updatedAt, teamId, isArchived,
+              team:Team!teamId(id, name),
+              roles:ProjectRole(id, role, name, userId, user:User!userId(id, name, image)),
+              screenplays:Screenplay(id, title),
+              notes:Note(id),
+              schedules:Schedule(id),
+              budgets:Budget(id)
+            `)
+            .or(`userId.eq.${userId},teamId.in.(${teamIds.join(",")})`)
+            .is("teamId", null)
+            .order("updatedAt", { ascending: false })
+        : supabase
+            .from("Project")
+            .select(`
+              id, name, description, coverImage, banner, logo, type, status,
+              budget, createdAt, updatedAt, teamId, isArchived,
+              team:Team!teamId(id, name),
+              roles:ProjectRole(id, role, name, userId, user:User!userId(id, name, image)),
+              screenplays:Screenplay(id, title),
+              notes:Note(id),
+              schedules:Schedule(id),
+              budgets:Budget(id)
+            `)
+            .eq("userId", userId)
+            .is("teamId", null)
+            .order("updatedAt", { ascending: false }),
+
+      // Series
+      supabase
+        .from("Series")
+        .select(`
+          id, title, logline, genre, format, createdAt, updatedAt, isArchived, projectId,
+          project:Project!projectId(id, name),
+          episodes:Screenplay(id, title, season, episode, episodeTitle, wordCount, updatedAt)
+        `)
+        .eq("userId", userId)
+        .order("updatedAt", { ascending: false }),
+
+      // Stacks
+      supabase
+        .from("Stack")
+        .select(`
+          id, name, createdAt, updatedAt, projectId,
+          project:Project!projectId(id, name),
+          screenplays:Screenplay(id, title, wordCount, updatedAt, type, genre)
+        `)
+        .eq("userId", userId)
+        .order("updatedAt", { ascending: false }),
+
+      // Screenplay count for dashboard
+      teamIds.length > 0
+        ? supabase
+            .from("Screenplay")
+            .select("id", { count: "exact", head: true })
+            .or(`userId.eq.${userId},teamId.in.(${teamIds.join(",")})`)
+        : supabase
+            .from("Screenplay")
+            .select("id", { count: "exact", head: true })
+            .eq("userId", userId),
+
+      // Project count for dashboard
+      teamIds.length > 0
+        ? supabase
+            .from("Project")
+            .select("id", { count: "exact", head: true })
+            .or(`userId.eq.${userId},teamId.in.(${teamIds.join(",")})`)
+            .is("teamId", null)
+        : supabase
+            .from("Project")
+            .select("id", { count: "exact", head: true })
+            .eq("userId", userId)
+            .is("teamId", null),
+
+      // User stats
+      supabase
+        .from("UserStats")
+        .select("currentStreak, longestStreak, dailyGoal, lastWriteDate")
+        .eq("userId", userId)
+        .single(),
+
+      // Writing sessions from past week
+      supabase
+        .from("WritingSession")
+        .select("wordCount, date")
+        .eq("userId", userId)
+        .gte("date", weekAgo.toISOString()),
+
+      // Last edited screenplay
+      teamIds.length > 0
+        ? supabase
+            .from("Screenplay")
+            .select(`
+              id, title, genre, wordCount, updatedAt,
+              series:Series!seriesId(title),
+              project:Project!projectId(name)
+            `)
+            .or(`userId.eq.${userId},teamId.in.(${teamIds.join(",")})`)
+            .order("updatedAt", { ascending: false })
+            .limit(1)
+            .single()
+        : supabase
+            .from("Screenplay")
+            .select(`
+              id, title, genre, wordCount, updatedAt,
+              series:Series!seriesId(title),
+              project:Project!projectId(name)
+            `)
+            .eq("userId", userId)
+            .order("updatedAt", { ascending: false })
+            .limit(1)
+            .single(),
+
+      // Recent greeting history
+      supabase
+        .from("GreetingHistory")
+        .select("text, category")
+        .eq("userId", userId)
+        .order("shownAt", { ascending: false })
+        .limit(15),
+
+      // Recent activity
+      supabase
+        .from("Activity")
+        .select("type, entityId, entityTitle, metadata, createdAt")
+        .eq("userId", userId)
+        .order("createdAt", { ascending: false })
+        .limit(5),
     ])
+
+    const screenplays = screenplaysResult.data || []
+    const screenplayTotal = screenplayTotalResult.count || 0
+    const projectsData = (projectsResult.data || []) as ProjectData[]
+    const projects = projectsData.map((project) => ({
+      ...project,
+      roles: (project.roles || []).slice(0, 10),
+      _count: {
+        screenplays: (project.screenplays || []).length,
+        notes: (project.notes || []).length,
+        schedules: (project.schedules || []).length,
+        budgets: (project.budgets || []).length,
+      },
+      screenplays: (project.screenplays || []).slice(0, 3),
+    }))
+    const seriesData = (seriesResult.data || []) as SeriesData[]
+    const series = seriesData.map((s) => ({
+      ...s,
+      episodes: (s.episodes || []).slice(0, 10),
+      _count: { episodes: (s.episodes || []).length },
+    }))
+    const stacksData = (stacksResult.data || []) as StackData[]
+    const stacks = stacksData.map((stack) => ({
+      ...stack,
+      screenplays: (stack.screenplays || []).slice(0, 5),
+      _count: { screenplays: (stack.screenplays || []).length },
+    }))
+    const userStats = userStatsResult.data as { currentStreak: number; longestStreak: number; dailyGoal: number; lastWriteDate: string | null } | null
+    const writingSessions = (writingSessionsResult.data || []) as { wordCount: number; date: string }[]
+    const lastEditedScreenplay = lastEditedScreenplayResult.data as { id: string; title: string; genre: string | null; wordCount: number; updatedAt: string; series: { title?: string } | null; project: { name?: string } | null } | null
+    const recentGreetingHistory = (recentGreetingHistoryResult.data || []) as { text: string; category: string | null }[]
+    const recentActivity = (recentActivityResult.data || []) as { type: string; entityId: string | null; entityTitle: string | null; metadata: unknown; createdAt: string }[]
 
     const wordsThisWeek = writingSessions.reduce((sum, s) => sum + s.wordCount, 0)
     const wordsToday = writingSessions
       .filter((s) => new Date(s.date) >= today)
       .reduce((sum, s) => sum + s.wordCount, 0)
 
-    const allTimeStats = await prisma.writingSession.aggregate({
-      where: { userId },
-      _sum: { wordCount: true },
-    })
-    const totalWordsAllTime = allTimeStats._sum.wordCount || 0
+    // All-time word count aggregate
+    const allTimeResult = await supabase
+      .from("WritingSession")
+      .select("wordCount")
+      .eq("userId", userId)
+    const allTimeData = (allTimeResult.data || []) as { wordCount: number }[]
+
+    const totalWordsAllTime = allTimeData.reduce((sum, s) => sum + s.wordCount, 0)
 
     let currentStreak = userStats?.currentStreak || 0
     if (userStats?.lastWriteDate) {
@@ -233,7 +322,8 @@ export const GET = createApiHandler({
       }
     }
 
-    const [screenplayCount, projectCount] = counts
+    const screenplayCount = screenplayCountResult.count || 0
+    const projectCount = projectCountResult.count || 0
 
     const dashboardStats = {
       screenplayCount,
@@ -259,8 +349,8 @@ export const GET = createApiHandler({
             wordCount: lastEditedScreenplay.wordCount,
             updatedAt: lastEditedScreenplay.updatedAt,
             genre: lastEditedScreenplay.genre,
-            seriesTitle: lastEditedScreenplay.series?.title || null,
-            projectName: lastEditedScreenplay.project?.name || null,
+            seriesTitle: (lastEditedScreenplay.series as { title?: string } | null)?.title || null,
+            projectName: (lastEditedScreenplay.project as { name?: string } | null)?.name || null,
           }
         : null,
     }

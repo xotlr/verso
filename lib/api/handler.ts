@@ -39,7 +39,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ZodSchema, ZodError } from 'zod';
-import { auth } from '@/lib/auth';
 import { rateLimit, getClientIp, type RATE_LIMITS } from '@/lib/rate-limit';
 import {
   ApiError,
@@ -55,6 +54,13 @@ import {
   generateCorrelationId,
   type LogContext,
 } from '@/lib/logger';
+import { getSession as getSupabaseSession } from '@/lib/supabase-auth';
+import { createServerActionClient } from '@/lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+// Use a generic Database type for the Supabase client
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseDatabase = any;
 
 // Correlation ID header name (matches proxy.ts)
 const CORRELATION_ID_HEADER = 'x-correlation-id';
@@ -85,6 +91,9 @@ interface HandlerContext<TData = unknown, TParams = Record<string, string>> {
   searchParams: URLSearchParams;
   /** Original Next.js request */
   request: NextRequest;
+  /** Supabase client (only present when USE_SUPABASE_DB is enabled) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase?: any;
 }
 
 /**
@@ -96,6 +105,9 @@ interface OptionalAuthContext<TData = unknown, TParams = Record<string, string>>
   params: TParams;
   searchParams: URLSearchParams;
   request: NextRequest;
+  /** Supabase client (only present when USE_SUPABASE_DB is enabled) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase?: any;
 }
 
 /**
@@ -107,6 +119,9 @@ interface NoAuthContext<TData = unknown, TParams = Record<string, string>> {
   params: TParams;
   searchParams: URLSearchParams;
   request: NextRequest;
+  /** Supabase client (only present when USE_SUPABASE_DB is enabled) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase?: any;
 }
 
 /**
@@ -244,11 +259,17 @@ export function createApiHandler<
           // We allow this but rely on auth for protection. Consider stricter policy if needed.
         }
 
-        // 2. Authentication
+        // 2. Authentication (Supabase Auth)
         let user: SessionUser | undefined;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let supabase: any;
+
+        // Create Supabase client for auth and DB access
+        supabase = await createServerActionClient();
 
         if (authMode !== 'none') {
-          const session = await auth();
+          // Use Supabase Auth
+          const session = await getSupabaseSession();
 
           if (authMode === 'required' && !session?.user?.id) {
             throw new UnauthorizedError();
@@ -256,8 +277,17 @@ export function createApiHandler<
 
           if (session?.user?.id) {
             user = session.user as SessionUser;
-            // Update log context with user ID
             logContext.userId = user.id;
+
+            // Set current user in Supabase context for RLS optimization
+            if (supabase) {
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await (supabase.rpc as any)('set_current_user', { p_user_id: user.id });
+              } catch {
+                // Function may not exist - that's OK
+              }
+            }
           }
         }
 
@@ -316,6 +346,7 @@ export function createApiHandler<
           params,
           searchParams,
           request,
+          supabase,
         };
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

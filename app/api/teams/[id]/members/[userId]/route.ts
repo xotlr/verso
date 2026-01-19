@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { logTeamAction } from "@/lib/audit-log"
 
 const updateRoleSchema = z.object({
@@ -10,20 +9,28 @@ const updateRoleSchema = z.object({
 export const PUT = createApiHandler({
   auth: "required",
   schema: updateRoleSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id, userId: targetUserId } = params
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-    })
+    // Get team
+    const { data: team, error: teamError } = await supabase
+      .from("Team")
+      .select("ownerId")
+      .eq("id", id)
+      .single()
 
-    if (!team) {
+    if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
+    if (teamError) throw teamError
 
-    const currentMembership = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: id, userId: user.id } },
-    })
+    // Check current user's membership
+    const { data: currentMembership } = await supabase
+      .from("TeamMember")
+      .select("role")
+      .eq("teamId", id)
+      .eq("userId", user.id)
+      .single()
 
     const canManage =
       team.ownerId === user.id ||
@@ -38,20 +45,33 @@ export const PUT = createApiHandler({
       throw new BadRequestError("Cannot change the team owner's role")
     }
 
-    const existingMember = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: id, userId: targetUserId } },
-      include: { user: { select: { name: true, email: true } } },
-    })
+    // Get existing member info for logging
+    const { data: existingMember } = await supabase
+      .from("TeamMember")
+      .select(`
+        id, role,
+        user:User(name, email)
+      `)
+      .eq("teamId", id)
+      .eq("userId", targetUserId)
+      .single()
 
-    const updatedMember = await prisma.teamMember.update({
-      where: { teamId_userId: { teamId: id, userId: targetUserId } },
-      data: { role: data.role },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-      },
-    })
+    // Update member role
+    const { data: updatedMember, error: updateError } = await supabase
+      .from("TeamMember")
+      .update({ role: data.role })
+      .eq("teamId", id)
+      .eq("userId", targetUserId)
+      .select(`
+        id, role, userId, createdAt,
+        user:User(id, name, email, image)
+      `)
+      .single()
+
+    if (updateError?.code === "PGRST116" || !updatedMember) {
+      throw new NotFoundError("Team member")
+    }
+    if (updateError) throw updateError
 
     await logTeamAction({
       teamId: id,
@@ -62,7 +82,7 @@ export const PUT = createApiHandler({
       metadata: {
         oldRole: existingMember?.role,
         newRole: data.role,
-        userName: existingMember?.user?.name,
+        userName: (existingMember?.user as any)?.name,
       },
     })
 
@@ -72,24 +92,32 @@ export const PUT = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id, userId: targetUserId } = params
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-    })
+    // Get team
+    const { data: team, error: teamError } = await supabase
+      .from("Team")
+      .select("ownerId")
+      .eq("id", id)
+      .single()
 
-    if (!team) {
+    if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
+    if (teamError) throw teamError
 
     if (targetUserId === team.ownerId) {
       throw new BadRequestError("Cannot remove the team owner")
     }
 
-    const currentMembership = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: id, userId: user.id } },
-    })
+    // Check current user's membership
+    const { data: currentMembership } = await supabase
+      .from("TeamMember")
+      .select("role")
+      .eq("teamId", id)
+      .eq("userId", user.id)
+      .single()
 
     const isSelf = targetUserId === user.id
     const canRemove =
@@ -102,14 +130,25 @@ export const DELETE = createApiHandler({
       throw new ForbiddenError("Access denied")
     }
 
-    const memberToRemove = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: id, userId: targetUserId } },
-      include: { user: { select: { name: true, email: true } } },
-    })
+    // Get member info for logging
+    const { data: memberToRemove } = await supabase
+      .from("TeamMember")
+      .select(`
+        id,
+        user:User(name, email)
+      `)
+      .eq("teamId", id)
+      .eq("userId", targetUserId)
+      .single()
 
-    await prisma.teamMember.delete({
-      where: { teamId_userId: { teamId: id, userId: targetUserId } },
-    })
+    // Delete member
+    const { error: deleteError } = await supabase
+      .from("TeamMember")
+      .delete()
+      .eq("teamId", id)
+      .eq("userId", targetUserId)
+
+    if (deleteError) throw deleteError
 
     await logTeamAction({
       teamId: id,
@@ -118,8 +157,8 @@ export const DELETE = createApiHandler({
       targetType: "member",
       targetId: targetUserId,
       metadata: {
-        userName: memberToRemove?.user?.name,
-        email: memberToRemove?.user?.email,
+        userName: (memberToRemove?.user as any)?.name,
+        email: (memberToRemove?.user as any)?.email,
         wasSelfRemoval: isSelf,
       },
     })

@@ -1,20 +1,19 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
-async function hasProjectAccess(projectId: string, userId: string): Promise<boolean> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      team: {
-        include: { members: { where: { userId } } },
-      },
-    },
-  })
+async function hasProjectAccess(projectId: string, userId: string, supabase: any): Promise<boolean> {
+  const { data: project } = await supabase
+    .from("Project")
+    .select(`
+      id, userId, teamId,
+      team:Team(id, members:TeamMember(userId))
+    `)
+    .eq("id", projectId)
+    .single()
 
   if (!project) return false
   if (project.userId === userId) return true
-  if (project.team && project.team.members.length > 0) return true
+  if (project.team?.members?.some((m: { userId: string }) => m.userId === userId)) return true
 
   return false
 }
@@ -33,31 +32,21 @@ const createCallsheetSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: projectId } = params
 
-    const hasAccess = await hasProjectAccess(projectId, user.id)
+    const hasAccess = await hasProjectAccess(projectId, user.id, supabase)
     if (!hasAccess) {
       throw new NotFoundError("Project")
     }
 
-    const callsheets = await prisma.callsheet.findMany({
-      where: { projectId },
-      orderBy: { shootDate: "asc" },
-      select: {
-        id: true,
-        title: true,
-        shootDate: true,
-        callTime: true,
-        wrapTime: true,
-        status: true,
-        primaryLocation: true,
-        weatherForecast: true,
-        weatherTemp: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    })
+    const { data: callsheets, error } = await supabase
+      .from("Callsheet")
+      .select("id, title, shootDate, callTime, wrapTime, status, primaryLocation, weatherForecast, weatherTemp, createdAt, updatedAt")
+      .eq("projectId", projectId)
+      .order("shootDate", { ascending: true })
+
+    if (error) throw error
 
     return callsheets
   },
@@ -66,20 +55,21 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: createCallsheetSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: projectId } = params
 
-    const hasAccess = await hasProjectAccess(projectId, user.id)
+    const hasAccess = await hasProjectAccess(projectId, user.id, supabase)
     if (!hasAccess) {
       throw new NotFoundError("Project")
     }
 
-    const callsheet = await prisma.callsheet.create({
-      data: {
+    const { data: callsheet, error } = await supabase
+      .from("Callsheet")
+      .insert({
         title: data.title,
-        shootDate: new Date(data.shootDate),
-        callTime: new Date(data.callTime),
-        wrapTime: data.wrapTime ? new Date(data.wrapTime) : null,
+        shootDate: data.shootDate,
+        callTime: data.callTime,
+        wrapTime: data.wrapTime || null,
         status: data.status || "DRAFT",
         primaryLocation: data.primaryLocation,
         data: data.data,
@@ -87,8 +77,11 @@ export const POST = createApiHandler({
         weatherTemp: data.weatherTemp,
         userId: user.id,
         projectId,
-      },
-    })
+      })
+      .select()
+      .single()
+
+    if (error) throw error
 
     return callsheet
   },

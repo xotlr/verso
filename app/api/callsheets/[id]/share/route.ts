@@ -1,31 +1,55 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
+import { createServerActionClient } from "@/lib/supabase/server"
 
-async function checkCallsheetAccess(callsheetId: string, userId: string) {
-  const callsheet = await prisma.callsheet.findUnique({
-    where: { id: callsheetId },
-    include: {
-      project: {
-        include: {
-          team: {
-            include: { members: { where: { userId } } },
-          },
-        },
-      },
-    },
-  })
+interface CallsheetAccessResult {
+  allowed: boolean
+  notFound: boolean
+  callsheet: { id: string; userId: string } | null
+}
 
-  if (!callsheet) {
+async function checkCallsheetAccess(callsheetId: string, userId: string): Promise<CallsheetAccessResult> {
+  const supabase = await createServerActionClient()
+
+  const { data, error } = await supabase
+    .from("Callsheet")
+    .select(`
+      id,
+      userId,
+      project:Project!projectId(
+        id,
+        team:Team(
+          id,
+          members:TeamMember(userId)
+        )
+      )
+    `)
+    .eq("id", callsheetId)
+    .single()
+
+  if (error?.code === "PGRST116" || !data) {
     return { allowed: false, notFound: true, callsheet: null }
+  }
+  if (error) throw error
+
+  const callsheet = data as {
+    id: string
+    userId: string
+    project: {
+      id: string
+      team: { id: string; members: { userId: string }[] } | null
+    }
   }
 
   if (callsheet.userId === userId) {
     return { allowed: true, notFound: false, callsheet }
   }
 
-  if (callsheet.project?.team && callsheet.project.team.members.length > 0) {
-    return { allowed: true, notFound: false, callsheet }
+  if (callsheet.project?.team && Array.isArray(callsheet.project.team.members)) {
+    const isMember = callsheet.project.team.members.some((m) => m.userId === userId)
+    if (isMember) {
+      return { allowed: true, notFound: false, callsheet }
+    }
   }
 
   return { allowed: false, notFound: false, callsheet: null }
@@ -39,7 +63,7 @@ const createShareLinkSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
     const access = await checkCallsheetAccess(id, user.id)
@@ -52,22 +76,25 @@ export const GET = createApiHandler({
       throw new ForbiddenError("Access denied")
     }
 
-    const shareLinks = await prisma.callsheetShareLink.findMany({
-      where: { callsheetId: id },
-      orderBy: { createdAt: "desc" },
-      include: {
-        user: { select: { name: true } },
-      },
-    })
+    const { data: shareLinks, error } = await supabase
+      .from("CallsheetShareLink")
+      .select(`
+        *,
+        user:User!userId(name)
+      `)
+      .eq("callsheetId", id)
+      .order("createdAt", { ascending: false })
 
-    return { shareLinks }
+    if (error) throw error
+
+    return { shareLinks: shareLinks || [] }
   },
 })
 
 export const POST = createApiHandler({
   auth: "required",
   schema: createShareLinkSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
     const access = await checkCallsheetAccess(id, user.id)
@@ -80,15 +107,19 @@ export const POST = createApiHandler({
       throw new ForbiddenError("Access denied")
     }
 
-    const shareLink = await prisma.callsheetShareLink.create({
-      data: {
+    const { data: shareLink, error } = await supabase
+      .from("CallsheetShareLink")
+      .insert({
         callsheetId: id,
         userId: user.id,
         filterType: data.filterType,
         filterValue: data.filterValue || null,
-        expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
-      },
-    })
+        expiresAt: data.expiresAt || null,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
 
     return { shareLink }
   },

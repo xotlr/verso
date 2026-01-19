@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { DEFAULT_ACTS } from "@/types/beat-board"
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -18,24 +17,26 @@ export const GET = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const [screenplay, sceneMetas] = await Promise.all([
-      prisma.screenplay.findUnique({
-        where: { id },
-        select: {
-          id: true,
-          title: true,
-          content: true,
-          acts: true,
-        },
-      }),
-      prisma.sceneMeta.findMany({
-        where: { screenplayId: id },
-      }),
+    const [screenplayResult, sceneMetasResult] = await Promise.all([
+      supabase
+        .from("Screenplay")
+        .select("id, title, content, acts")
+        .eq("id", id)
+        .single(),
+      supabase
+        .from("SceneMeta")
+        .select("*")
+        .eq("screenplayId", id),
     ])
 
-    if (!screenplay) {
+    if (screenplayResult.error?.code === "PGRST116" || !screenplayResult.data) {
       throw new NotFoundError("Screenplay")
     }
+    if (screenplayResult.error) throw screenplayResult.error
+    if (sceneMetasResult.error) throw sceneMetasResult.error
+
+    const screenplay = screenplayResult.data
+    const sceneMetas = sceneMetasResult.data || []
 
     const sceneMetaMap: Record<string, {
       color: string | null

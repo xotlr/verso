@@ -1,5 +1,4 @@
 import { createApiHandler } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 export type ConnectionStatusResponse = {
   status: "none" | "pending_sent" | "pending_received" | "connected"
@@ -8,7 +7,7 @@ export type ConnectionStatusResponse = {
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { userId: targetUserId } = params
     const currentUserId = user.id
 
@@ -16,14 +15,13 @@ export const GET = createApiHandler({
       return { status: "none", connectionId: null } as ConnectionStatusResponse
     }
 
-    const connection = await prisma.connection.findFirst({
-      where: {
-        OR: [
-          { requesterId: currentUserId, addresseeId: targetUserId },
-          { requesterId: targetUserId, addresseeId: currentUserId },
-        ],
-      },
-    })
+    const { data: connection } = await supabase
+      .from("Connection")
+      .select("id, status, requesterId")
+      .or(
+        `and(requesterId.eq.${currentUserId},addresseeId.eq.${targetUserId}),and(requesterId.eq.${targetUserId},addresseeId.eq.${currentUserId})`
+      )
+      .single()
 
     if (!connection) {
       return { status: "none", connectionId: null } as ConnectionStatusResponse

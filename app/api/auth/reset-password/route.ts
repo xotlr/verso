@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, BadRequestError, RateLimitError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit"
 
@@ -17,7 +16,7 @@ const resetPasswordSchema = z.object({
 export const POST = createApiHandler({
   auth: "none",
   schema: resetPasswordSchema,
-  handler: async ({ request, data }) => {
+  handler: async ({ request, data, supabase }) => {
     const ip = getClientIp(request)
     const rateLimitResult = await rateLimit(`reset-password:${ip}`, RATE_LIMITS.AUTH)
 
@@ -28,46 +27,53 @@ export const POST = createApiHandler({
       )
     }
 
-    const resetToken = await prisma.passwordResetToken.findUnique({
-      where: { token: data.token },
-    })
+    const { data: resetToken, error: tokenError } = await supabase
+      .from("PasswordResetToken")
+      .select("*")
+      .eq("token", data.token)
+      .single()
 
-    if (!resetToken) {
+    if (tokenError?.code === "PGRST116" || !resetToken) {
       throw new BadRequestError("Invalid or expired reset link. Please request a new one.")
     }
 
-    if (new Date() > resetToken.expires) {
-      await prisma.passwordResetToken.delete({
-        where: { id: resetToken.id },
-      })
+    if (new Date() > new Date(resetToken.expires)) {
+      await supabase
+        .from("PasswordResetToken")
+        .delete()
+        .eq("id", resetToken.id)
       throw new BadRequestError("This reset link has expired. Please request a new one.")
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: resetToken.email },
-    })
+    const { data: user, error: userError } = await supabase
+      .from("User")
+      .select("id")
+      .eq("email", resetToken.email)
+      .single()
 
-    if (!user) {
-      await prisma.passwordResetToken.delete({
-        where: { id: resetToken.id },
-      })
+    if (userError?.code === "PGRST116" || !user) {
+      await supabase
+        .from("PasswordResetToken")
+        .delete()
+        .eq("id", resetToken.id)
       throw new BadRequestError("Invalid reset link. Please request a new one.")
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 12)
 
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: user.id },
-        data: { password: hashedPassword },
-      }),
-      prisma.passwordResetToken.delete({
-        where: { id: resetToken.id },
-      }),
-      prisma.passwordResetToken.deleteMany({
-        where: { email: resetToken.email },
-      }),
-    ])
+    // Update password
+    const { error: updateError } = await supabase
+      .from("User")
+      .update({ password: hashedPassword })
+      .eq("id", user.id)
+
+    if (updateError) throw updateError
+
+    // Delete all reset tokens for this email
+    await supabase
+      .from("PasswordResetToken")
+      .delete()
+      .eq("email", resetToken.email)
 
     return {
       success: true,
@@ -78,7 +84,7 @@ export const POST = createApiHandler({
 
 export const GET = createApiHandler({
   auth: "none",
-  handler: async ({ request }) => {
+  handler: async ({ request, supabase }) => {
     const { searchParams } = new URL(request.url)
     const token = searchParams.get("token")
 
@@ -86,15 +92,17 @@ export const GET = createApiHandler({
       throw new BadRequestError("Token is required")
     }
 
-    const resetToken = await prisma.passwordResetToken.findUnique({
-      where: { token },
-    })
+    const { data: resetToken, error } = await supabase
+      .from("PasswordResetToken")
+      .select("*")
+      .eq("token", token)
+      .single()
 
-    if (!resetToken) {
+    if (error?.code === "PGRST116" || !resetToken) {
       throw new BadRequestError("Invalid or expired reset link")
     }
 
-    if (new Date() > resetToken.expires) {
+    if (new Date() > new Date(resetToken.expires)) {
       throw new BadRequestError("This reset link has expired")
     }
 

@@ -1,12 +1,17 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
+import { createServerActionClient } from "@/lib/supabase/server"
 
 async function isProjectOwner(projectId: string, userId: string): Promise<boolean> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { userId: true },
-  })
+  const supabase = await createServerActionClient()
+
+  const result = await supabase
+    .from("Project")
+    .select("userId")
+    .eq("id", projectId)
+    .single()
+
+  const project = result.data as { userId: string } | null
   return project?.userId === userId
 }
 
@@ -20,7 +25,7 @@ const updateRoleNeedSchema = z.object({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateRoleNeedSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: projectId, needId } = params
 
     const isOwner = await isProjectOwner(projectId, user.id)
@@ -28,21 +33,26 @@ export const PATCH = createApiHandler({
       throw new ForbiddenError("Only project owner can update role needs")
     }
 
-    const existingRoleNeed = await prisma.projectRoleNeed.findFirst({
-      where: {
-        id: needId,
-        projectId,
-      },
-    })
+    const { data: existingRoleNeed, error: fetchError } = await supabase
+      .from("ProjectRoleNeed")
+      .select("id")
+      .eq("id", needId)
+      .eq("projectId", projectId)
+      .single()
 
-    if (!existingRoleNeed) {
+    if (fetchError?.code === "PGRST116" || !existingRoleNeed) {
       throw new NotFoundError("Role need")
     }
+    if (fetchError) throw fetchError
 
-    const roleNeed = await prisma.projectRoleNeed.update({
-      where: { id: needId },
-      data,
-    })
+    const { data: roleNeed, error: updateError } = await supabase
+      .from("ProjectRoleNeed")
+      .update(data)
+      .eq("id", needId)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
 
     return roleNeed
   },
@@ -50,7 +60,7 @@ export const PATCH = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: projectId, needId } = params
 
     const isOwner = await isProjectOwner(projectId, user.id)
@@ -58,20 +68,24 @@ export const DELETE = createApiHandler({
       throw new ForbiddenError("Only project owner can delete role needs")
     }
 
-    const existingRoleNeed = await prisma.projectRoleNeed.findFirst({
-      where: {
-        id: needId,
-        projectId,
-      },
-    })
+    const { data: existingRoleNeed, error: fetchError } = await supabase
+      .from("ProjectRoleNeed")
+      .select("id")
+      .eq("id", needId)
+      .eq("projectId", projectId)
+      .single()
 
-    if (!existingRoleNeed) {
+    if (fetchError?.code === "PGRST116" || !existingRoleNeed) {
       throw new NotFoundError("Role need")
     }
+    if (fetchError) throw fetchError
 
-    await prisma.projectRoleNeed.delete({
-      where: { id: needId },
-    })
+    const { error: deleteError } = await supabase
+      .from("ProjectRoleNeed")
+      .delete()
+      .eq("id", needId)
+
+    if (deleteError) throw deleteError
 
     return { success: true }
   },

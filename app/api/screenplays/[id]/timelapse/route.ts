@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const updateSettingsSchema = z.object({
   enabled: z.boolean().optional(),
@@ -8,51 +7,54 @@ const updateSettingsSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: screenplayId } = params
 
-    const screenplay = await prisma.screenplay.findFirst({
-      where: {
-        id: screenplayId,
-        userId: user.id,
-      },
-      select: {
-        id: true,
-        title: true,
-        timelapseEnabled: true,
-        timelapseStarted: true,
-        timelapseShareId: true,
-        _count: {
-          select: {
-            operations: true,
-          },
-        },
-      },
-    })
+    const { data: screenplay, error } = await supabase
+      .from("Screenplay")
+      .select("id, title, timelapseEnabled, timelapseStarted, timelapseShareId")
+      .eq("id", screenplayId)
+      .eq("userId", user.id)
+      .single()
 
-    if (!screenplay) {
+    if (error?.code === "PGRST116" || !screenplay) {
       throw new NotFoundError("Screenplay")
     }
+    if (error) throw error
 
-    const [firstOp, lastOp] = await Promise.all([
-      prisma.screenplayOperation.findFirst({
-        where: { screenplayId },
-        orderBy: { timestamp: "asc" },
-        select: { timestamp: true },
-      }),
-      prisma.screenplayOperation.findFirst({
-        where: { screenplayId },
-        orderBy: { timestamp: "desc" },
-        select: { timestamp: true },
-      }),
+    // Get operation count
+    const { count: operationCount } = await supabase
+      .from("ScreenplayOperation")
+      .select("*", { count: "exact", head: true })
+      .eq("screenplayId", screenplayId)
+
+    // Get first and last operation timestamps
+    const [firstOpResult, lastOpResult] = await Promise.all([
+      supabase
+        .from("ScreenplayOperation")
+        .select("timestamp")
+        .eq("screenplayId", screenplayId)
+        .order("timestamp", { ascending: true })
+        .limit(1)
+        .single(),
+      supabase
+        .from("ScreenplayOperation")
+        .select("timestamp")
+        .eq("screenplayId", screenplayId)
+        .order("timestamp", { ascending: false })
+        .limit(1)
+        .single(),
     ])
+
+    const firstOp = firstOpResult.data
+    const lastOp = lastOpResult.data
 
     return {
       enabled: screenplay.timelapseEnabled,
       started: screenplay.timelapseStarted,
       shareId: screenplay.timelapseShareId,
       shareUrl: screenplay.timelapseShareId ? `/timelapse/${screenplay.timelapseShareId}` : null,
-      operationCount: screenplay._count.operations,
+      operationCount: operationCount || 0,
       firstOperationAt: firstOp?.timestamp || null,
       lastOperationAt: lastOp?.timestamp || null,
       durationMs: firstOp && lastOp
@@ -65,31 +67,29 @@ export const GET = createApiHandler({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateSettingsSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: screenplayId } = params
 
-    const screenplay = await prisma.screenplay.findFirst({
-      where: {
-        id: screenplayId,
-        userId: user.id,
-      },
-    })
+    const { data: screenplay, error: fetchError } = await supabase
+      .from("Screenplay")
+      .select("id")
+      .eq("id", screenplayId)
+      .eq("userId", user.id)
+      .single()
 
-    if (!screenplay) {
+    if (fetchError?.code === "PGRST116" || !screenplay) {
       throw new NotFoundError("Screenplay")
     }
+    if (fetchError) throw fetchError
 
-    const updated = await prisma.screenplay.update({
-      where: { id: screenplayId },
-      data: {
-        timelapseEnabled: data.enabled,
-      },
-      select: {
-        timelapseEnabled: true,
-        timelapseStarted: true,
-        timelapseShareId: true,
-      },
-    })
+    const { data: updated, error: updateError } = await supabase
+      .from("Screenplay")
+      .update({ timelapseEnabled: data.enabled })
+      .eq("id", screenplayId)
+      .select("timelapseEnabled, timelapseStarted, timelapseShareId")
+      .single()
+
+    if (updateError) throw updateError
 
     return {
       enabled: updated.timelapseEnabled,

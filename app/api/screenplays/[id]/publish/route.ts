@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const publishSchema = z.object({
   isPublic: z.boolean(),
@@ -9,26 +8,20 @@ const publishSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const screenplay = await prisma.screenplay.findFirst({
-      where: {
-        id,
-        userId: user.id,
-      },
-      select: {
-        id: true,
-        isPublic: true,
-        genre: true,
-        publishedAt: true,
-        views: true,
-      },
-    })
+    const { data: screenplay, error } = await supabase
+      .from("Screenplay")
+      .select("id, isPublic, genre, publishedAt, views")
+      .eq("id", id)
+      .eq("userId", user.id)
+      .single()
 
-    if (!screenplay) {
+    if (error?.code === "PGRST116" || !screenplay) {
       throw new NotFoundError("Screenplay")
     }
+    if (error) throw error
 
     return screenplay
   },
@@ -37,37 +30,35 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: publishSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
-    const screenplay = await prisma.screenplay.findFirst({
-      where: {
-        id,
-        userId: user.id,
-      },
-    })
+    const { data: screenplay, error: fetchError } = await supabase
+      .from("Screenplay")
+      .select("id, publishedAt")
+      .eq("id", id)
+      .eq("userId", user.id)
+      .single()
 
-    if (!screenplay) {
+    if (fetchError?.code === "PGRST116" || !screenplay) {
       throw new NotFoundError("Screenplay")
     }
+    if (fetchError) throw fetchError
 
     const { isPublic, genre } = data
 
-    const updated = await prisma.screenplay.update({
-      where: { id },
-      data: {
+    const { data: updated, error: updateError } = await supabase
+      .from("Screenplay")
+      .update({
         isPublic,
         genre: genre || null,
-        publishedAt: isPublic ? (screenplay.publishedAt || new Date()) : null,
-      },
-      select: {
-        id: true,
-        isPublic: true,
-        genre: true,
-        publishedAt: true,
-        views: true,
-      },
-    })
+        publishedAt: isPublic ? (screenplay.publishedAt || new Date().toISOString()) : null,
+      })
+      .eq("id", id)
+      .select("id, isPublic, genre, publishedAt, views")
+      .single()
+
+    if (updateError) throw updateError
 
     return updated
   },

@@ -1,22 +1,29 @@
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params, searchParams }) => {
+  handler: async ({ user, params, searchParams, supabase }) => {
     const { id } = params
 
-    const membership = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: id, userId: user.id } },
-    })
+    // Check membership
+    const { data: membership } = await supabase
+      .from("TeamMember")
+      .select("role")
+      .eq("teamId", id)
+      .eq("userId", user.id)
+      .single()
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-    })
+    // Check team exists
+    const { data: team, error: teamError } = await supabase
+      .from("Team")
+      .select("ownerId")
+      .eq("id", id)
+      .single()
 
-    if (!team) {
+    if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
+    if (teamError) throw teamError
 
     const canViewAudit =
       team.ownerId === user.id ||
@@ -30,31 +37,48 @@ export const GET = createApiHandler({
     const cursor = searchParams.get("cursor")
     const action = searchParams.get("action")
 
-    const where = {
-      teamId: id,
-      ...(action && { action }),
+    // Build query
+    let query = supabase
+      .from("TeamAuditLog")
+      .select(`
+        id, action, targetType, targetId, metadata, createdAt,
+        actor:User!actorId(id, name, email, image)
+      `)
+      .eq("teamId", id)
+      .order("createdAt", { ascending: false })
+      .limit(limit + 1)
+
+    if (action) {
+      query = query.eq("action", action)
     }
 
-    const auditLogs = await prisma.teamAuditLog.findMany({
-      where,
-      include: {
-        actor: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: limit + 1,
-      ...(cursor && { cursor: { id: cursor }, skip: 1 }),
-    })
+    if (cursor) {
+      // For cursor pagination, we need to get items after the cursor
+      const { data: cursorItem } = await supabase
+        .from("TeamAuditLog")
+        .select("createdAt")
+        .eq("id", cursor)
+        .single()
+
+      if (cursorItem) {
+        query = query.lt("createdAt", cursorItem.createdAt)
+      }
+    }
+
+    const { data: auditLogs, error } = await query
+
+    if (error) throw error
 
     let nextCursor: string | null = null
-    if (auditLogs.length > limit) {
-      const nextItem = auditLogs.pop()
+    const logs = auditLogs || []
+
+    if (logs.length > limit) {
+      const nextItem = logs.pop()
       nextCursor = nextItem?.id || null
     }
 
     return {
-      logs: auditLogs,
+      logs,
       nextCursor,
       hasMore: nextCursor !== null,
     }

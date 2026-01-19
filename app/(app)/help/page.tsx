@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/components/providers/auth-provider';
 import { usePathname } from 'next/navigation';
 import {
   Search,

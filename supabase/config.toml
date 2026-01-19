@@ -1,0 +1,69 @@
+# Supabase CLI Configuration
+# See: https://supabase.com/docs/reference/cli/config
+
+[project]
+id = "verso-screenwriter"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "https://verso.ac"
+additional_redirect_urls = [
+  "https://app.verso.ac/auth/callback",
+  "http://localhost:3000/auth/callback",
+  "http://app.lvh.me:3000/auth/callback"
+]
+
+[auth.external.google]
+enabled = true
+client_id = "env(GOOGLE_CLIENT_ID)"
+secret = "env(GOOGLE_CLIENT_SECRET)"
+redirect_uri = "https://verso.ac/auth/callback"
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
+[auth.sms]
+enable_signup = false
+enable_confirmations = false
+
+[db]
+port = 54322
+major_version = 15
+
+[realtime]
+enabled = true
+
+[storage]
+enabled = true
+
+[analytics]
+enabled = false
+
+# JWT configuration
+[auth.jwt]
+# JWT secret must match SUPABASE_JWT_SECRET env var
+# Expires in 1 hour by default, refresh tokens handle session continuity
+exp = 3600
+
+# Security
+[auth.security]
+# Minimum password length
+password_min_length = 8
+
+# Rate limits
+[auth.rate_limit]
+# Max requests per minute for auth endpoints
+login = 5
+signup = 5
+token_refresh = 30
+email_sent = 60
+sms_sent = 60

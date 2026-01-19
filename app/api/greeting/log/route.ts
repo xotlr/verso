@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { logger } from "@/lib/logger"
 
 const logGreetingSchema = z.object({
@@ -11,29 +10,29 @@ const logGreetingSchema = z.object({
 export const POST = createApiHandler({
   auth: "required",
   schema: logGreetingSchema,
-  handler: async ({ user, data }) => {
+  handler: async ({ user, data, supabase }) => {
     const { category, text } = data
 
     try {
-      await prisma.greetingHistory.create({
-        data: {
-          userId: user.id,
-          category,
-          text,
-        },
+      await supabase.from("GreetingHistory").insert({
+        userId: user.id,
+        category,
+        text,
       })
 
-      const oldGreetings = await prisma.greetingHistory.findMany({
-        where: { userId: user.id },
-        orderBy: { shownAt: "desc" },
-        skip: 20,
-        select: { id: true },
-      })
+      // Get old greetings to delete (keep only 20 most recent)
+      const { data: oldGreetings } = await supabase
+        .from("GreetingHistory")
+        .select("id")
+        .eq("userId", user.id)
+        .order("shownAt", { ascending: false })
+        .range(20, 1000)
 
-      if (oldGreetings.length > 0) {
-        await prisma.greetingHistory.deleteMany({
-          where: { id: { in: oldGreetings.map((g) => g.id) } },
-        })
+      if (oldGreetings && oldGreetings.length > 0) {
+        await supabase
+          .from("GreetingHistory")
+          .delete()
+          .in("id", oldGreetings.map((g: { id: string }) => g.id))
       }
     } catch (error) {
       logger.error("Failed to log greeting", error instanceof Error ? error : undefined, {

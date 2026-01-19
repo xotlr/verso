@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { REVISION_COLORS } from "@/types/version"
 
@@ -40,7 +39,7 @@ function calculateChangeStats(
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params, searchParams }) => {
+  handler: async ({ user, params, searchParams, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -54,27 +53,30 @@ export const GET = createApiHandler({
 
     const page = parseInt(searchParams.get("page") || "1")
     const limit = parseInt(searchParams.get("limit") || "20")
-    const skip = (page - 1) * limit
+    const offset = (page - 1) * limit
 
-    const [versions, total] = await Promise.all([
-      prisma.screenplayVersion.findMany({
-        where: { screenplayId: id },
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-        include: {
-          creator: {
-            select: { id: true, name: true, image: true },
-          },
-        },
-      }),
-      prisma.screenplayVersion.count({
-        where: { screenplayId: id },
-      }),
+    const [versionsResult, countResult] = await Promise.all([
+      supabase
+        .from("ScreenplayVersion")
+        .select(`
+          *,
+          creator:User!createdBy(id, name, image)
+        `)
+        .eq("screenplayId", id)
+        .order("createdAt", { ascending: false })
+        .range(offset, offset + limit - 1),
+      supabase
+        .from("ScreenplayVersion")
+        .select("*", { count: "exact", head: true })
+        .eq("screenplayId", id),
     ])
 
+    if (versionsResult.error) throw versionsResult.error
+
+    const total = countResult.count || 0
+
     return {
-      versions,
+      versions: versionsResult.data || [],
       pagination: {
         page,
         limit,
@@ -88,7 +90,7 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: createVersionSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -102,16 +104,13 @@ export const POST = createApiHandler({
 
     const { content, reason, label, message, wordCount, sceneCount } = data
 
-    const lastVersion = await prisma.screenplayVersion.findFirst({
-      where: { screenplayId: id },
-      orderBy: { versionNumber: "desc" },
-      select: {
-        versionNumber: true,
-        content: true,
-        wordCount: true,
-        sceneCount: true,
-      },
-    })
+    const { data: lastVersion } = await supabase
+      .from("ScreenplayVersion")
+      .select("versionNumber, content, wordCount, sceneCount")
+      .eq("screenplayId", id)
+      .order("versionNumber", { ascending: false })
+      .limit(1)
+      .single()
 
     const versionNumber = (lastVersion?.versionNumber ?? 0) + 1
 
@@ -127,8 +126,9 @@ export const POST = createApiHandler({
       lastVersion?.sceneCount ?? null
     )
 
-    const version = await prisma.screenplayVersion.create({
-      data: {
+    const { data: version, error: createError } = await supabase
+      .from("ScreenplayVersion")
+      .insert({
         screenplayId: id,
         content,
         versionNumber,
@@ -140,13 +140,14 @@ export const POST = createApiHandler({
         sceneCount,
         ...(changeStats ? { changeStats } : {}),
         createdBy: user.id,
-      },
-      include: {
-        creator: {
-          select: { id: true, name: true, image: true },
-        },
-      },
-    })
+      })
+      .select(`
+        *,
+        creator:User!createdBy(id, name, image)
+      `)
+      .single()
+
+    if (createError) throw createError
 
     return version
   },

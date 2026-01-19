@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { logTeamAction } from "@/lib/audit-log"
 
 const updateTeamSchema = z.object({
@@ -14,107 +13,96 @@ const updateTeamSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-      include: {
-        owner: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                image: true,
-                title: true,
-                createdAt: true,
-              },
-            },
-          },
-        },
-        projects: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            coverImage: true,
-            createdAt: true,
-            _count: { select: { screenplays: true } },
-          },
-          orderBy: { updatedAt: "desc" },
-          take: 20,
-        },
-        invites: {
-          select: {
-            id: true,
-            email: true,
-            role: true,
-            expiresAt: true,
-          },
-        },
-        _count: { select: { projects: true, members: true, invites: true } },
-      },
-    })
+    // RLS ensures user is member or owner
+    const { data: team, error } = await supabase
+      .from("Team")
+      .select(`
+        *,
+        owner:User!ownerId(id, name, email, image),
+        members:TeamMember(
+          id, role, userId, createdAt,
+          user:User(id, name, email, image, title, createdAt)
+        ),
+        projects:Project(id, name, description, coverImage, createdAt),
+        invites:TeamInvite(id, email, role, expiresAt)
+      `)
+      .eq("id", id)
+      .single()
 
-    if (!team) {
+    if (error?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
+    if (error) throw error
 
-    const isMember = team.members.some((m) => m.userId === user.id)
+    // Verify membership (RLS should handle this, but double-check)
+    const isMember = team.members?.some((m: any) => m.userId === user.id)
     if (!isMember && team.ownerId !== user.id) {
       throw new ForbiddenError("Access denied")
     }
 
-    return team
+    return {
+      ...team,
+      _count: {
+        projects: team.projects?.length || 0,
+        members: team.members?.length || 0,
+        invites: team.invites?.length || 0,
+      },
+    }
   },
 })
 
 export const PUT = createApiHandler({
   auth: "required",
   schema: updateTeamSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-      include: { members: true },
-    })
+    // Check if user has admin access
+    const { data: membership } = await supabase
+      .from("TeamMember")
+      .select("role")
+      .eq("teamId", id)
+      .eq("userId", user.id)
+      .single()
+
+    const { data: team } = await supabase
+      .from("Team")
+      .select("ownerId")
+      .eq("id", id)
+      .single()
 
     if (!team) {
       throw new NotFoundError("Team")
     }
 
-    const membership = team.members.find((m) => m.userId === user.id)
     const canEdit =
       team.ownerId === user.id ||
-      (membership && (membership.role === "OWNER" || membership.role === "ADMIN"))
+      membership?.role === "OWNER" ||
+      membership?.role === "ADMIN"
 
     if (!canEdit) {
       throw new ForbiddenError("Access denied")
     }
 
-    const updatedTeam = await prisma.team.update({
-      where: { id },
-      data,
-      include: {
-        owner: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-        members: {
-          include: {
-            user: {
-              select: { id: true, name: true, email: true, image: true },
-            },
-          },
-        },
-        _count: { select: { projects: true, members: true, invites: true } },
-      },
-    })
+    // Update team
+    const { data: updatedTeam, error: updateError } = await supabase
+      .from("Team")
+      .update(data)
+      .eq("id", id)
+      .select(`
+        *,
+        owner:User!ownerId(id, name, email, image),
+        members:TeamMember(
+          id, role, userId, createdAt,
+          user:User(id, name, email, image)
+        )
+      `)
+      .single()
+
+    if (updateError) throw updateError
 
     await logTeamAction({
       teamId: id,
@@ -124,18 +112,27 @@ export const PUT = createApiHandler({
       metadata: { changes: data },
     })
 
-    return updatedTeam
+    return {
+      ...updatedTeam,
+      _count: {
+        projects: 0,
+        members: updatedTeam.members?.length || 0,
+        invites: 0,
+      },
+    }
   },
 })
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-    })
+    const { data: team } = await supabase
+      .from("Team")
+      .select("ownerId, name")
+      .eq("id", id)
+      .single()
 
     if (!team) {
       throw new NotFoundError("Team")
@@ -152,9 +149,12 @@ export const DELETE = createApiHandler({
       metadata: { teamName: team.name },
     })
 
-    await prisma.team.delete({
-      where: { id },
-    })
+    const { error } = await supabase
+      .from("Team")
+      .delete()
+      .eq("id", id)
+
+    if (error) throw error
 
     return { success: true }
   },

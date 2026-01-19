@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, BadRequestError, ForbiddenError, RATE_LIMITS } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const PLAN_LIMITS: Record<string, number> = {
   FREE: 10,
@@ -15,90 +14,129 @@ const createFromDropSchema = z.object({
   projectId: z.string().optional(),
 })
 
+type ScreenplayItem = {
+  id: string
+  title: string
+  stackId: string | null
+  projectId: string | null
+}
+
+type StackScreenplay = {
+  id: string
+  title: string
+  wordCount: number
+  updatedAt: string
+  type: string | null
+}
+
+async function getStackWithScreenplays(stackId: string, supabase: any) {
+  const { data: stack } = await supabase
+    .from("Stack")
+    .select(`
+      id, name, createdAt, updatedAt, projectId,
+      project:Project(id, name)
+    `)
+    .eq("id", stackId)
+    .single()
+
+  if (!stack) return null
+
+  const { data: screenplays } = await supabase
+    .from("Screenplay")
+    .select("id, title, wordCount, updatedAt, type")
+    .eq("stackId", stackId)
+    .order("updatedAt", { ascending: false })
+
+  return {
+    ...stack,
+    screenplays: screenplays || [],
+    _count: { screenplays: screenplays?.length || 0 },
+  }
+}
+
 export const POST = createApiHandler({
   auth: "required",
   schema: createFromDropSchema,
   rateLimit: RATE_LIMITS.PROJECT_CREATE,
-  handler: async ({ user, data }) => {
+  handler: async ({ user, data, supabase }) => {
     const { draggedId, targetId, projectId } = data
 
     if (draggedId === targetId) {
       throw new BadRequestError("Cannot stack a screenplay onto itself")
     }
 
-    const screenplays = await prisma.screenplay.findMany({
-      where: { id: { in: [draggedId, targetId] }, userId: user.id },
-      select: { id: true, title: true, stackId: true, projectId: true },
-    })
+    const { data: screenplays } = await supabase
+      .from("Screenplay")
+      .select("id, title, stackId, projectId")
+      .in("id", [draggedId, targetId])
+      .eq("userId", user.id)
 
-    if (screenplays.length !== 2) {
+    if (!screenplays || screenplays.length !== 2) {
       throw new ForbiddenError("One or more screenplays not found or access denied")
     }
 
-    const draggedScreenplay = screenplays.find((s) => s.id === draggedId)!
-    const targetScreenplay = screenplays.find((s) => s.id === targetId)!
+    const draggedScreenplay = screenplays.find((s: ScreenplayItem) => s.id === draggedId)!
+    const targetScreenplay = screenplays.find((s: ScreenplayItem) => s.id === targetId)!
 
     if (targetScreenplay.stackId) {
-      const existingStack = await prisma.stack.findFirst({
-        where: { id: targetScreenplay.stackId, userId: user.id },
-      })
+      const { data: existingStack } = await supabase
+        .from("Stack")
+        .select("id")
+        .eq("id", targetScreenplay.stackId)
+        .eq("userId", user.id)
+        .single()
 
       if (existingStack) {
-        await prisma.screenplay.update({
-          where: { id: draggedId },
-          data: { stackId: existingStack.id },
-        })
+        await supabase
+          .from("Screenplay")
+          .update({ stackId: existingStack.id })
+          .eq("id", draggedId)
 
-        const updatedStack = await prisma.stack.findUnique({
-          where: { id: existingStack.id },
-          include: {
-            screenplays: {
-              select: { id: true, title: true, wordCount: true, updatedAt: true, type: true },
-              orderBy: { updatedAt: "desc" },
-            },
-            project: { select: { id: true, name: true } },
-            _count: { select: { screenplays: true } },
-          },
-        })
-
+        const updatedStack = await getStackWithScreenplays(existingStack.id, supabase)
         return { stack: updatedStack, action: "added_to_existing" }
       }
     }
 
     if (draggedScreenplay.stackId) {
-      await prisma.screenplay.update({
-        where: { id: draggedId },
-        data: { stackId: null },
-      })
+      await supabase
+        .from("Screenplay")
+        .update({ stackId: null })
+        .eq("id", draggedId)
 
-      const oldStackCount = await prisma.screenplay.count({
-        where: { stackId: draggedScreenplay.stackId },
-      })
+      const { count: oldStackCount } = await supabase
+        .from("Screenplay")
+        .select("*", { count: "exact", head: true })
+        .eq("stackId", draggedScreenplay.stackId)
 
-      if (oldStackCount <= 1) {
+      if ((oldStackCount || 0) <= 1) {
         if (oldStackCount === 1) {
-          await prisma.screenplay.updateMany({
-            where: { stackId: draggedScreenplay.stackId },
-            data: { stackId: null },
-          })
+          await supabase
+            .from("Screenplay")
+            .update({ stackId: null })
+            .eq("stackId", draggedScreenplay.stackId)
         }
-        await prisma.stack.delete({ where: { id: draggedScreenplay.stackId } })
+        await supabase
+          .from("Stack")
+          .delete()
+          .eq("id", draggedScreenplay.stackId)
       }
     }
 
-    const userData = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { plan: true },
-    })
+    const { data: userData } = await supabase
+      .from("User")
+      .select("plan")
+      .eq("id", user.id)
+      .single()
 
     const plan = userData?.plan || "FREE"
     const limit = PLAN_LIMITS[plan]
 
-    const stackCount = await prisma.stack.count({
-      where: { userId: user.id },
-    })
+    const { count: stackCount } = await supabase
+      .from("Stack")
+      .select("*", { count: "exact", head: true })
+      .eq("userId", user.id)
 
-    if (stackCount >= limit) {
+    if ((stackCount || 0) >= limit) {
       throw new ForbiddenError(
         `You've reached the limit of ${limit} stacks on the ${plan} plan. Upgrade to create more.`
       )
@@ -107,33 +145,46 @@ export const POST = createApiHandler({
     const effectiveProjectId =
       projectId || targetScreenplay.projectId || draggedScreenplay.projectId || null
 
-    const stack = await prisma.stack.create({
-      data: {
+    const { data: stack, error: createError } = await supabase
+      .from("Stack")
+      .insert({
         name: `${targetScreenplay.title} Stack`,
         userId: user.id,
         projectId: effectiveProjectId,
-        screenplays: { connect: [{ id: draggedId }, { id: targetId }] },
-      },
-      include: {
-        screenplays: {
-          select: { id: true, title: true, wordCount: true, updatedAt: true, type: true },
-          orderBy: { updatedAt: "desc" },
-        },
-        project: { select: { id: true, name: true } },
-        _count: { select: { screenplays: true } },
-      },
+      })
+      .select("id, name, createdAt, updatedAt, projectId, project:Project(id, name)")
+      .single()
+
+    if (createError) throw createError
+
+    // Connect screenplays to the new stack
+    await supabase
+      .from("Screenplay")
+      .update({ stackId: stack.id })
+      .in("id", [draggedId, targetId])
+
+    // Get screenplays for response
+    const { data: stackScreenplays } = await supabase
+      .from("Screenplay")
+      .select("id, title, wordCount, updatedAt, type")
+      .eq("stackId", stack.id)
+      .order("updatedAt", { ascending: false })
+
+    await supabase.from("Activity").insert({
+      userId: user.id,
+      type: "stack_created",
+      entityId: stack.id,
+      entityTitle: stack.name,
+      metadata: { screenplayIds: [draggedId, targetId] },
     })
 
-    await prisma.activity.create({
-      data: {
-        userId: user.id,
-        type: "stack_created",
-        entityId: stack.id,
-        entityTitle: stack.name,
-        metadata: { screenplayIds: [draggedId, targetId] },
+    return {
+      stack: {
+        ...stack,
+        screenplays: stackScreenplays || [],
+        _count: { screenplays: stackScreenplays?.length || 0 },
       },
-    })
-
-    return { stack, action: "created_new" }
+      action: "created_new",
+    }
   },
 })

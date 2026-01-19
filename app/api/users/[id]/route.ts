@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, UnauthorizedError, ForbiddenError, NotFoundError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { validateUsername, normalizeUsername } from "@/lib/username"
 
 const optionalUrl = z.preprocess(
@@ -55,119 +54,137 @@ const updateProfileSchema = z.object({
   skills: z.array(z.string().max(50)).max(20).optional(),
 })
 
-const profileSelect = {
-  id: true,
-  name: true,
-  username: true,
-  emailVerified: true,
-  image: true,
-  banner: true,
-  location: true,
-  website: true,
-  twitter: true,
-  linkedin: true,
-  imdb: true,
-  isPublic: true,
-  createdAt: true,
-  plan: true,
-  oneLiner: true,
-  roles: true,
-  reelUrl: true,
-  availability: true,
-  featuredProjectId: true,
-  featuredProject: {
-    select: {
-      id: true,
-      name: true,
-      coverImage: true,
-      description: true,
-    },
-  },
-  showcaseTimelapse: true,
-  credits: {
-    orderBy: [{ displayOrder: "asc" as const }, { year: "desc" as const }],
-    take: 10,
-    select: {
-      id: true,
-      title: true,
-      role: true,
-      year: true,
-      projectId: true,
-      isManual: true,
-      displayOrder: true,
-    },
-  },
-  responseRate: true,
-  projectsCompleted: true,
-  influences: true,
-  lookingFor: true,
-  gear: true,
-  languages: true,
-  bio: true,
-  title: true,
-  interests: true,
-  skills: true,
-}
-
 export const GET = createApiHandler({
   auth: "optional",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
     const isOwnProfile = user?.id === id
 
-    const userData = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        ...profileSelect,
-        email: isOwnProfile,
-        projects: {
-          where: isOwnProfile ? {} : { team: null },
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            coverImage: true,
-            createdAt: true,
-            _count: { select: { screenplays: true } },
-          },
-          orderBy: { updatedAt: "desc" },
-          take: 12,
-        },
-        screenplays: {
-          where: isOwnProfile
-            ? { timelapseShareId: { not: null } }
-            : { team: null, timelapseShareId: { not: null } },
-          select: {
-            id: true,
-            title: true,
-            synopsis: true,
-            timelapseShareId: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-          orderBy: { updatedAt: "desc" },
-          take: 20,
-        },
-        _count: { select: { projects: true, screenplays: true } },
-      },
-    })
+    // Fetch user data with related data
+    const { data: userData, error: userError } = await supabase
+      .from("User")
+      .select(`
+        id, name, username, emailVerified, image, banner,
+        location, website, twitter, linkedin, imdb, isPublic, createdAt, plan,
+        oneLiner, roles, reelUrl, availability, featuredProjectId,
+        showcaseTimelapse, responseRate, projectsCompleted, influences,
+        lookingFor, gear, languages, bio, title, interests, skills
+      `)
+      .eq("id", id)
+      .single()
 
-    if (!userData) {
+    if (userError?.code === "PGRST116" || !userData) {
       throw new NotFoundError("User")
     }
+    if (userError) throw userError
 
     if (!isOwnProfile && !userData.isPublic) {
       throw new ForbiddenError("Profile is private")
     }
 
-    return userData
+    // Fetch credits
+    const { data: credits } = await supabase
+      .from("Credit")
+      .select("id, title, role, year, projectId, isManual, displayOrder")
+      .eq("userId", id)
+      .order("displayOrder", { ascending: true })
+      .order("year", { ascending: false })
+      .limit(10)
+
+    // Fetch featured project if set
+    let featuredProject = null
+    if (userData.featuredProjectId) {
+      const { data: fp } = await supabase
+        .from("Project")
+        .select("id, name, coverImage, description")
+        .eq("id", userData.featuredProjectId)
+        .single()
+      featuredProject = fp
+    }
+
+    // Fetch projects with optional team filtering
+    const projectQuery = supabase
+      .from("Project")
+      .select("id, name, description, coverImage, createdAt")
+      .eq("userId", id)
+      .order("updatedAt", { ascending: false })
+      .limit(12)
+
+    if (!isOwnProfile) {
+      projectQuery.is("teamId", null)
+    }
+
+    const { data: projects } = await projectQuery
+
+    // Get screenplay counts per project
+    type ProjectItem = { id: string; name: string; description: string | null; coverImage: string | null; createdAt: string }
+    const projectsWithCounts = await Promise.all(
+      (projects || []).map(async (p: ProjectItem) => {
+        const { count } = await supabase
+          .from("Screenplay")
+          .select("*", { count: "exact", head: true })
+          .eq("projectId", p.id)
+        return { ...p, _count: { screenplays: count || 0 } }
+      })
+    )
+
+    // Fetch screenplays with timelapse share
+    let screenplayQuery = supabase
+      .from("Screenplay")
+      .select("id, title, synopsis, timelapseShareId, createdAt, updatedAt")
+      .eq("userId", id)
+      .not("timelapseShareId", "is", null)
+      .order("updatedAt", { ascending: false })
+      .limit(20)
+
+    if (!isOwnProfile) {
+      screenplayQuery = screenplayQuery.is("teamId", null)
+    }
+
+    const { data: screenplays } = await screenplayQuery
+
+    // Get counts
+    const [projectCount, screenplayCount] = await Promise.all([
+      supabase
+        .from("Project")
+        .select("*", { count: "exact", head: true })
+        .eq("userId", id),
+      supabase
+        .from("Screenplay")
+        .select("*", { count: "exact", head: true })
+        .eq("userId", id),
+    ])
+
+    // Get email only for own profile
+    let email = null
+    if (isOwnProfile) {
+      const { data: emailData } = await supabase
+        .from("User")
+        .select("email")
+        .eq("id", id)
+        .single()
+      email = emailData?.email
+    }
+
+    return {
+      ...userData,
+      email,
+      credits: credits || [],
+      featuredProject,
+      projects: projectsWithCounts,
+      screenplays: screenplays || [],
+      _count: {
+        projects: projectCount.count || 0,
+        screenplays: screenplayCount.count || 0,
+      },
+    }
   },
 })
 
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateProfileSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
     if (user.id !== id) {
@@ -190,10 +207,13 @@ export const PATCH = createApiHandler({
         }
         const normalized = normalizeUsername(usernameValue)
 
-        const existing = await prisma.user.findFirst({
-          where: { username: normalized, NOT: { id } },
-          select: { id: true },
-        })
+        const { data: existing } = await supabase
+          .from("User")
+          .select("id")
+          .eq("username", normalized)
+          .neq("id", id)
+          .single()
+
         if (existing) {
           throw new ForbiddenError("Username is already taken")
         }
@@ -214,15 +234,33 @@ export const PATCH = createApiHandler({
       ;(cleanedData as Record<string, unknown>).username = usernameToSet
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id },
-      data: cleanedData,
-      select: {
-        ...profileSelect,
-        email: true,
-      },
-    })
+    const { data: updatedUser, error } = await supabase
+      .from("User")
+      .update(cleanedData)
+      .eq("id", id)
+      .select(`
+        id, name, username, emailVerified, email, image, banner,
+        location, website, twitter, linkedin, imdb, isPublic, createdAt, plan,
+        oneLiner, roles, reelUrl, availability, featuredProjectId,
+        showcaseTimelapse, responseRate, projectsCompleted, influences,
+        lookingFor, gear, languages, bio, title, interests, skills
+      `)
+      .single()
 
-    return updatedUser
+    if (error) throw error
+
+    // Fetch credits for response
+    const { data: credits } = await supabase
+      .from("Credit")
+      .select("id, title, role, year, projectId, isManual, displayOrder")
+      .eq("userId", id)
+      .order("displayOrder", { ascending: true })
+      .order("year", { ascending: false })
+      .limit(10)
+
+    return {
+      ...updatedUser,
+      credits: credits || [],
+    }
   },
 })

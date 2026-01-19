@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const createSeasonSchema = z.object({
   number: z.number().int().min(1).max(99),
@@ -9,89 +8,110 @@ const createSeasonSchema = z.object({
   status: z.enum(["planning", "writing", "complete"]).optional(),
 })
 
+type SeasonData = {
+  id: string
+  number: number
+  title: string | null
+  description: string | null
+  status: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: seriesId } = params
 
-    const series = await prisma.series.findFirst({
-      where: { id: seriesId, userId: user.id },
-    })
+    const { data: series, error: seriesError } = await supabase
+      .from("Series")
+      .select("id")
+      .eq("id", seriesId)
+      .eq("userId", user.id)
+      .single()
 
-    if (!series) {
+    if (seriesError?.code === "PGRST116" || !series) {
       throw new NotFoundError("Series")
     }
+    if (seriesError) throw seriesError
 
-    const seasons = await prisma.season.findMany({
-      where: { seriesId },
-      include: {
-        episodes: {
-          select: {
-            id: true,
-            title: true,
-            episode: true,
-            episodeTitle: true,
-            wordCount: true,
-            updatedAt: true,
-            isFavorite: true,
-          },
-          orderBy: { episode: "asc" },
-        },
-        _count: { select: { episodes: true } },
-      },
-      orderBy: { number: "asc" },
-    })
+    const { data: seasons, error: seasonsError } = await supabase
+      .from("Season")
+      .select("id, number, title, description, status, createdAt, updatedAt")
+      .eq("seriesId", seriesId)
+      .order("number", { ascending: true })
 
-    return seasons
+    if (seasonsError) throw seasonsError
+
+    // Get episodes for each season
+    const seasonsWithEpisodes = await Promise.all(
+      (seasons || []).map(async (s: SeasonData) => {
+        const { data: episodes } = await supabase
+          .from("Screenplay")
+          .select("id, title, episode, episodeTitle, wordCount, updatedAt, isFavorite")
+          .eq("seasonId", s.id)
+          .order("episode", { ascending: true })
+
+        return {
+          ...s,
+          episodes: episodes || [],
+          _count: { episodes: episodes?.length || 0 },
+        }
+      })
+    )
+
+    return seasonsWithEpisodes
   },
 })
 
 export const POST = createApiHandler({
   auth: "required",
   schema: createSeasonSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: seriesId } = params
 
-    const series = await prisma.series.findFirst({
-      where: { id: seriesId, userId: user.id },
-    })
+    const { data: series, error: seriesError } = await supabase
+      .from("Series")
+      .select("id")
+      .eq("id", seriesId)
+      .eq("userId", user.id)
+      .single()
 
-    if (!series) {
+    if (seriesError?.code === "PGRST116" || !series) {
       throw new NotFoundError("Series")
     }
+    if (seriesError) throw seriesError
 
-    const existingSeason = await prisma.season.findFirst({
-      where: { seriesId, number: data.number },
-    })
+    const { data: existingSeason } = await supabase
+      .from("Season")
+      .select("id")
+      .eq("seriesId", seriesId)
+      .eq("number", data.number)
+      .single()
 
     if (existingSeason) {
       throw new BadRequestError(`Season ${data.number} already exists`)
     }
 
-    const season = await prisma.season.create({
-      data: {
+    const { data: season, error: createError } = await supabase
+      .from("Season")
+      .insert({
         number: data.number,
         title: data.title || null,
         description: data.description || null,
         status: data.status || "planning",
         seriesId,
-      },
-      include: {
-        episodes: {
-          select: {
-            id: true,
-            title: true,
-            episode: true,
-            episodeTitle: true,
-            wordCount: true,
-            updatedAt: true,
-          },
-          orderBy: { episode: "asc" },
-        },
-        _count: { select: { episodes: true } },
-      },
-    })
+      })
+      .select()
+      .single()
 
-    return season
+    if (createError) throw createError
+
+    // Get episodes (will be empty for new season)
+    return {
+      ...season,
+      episodes: [],
+      _count: { episodes: 0 },
+    }
   },
 })

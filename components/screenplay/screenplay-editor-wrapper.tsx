@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/providers/auth-provider";
 import dynamic from "next/dynamic";
 import { ProseMirrorEditor } from "@/components/prosemirror";
 import { EditorFloatingPanel } from "@/components/editor/editor-floating-panel";
@@ -422,8 +422,9 @@ export function ScreenplayEditorWrapper({ projectId: screenplayId, onTitleChange
       <ShareDialogEnhanced
         open={dialogs.isShareDialogOpen}
         onOpenChange={dialogs.setIsShareDialogOpen}
-        screenplayId={screenplayId}
-        screenplayTitle={persistence.screenplayTitle}
+        resourceId={screenplayId}
+        resourceTitle={persistence.screenplayTitle}
+        resourceType="screenplay"
       />
       <SaveVersionDialog
         isOpen={persistence.isSaveVersionDialogOpen}

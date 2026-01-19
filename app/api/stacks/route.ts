@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, ForbiddenError, RATE_LIMITS } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const PLAN_LIMITS: Record<string, number> = {
   FREE: 10,
@@ -17,33 +16,36 @@ const createStackSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user }) => {
-    const stacks = await prisma.stack.findMany({
-      where: { userId: user.id },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-        projectId: true,
-        project: { select: { id: true, name: true } },
-        screenplays: {
-          select: {
-            id: true,
-            title: true,
-            wordCount: true,
-            updatedAt: true,
-            type: true,
-            genre: true,
-          },
-          orderBy: { updatedAt: "desc" },
-        },
-        _count: { select: { screenplays: true } },
-      },
-    })
+  handler: async ({ user, supabase }) => {
+    const { data: stacks, error } = await supabase
+      .from("Stack")
+      .select(`
+        id, name, createdAt, updatedAt, projectId,
+        project:Project(id, name),
+        screenplays:Screenplay(id, title, wordCount, updatedAt, type, genre)
+      `)
+      .eq("userId", user.id)
+      .order("updatedAt", { ascending: false })
 
-    return stacks
+    if (error) throw error
+
+    // Add counts
+    type StackData = {
+      id: string
+      name: string
+      createdAt: string
+      updatedAt: string
+      projectId: string | null
+      project: { id: string; name: string } | null
+      screenplays: Array<{ id: string; title: string; wordCount: number; updatedAt: string; type: string | null; genre: string | null }>
+    }
+
+    const stacksWithCounts = (stacks || []).map((stack: StackData) => ({
+      ...stack,
+      _count: { screenplays: stack.screenplays?.length || 0 },
+    }))
+
+    return stacksWithCounts
   },
 })
 
@@ -51,72 +53,102 @@ export const POST = createApiHandler({
   auth: "required",
   schema: createStackSchema,
   rateLimit: RATE_LIMITS.PROJECT_CREATE,
-  handler: async ({ user, data }) => {
+  handler: async ({ user, data, supabase }) => {
     const { name, projectId, screenplayIds } = data
 
-    const userData = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { plan: true },
-    })
+    // Get user plan
+    const { data: userData } = await supabase
+      .from("User")
+      .select("plan")
+      .eq("id", user.id)
+      .single()
 
     const plan = userData?.plan || "FREE"
     const limit = PLAN_LIMITS[plan]
 
-    const stackCount = await prisma.stack.count({
-      where: { userId: user.id },
-    })
+    // Check stack count
+    const { count: stackCount } = await supabase
+      .from("Stack")
+      .select("*", { count: "exact", head: true })
+      .eq("userId", user.id)
 
-    if (stackCount >= limit) {
+    if ((stackCount || 0) >= limit) {
       throw new ForbiddenError(
         `You've reached the limit of ${limit} stacks on the ${plan} plan. Upgrade to create more.`
       )
     }
 
+    // Verify project access if provided
     if (projectId) {
-      const project = await prisma.project.findFirst({
-        where: { id: projectId, userId: user.id },
-      })
+      const { data: project } = await supabase
+        .from("Project")
+        .select("id")
+        .eq("id", projectId)
+        .eq("userId", user.id)
+        .single()
+
       if (!project) {
         throw new ForbiddenError("Project not found or access denied")
       }
     }
 
+    // Verify screenplay access if provided
     if (screenplayIds && screenplayIds.length > 0) {
-      const ownedScreenplays = await prisma.screenplay.count({
-        where: { id: { in: screenplayIds }, userId: user.id },
-      })
-      if (ownedScreenplays !== screenplayIds.length) {
+      const { count: ownedCount } = await supabase
+        .from("Screenplay")
+        .select("*", { count: "exact", head: true })
+        .in("id", screenplayIds)
+        .eq("userId", user.id)
+
+      if (ownedCount !== screenplayIds.length) {
         throw new ForbiddenError("One or more screenplays not found or access denied")
       }
     }
 
-    const stack = await prisma.stack.create({
-      data: {
+    // Create stack
+    const { data: stack, error: createError } = await supabase
+      .from("Stack")
+      .insert({
         name,
         userId: user.id,
         projectId: projectId || null,
-        screenplays: screenplayIds
-          ? { connect: screenplayIds.map((id) => ({ id })) }
-          : undefined,
-      },
-      include: {
-        screenplays: {
-          select: { id: true, title: true, wordCount: true, updatedAt: true },
-        },
-        project: { select: { id: true, name: true } },
-        _count: { select: { screenplays: true } },
-      },
+      })
+      .select(`
+        id, name, createdAt, updatedAt, projectId,
+        project:Project(id, name)
+      `)
+      .single()
+
+    if (createError) throw createError
+
+    // Connect screenplays to stack
+    if (screenplayIds && screenplayIds.length > 0) {
+      const { error: updateError } = await supabase
+        .from("Screenplay")
+        .update({ stackId: stack.id })
+        .in("id", screenplayIds)
+
+      if (updateError) throw updateError
+    }
+
+    // Get screenplays for response
+    const { data: screenplays } = await supabase
+      .from("Screenplay")
+      .select("id, title, wordCount, updatedAt")
+      .eq("stackId", stack.id)
+
+    // Log activity
+    await supabase.from("Activity").insert({
+      userId: user.id,
+      type: "stack_created",
+      entityId: stack.id,
+      entityTitle: stack.name,
     })
 
-    await prisma.activity.create({
-      data: {
-        userId: user.id,
-        type: "stack_created",
-        entityId: stack.id,
-        entityTitle: stack.name,
-      },
-    })
-
-    return stack
+    return {
+      ...stack,
+      screenplays: screenplays || [],
+      _count: { screenplays: screenplays?.length || 0 },
+    }
   },
 })

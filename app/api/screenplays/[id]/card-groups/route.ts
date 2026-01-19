@@ -1,5 +1,4 @@
 import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { z } from "zod"
 
@@ -21,7 +20,7 @@ const UpdateGroupSchema = z.object({
  */
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -33,12 +32,15 @@ export const GET = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const groups = await prisma.customCardGroup.findMany({
-      where: { screenplayId: id },
-      orderBy: { order: "asc" },
-    })
+    const { data: groups, error } = await supabase
+      .from("CustomCardGroup")
+      .select("*")
+      .eq("screenplayId", id)
+      .order("order", { ascending: true })
 
-    return groups
+    if (error) throw error
+
+    return groups || []
   },
 })
 
@@ -48,7 +50,7 @@ export const GET = createApiHandler({
  */
 export const POST = createApiHandler({
   auth: "required",
-  handler: async ({ user, params, request }) => {
+  handler: async ({ user, params, request, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -63,14 +65,18 @@ export const POST = createApiHandler({
     const body = await request.json()
     const data = CreateGroupSchema.parse(body)
 
-    const group = await prisma.customCardGroup.create({
-      data: {
+    const { data: group, error } = await supabase
+      .from("CustomCardGroup")
+      .insert({
         screenplayId: id,
         name: data.name,
         color: data.color,
         order: data.order,
-      },
-    })
+      })
+      .select()
+      .single()
+
+    if (error) throw error
 
     return group
   },
@@ -82,7 +88,7 @@ export const POST = createApiHandler({
  */
 export const PUT = createApiHandler({
   auth: "required",
-  handler: async ({ user, params, request }) => {
+  handler: async ({ user, params, request, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -103,31 +109,37 @@ export const PUT = createApiHandler({
     // Verify all groups belong to this screenplay
     const groupIds = body.map((g) => g.id).filter(Boolean)
     if (groupIds.length > 0) {
-      const existingGroups = await prisma.customCardGroup.findMany({
-        where: {
-          id: { in: groupIds },
-          screenplayId: id,
-        },
-      })
+      const { data: existingGroups, error: fetchError } = await supabase
+        .from("CustomCardGroup")
+        .select("id")
+        .eq("screenplayId", id)
+        .in("id", groupIds)
 
-      if (existingGroups.length !== groupIds.length) {
+      if (fetchError) throw fetchError
+
+      if ((existingGroups?.length || 0) !== groupIds.length) {
         throw new ForbiddenError("Some groups don't belong to this screenplay")
       }
     }
 
-    // Update all groups in a transaction
+    // Update all groups
     const updates = await Promise.all(
-      body.map((group) => {
+      body.map(async (group) => {
         const data = UpdateGroupSchema.parse({
           name: group.name,
           color: group.color,
           order: group.order,
         })
 
-        return prisma.customCardGroup.update({
-          where: { id: group.id },
-          data,
-        })
+        const { data: updated, error } = await supabase
+          .from("CustomCardGroup")
+          .update(data)
+          .eq("id", group.id)
+          .select()
+          .single()
+
+        if (error) throw error
+        return updated
       })
     )
 

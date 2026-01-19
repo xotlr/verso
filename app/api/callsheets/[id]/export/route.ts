@@ -1,33 +1,57 @@
 import { NextResponse } from "next/server"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { generateCallsheetHTML, generateCallsheetText } from "@/lib/export/callsheet"
 import { CallsheetData } from "@/types/callsheet"
+import { createServerActionClient } from "@/lib/supabase/server"
 
-async function checkCallsheetAccess(callsheetId: string, userId: string) {
-  const callsheet = await prisma.callsheet.findUnique({
-    where: { id: callsheetId },
-    include: {
-      project: {
-        include: {
-          team: {
-            include: { members: { where: { userId } } },
-          },
-        },
-      },
-    },
-  })
+interface CallsheetAccessResult {
+  allowed: boolean
+  notFound: boolean
+  callsheet: { id: string; userId: string } | null
+}
 
-  if (!callsheet) {
+async function checkCallsheetAccess(callsheetId: string, userId: string): Promise<CallsheetAccessResult> {
+  const supabase = await createServerActionClient()
+
+  const { data, error } = await supabase
+    .from("Callsheet")
+    .select(`
+      id,
+      userId,
+      project:Project!projectId(
+        id,
+        team:Team(
+          id,
+          members:TeamMember(userId)
+        )
+      )
+    `)
+    .eq("id", callsheetId)
+    .single()
+
+  if (error?.code === "PGRST116" || !data) {
     return { allowed: false, notFound: true, callsheet: null }
+  }
+  if (error) throw error
+
+  const callsheet = data as {
+    id: string
+    userId: string
+    project: {
+      id: string
+      team: { id: string; members: { userId: string }[] } | null
+    }
   }
 
   if (callsheet.userId === userId) {
     return { allowed: true, notFound: false, callsheet }
   }
 
-  if (callsheet.project?.team && callsheet.project.team.members.length > 0) {
-    return { allowed: true, notFound: false, callsheet }
+  if (callsheet.project?.team && Array.isArray(callsheet.project.team.members)) {
+    const isMember = callsheet.project.team.members.some((m) => m.userId === userId)
+    if (isMember) {
+      return { allowed: true, notFound: false, callsheet }
+    }
   }
 
   return { allowed: false, notFound: false, callsheet: null }
@@ -35,7 +59,7 @@ async function checkCallsheetAccess(callsheetId: string, userId: string) {
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params, searchParams }) => {
+  handler: async ({ user, params, searchParams, supabase }) => {
     const { id } = params
 
     const access = await checkCallsheetAccess(id, user.id)
@@ -50,16 +74,19 @@ export const GET = createApiHandler({
 
     const format = searchParams.get("format") || "html"
 
-    const callsheet = await prisma.callsheet.findUnique({
-      where: { id },
-      include: {
-        project: { select: { id: true, name: true } },
-      },
-    })
+    const { data: callsheet, error } = await supabase
+      .from("Callsheet")
+      .select(`
+        *,
+        project:Project!projectId(id, name)
+      `)
+      .eq("id", id)
+      .single()
 
-    if (!callsheet) {
+    if (error?.code === "PGRST116" || !callsheet) {
       throw new NotFoundError("Callsheet")
     }
+    if (error) throw error
 
     const callsheetForExport = {
       ...callsheet,

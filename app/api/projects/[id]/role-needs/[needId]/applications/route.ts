@@ -1,13 +1,18 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, ConflictError, RateLimitError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
-import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit"
+import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError, ConflictError } from "@/lib/api"
+import { RATE_LIMITS } from "@/lib/rate-limit"
+import { createServerActionClient } from "@/lib/supabase/server"
 
 async function isProjectOwner(projectId: string, userId: string): Promise<boolean> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { userId: true },
-  })
+  const supabase = await createServerActionClient()
+
+  const result = await supabase
+    .from("Project")
+    .select("userId")
+    .eq("id", projectId)
+    .single()
+
+  const project = result.data as { userId: string } | null
   return project?.userId === userId
 }
 
@@ -17,7 +22,7 @@ const createApplicationSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: projectId, needId } = params
 
     const isOwner = await isProjectOwner(projectId, user.id)
@@ -25,39 +30,40 @@ export const GET = createApiHandler({
       throw new ForbiddenError("Only project owner can view applications")
     }
 
-    const roleNeed = await prisma.projectRoleNeed.findFirst({
-      where: {
-        id: needId,
-        projectId,
-      },
-    })
+    const { data: roleNeed, error: needError } = await supabase
+      .from("ProjectRoleNeed")
+      .select("id")
+      .eq("id", needId)
+      .eq("projectId", projectId)
+      .single()
 
-    if (!roleNeed) {
+    if (needError?.code === "PGRST116" || !roleNeed) {
       throw new NotFoundError("Role need")
     }
+    if (needError) throw needError
 
-    const applications = await prisma.projectRoleApplication.findMany({
-      where: { roleNeedId: needId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        message: true,
-        status: true,
-        createdAt: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            title: true,
-            bio: true,
-            location: true,
-          },
-        },
-      },
-    })
+    const { data: applications, error } = await supabase
+      .from("ProjectRoleApplication")
+      .select(`
+        id,
+        message,
+        status,
+        createdAt,
+        user:User!userId(
+          id,
+          name,
+          image,
+          title,
+          bio,
+          location
+        )
+      `)
+      .eq("roleNeedId", needId)
+      .order("createdAt", { ascending: false })
 
-    return { applications }
+    if (error) throw error
+
+    return { applications: applications || [] }
   },
 })
 
@@ -65,64 +71,71 @@ export const POST = createApiHandler({
   auth: "required",
   schema: createApplicationSchema,
   rateLimit: RATE_LIMITS.API,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: projectId, needId } = params
 
-    const roleNeed = await prisma.projectRoleNeed.findFirst({
-      where: {
-        id: needId,
-        projectId,
-        project: {
-          isPublic: true,
-        },
-      },
-      include: {
-        project: {
-          select: {
-            userId: true,
-            name: true,
-          },
-        },
-      },
-    })
+    const { data: roleNeed, error: needError } = await supabase
+      .from("ProjectRoleNeed")
+      .select(`
+        id,
+        role,
+        project:Project!projectId(
+          userId,
+          name,
+          isPublic
+        )
+      `)
+      .eq("id", needId)
+      .eq("projectId", projectId)
+      .single()
 
-    if (!roleNeed) {
+    if (needError?.code === "PGRST116" || !roleNeed) {
+      throw new NotFoundError("Role need not found or project is not public")
+    }
+    if (needError) throw needError
+
+    const project = roleNeed.project as { userId: string; name: string; isPublic: boolean }
+
+    if (!project.isPublic) {
       throw new NotFoundError("Role need not found or project is not public")
     }
 
-    if (roleNeed.project.userId === user.id) {
+    if (project.userId === user.id) {
       throw new BadRequestError("Cannot apply to your own project's roles")
     }
 
-    const existingApplication = await prisma.projectRoleApplication.findUnique({
-      where: {
-        roleNeedId_userId: {
-          roleNeedId: needId,
-          userId: user.id,
-        },
-      },
-    })
+    const { data: existingApplication } = await supabase
+      .from("ProjectRoleApplication")
+      .select("id")
+      .eq("roleNeedId", needId)
+      .eq("userId", user.id)
+      .single()
 
     if (existingApplication) {
       throw new ConflictError("You have already applied for this role")
     }
 
-    const application = await prisma.projectRoleApplication.create({
-      data: {
+    const { data: application, error: createError } = await supabase
+      .from("ProjectRoleApplication")
+      .insert({
         roleNeedId: needId,
         userId: user.id,
         message: data.message || null,
-      },
-    })
+      })
+      .select()
+      .single()
 
-    await prisma.activity.create({
-      data: {
+    if (createError) throw createError
+
+    // Create activity
+    await supabase
+      .from("Activity")
+      .insert({
         userId: user.id,
         type: "role_application",
         entityId: projectId,
-        entityTitle: roleNeed.project.name,
-      },
-    })
+        entityTitle: project.name,
+      })
 
     return application
   },

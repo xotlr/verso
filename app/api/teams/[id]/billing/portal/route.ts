@@ -1,24 +1,22 @@
 import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { createTeamPortalSession } from "@/lib/stripe-helpers"
 
 export const POST = createApiHandler({
   auth: "required",
-  handler: async ({ user, params, request }) => {
+  handler: async ({ user, params, request, supabase }) => {
     const { id } = params
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        ownerId: true,
-        stripeCustomerId: true,
-      },
-    })
+    // Get team
+    const { data: team, error: teamError } = await supabase
+      .from("Team")
+      .select("id, ownerId, stripeCustomerId")
+      .eq("id", id)
+      .single()
 
-    if (!team) {
+    if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
+    if (teamError) throw teamError
 
     if (team.ownerId !== user.id) {
       throw new ForbiddenError("Only the team owner can access billing")

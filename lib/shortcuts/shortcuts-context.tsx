@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/components/providers/auth-provider';
 import {
   ShortcutId,
   DEFAULT_SHORTCUTS,

@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
 const updateRolesSchema = z.object({
@@ -9,7 +8,7 @@ const updateRolesSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -21,12 +20,15 @@ export const GET = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const characterMetas = await prisma.characterMeta.findMany({
-      where: { screenplayId: id },
-    })
+    const { data: characterMetas, error } = await supabase
+      .from("CharacterMeta")
+      .select("characterName, role")
+      .eq("screenplayId", id)
+
+    if (error) throw error
 
     const roles: Record<string, string> = {}
-    for (const meta of characterMetas) {
+    for (const meta of characterMetas || []) {
       roles[meta.characterName] = meta.role
     }
 
@@ -37,7 +39,7 @@ export const GET = createApiHandler({
 export const PUT = createApiHandler({
   auth: "required",
   schema: updateRolesSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -51,24 +53,31 @@ export const PUT = createApiHandler({
 
     const { roles } = data
 
-    const operations = Object.entries(roles).map(([characterName, role]) =>
-      prisma.characterMeta.upsert({
-        where: {
-          screenplayId_characterName: {
+    // Upsert each role one by one (Supabase doesn't support composite key upserts directly)
+    for (const [characterName, role] of Object.entries(roles)) {
+      const { data: existing } = await supabase
+        .from("CharacterMeta")
+        .select("id")
+        .eq("screenplayId", id)
+        .eq("characterName", characterName)
+        .single()
+
+      if (existing) {
+        await supabase
+          .from("CharacterMeta")
+          .update({ role })
+          .eq("screenplayId", id)
+          .eq("characterName", characterName)
+      } else {
+        await supabase
+          .from("CharacterMeta")
+          .insert({
             screenplayId: id,
             characterName,
-          },
-        },
-        update: { role },
-        create: {
-          screenplayId: id,
-          characterName,
-          role,
-        },
-      })
-    )
-
-    await prisma.$transaction(operations)
+            role,
+          })
+      }
+    }
 
     return { success: true, roles }
   },

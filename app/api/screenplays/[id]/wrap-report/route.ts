@@ -1,7 +1,5 @@
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
-import { Prisma } from "@prisma/client"
 
 interface CallsheetScene {
   sceneId?: string
@@ -28,6 +26,7 @@ interface ShotWithNotes {
   shotNumber: number
   description: string
   shotType: string | null
+  shotSize: string | null
   status: string
   takeCount: number
   circledTake: number | null
@@ -35,7 +34,7 @@ interface ShotWithNotes {
   supervisorNotes: string | null
   continuityNotes: string | null
   isFlagged: boolean
-  statusChangedAt: Date | null
+  statusChangedAt: string | null
   takeNotes: {
     takeNum: number
     rating: string | null
@@ -54,7 +53,7 @@ interface SceneGroup {
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params, searchParams }) => {
+  handler: async ({ user, params, searchParams, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -70,60 +69,75 @@ export const GET = createApiHandler({
     const date = searchParams.get("date")
     const callsheetId = searchParams.get("callsheetId")
 
-    const whereClause: Prisma.ShotWhereInput = {
-      screenplayId: id,
-      status: { in: ["shot", "approved"] },
-    }
-
-    if (date) {
-      const startDate = new Date(`${date}T00:00:00.000Z`)
-      const endDate = new Date(`${date}T23:59:59.999Z`)
-      whereClause.statusChangedAt = {
-        gte: startDate,
-        lte: endDate,
-      }
-    }
-
     let callsheet = null
-    if (callsheetId) {
-      callsheet = await prisma.callsheet.findUnique({
-        where: { id: callsheetId },
-        select: {
-          id: true,
-          title: true,
-          shootDate: true,
-          callTime: true,
-          wrapTime: true,
-          data: true,
-        },
-      })
+    let sceneIdsFilter: string[] | null = null
 
-      const callsheetData = callsheet?.data as CallsheetData | null
-      if (callsheetData?.scenes) {
-        const sceneIds = callsheetData.scenes
+    if (callsheetId) {
+      const { data: callsheetData, error: callsheetError } = await supabase
+        .from("Callsheet")
+        .select("id, title, shootDate, callTime, wrapTime, data")
+        .eq("id", callsheetId)
+        .single()
+
+      if (callsheetError && callsheetError.code !== "PGRST116") throw callsheetError
+      callsheet = callsheetData
+
+      const callsheetContent = callsheet?.data as CallsheetData | null
+      if (callsheetContent?.scenes) {
+        sceneIdsFilter = callsheetContent.scenes
           .map((s) => s.sceneId || s.id)
           .filter((id): id is string => id !== undefined)
-        whereClause.sceneId = { in: sceneIds }
       }
     }
 
-    const shots = await prisma.shot.findMany({
-      where: whereClause,
-      include: {
-        takeNotes: {
-          select: {
-            takeNum: true,
-            rating: true,
-            notes: true,
-            timecode: true,
-          },
-          orderBy: { takeNum: "asc" },
-        },
-      },
-      orderBy: [{ sceneId: "asc" }, { shotNumber: "asc" }],
-    })
+    // Build the query
+    let query = supabase
+      .from("Shot")
+      .select(`
+        id,
+        sceneId,
+        shotNumber,
+        description,
+        shotType,
+        shotSize,
+        status,
+        takeCount,
+        circledTake,
+        quickNotes,
+        supervisorNotes,
+        continuityNotes,
+        isFlagged,
+        statusChangedAt,
+        takeNotes:TakeNote(takeNum, rating, notes, timecode)
+      `)
+      .eq("screenplayId", id)
+      .in("status", ["shot", "approved"])
+      .order("sceneId", { ascending: true })
+      .order("shotNumber", { ascending: true })
 
-    const screenplayContent = screenplay.content as ScreenplayContent | null
+    if (date) {
+      const startDate = `${date}T00:00:00.000Z`
+      const endDate = `${date}T23:59:59.999Z`
+      query = query.gte("statusChangedAt", startDate).lte("statusChangedAt", endDate)
+    }
+
+    if (sceneIdsFilter && sceneIdsFilter.length > 0) {
+      query = query.in("sceneId", sceneIdsFilter)
+    }
+
+    const { data: shots, error: shotsError } = await query
+
+    if (shotsError) throw shotsError
+
+    // Fetch screenplay content separately
+    const { data: fullScreenplay } = await supabase
+      .from("Screenplay")
+      .select("content, title")
+      .eq("id", id)
+      .single()
+
+    const screenplayContent = (fullScreenplay as { content: unknown; title: string } | null)?.content as ScreenplayContent | null
+    const screenplayTitle = (fullScreenplay as { content: unknown; title: string } | null)?.title
     const sceneMap = new Map<string, string>()
 
     if (screenplayContent?.content) {
@@ -138,7 +152,7 @@ export const GET = createApiHandler({
 
     const sceneGroups = new Map<string, SceneGroup>()
 
-    for (const shot of shots) {
+    for (const shot of shots || []) {
       if (!sceneGroups.has(shot.sceneId)) {
         sceneGroups.set(shot.sceneId, {
           sceneId: shot.sceneId,
@@ -156,6 +170,7 @@ export const GET = createApiHandler({
         shotNumber: shot.shotNumber,
         description: shot.description,
         shotType: shot.shotType,
+        shotSize: shot.shotSize,
         status: shot.status,
         takeCount: shot.takeCount,
         circledTake: shot.circledTake,
@@ -164,23 +179,25 @@ export const GET = createApiHandler({
         continuityNotes: shot.continuityNotes,
         isFlagged: shot.isFlagged,
         statusChangedAt: shot.statusChangedAt,
-        takeNotes: shot.takeNotes,
+        takeNotes: (shot.takeNotes || []).sort((a: { takeNum: number }, b: { takeNum: number }) => a.takeNum - b.takeNum),
       })
       group.totalTakes += shot.takeCount
       group.completedShots += 1
     }
 
-    const totalShots = shots.length
-    const totalTakes = shots.reduce((sum, s) => sum + s.takeCount, 0)
-    const approvedShots = shots.filter((s) => s.status === "approved").length
-    const flaggedShots = shots.filter((s) => s.isFlagged).length
+    interface ShotData { id: string; sceneId: string; shotNumber: string; status: string; takeCount: number; circledTake: number | null; isFlagged: boolean }
+    const typedShots = (shots || []) as ShotData[]
+    const totalShots = typedShots.length
+    const totalTakes = typedShots.reduce((sum: number, s: ShotData) => sum + s.takeCount, 0)
+    const approvedShots = typedShots.filter((s: ShotData) => s.status === "approved").length
+    const flaggedShots = typedShots.filter((s: ShotData) => s.isFlagged).length
     const avgTakesPerShot = totalShots > 0 ? totalTakes / totalShots : 0
-    const shotsWithCircled = shots.filter((s) => s.circledTake !== null).length
+    const shotsWithCircled = typedShots.filter((s: ShotData) => s.circledTake !== null).length
 
     return {
       screenplay: {
         id: screenplay.id,
-        title: screenplay.title,
+        title: screenplayTitle || "Untitled",
       },
       callsheet: callsheet
         ? {

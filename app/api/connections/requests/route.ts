@@ -1,32 +1,36 @@
 import { createApiHandler } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
+
+type ConnectionRequest = {
+  id: string
+  createdAt: string
+  requester: {
+    id: string
+    name: string | null
+    username: string | null
+    image: string | null
+    title: string | null
+    location: string | null
+    bio: string | null
+  } | null
+}
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user }) => {
-    const requests = await prisma.connection.findMany({
-      where: {
-        addresseeId: user.id,
-        status: "PENDING",
-      },
-      include: {
-        requester: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            image: true,
-            title: true,
-            location: true,
-            bio: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    })
+  handler: async ({ user, supabase }) => {
+    const { data: requests, error } = await supabase
+      .from("Connection")
+      .select(`
+        id, createdAt,
+        requester:User!requesterId(id, name, username, image, title, location, bio)
+      `)
+      .eq("addresseeId", user.id)
+      .eq("status", "PENDING")
+      .order("createdAt", { ascending: false })
+
+    if (error) throw error
 
     return {
-      requests: requests.map((req) => ({
+      requests: (requests || []).map((req: ConnectionRequest) => ({
         id: req.id,
         createdAt: req.createdAt,
         user: req.requester,

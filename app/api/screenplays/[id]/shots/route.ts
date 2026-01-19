@@ -1,7 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
-import { checkScreenplayAccess } from "@/lib/auth-utils"
 import {
   SHOT_TYPES,
   CAMERA_ANGLES,
@@ -28,76 +26,80 @@ const createShotSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ params, supabase }) => {
     const { id: screenplayId } = params
 
-    const access = await checkScreenplayAccess(screenplayId, user.id)
-    if (!access.allowed) {
-      if (access.status === 404) {
-        throw new NotFoundError("Screenplay")
+    // RLS ensures user has access to the screenplay
+    const { data: shots, error } = await supabase
+      .from("Shot")
+      .select("*")
+      .eq("screenplayId", screenplayId)
+      .order("sceneId", { ascending: true })
+      .order("shotNumber", { ascending: true })
+
+    if (error) {
+      // If RLS blocks access, we get an empty result or error
+      if (error.message?.includes("policy")) {
+        throw new ForbiddenError("Access denied")
       }
-      throw new ForbiddenError(access.error)
+      throw error
     }
 
-    const shots = await prisma.shot.findMany({
-      where: { screenplayId },
-      orderBy: [
-        { sceneId: "asc" },
-        { shotNumber: "asc" },
-      ],
-    })
-
-    return { shots }
+    return { shots: shots || [] }
   },
 })
 
 export const POST = createApiHandler({
   auth: "required",
   schema: createShotSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ params, data, supabase }) => {
     const { id: screenplayId } = params
 
-    const access = await checkScreenplayAccess(screenplayId, user.id, "EDITOR")
-    if (!access.allowed) {
-      if (access.status === 404) {
+    // Get the last shot number for this scene
+    const { data: lastShot } = await supabase
+      .from("Shot")
+      .select("shotNumber")
+      .eq("screenplayId", screenplayId)
+      .eq("sceneId", data.sceneId)
+      .order("shotNumber", { ascending: false })
+      .limit(1)
+      .single()
+
+    const shotNumber = (lastShot?.shotNumber ?? 0) + 1
+
+    // RLS policy requires EDITOR access to insert
+    const { data: shot, error } = await supabase
+      .from("Shot")
+      .insert({
+        screenplayId,
+        sceneId: data.sceneId,
+        shotNumber,
+        description: data.description,
+        shotType: data.shotType ?? null,
+        cameraAngle: data.cameraAngle ?? null,
+        movement: data.movement ?? null,
+        duration: data.duration ?? null,
+        lens: data.lens ?? null,
+        equipment: data.equipment ?? null,
+        lighting: data.lighting ?? null,
+        audio: data.audio ?? null,
+        notes: data.notes ?? null,
+        status: data.status,
+        thumbnailUrl: data.thumbnailUrl ?? null,
+        thumbnailType: data.thumbnailType ?? null,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      if (error.code === "PGRST116") {
         throw new NotFoundError("Screenplay")
       }
-      throw new ForbiddenError(access.error)
+      if (error.message?.includes("policy")) {
+        throw new ForbiddenError("You don't have edit access to this screenplay")
+      }
+      throw error
     }
-
-    const shot = await prisma.$transaction(async (tx) => {
-      const lastShot = await tx.shot.findFirst({
-        where: {
-          screenplayId,
-          sceneId: data.sceneId,
-        },
-        orderBy: { shotNumber: "desc" },
-        select: { shotNumber: true },
-      })
-
-      const shotNumber = (lastShot?.shotNumber ?? 0) + 1
-
-      return tx.shot.create({
-        data: {
-          screenplayId,
-          sceneId: data.sceneId,
-          shotNumber,
-          description: data.description,
-          shotType: data.shotType ?? null,
-          cameraAngle: data.cameraAngle ?? null,
-          movement: data.movement ?? null,
-          duration: data.duration ?? null,
-          lens: data.lens ?? null,
-          equipment: data.equipment ?? null,
-          lighting: data.lighting ?? null,
-          audio: data.audio ?? null,
-          notes: data.notes ?? null,
-          status: data.status,
-          thumbnailUrl: data.thumbnailUrl ?? null,
-          thumbnailType: data.thumbnailType ?? null,
-        },
-      })
-    })
 
     return shot
   },

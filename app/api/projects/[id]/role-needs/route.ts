@@ -1,36 +1,53 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { getSession } from "@/lib/supabase-auth"
 import { NextResponse } from "next/server"
 import { logger } from "@/lib/logger"
+import { createServerActionClient } from "@/lib/supabase/server"
+
+interface ProjectWithTeam {
+  id: string
+  userId: string
+  team: { id: string; members: Array<{ userId: string }> } | null
+}
 
 async function hasProjectAccess(projectId: string, userId: string): Promise<boolean> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      team: {
-        include: {
-          members: {
-            where: { userId },
-          },
-        },
-      },
-    },
-  })
+  const supabase = await createServerActionClient()
 
-  if (!project) return false
+  const result = await supabase
+    .from("Project")
+    .select(`
+      id,
+      userId,
+      team:Team(
+        id,
+        members:TeamMember(userId)
+      )
+    `)
+    .eq("id", projectId)
+    .single()
+
+  const project = result.data as ProjectWithTeam | null
+  if (result.error || !project) return false
   if (project.userId === userId) return true
-  if (project.team && project.team.members.length > 0) return true
+  if (project.team && Array.isArray(project.team.members)) {
+    const isMember = project.team.members.some((m: { userId: string }) => m.userId === userId)
+    if (isMember) return true
+  }
 
   return false
 }
 
 async function isProjectOwner(projectId: string, userId: string): Promise<boolean> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { userId: true },
-  })
+  const supabase = await createServerActionClient()
+
+  const result = await supabase
+    .from("Project")
+    .select("userId")
+    .eq("id", projectId)
+    .single()
+
+  const project = result.data as { userId: string } | null
   return project?.userId === userId
 }
 
@@ -48,16 +65,23 @@ export async function GET(
 ) {
   const { id: projectId } = await params
   try {
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      select: { isPublic: true, userId: true },
-    })
+    const supabase = await createServerActionClient()
 
-    if (!project) {
+    const projectResult = await supabase
+      .from("Project")
+      .select("isPublic, userId")
+      .eq("id", projectId)
+      .single()
+
+    const project = projectResult.data as { isPublic: boolean; userId: string } | null
+    const projectError = projectResult.error
+
+    if (projectError?.code === "PGRST116" || !project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
+    if (projectError) throw projectError
 
-    const session = await auth()
+    const session = await getSession()
     const isOwner = session?.user?.id === project.userId
 
     if (!project.isPublic) {
@@ -71,19 +95,38 @@ export async function GET(
       }
     }
 
-    const roleNeeds = await prisma.projectRoleNeed.findMany({
-      where: { projectId },
-      orderBy: { createdAt: "desc" },
-      ...(isOwner ? {
-        include: {
-          _count: {
-            select: {
-              applications: true,
-            },
-          },
+    let roleNeeds
+    if (isOwner) {
+      // Include application counts for owner
+      const { data, error } = await supabase
+        .from("ProjectRoleNeed")
+        .select(`
+          *,
+          applications:ProjectRoleApplication(id)
+        `)
+        .eq("projectId", projectId)
+        .order("createdAt", { ascending: false })
+
+      if (error) throw error
+
+      // Transform to include _count
+      roleNeeds = (data || []).map((need: { applications?: { id: string }[] }) => ({
+        ...need,
+        _count: {
+          applications: need.applications?.length || 0,
         },
-      } : {}),
-    })
+        applications: undefined,
+      }))
+    } else {
+      const { data, error } = await supabase
+        .from("ProjectRoleNeed")
+        .select("*")
+        .eq("projectId", projectId)
+        .order("createdAt", { ascending: false })
+
+      if (error) throw error
+      roleNeeds = data || []
+    }
 
     return NextResponse.json(roleNeeds)
   } catch (error) {
@@ -97,7 +140,7 @@ export async function GET(
 export const POST = createApiHandler({
   auth: "required",
   schema: createRoleNeedSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: projectId } = params
 
     const isOwner = await isProjectOwner(projectId, user.id)
@@ -105,15 +148,19 @@ export const POST = createApiHandler({
       throw new ForbiddenError("Only project owner can add role needs")
     }
 
-    const roleNeed = await prisma.projectRoleNeed.create({
-      data: {
+    const { data: roleNeed, error } = await supabase
+      .from("ProjectRoleNeed")
+      .insert({
         projectId,
         role: data.role,
         description: data.description,
         location: data.location,
         isPaid: data.isPaid,
-      },
-    })
+      })
+      .select()
+      .single()
+
+    if (error) throw error
 
     return roleNeed
   },

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useSession } from "next-auth/react"
+import { useSession } from "@/components/providers/auth-provider"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/logo"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"

@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { createApiHandler } from '@/lib/api';
 import { NotFoundError, UnauthorizedError } from '@/lib/api/errors';
-import { prisma } from '@/lib/prisma';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').filter(Boolean);
 
@@ -22,21 +21,27 @@ const createUpdateSchema = z.object({
  */
 export const GET = createApiHandler({
   auth: 'none',
-  handler: async ({ params }) => {
-    const incident = await prisma.incident.findUnique({
-      where: { id: params.id },
-    });
+  handler: async ({ params, supabase }) => {
+    const { data: incident, error: incidentError } = await supabase
+      .from('Incident')
+      .select('id')
+      .eq('id', params.id)
+      .single();
 
-    if (!incident) {
+    if (incidentError?.code === 'PGRST116' || !incident) {
       throw new NotFoundError('Incident');
     }
+    if (incidentError) throw incidentError;
 
-    const updates = await prisma.incidentUpdate.findMany({
-      where: { incidentId: params.id },
-      orderBy: { createdAt: 'desc' },
-    });
+    const { data: updates, error } = await supabase
+      .from('IncidentUpdate')
+      .select('*')
+      .eq('incidentId', params.id)
+      .order('createdAt', { ascending: false });
 
-    return updates;
+    if (error) throw error;
+
+    return updates || [];
   },
 });
 
@@ -47,45 +52,55 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: 'required',
   schema: createUpdateSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     // Check admin access
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { email: true },
-    });
+    const { data: dbUser, error: userError } = await supabase
+      .from('User')
+      .select('email')
+      .eq('id', user.id)
+      .single();
+
+    if (userError) throw userError;
 
     if (!isAdmin(dbUser?.email)) {
       throw new UnauthorizedError('Admin access required');
     }
 
     // Check incident exists
-    const incident = await prisma.incident.findUnique({
-      where: { id: params.id },
-    });
+    const { data: incident, error: incidentError } = await supabase
+      .from('Incident')
+      .select('id, resolvedAt')
+      .eq('id', params.id)
+      .single();
 
-    if (!incident) {
+    if (incidentError?.code === 'PGRST116' || !incident) {
       throw new NotFoundError('Incident');
     }
+    if (incidentError) throw incidentError;
 
     // Create update
-    const update = await prisma.incidentUpdate.create({
-      data: {
+    const { data: update, error: createError } = await supabase
+      .from('IncidentUpdate')
+      .insert({
         incidentId: params.id,
         message: data.message,
         status: data.status,
-      },
-    });
+      })
+      .select()
+      .single();
+
+    if (createError) throw createError;
 
     // Also update the incident status
     const updateData: Record<string, unknown> = { status: data.status };
     if (data.status === 'resolved' && !incident.resolvedAt) {
-      updateData.resolvedAt = new Date();
+      updateData.resolvedAt = new Date().toISOString();
     }
 
-    await prisma.incident.update({
-      where: { id: params.id },
-      data: updateData,
-    });
+    await supabase
+      .from('Incident')
+      .update(updateData)
+      .eq('id', params.id);
 
     return update;
   },

@@ -1,33 +1,30 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
-import { ShareRole } from "@prisma/client"
 
-async function canManageShares(projectId: string, userId: string) {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: {
-      userId: true,
-      teamId: true,
-    },
-  })
+type ShareRole = "VIEWER" | "COMMENTER" | "EDITOR" | "ADMIN"
 
-  if (!project) {
+async function canManageShares(projectId: string, userId: string, supabase: any) {
+  const { data: project, error } = await supabase
+    .from("Project")
+    .select("userId, teamId")
+    .eq("id", projectId)
+    .single()
+
+  if (error?.code === "PGRST116" || !project) {
     return { allowed: false, error: "Project not found", status: 404 }
   }
+  if (error) throw error
 
   if (project.userId === userId) {
     return { allowed: true, isOwner: true }
   }
 
-  const share = await prisma.projectShare.findUnique({
-    where: {
-      projectId_userId: {
-        projectId,
-        userId,
-      },
-    },
-  })
+  const { data: share } = await supabase
+    .from("ProjectShare")
+    .select("role")
+    .eq("projectId", projectId)
+    .eq("userId", userId)
+    .single()
 
   if (share?.role === "ADMIN") {
     return { allowed: true, isOwner: false }
@@ -35,14 +32,12 @@ async function canManageShares(projectId: string, userId: string) {
 
   const teamId = project.teamId
   if (teamId) {
-    const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId,
-          userId,
-        },
-      },
-    })
+    const { data: membership } = await supabase
+      .from("TeamMember")
+      .select("role")
+      .eq("teamId", teamId)
+      .eq("userId", userId)
+      .single()
 
     if (membership && (membership.role === "OWNER" || membership.role === "ADMIN")) {
       return { allowed: true, isOwner: false }
@@ -59,59 +54,58 @@ const updateShareSchema = z.object({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateShareSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id, shareId } = params
 
-    const access = await canManageShares(id, user.id)
+    const access = await canManageShares(id, user.id, supabase)
     if (!access.allowed) {
       if (access.status === 404) throw new NotFoundError("Project")
       throw new ForbiddenError(access.error)
     }
 
-    const share = await prisma.projectShare.findUnique({
-      where: { id: shareId },
-    })
+    // Try to find as a share first
+    const { data: share } = await supabase
+      .from("ProjectShare")
+      .select("id, userId, projectId")
+      .eq("id", shareId)
+      .single()
 
     if (share) {
       if (share.userId === user.id && !access.isOwner) {
         throw new BadRequestError("Cannot change your own permissions")
       }
 
-      const updatedShare = await prisma.projectShare.update({
-        where: { id: shareId },
-        data: { role: data.role as ShareRole },
-        select: {
-          id: true,
-          role: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              image: true,
-            },
-          },
-        },
-      })
+      const { data: updatedShare, error: updateError } = await supabase
+        .from("ProjectShare")
+        .update({ role: data.role as ShareRole })
+        .eq("id", shareId)
+        .select(`
+          id, role,
+          user:User!userId(id, name, email, image)
+        `)
+        .single()
+
+      if (updateError) throw updateError
 
       return updatedShare
     }
 
-    const invite = await prisma.shareInvite.findUnique({
-      where: { id: shareId },
-    })
+    // Try to find as an invite
+    const { data: invite } = await supabase
+      .from("ShareInvite")
+      .select("id, projectId")
+      .eq("id", shareId)
+      .single()
 
     if (invite && invite.projectId === id) {
-      const updatedInvite = await prisma.shareInvite.update({
-        where: { id: shareId },
-        data: { role: data.role as ShareRole },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          expiresAt: true,
-        },
-      })
+      const { data: updatedInvite, error: updateError } = await supabase
+        .from("ShareInvite")
+        .update({ role: data.role as ShareRole })
+        .eq("id", shareId)
+        .select("id, email, role, expiresAt")
+        .single()
+
+      if (updateError) throw updateError
 
       return { type: "invite", invite: updatedInvite }
     }
@@ -122,34 +116,46 @@ export const PATCH = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id, shareId } = params
 
-    const access = await canManageShares(id, user.id)
+    const access = await canManageShares(id, user.id, supabase)
     if (!access.allowed) {
       if (access.status === 404) throw new NotFoundError("Project")
       throw new ForbiddenError(access.error)
     }
 
-    const share = await prisma.projectShare.findUnique({
-      where: { id: shareId },
-    })
+    // Try to delete as a share first
+    const { data: share } = await supabase
+      .from("ProjectShare")
+      .select("id, projectId")
+      .eq("id", shareId)
+      .single()
 
     if (share && share.projectId === id) {
-      await prisma.projectShare.delete({
-        where: { id: shareId },
-      })
+      const { error: deleteError } = await supabase
+        .from("ProjectShare")
+        .delete()
+        .eq("id", shareId)
+
+      if (deleteError) throw deleteError
       return { success: true }
     }
 
-    const invite = await prisma.shareInvite.findUnique({
-      where: { id: shareId },
-    })
+    // Try to delete as an invite
+    const { data: invite } = await supabase
+      .from("ShareInvite")
+      .select("id, projectId")
+      .eq("id", shareId)
+      .single()
 
     if (invite && invite.projectId === id) {
-      await prisma.shareInvite.delete({
-        where: { id: shareId },
-      })
+      const { error: deleteError } = await supabase
+        .from("ShareInvite")
+        .delete()
+        .eq("id", shareId)
+
+      if (deleteError) throw deleteError
       return { success: true }
     }
 

@@ -1,43 +1,40 @@
 import { createApiHandler, NotFoundError, GoneError, ForbiddenError, BadRequestError, UnauthorizedError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 export const GET = createApiHandler({
   auth: "none",
-  handler: async ({ params }) => {
+  handler: async ({ params, supabase }) => {
     const { token } = params
 
-    const invite = await prisma.projectRoleInvite.findUnique({
-      where: { token },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        expiresAt: true,
-        createdAt: true,
-        project: {
-          select: {
-            id: true,
-            name: true,
-            logo: true,
-            banner: true,
-            description: true,
-          },
-        },
-        inviter: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
-        },
-      },
-    })
+    const { data: invite, error } = await supabase
+      .from("ProjectRoleInvite")
+      .select(`
+        id,
+        email,
+        role,
+        expiresAt,
+        createdAt,
+        project:Project!projectId(
+          id,
+          name,
+          logo,
+          banner,
+          description
+        ),
+        inviter:User!invitedBy(
+          id,
+          name,
+          image
+        )
+      `)
+      .eq("token", token)
+      .single()
 
-    if (!invite) {
+    if (error?.code === "PGRST116" || !invite) {
       throw new NotFoundError("Invite")
     }
+    if (error) throw error
 
-    if (new Date() > invite.expiresAt) {
+    if (new Date() > new Date(invite.expiresAt)) {
       throw new GoneError("Invite has expired")
     }
 
@@ -47,31 +44,36 @@ export const GET = createApiHandler({
 
 export const POST = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { token } = params
 
     if (!user.email) {
       throw new UnauthorizedError("Email required")
     }
 
-    const invite = await prisma.projectRoleInvite.findUnique({
-      where: { token },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    })
+    const { data: invite, error: fetchError } = await supabase
+      .from("ProjectRoleInvite")
+      .select(`
+        id,
+        email,
+        role,
+        expiresAt,
+        projectId,
+        project:Project!projectId(
+          id,
+          name
+        )
+      `)
+      .eq("token", token)
+      .single()
 
-    if (!invite) {
+    if (fetchError?.code === "PGRST116" || !invite) {
       throw new NotFoundError("Invite")
     }
+    if (fetchError) throw fetchError
 
-    if (new Date() > invite.expiresAt) {
-      await prisma.projectRoleInvite.delete({ where: { id: invite.id } })
+    if (new Date() > new Date(invite.expiresAt)) {
+      await supabase.from("ProjectRoleInvite").delete().eq("id", invite.id)
       throw new GoneError("Invite has expired")
     }
 
@@ -79,76 +81,84 @@ export const POST = createApiHandler({
       throw new ForbiddenError("This invite is for a different email address")
     }
 
-    const existingRole = await prisma.projectRole.findFirst({
-      where: {
-        projectId: invite.projectId,
-        role: invite.role,
-        userId: user.id,
-      },
-    })
+    // Check for existing role
+    const { data: existingRole } = await supabase
+      .from("ProjectRole")
+      .select("id")
+      .eq("projectId", invite.projectId)
+      .eq("role", invite.role)
+      .eq("userId", user.id)
+      .single()
 
     if (existingRole) {
-      await prisma.projectRoleInvite.delete({ where: { id: invite.id } })
+      await supabase.from("ProjectRoleInvite").delete().eq("id", invite.id)
       throw new BadRequestError("You already have this role on the project")
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      const role = await tx.projectRole.create({
-        data: {
-          projectId: invite.projectId,
-          role: invite.role,
-          name: user.name || user.email!,
-          userId: user.id,
-        },
-        select: {
-          id: true,
-          role: true,
-          name: true,
-          userId: true,
-          project: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
+    // Create role
+    const { data: role, error: createError } = await supabase
+      .from("ProjectRole")
+      .insert({
+        projectId: invite.projectId,
+        role: invite.role,
+        name: user.name || user.email!,
+        userId: user.id,
       })
+      .select(`
+        id,
+        role,
+        name,
+        userId,
+        project:Project!projectId(
+          id,
+          name
+        )
+      `)
+      .single()
 
-      await tx.projectRoleInvite.delete({ where: { id: invite.id } })
+    if (createError) throw createError
 
-      return role
-    })
+    // Delete invite
+    await supabase.from("ProjectRoleInvite").delete().eq("id", invite.id)
 
     return {
       success: true,
-      role: result,
-      project: result.project,
+      role,
+      project: role.project,
     }
   },
 })
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { token } = params
 
     if (!user.email) {
       throw new UnauthorizedError("Email required")
     }
 
-    const invite = await prisma.projectRoleInvite.findUnique({
-      where: { token },
-    })
+    const { data: invite, error: fetchError } = await supabase
+      .from("ProjectRoleInvite")
+      .select("id, email")
+      .eq("token", token)
+      .single()
 
-    if (!invite) {
+    if (fetchError?.code === "PGRST116" || !invite) {
       throw new NotFoundError("Invite")
     }
+    if (fetchError) throw fetchError
 
     if (invite.email.toLowerCase() !== user.email.toLowerCase()) {
       throw new ForbiddenError("This invite is for a different email address")
     }
 
-    await prisma.projectRoleInvite.delete({ where: { id: invite.id } })
+    const { error: deleteError } = await supabase
+      .from("ProjectRoleInvite")
+      .delete()
+      .eq("id", invite.id)
+
+    if (deleteError) throw deleteError
 
     return { success: true }
   },

@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { logTeamAction } from "@/lib/audit-log"
 
 const createInviteSchema = z.object({
@@ -10,58 +9,74 @@ const createInviteSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const membership = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: id, userId: user.id } },
-    })
+    // Check membership
+    const { data: membership } = await supabase
+      .from("TeamMember")
+      .select("role")
+      .eq("teamId", id)
+      .eq("userId", user.id)
+      .single()
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-    })
+    // Check team exists
+    const { data: team, error: teamError } = await supabase
+      .from("Team")
+      .select("ownerId")
+      .eq("id", id)
+      .single()
 
-    if (!team) {
+    if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
+    if (teamError) throw teamError
 
     const isMember = membership || team.ownerId === user.id
     if (!isMember) {
       throw new ForbiddenError("Access denied")
     }
 
-    const invites = await prisma.teamInvite.findMany({
-      where: { teamId: id },
-      include: {
-        inviter: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    })
+    const { data: invites, error } = await supabase
+      .from("TeamInvite")
+      .select(`
+        id, email, role, expiresAt, createdAt, invitedBy,
+        inviter:User!invitedBy(id, name, email, image)
+      `)
+      .eq("teamId", id)
+      .order("createdAt", { ascending: false })
 
-    return invites
+    if (error) throw error
+
+    return invites || []
   },
 })
 
 export const POST = createApiHandler({
   auth: "required",
   schema: createInviteSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
-    const membership = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: id, userId: user.id } },
-    })
+    // Check membership
+    const { data: membership } = await supabase
+      .from("TeamMember")
+      .select("role")
+      .eq("teamId", id)
+      .eq("userId", user.id)
+      .single()
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-      include: { _count: { select: { members: true, invites: true } } },
-    })
+    // Check team exists and get seat info
+    const { data: team, error: teamError } = await supabase
+      .from("Team")
+      .select("ownerId, maxSeats")
+      .eq("id", id)
+      .single()
 
-    if (!team) {
+    if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
+    if (teamError) throw teamError
 
     const canInvite =
       team.ownerId === user.id ||
@@ -71,72 +86,81 @@ export const POST = createApiHandler({
       throw new ForbiddenError("Only owners and admins can invite members")
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
-    })
+    // Check if user already exists and is a member
+    const { data: existingUser } = await supabase
+      .from("User")
+      .select("id")
+      .eq("email", data.email)
+      .single()
 
     if (existingUser) {
-      const existingMembership = await prisma.teamMember.findUnique({
-        where: { teamId_userId: { teamId: id, userId: existingUser.id } },
-      })
+      const { data: existingMembership } = await supabase
+        .from("TeamMember")
+        .select("id")
+        .eq("teamId", id)
+        .eq("userId", existingUser.id)
+        .single()
 
       if (existingMembership) {
         throw new BadRequestError("User is already a member of this team")
       }
     }
 
-    const invite = await prisma.$transaction(async (tx) => {
-      const [memberCount, inviteCount] = await Promise.all([
-        tx.teamMember.count({ where: { teamId: id } }),
-        tx.teamInvite.count({ where: { teamId: id } }),
-      ])
+    // Check seat limits
+    const [memberCountResult, inviteCountResult] = await Promise.all([
+      supabase
+        .from("TeamMember")
+        .select("*", { count: "exact", head: true })
+        .eq("teamId", id),
+      supabase
+        .from("TeamInvite")
+        .select("*", { count: "exact", head: true })
+        .eq("teamId", id),
+    ])
 
-      const totalSeats = memberCount + inviteCount
-      if (totalSeats >= team.maxSeats) {
-        throw new Error("SEAT_LIMIT_REACHED")
-      }
+    const memberCount = memberCountResult.count || 0
+    const inviteCount = inviteCountResult.count || 0
+    const totalSeats = memberCount + inviteCount
 
-      const existingInvite = await tx.teamInvite.findUnique({
-        where: { teamId_email: { teamId: id, email: data.email } },
+    if (totalSeats >= team.maxSeats) {
+      throw new ForbiddenError(
+        "Team has reached its seat limit. Upgrade to add more members."
+      )
+    }
+
+    // Check for existing invite
+    const { data: existingInvite } = await supabase
+      .from("TeamInvite")
+      .select("id")
+      .eq("teamId", id)
+      .eq("email", data.email)
+      .single()
+
+    if (existingInvite) {
+      throw new BadRequestError("An invite has already been sent to this email")
+    }
+
+    // Create invite
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 7)
+
+    const { data: invite, error: insertError } = await supabase
+      .from("TeamInvite")
+      .insert({
+        teamId: id,
+        email: data.email,
+        role: data.role,
+        expiresAt: expiresAt.toISOString(),
+        invitedBy: user.id,
       })
+      .select(`
+        id, email, role, expiresAt, createdAt, invitedBy,
+        inviter:User!invitedBy(id, name, email, image),
+        team:Team(id, name, logo)
+      `)
+      .single()
 
-      if (existingInvite) {
-        throw new Error("INVITE_EXISTS")
-      }
-
-      const expiresAt = new Date()
-      expiresAt.setDate(expiresAt.getDate() + 7)
-
-      return tx.teamInvite.create({
-        data: {
-          teamId: id,
-          email: data.email,
-          role: data.role,
-          expiresAt,
-          invitedBy: user.id,
-        },
-        include: {
-          inviter: {
-            select: { id: true, name: true, email: true, image: true },
-          },
-          team: {
-            select: { id: true, name: true, logo: true },
-          },
-        },
-      })
-    }).catch((error) => {
-      if (error instanceof Error) {
-        if (error.message === "SEAT_LIMIT_REACHED") {
-          throw new ForbiddenError(
-            "Team has reached its seat limit. Upgrade to add more members."
-          )
-        }
-        if (error.message === "INVITE_EXISTS") {
-          throw new BadRequestError("An invite has already been sent to this email")
-        }
-      }
-      throw error
-    })
+    if (insertError) throw insertError
 
     await logTeamAction({
       teamId: id,

@@ -3,6 +3,7 @@
  * Verifies that greetings are random but avoid repeats
  */
 
+import { describe, it, expect } from 'vitest';
 import { pickSmart } from '@/lib/voice/utils';
 import { getContextualGreeting } from '@/lib/voice/features/greeting/strategies';
 import { timeBasedGreetings, genreGreetings, legendaryGreetings } from '@/lib/voice/features/greeting/pools';

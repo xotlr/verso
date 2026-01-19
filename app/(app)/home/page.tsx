@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/components/providers/auth-provider';
 
 import { SettingsPanel } from '@/components/settings-panel';
 import { CommandPalette } from '@/components/command-palette';

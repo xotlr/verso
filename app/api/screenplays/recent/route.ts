@@ -1,44 +1,37 @@
 import { createApiHandler } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, searchParams }) => {
+  handler: async ({ user, searchParams, supabase }) => {
     const limit = Math.min(parseInt(searchParams.get("limit") || "5"), 10)
 
-    const teamMemberships = await prisma.teamMember.findMany({
-      where: { userId: user.id },
-      select: { teamId: true },
-    })
-    const teamIds = teamMemberships.map((tm) => tm.teamId)
+    // RLS automatically filters to accessible screenplays
+    const { data: recentScreenplays, error } = await supabase
+      .from("Screenplay")
+      .select(`
+        id, title, lastOpenedAt, isFavorite,
+        project:Project(id, name)
+      `)
+      .not("lastOpenedAt", "is", null)
+      .order("lastOpenedAt", { ascending: false })
+      .limit(limit)
 
-    const recentScreenplays = await prisma.screenplay.findMany({
-      where: {
-        OR: [{ userId: user.id }, { teamId: { in: teamIds } }],
-        lastOpenedAt: { not: null },
-      },
-      orderBy: { lastOpenedAt: "desc" },
-      take: limit,
-      select: {
-        id: true,
-        title: true,
-        lastOpenedAt: true,
-        isFavorite: true,
-        project: { select: { id: true, name: true } },
-      },
-    })
+    if (error) throw error
 
-    return recentScreenplays
+    return recentScreenplays || []
   },
 })
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user }) => {
-    await prisma.screenplay.updateMany({
-      where: { userId: user.id },
-      data: { lastOpenedAt: null },
-    })
+  handler: async ({ user, supabase }) => {
+    // Clear lastOpenedAt for user's own screenplays only
+    const { error } = await supabase
+      .from("Screenplay")
+      .update({ lastOpenedAt: null })
+      .eq("userId", user.id)
+
+    if (error) throw error
 
     return { success: true }
   },

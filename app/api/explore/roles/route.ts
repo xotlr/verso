@@ -1,7 +1,6 @@
 import { z } from "zod"
 import { createApiHandler, RATE_LIMITS } from "@/lib/api"
-import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { getSession } from "@/lib/supabase-auth"
 
 const rolesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -15,7 +14,7 @@ const rolesQuerySchema = z.object({
 export const GET = createApiHandler({
   auth: "none",
   rateLimit: RATE_LIMITS.API,
-  handler: async ({ searchParams }) => {
+  handler: async ({ searchParams, supabase }) => {
     const queryResult = rolesQuerySchema.safeParse({
       limit: searchParams.get("limit") || undefined,
       offset: searchParams.get("offset") || undefined,
@@ -31,78 +30,101 @@ export const GET = createApiHandler({
 
     const { limit, offset, search, role, location, isPaid } = queryResult.data
 
-    const session = await auth()
+    const session = await getSession()
     const userId = session?.user?.id
 
-    const where: Record<string, unknown> = { project: { isPublic: true } }
+    // Build query
+    let query = supabase
+      .from("ProjectRoleNeed")
+      .select(`
+        id,
+        role,
+        description,
+        location,
+        isPaid,
+        createdAt,
+        project:Project!projectId(
+          id,
+          name,
+          banner,
+          logo,
+          isPublic,
+          user:User!userId(id, name, image)
+        ),
+        applications:ProjectRoleApplication(id, status, userId)
+      `, { count: "exact" })
+      .order("createdAt", { ascending: false })
+      .range(offset, offset + limit - 1)
 
     if (role && role !== "all") {
-      where.role = role
+      query = query.eq("role", role)
     }
 
     if (location) {
-      where.location = { contains: location, mode: "insensitive" }
+      query = query.ilike("location", `%${location}%`)
     }
 
     if (isPaid !== undefined) {
-      where.isPaid = isPaid === "true"
+      query = query.eq("isPaid", isPaid === "true")
     }
 
     if (search) {
-      where.OR = [
-        { description: { contains: search, mode: "insensitive" } },
-        { project: { name: { contains: search, mode: "insensitive" } } },
-      ]
+      query = query.or(`description.ilike.%${search}%`)
     }
 
-    const [roleNeeds, total] = await Promise.all([
-      prisma.projectRoleNeed.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: offset,
-        take: limit,
-        select: {
-          id: true,
-          role: true,
-          description: true,
-          location: true,
-          isPaid: true,
-          createdAt: true,
+    const { data: roleNeeds, count, error } = await query
+
+    if (error) throw error
+
+    // Filter for public projects and transform
+    interface RoleNeedResult {
+      id: string
+      role: string
+      description: string | null
+      location: string | null
+      isPaid: boolean
+      createdAt: string
+      project: {
+        id: string
+        name: string
+        banner: string | null
+        logo: string | null
+        isPublic: boolean
+        user: { id: string; name: string | null; image: string | null } | null
+      } | null
+      applications: Array<{ id: string; status: string; userId: string }> | null
+    }
+    const typedRoleNeeds = roleNeeds as RoleNeedResult[] || []
+    const transformedRoleNeeds = typedRoleNeeds
+      .filter((rn) => rn.project?.isPublic)
+      .map((roleNeed) => {
+        const applications = roleNeed.applications || []
+        const userApplication = userId
+          ? applications.find((a: { userId: string }) => a.userId === userId)
+          : null
+
+        return {
+          id: roleNeed.id,
+          role: roleNeed.role,
+          description: roleNeed.description,
+          location: roleNeed.location,
+          isPaid: roleNeed.isPaid,
+          createdAt: roleNeed.createdAt,
           project: {
-            select: {
-              id: true,
-              name: true,
-              banner: true,
-              logo: true,
-              user: { select: { id: true, name: true, image: true } },
-            },
+            id: roleNeed.project!.id,
+            name: roleNeed.project!.name,
+            banner: roleNeed.project!.banner,
+            logo: roleNeed.project!.logo,
+            user: roleNeed.project!.user,
           },
-          _count: { select: { applications: true } },
-          ...(userId
-            ? {
-                applications: {
-                  where: { userId },
-                  select: { id: true, status: true },
-                  take: 1,
-                },
-              }
-            : {}),
-        },
-      }),
-      prisma.projectRoleNeed.count({ where }),
-    ])
+          _count: { applications: applications.length },
+          hasApplied: !!userApplication,
+          applicationStatus: userApplication?.status || null,
+        }
+      })
 
-    const transformedRoleNeeds = roleNeeds.map((roleNeed) => {
-      const { applications, ...rest } = roleNeed as typeof roleNeed & {
-        applications?: { id: string; status: string }[]
-      }
-      return {
-        ...rest,
-        hasApplied: applications && applications.length > 0,
-        applicationStatus: applications?.[0]?.status || null,
-      }
-    })
+    const total = count || 0
 
-    return { roleNeeds: transformedRoleNeeds, total, hasMore: offset + roleNeeds.length < total }
+    return { roleNeeds: transformedRoleNeeds, total, hasMore: offset + transformedRoleNeeds.length < total }
   },
 })

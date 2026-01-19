@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, ForbiddenError, NotFoundError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const updateCreditSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -11,34 +10,34 @@ const updateCreditSchema = z.object({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateCreditSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id, creditId } = params
 
     if (user.id !== id) {
       throw new ForbiddenError()
     }
 
-    const existing = await prisma.credit.findFirst({
-      where: { id: creditId, userId: id },
-    })
+    // Check if credit exists and belongs to user
+    const { data: existing, error: existingError } = await supabase
+      .from("Credit")
+      .select("id")
+      .eq("id", creditId)
+      .eq("userId", id)
+      .single()
 
-    if (!existing) {
+    if (existingError?.code === "PGRST116" || !existing) {
       throw new NotFoundError("Credit")
     }
+    if (existingError) throw existingError
 
-    const credit = await prisma.credit.update({
-      where: { id: creditId },
-      data,
-      select: {
-        id: true,
-        title: true,
-        role: true,
-        year: true,
-        projectId: true,
-        isManual: true,
-        displayOrder: true,
-      },
-    })
+    const { data: credit, error } = await supabase
+      .from("Credit")
+      .update(data)
+      .eq("id", creditId)
+      .select("id, title, role, year, projectId, isManual, displayOrder")
+      .single()
+
+    if (error) throw error
 
     return credit
   },
@@ -46,24 +45,32 @@ export const PATCH = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id, creditId } = params
 
     if (user.id !== id) {
       throw new ForbiddenError()
     }
 
-    const existing = await prisma.credit.findFirst({
-      where: { id: creditId, userId: id },
-    })
+    // Check if credit exists and belongs to user
+    const { data: existing, error: existingError } = await supabase
+      .from("Credit")
+      .select("id")
+      .eq("id", creditId)
+      .eq("userId", id)
+      .single()
 
-    if (!existing) {
+    if (existingError?.code === "PGRST116" || !existing) {
       throw new NotFoundError("Credit")
     }
+    if (existingError) throw existingError
 
-    await prisma.credit.delete({
-      where: { id: creditId },
-    })
+    const { error } = await supabase
+      .from("Credit")
+      .delete()
+      .eq("id", creditId)
+
+    if (error) throw error
 
     return { success: true }
   },

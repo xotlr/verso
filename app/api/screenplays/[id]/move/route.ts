@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const moveScreenplaySchema = z.object({
   projectId: z.string().nullable().optional(),
@@ -10,34 +9,35 @@ const moveScreenplaySchema = z.object({
 export const PUT = createApiHandler({
   auth: "required",
   schema: moveScreenplaySchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
-    const screenplay = await prisma.screenplay.findUnique({
-      where: { id },
-      include: {
-        project: { select: { teamId: true } },
-        team: { select: { id: true } },
-      },
-    })
+    const { data: screenplay, error } = await supabase
+      .from("Screenplay")
+      .select(`
+        id, userId, teamId, projectId,
+        project:Project(teamId),
+        team:Team(id)
+      `)
+      .eq("id", id)
+      .single()
 
-    if (!screenplay) {
+    if (error?.code === "PGRST116" || !screenplay) {
       throw new NotFoundError("Screenplay")
     }
+    if (error) throw error
 
     let hasAccess = screenplay.userId === user.id
 
     if (!hasAccess) {
       const teamId = screenplay.teamId || screenplay.project?.teamId
       if (teamId) {
-        const membership = await prisma.teamMember.findUnique({
-          where: {
-            teamId_userId: {
-              teamId,
-              userId: user.id,
-            },
-          },
-        })
+        const { data: membership } = await supabase
+          .from("TeamMember")
+          .select("id")
+          .eq("teamId", teamId)
+          .eq("userId", user.id)
+          .single()
         hasAccess = !!membership
       }
     }
@@ -50,26 +50,26 @@ export const PUT = createApiHandler({
 
     // Validate target project access if moving to a project
     if (projectId) {
-      const targetProject = await prisma.project.findUnique({
-        where: { id: projectId },
-        select: { userId: true, teamId: true },
-      })
+      const { data: targetProject, error: projectError } = await supabase
+        .from("Project")
+        .select("userId, teamId")
+        .eq("id", projectId)
+        .single()
 
-      if (!targetProject) {
+      if (projectError?.code === "PGRST116" || !targetProject) {
         throw new NotFoundError("Target project")
       }
+      if (projectError) throw projectError
 
       let hasProjectAccess = targetProject.userId === user.id
 
       if (!hasProjectAccess && targetProject.teamId) {
-        const membership = await prisma.teamMember.findUnique({
-          where: {
-            teamId_userId: {
-              teamId: targetProject.teamId,
-              userId: user.id,
-            },
-          },
-        })
+        const { data: membership } = await supabase
+          .from("TeamMember")
+          .select("id")
+          .eq("teamId", targetProject.teamId)
+          .eq("userId", user.id)
+          .single()
         hasProjectAccess = !!membership
       }
 
@@ -80,14 +80,12 @@ export const PUT = createApiHandler({
 
     // Validate target team access if moving to a team
     if (teamId !== undefined && teamId !== null) {
-      const membership = await prisma.teamMember.findUnique({
-        where: {
-          teamId_userId: {
-            teamId,
-            userId: user.id,
-          },
-        },
-      })
+      const { data: membership } = await supabase
+        .from("TeamMember")
+        .select("id")
+        .eq("teamId", teamId)
+        .eq("userId", user.id)
+        .single()
 
       if (!membership) {
         throw new ForbiddenError("Access denied to target team")
@@ -103,14 +101,18 @@ export const PUT = createApiHandler({
       updateData.teamId = teamId
     }
 
-    const updatedScreenplay = await prisma.screenplay.update({
-      where: { id },
-      data: updateData,
-      include: {
-        project: { select: { id: true, name: true } },
-        team: { select: { id: true, name: true } },
-      },
-    })
+    const { data: updatedScreenplay, error: updateError } = await supabase
+      .from("Screenplay")
+      .update(updateData)
+      .eq("id", id)
+      .select(`
+        *,
+        project:Project(id, name),
+        team:Team(id, name)
+      `)
+      .single()
+
+    if (updateError) throw updateError
 
     return updatedScreenplay
   },

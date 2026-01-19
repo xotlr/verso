@@ -1,72 +1,76 @@
-import { createApiHandler, NotFoundError, RATE_LIMITS } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
+import { createApiHandler, NotFoundError } from "@/lib/api"
+
+interface ScreenplayOp {
+  id: string
+  operationType: string
+  position: number | null
+  content: string | null
+  metadata: unknown
+  timestamp: string
+  sequenceNumber: number
+}
+
+interface ScreenplayData {
+  id: string
+  title: string
+  timelapseStarted: string | null
+  user: { name: string | null; image: string | null } | null
+}
 
 export const GET = createApiHandler({
   auth: "none",
   rateLimit: { maxRequests: 100, windowMs: 60 * 1000 },
-  handler: async ({ params, searchParams }) => {
+  handler: async ({ params, searchParams, supabase }) => {
     const { shareId } = params
 
     const cursor = searchParams.get("cursor")
     const limit = Math.min(parseInt(searchParams.get("limit") || "1000"), 5000)
 
-    const screenplay = await prisma.screenplay.findFirst({
-      where: {
-        timelapseShareId: shareId,
-      },
-      select: {
-        id: true,
-        title: true,
-        timelapseStarted: true,
-        user: {
-          select: {
-            name: true,
-            image: true,
-          },
-        },
-      },
-    })
+    const screenplayResult = await supabase
+      .from("Screenplay")
+      .select(`
+        id,
+        title,
+        timelapseStarted,
+        user:User!userId(name, image)
+      `)
+      .eq("timelapseShareId", shareId)
+      .single()
+    const screenplay = screenplayResult.data as ScreenplayData | null
 
-    if (!screenplay) {
+    if (screenplayResult.error || !screenplay) {
       throw new NotFoundError("Timelapse")
     }
 
-    const where: {
-      screenplayId: string
-      sequenceNumber?: { gt: bigint }
-    } = {
-      screenplayId: screenplay.id,
-    }
+    // Build query for operations
+    let query = supabase
+      .from("ScreenplayOperation")
+      .select("id, operationType, position, content, metadata, timestamp, sequenceNumber")
+      .eq("screenplayId", screenplay.id)
+      .order("sequenceNumber", { ascending: true })
+      .limit(limit)
 
     if (cursor) {
-      where.sequenceNumber = { gt: BigInt(cursor) }
+      query = query.gt("sequenceNumber", BigInt(cursor).toString())
     }
 
-    const operations = await prisma.screenplayOperation.findMany({
-      where,
-      orderBy: { sequenceNumber: "asc" },
-      take: limit,
-      select: {
-        id: true,
-        operationType: true,
-        position: true,
-        content: true,
-        metadata: true,
-        timestamp: true,
-        sequenceNumber: true,
-      },
-    })
+    const opsResult = await query
+    const operations = opsResult.data as ScreenplayOp[] | null
 
-    const totalCount = await prisma.screenplayOperation.count({
-      where: { screenplayId: screenplay.id },
-    })
+    if (opsResult.error) throw opsResult.error
 
-    const serializedOperations = operations.map((op) => ({
+    // Get total count
+    const { count: totalCount } = await supabase
+      .from("ScreenplayOperation")
+      .select("id", { count: "exact", head: true })
+      .eq("screenplayId", screenplay.id)
+
+    const serializedOperations = (operations || []).map((op) => ({
       ...op,
       sequenceNumber: op.sequenceNumber.toString(),
     }))
 
-    const nextCursor = operations.length === limit
+    const nextCursor = operations && operations.length === limit
       ? operations[operations.length - 1].sequenceNumber.toString()
       : null
 
@@ -78,7 +82,7 @@ export const GET = createApiHandler({
       },
       operations: serializedOperations,
       nextCursor,
-      totalCount,
+      totalCount: totalCount || 0,
       timelapseStarted: screenplay.timelapseStarted,
     }
   },

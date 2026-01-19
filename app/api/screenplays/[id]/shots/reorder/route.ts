@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
 const reorderSchema = z.object({
@@ -13,7 +12,7 @@ const reorderSchema = z.object({
 export const POST = createApiHandler({
   auth: "required",
   schema: reorderSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: screenplayId } = params
     const { shotIds, sceneId } = data
 
@@ -26,41 +25,42 @@ export const POST = createApiHandler({
     }
 
     // Verify all shots exist and belong to this screenplay and scene
-    const existingShots = await prisma.shot.findMany({
-      where: {
-        id: { in: shotIds },
-        screenplayId,
-        sceneId,
-      },
-      select: { id: true },
-    })
+    const { data: existingShots, error: fetchError } = await supabase
+      .from("Shot")
+      .select("id")
+      .eq("screenplayId", screenplayId)
+      .eq("sceneId", sceneId)
+      .in("id", shotIds)
 
-    const existingIds = new Set(existingShots.map((s) => s.id))
+    if (fetchError) throw fetchError
+
+    const existingIds = new Set((existingShots || []).map((s: { id: string }) => s.id))
     const missingIds = shotIds.filter((id) => !existingIds.has(id))
 
     if (missingIds.length > 0) {
       throw new NotFoundError(`Shots not found: ${missingIds.join(", ")}`)
     }
 
-    // Update shot numbers in a transaction
-    await prisma.$transaction(
-      shotIds.map((shotId, index) =>
-        prisma.shot.update({
-          where: { id: shotId },
-          data: { shotNumber: index + 1 },
-        })
-      )
-    )
+    // Update shot numbers one by one (Supabase doesn't support batch updates with different values)
+    for (let i = 0; i < shotIds.length; i++) {
+      const { error: updateError } = await supabase
+        .from("Shot")
+        .update({ shotNumber: i + 1 })
+        .eq("id", shotIds[i])
+
+      if (updateError) throw updateError
+    }
 
     // Fetch updated shots
-    const updatedShots = await prisma.shot.findMany({
-      where: {
-        screenplayId,
-        sceneId,
-      },
-      orderBy: { shotNumber: "asc" },
-    })
+    const { data: updatedShots, error: resultError } = await supabase
+      .from("Shot")
+      .select("*")
+      .eq("screenplayId", screenplayId)
+      .eq("sceneId", sceneId)
+      .order("shotNumber", { ascending: true })
 
-    return { shots: updatedShots }
+    if (resultError) throw resultError
+
+    return { shots: updatedShots || [] }
   },
 })

@@ -203,7 +203,7 @@ describe('createFileInput', () => {
       target: { files: [mockFile] },
     }
 
-    mockInput.onchange?.(mockEvent as unknown as Event)
+    ;(mockInput.onchange as ((ev: Event) => void) | null)?.(mockEvent as unknown as Event)
 
     expect(onFile).toHaveBeenCalledWith(mockFile)
   })
@@ -216,7 +216,7 @@ describe('createFileInput', () => {
       target: { files: [] },
     }
 
-    mockInput.onchange?.(mockEvent as unknown as Event)
+    ;(mockInput.onchange as ((ev: Event) => void) | null)?.(mockEvent as unknown as Event)
 
     expect(onFile).not.toHaveBeenCalled()
   })
@@ -229,7 +229,7 @@ describe('createFileInput', () => {
       target: { files: null },
     }
 
-    mockInput.onchange?.(mockEvent as unknown as Event)
+    ;(mockInput.onchange as ((ev: Event) => void) | null)?.(mockEvent as unknown as Event)
 
     expect(onFile).not.toHaveBeenCalled()
   })

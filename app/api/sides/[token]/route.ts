@@ -1,9 +1,8 @@
-import { createApiHandler, NotFoundError, GoneError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
+import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
+import { createServerActionClient } from "@/lib/supabase/server"
 import { logger } from "@/lib/logger"
 import { filterByCharacter, filterByScenes } from "@/lib/screenplay/sides-filter"
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 const SIDES_RATE_LIMIT = { maxRequests: 60, windowMs: 60 * 1000 }
@@ -24,53 +23,80 @@ export async function GET(
       )
     }
 
-    const side = await prisma.digitalSide.findUnique({
-      where: { token },
-      include: {
-        screenplay: {
-          select: {
-            id: true,
-            title: true,
-            content: true,
-            author: true,
-            type: true,
-            format: true,
-            user: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    })
+    const supabase = await createServerActionClient()
 
-    if (!side) {
+    const { data: side, error } = await supabase
+      .from("DigitalSide")
+      .select(`
+        id,
+        token,
+        title,
+        filterType,
+        filterValue,
+        expiresAt,
+        isActive,
+        callsheetId,
+        userId,
+        screenplay:Screenplay!screenplayId(
+          id,
+          title,
+          content,
+          author,
+          type,
+          format,
+          user:User!userId(name)
+        ),
+        user:User!userId(name)
+      `)
+      .eq("token", token)
+      .single()
+
+    interface SidesData {
+      id: string
+      title: string
+      userId: string
+      isActive: boolean
+      expiresAt: string | null
+      filterType: string | null
+      filterValue: string | null
+      callsheetId: string | null
+      views: number
+      screenplay: { id: string; title: string; content: string; author: string | null; type: string | null; format: string | null; user: { name: string | null } | null } | null
+      user: { name: string | null } | null
+    }
+    const typedSide = side as unknown as SidesData
+
+    if (error || !typedSide) {
       return NextResponse.json({ error: "Digital sides not found" }, { status: 404 })
     }
 
-    if (!side.isActive) {
+    if (!typedSide.isActive) {
       return NextResponse.json(
         { error: "This digital sides link has been revoked" },
         { status: 410 }
       )
     }
 
-    if (side.expiresAt && new Date() > side.expiresAt) {
+    if (typedSide.expiresAt && new Date() > new Date(typedSide.expiresAt)) {
       return NextResponse.json(
         { error: "This digital sides link has expired" },
         { status: 410 }
       )
     }
 
+    const screenplay = typedSide.screenplay as {
+      id: string
+      title: string
+      content: string
+      author: string | null
+      type: string | null
+      format: string | null
+      user: { name: string | null } | null
+    }
+
     let content: object
     try {
-      content = JSON.parse(side.screenplay.content)
+      content = JSON.parse(screenplay.content)
     } catch {
       return NextResponse.json(
         { error: "Invalid screenplay content" },
@@ -79,52 +105,50 @@ export async function GET(
     }
 
     let filteredContent = content
-    if (side.filterType === "character" && side.filterValue) {
-      filteredContent = filterByCharacter(content, side.filterValue)
-    } else if (side.filterType === "scenes" && side.filterValue) {
-      const sceneIds = side.filterValue.split(",").map((s) => s.trim())
+    if (typedSide.filterType === "character" && typedSide.filterValue) {
+      filteredContent = filterByCharacter(content, typedSide.filterValue)
+    } else if (typedSide.filterType === "scenes" && typedSide.filterValue) {
+      const sceneIds = typedSide.filterValue.split(",").map((s: string) => s.trim())
       filteredContent = filterByScenes(content, sceneIds)
     }
 
     let callsheet = null
-    if (side.callsheetId) {
-      callsheet = await prisma.callsheet.findUnique({
-        where: { id: side.callsheetId },
-        select: {
-          id: true,
-          title: true,
-          shootDate: true,
-          callTime: true,
-          primaryLocation: true,
-          data: true,
-        },
-      })
+    if (typedSide.callsheetId) {
+      const { data: callsheetData } = await supabase
+        .from("Callsheet")
+        .select("id, title, shootDate, callTime, primaryLocation, data")
+        .eq("id", typedSide.callsheetId)
+        .single()
+      callsheet = callsheetData
     }
 
-    prisma.screenplay
-      .update({
-        where: { id: side.screenplay.id },
-        data: { views: { increment: 1 } },
+    // Increment view count in background
+    ;(supabase.from("SidesShare") as ReturnType<typeof supabase.from>)
+      .update({ views: typedSide.views + 1 })
+      .eq("id", typedSide.id)
+      .then(({ error: updateError }: { error: Error | null }) => {
+        if (updateError) {
+          logger.error("Failed to increment view count", updateError)
+        }
       })
-      .catch((err) => logger.error("Failed to increment view count", err instanceof Error ? err : undefined))
 
     return NextResponse.json({
-      title: side.title,
+      title: typedSide.title,
       screenplay: {
-        title: side.screenplay.title,
+        title: screenplay.title,
         author:
-          side.screenplay.author ||
-          side.screenplay.user?.name ||
+          screenplay.author ||
+          screenplay.user?.name ||
           "Anonymous",
         content: filteredContent,
-        type: side.screenplay.type,
-        format: side.screenplay.format,
+        type: screenplay.type,
+        format: screenplay.format,
       },
-      filterType: side.filterType,
-      filterValue: side.filterValue,
-      expiresAt: side.expiresAt,
+      filterType: typedSide.filterType,
+      filterValue: typedSide.filterValue,
+      expiresAt: typedSide.expiresAt,
       callsheet,
-      createdBy: side.user.name,
+      createdBy: (typedSide.user as { name: string | null } | null)?.name,
     })
   } catch (error) {
     logger.error("Failed to fetch digital sides", error instanceof Error ? error : undefined, {
@@ -139,14 +163,16 @@ export async function GET(
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { token } = params
 
-    const side = await prisma.digitalSide.findUnique({
-      where: { token },
-    })
+    const { data: side, error } = await supabase
+      .from("DigitalSide")
+      .select("id, userId")
+      .eq("token", token)
+      .single()
 
-    if (!side) {
+    if (error || !side) {
       throw new NotFoundError("Digital sides")
     }
 
@@ -154,10 +180,10 @@ export const DELETE = createApiHandler({
       throw new ForbiddenError()
     }
 
-    await prisma.digitalSide.update({
-      where: { token },
-      data: { isActive: false },
-    })
+    await supabase
+      .from("DigitalSide")
+      .update({ isActive: false })
+      .eq("token", token)
 
     return { success: true }
   },

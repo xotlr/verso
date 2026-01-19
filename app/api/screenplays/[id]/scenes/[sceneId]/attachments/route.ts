@@ -1,13 +1,12 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { validateImageUrl } from "@/lib/file-validation"
 import { logger } from "@/lib/logger"
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id, sceneId } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -16,15 +15,16 @@ export const GET = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const attachments = await prisma.sceneAttachment.findMany({
-      where: {
-        screenplayId: id,
-        sceneId,
-      },
-      orderBy: { displayOrder: "asc" },
-    })
+    const { data: attachments, error } = await supabase
+      .from("SceneAttachment")
+      .select("*")
+      .eq("screenplayId", id)
+      .eq("sceneId", sceneId)
+      .order("displayOrder", { ascending: true })
 
-    return attachments
+    if (error) throw error
+
+    return attachments || []
   },
 })
 
@@ -38,7 +38,7 @@ const createAttachmentSchema = z.object({
 export const POST = createApiHandler({
   auth: "required",
   schema: createAttachmentSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id, sceneId } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -59,24 +59,32 @@ export const POST = createApiHandler({
       throw new BadRequestError((validationError as Error).message)
     }
 
-    const existingCount = await prisma.sceneAttachment.count({
-      where: { screenplayId: id, sceneId },
-    })
+    const { count, error: countError } = await supabase
+      .from("SceneAttachment")
+      .select("id", { count: "exact", head: true })
+      .eq("screenplayId", id)
+      .eq("sceneId", sceneId)
 
-    if (existingCount >= 10) {
+    if (countError) throw countError
+
+    if ((count || 0) >= 10) {
       throw new BadRequestError("Maximum 10 attachments per scene")
     }
 
-    const lastAttachment = await prisma.sceneAttachment.findFirst({
-      where: { screenplayId: id, sceneId },
-      orderBy: { displayOrder: "desc" },
-      select: { displayOrder: true },
-    })
+    const { data: lastAttachment } = await supabase
+      .from("SceneAttachment")
+      .select("displayOrder")
+      .eq("screenplayId", id)
+      .eq("sceneId", sceneId)
+      .order("displayOrder", { ascending: false })
+      .limit(1)
+      .single()
 
     const displayOrder = (lastAttachment?.displayOrder ?? -1) + 1
 
-    const attachment = await prisma.sceneAttachment.create({
-      data: {
+    const { data: attachment, error: createError } = await supabase
+      .from("SceneAttachment")
+      .insert({
         screenplayId: id,
         sceneId,
         type: data.type,
@@ -84,8 +92,11 @@ export const POST = createApiHandler({
         filename: data.filename,
         caption: data.caption,
         displayOrder,
-      },
-    })
+      })
+      .select()
+      .single()
+
+    if (createError) throw createError
 
     logger.audit('create', 'sceneAttachment', attachment.id, {
       screenplayId: id,

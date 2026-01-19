@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, RateLimitError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit"
 import { logger } from "@/lib/logger"
 import crypto from "crypto"
@@ -12,7 +11,7 @@ const forgotPasswordSchema = z.object({
 export const POST = createApiHandler({
   auth: "none",
   schema: forgotPasswordSchema,
-  handler: async ({ request, data }) => {
+  handler: async ({ request, data, supabase }) => {
     const ip = getClientIp(request)
     const rateLimitResult = await rateLimit(`forgot-password:${ip}`, RATE_LIMITS.AUTH)
 
@@ -25,28 +24,33 @@ export const POST = createApiHandler({
 
     const normalizedEmail = data.email.toLowerCase().trim()
 
-    const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-      select: { id: true, email: true, password: true },
-    })
+    const { data: user } = await supabase
+      .from("User")
+      .select("id, email, password")
+      .eq("email", normalizedEmail)
+      .single()
 
     if (user?.email && user.password) {
-      await prisma.passwordResetToken.deleteMany({
-        where: { email: normalizedEmail },
-      })
+      // Delete any existing tokens for this email
+      await supabase
+        .from("PasswordResetToken")
+        .delete()
+        .eq("email", normalizedEmail)
 
       const token = crypto.randomBytes(32).toString("hex")
-      const expires = new Date(Date.now() + 60 * 60 * 1000)
+      const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString()
 
-      await prisma.passwordResetToken.create({
-        data: {
+      const { error: createError } = await supabase
+        .from("PasswordResetToken")
+        .insert({
           email: normalizedEmail,
           token,
           expires,
-        },
-      })
+        })
 
-      await sendPasswordResetEmail(normalizedEmail, token)
+      if (!createError) {
+        await sendPasswordResetEmail(normalizedEmail, token)
+      }
     }
 
     return {

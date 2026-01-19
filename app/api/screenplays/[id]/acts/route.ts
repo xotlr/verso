@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { DEFAULT_ACTS } from "@/types/beat-board"
 
@@ -13,7 +12,7 @@ const actsSchema = z.array(actConfigSchema).min(1).max(10)
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -25,14 +24,26 @@ export const GET = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    return access.screenplay?.acts || DEFAULT_ACTS
+    // Fetch screenplay to get acts
+    const { data: screenplay, error } = await supabase
+      .from("Screenplay")
+      .select("acts")
+      .eq("id", id)
+      .single()
+
+    if (error?.code === "PGRST116" || !screenplay) {
+      throw new NotFoundError("Screenplay")
+    }
+    if (error) throw error
+
+    return screenplay.acts || DEFAULT_ACTS
   },
 })
 
 export const PUT = createApiHandler({
   auth: "required",
   schema: actsSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -44,11 +55,14 @@ export const PUT = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const screenplay = await prisma.screenplay.update({
-      where: { id },
-      data: { acts: data },
-      select: { acts: true },
-    })
+    const { data: screenplay, error: updateError } = await supabase
+      .from("Screenplay")
+      .update({ acts: data })
+      .eq("id", id)
+      .select("acts")
+      .single()
+
+    if (updateError) throw updateError
 
     return screenplay.acts
   },

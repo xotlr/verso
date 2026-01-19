@@ -3,7 +3,7 @@
  * Validates user access to projects and teams for screenplay operations.
  */
 
-import { prisma } from '@/lib/prisma';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 
 /** Result of access validation */
 export interface AccessValidationResult {
@@ -27,10 +27,14 @@ export async function validateProjectAccess(
   projectId: string,
   userId: string
 ): Promise<AccessValidationResult> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { userId: true, teamId: true },
-  });
+  const supabase = createServiceRoleClient();
+
+  const projectResult = await supabase
+    .from('Project')
+    .select('userId, teamId')
+    .eq('id', projectId)
+    .single();
+  const project = projectResult.data as { userId: string; teamId: string | null } | null;
 
   if (!project) {
     return { allowed: false, error: 'Project not found', status: 404 };
@@ -43,16 +47,14 @@ export async function validateProjectAccess(
 
   // Check team membership if project belongs to a team
   if (project.teamId) {
-    const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId: project.teamId,
-          userId,
-        },
-      },
-    });
+    const membershipResult = await supabase
+      .from('TeamMember')
+      .select('id')
+      .eq('teamId', project.teamId)
+      .eq('userId', userId)
+      .single();
 
-    if (membership) {
+    if (membershipResult.data) {
       return { allowed: true };
     }
   }
@@ -71,16 +73,16 @@ export async function validateTeamAccess(
   teamId: string,
   userId: string
 ): Promise<AccessValidationResult> {
-  const membership = await prisma.teamMember.findUnique({
-    where: {
-      teamId_userId: {
-        teamId,
-        userId,
-      },
-    },
-  });
+  const supabase = createServiceRoleClient();
 
-  if (!membership) {
+  const membershipResult = await supabase
+    .from('TeamMember')
+    .select('id')
+    .eq('teamId', teamId)
+    .eq('userId', userId)
+    .single();
+
+  if (!membershipResult.data) {
     return { allowed: false, error: 'Access denied to team', status: 403 };
   }
 

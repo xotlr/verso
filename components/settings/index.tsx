@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession, signOut } from '@/components/providers/auth-provider';
 import useSWR from 'swr';
 import { Download, Upload, RotateCcw, Palette, Type, Keyboard, LogOut, Accessibility, CreditCard, User, Users, Clapperboard } from 'lucide-react';
 import { useSettings } from '@/contexts/settings-context';
@@ -178,12 +178,9 @@ export function SettingsContent({ defaultTab = 'profile', onDone, showDoneButton
         // Refresh the session to update cached user data (avatar, name, username, etc.)
         // Pass the updated data to ensure the JWT callback receives it
         await updateSession({
-          user: {
-            ...session?.user,
-            image: profile.avatar,
-            name: profile.name,
-            username: profile.username || null,
-          }
+          image: profile.avatar,
+          name: profile.name,
+          username: profile.username || null,
         });
       } else {
         throw new Error('Failed to save');

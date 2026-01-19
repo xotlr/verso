@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const updateShortcutsSchema = z.object({
   shortcuts: z.record(z.string(), z.unknown()),
@@ -8,15 +7,17 @@ const updateShortcutsSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user }) => {
-    const userData = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { shortcuts: true },
-    })
+  handler: async ({ user, supabase }) => {
+    const { data: userData, error } = await supabase
+      .from("User")
+      .select("shortcuts")
+      .eq("id", user.id)
+      .single()
 
-    if (!userData) {
+    if (error?.code === "PGRST116" || !userData) {
       throw new NotFoundError("User")
     }
+    if (error) throw error
 
     return { shortcuts: userData.shortcuts || {} }
   },
@@ -25,17 +26,19 @@ export const GET = createApiHandler({
 export const PUT = createApiHandler({
   auth: "required",
   schema: updateShortcutsSchema,
-  handler: async ({ user, data }) => {
+  handler: async ({ user, data, supabase }) => {
     const { shortcuts } = data
 
     if (typeof shortcuts !== "object" || shortcuts === null) {
       throw new BadRequestError("Invalid shortcuts format")
     }
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { shortcuts: shortcuts as object },
-    })
+    const { error } = await supabase
+      .from("User")
+      .update({ shortcuts: shortcuts as object })
+      .eq("id", user.id)
+
+    if (error) throw error
 
     return { success: true }
   },

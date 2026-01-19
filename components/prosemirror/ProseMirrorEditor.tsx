@@ -46,7 +46,7 @@ import { TypingTestPanel } from './dev/TypingTestPanel';
 import { VersoAnalysis } from '@/components/verso-analysis';
 import { UpgradeDialog } from '@/components/upgrade-dialog';
 import { canUseScriptCheck, type PlanType } from '@/lib/stripe';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/components/providers/auth-provider';
 import '@/styles/editor/prosemirror.css';
 
 export type ViewMode = 'discrete' | 'continuous';

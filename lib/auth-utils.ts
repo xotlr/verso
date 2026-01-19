@@ -1,9 +1,10 @@
-import { prisma } from '@/lib/prisma';
-import { TeamRole, Screenplay } from '@prisma/client';
+import { createServerActionClient } from '@/lib/supabase/server';
 import { cache } from 'react';
 
 // Share role hierarchy (from least to most permissions)
 export type ShareRole = 'VIEWER' | 'COMMENTER' | 'EDITOR' | 'ADMIN';
+export type TeamRole = 'MEMBER' | 'ADMIN' | 'OWNER';
+
 const SHARE_ROLE_HIERARCHY: ShareRole[] = ['VIEWER', 'COMMENTER', 'EDITOR', 'ADMIN'];
 
 /**
@@ -11,7 +12,10 @@ const SHARE_ROLE_HIERARCHY: ShareRole[] = ['VIEWER', 'COMMENTER', 'EDITOR', 'ADM
  */
 export interface ScreenplayAccessResult {
   allowed: boolean;
-  screenplay?: Screenplay & {
+  screenplay?: {
+    id: string;
+    userId: string;
+    teamId: string | null;
     project?: { teamId: string | null } | null;
     team?: { id: string } | null;
   };
@@ -34,20 +38,33 @@ function hasMinShareRole(userRole: ShareRole, minRole: ShareRole): boolean {
  * Internal implementation of screenplay access check.
  * Wrapped with cache() for request-level deduplication in Server Components.
  */
+interface ScreenplayQueryResult {
+  id: string;
+  userId: string;
+  teamId: string | null;
+  project: { teamId: string | null } | null;
+  team: { id: string } | null;
+}
+
 async function checkScreenplayAccessImpl(
   screenplayId: string,
   userId: string,
   requiredRole: ShareRole = 'VIEWER'
 ): Promise<ScreenplayAccessResult> {
-  const screenplay = await prisma.screenplay.findUnique({
-    where: { id: screenplayId },
-    include: {
-      project: { select: { teamId: true } },
-      team: { select: { id: true } },
-    },
-  });
+  const supabase = await createServerActionClient();
 
-  if (!screenplay) {
+  const result = await supabase
+    .from('Screenplay')
+    .select(`
+      id, userId, teamId,
+      project:Project(teamId),
+      team:Team(id)
+    `)
+    .eq('id', screenplayId)
+    .single();
+  const screenplay = result.data as ScreenplayQueryResult | null;
+
+  if (result.error?.code === 'PGRST116' || !screenplay) {
     return { allowed: false, error: 'Screenplay not found', status: 404 };
   }
 
@@ -59,11 +76,13 @@ async function checkScreenplayAccessImpl(
   // Check team access (team members have full access)
   const teamId = screenplay.teamId || screenplay.project?.teamId;
   if (teamId) {
-    const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: { teamId, userId },
-      },
-    });
+    const membershipResult = await supabase
+      .from('TeamMember')
+      .select('role')
+      .eq('teamId', teamId)
+      .eq('userId', userId)
+      .single();
+    const membership = membershipResult.data as { role: string } | null;
 
     if (membership) {
       return { allowed: true, screenplay, isOwner: false };
@@ -71,11 +90,13 @@ async function checkScreenplayAccessImpl(
   }
 
   // Check share access with role hierarchy
-  const share = await prisma.screenplayShare.findUnique({
-    where: {
-      screenplayId_userId: { screenplayId, userId },
-    },
-  });
+  const shareResult = await supabase
+    .from('ScreenplayShare')
+    .select('role')
+    .eq('screenplayId', screenplayId)
+    .eq('userId', userId)
+    .single();
+  const share = shareResult.data as { role: string } | null;
 
   if (share) {
     const shareRole = share.role as ShareRole;
@@ -101,33 +122,12 @@ async function checkScreenplayAccessImpl(
  * @param userId - The user ID to check access for
  * @param requiredRole - Minimum share role required (default: VIEWER)
  * @returns Access result with screenplay data if allowed
- *
- * @example
- * ```ts
- * const access = await checkScreenplayAccess(screenplayId, userId);
- * if (!access.allowed) {
- *   return NextResponse.json({ error: access.error }, { status: access.status });
- * }
- * // User has access to access.screenplay
- * ```
  */
 export const checkScreenplayAccess = cache(checkScreenplayAccessImpl);
 
 /**
  * Require screenplay access. Throws if access is denied.
  * Use this for cleaner error handling with try/catch.
- *
- * @example
- * ```ts
- * try {
- *   const { screenplay, isOwner } = await requireScreenplayAccess(id, userId, 'EDITOR');
- *   // User has at least EDITOR access
- * } catch (error) {
- *   if (error instanceof AuthorizationError) {
- *     return NextResponse.json({ error: error.message }, { status: 403 });
- *   }
- * }
- * ```
  */
 export async function requireScreenplayAccess(
   screenplayId: string,
@@ -179,47 +179,38 @@ function hasMinRole(userRole: TeamRole, minRole: TeamRole): boolean {
 /**
  * Require team membership for an action.
  * Throws AuthorizationError if user is not a member or doesn't have sufficient role.
- *
- * @example
- * ```ts
- * try {
- *   const member = await requireTeamMembership(userId, teamId, 'ADMIN');
- *   // User is at least an admin
- * } catch (error) {
- *   if (error instanceof AuthorizationError) {
- *     return NextResponse.json({ error: error.message }, { status: 403 });
- *   }
- * }
- * ```
  */
+interface TeamMemberResult {
+  id: string;
+  role: string;
+  userId: string;
+  teamId: string;
+  team: { id: string; name: string; ownerId: string } | null;
+}
+
 export async function requireTeamMembership(
   userId: string,
   teamId: string,
   minRole: TeamRole = 'MEMBER'
 ) {
-  const member = await prisma.teamMember.findUnique({
-    where: {
-      teamId_userId: {
-        teamId,
-        userId,
-      },
-    },
-    include: {
-      team: {
-        select: {
-          id: true,
-          name: true,
-          ownerId: true,
-        },
-      },
-    },
-  });
+  const supabase = await createServerActionClient();
 
-  if (!member) {
+  const result = await supabase
+    .from('TeamMember')
+    .select(`
+      id, role, userId, teamId,
+      team:Team(id, name, ownerId)
+    `)
+    .eq('teamId', teamId)
+    .eq('userId', userId)
+    .single();
+  const member = result.data as TeamMemberResult | null;
+
+  if (result.error?.code === 'PGRST116' || !member) {
     throw new AuthorizationError('Not a team member', 'NOT_MEMBER');
   }
 
-  if (!hasMinRole(member.role, minRole)) {
+  if (!hasMinRole(member.role as TeamRole, minRole)) {
     throw new AuthorizationError(
       `Insufficient permissions. Required: ${minRole}, current: ${member.role}`,
       'INSUFFICIENT_ROLE'
@@ -250,17 +241,17 @@ export async function getTeamRole(
   userId: string,
   teamId: string
 ): Promise<TeamRole | null> {
-  const member = await prisma.teamMember.findUnique({
-    where: {
-      teamId_userId: {
-        teamId,
-        userId,
-      },
-    },
-    select: { role: true },
-  });
+  const supabase = await createServerActionClient();
 
-  return member?.role ?? null;
+  const result = await supabase
+    .from('TeamMember')
+    .select('role')
+    .eq('teamId', teamId)
+    .eq('userId', userId)
+    .single();
+  const member = result.data as { role: string } | null;
+
+  return (member?.role as TeamRole) ?? null;
 }
 
 /**

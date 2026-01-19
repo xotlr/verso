@@ -1,21 +1,24 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
-import { SharePermission } from "@prisma/client"
 
-async function checkScreenplayOwnership(screenplayId: string, userId: string) {
-  const screenplay = await prisma.screenplay.findUnique({
-    where: { id: screenplayId },
-    include: {
-      project: { select: { teamId: true } },
-      team: { select: { id: true } },
-      shareLink: true,
-    },
-  })
+type SharePermission = "VIEW" | "COMMENT" | "EDIT"
 
-  if (!screenplay) {
+async function checkScreenplayOwnership(screenplayId: string, userId: string, supabase: any) {
+  const { data: screenplay, error } = await supabase
+    .from("Screenplay")
+    .select(`
+      id, userId, teamId,
+      project:Project(teamId),
+      team:Team(id),
+      shareLink:ShareLink(*)
+    `)
+    .eq("id", screenplayId)
+    .single()
+
+  if (error?.code === "PGRST116" || !screenplay) {
     return { allowed: false, error: "Screenplay not found", status: 404, screenplay: null }
   }
+  if (error) throw error
 
   if (screenplay.userId === userId) {
     return { allowed: true, screenplay }
@@ -23,14 +26,12 @@ async function checkScreenplayOwnership(screenplayId: string, userId: string) {
 
   const teamId = screenplay.teamId || screenplay.project?.teamId
   if (teamId) {
-    const membership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: {
-          teamId,
-          userId,
-        },
-      },
-    })
+    const { data: membership } = await supabase
+      .from("TeamMember")
+      .select("role")
+      .eq("teamId", teamId)
+      .eq("userId", userId)
+      .single()
 
     if (membership) {
       return { allowed: true, screenplay }
@@ -57,10 +58,10 @@ const updateShareSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params, request }) => {
+  handler: async ({ user, params, request, supabase }) => {
     const { id } = params
 
-    const access = await checkScreenplayOwnership(id, user.id)
+    const access = await checkScreenplayOwnership(id, user.id, supabase)
     if (!access.allowed) {
       if (access.status === 404) throw new NotFoundError("Screenplay")
       throw new ForbiddenError(access.error)
@@ -92,29 +93,54 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: createShareSchema,
-  handler: async ({ user, params, data, request }) => {
+  handler: async ({ user, params, data, request, supabase }) => {
     const { id } = params
 
-    const access = await checkScreenplayOwnership(id, user.id)
+    const access = await checkScreenplayOwnership(id, user.id, supabase)
     if (!access.allowed) {
       if (access.status === 404) throw new NotFoundError("Screenplay")
       throw new ForbiddenError(access.error)
     }
 
-    const shareLink = await prisma.shareLink.upsert({
-      where: { screenplayId: id },
-      create: {
-        screenplayId: id,
-        permission: data.permission as SharePermission,
-        expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
-        isActive: true,
-      },
-      update: {
-        permission: data.permission as SharePermission,
-        expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
-        isActive: true,
-      },
-    })
+    // Check if share link already exists
+    const { data: existingLink } = await supabase
+      .from("ShareLink")
+      .select("id")
+      .eq("screenplayId", id)
+      .single()
+
+    let shareLink
+    if (existingLink) {
+      // Update existing
+      const { data: updated, error: updateError } = await supabase
+        .from("ShareLink")
+        .update({
+          permission: data.permission as SharePermission,
+          expiresAt: data.expiresAt ? new Date(data.expiresAt).toISOString() : null,
+          isActive: true,
+        })
+        .eq("screenplayId", id)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+      shareLink = updated
+    } else {
+      // Create new
+      const { data: created, error: createError } = await supabase
+        .from("ShareLink")
+        .insert({
+          screenplayId: id,
+          permission: data.permission as SharePermission,
+          expiresAt: data.expiresAt ? new Date(data.expiresAt).toISOString() : null,
+          isActive: true,
+        })
+        .select()
+        .single()
+
+      if (createError) throw createError
+      shareLink = created
+    }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || ''
     const shareUrl = buildShareUrl(shareLink.token, baseUrl)
@@ -137,10 +163,10 @@ export const POST = createApiHandler({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateShareSchema,
-  handler: async ({ user, params, data, request }) => {
+  handler: async ({ user, params, data, request, supabase }) => {
     const { id } = params
 
-    const access = await checkScreenplayOwnership(id, user.id)
+    const access = await checkScreenplayOwnership(id, user.id, supabase)
     if (!access.allowed) {
       if (access.status === 404) throw new NotFoundError("Screenplay")
       throw new ForbiddenError(access.error)
@@ -150,14 +176,25 @@ export const PATCH = createApiHandler({
       throw new NotFoundError("Share link")
     }
 
-    const shareLink = await prisma.shareLink.update({
-      where: { screenplayId: id },
-      data: {
-        ...(data.permission && { permission: data.permission as SharePermission }),
-        ...(data.expiresAt !== undefined && { expiresAt: data.expiresAt ? new Date(data.expiresAt) : null }),
-        ...(data.isActive !== undefined && { isActive: data.isActive }),
-      },
-    })
+    const updateData: Record<string, any> = {}
+    if (data.permission !== undefined) {
+      updateData.permission = data.permission as SharePermission
+    }
+    if (data.expiresAt !== undefined) {
+      updateData.expiresAt = data.expiresAt ? new Date(data.expiresAt).toISOString() : null
+    }
+    if (data.isActive !== undefined) {
+      updateData.isActive = data.isActive
+    }
+
+    const { data: shareLink, error: updateError } = await supabase
+      .from("ShareLink")
+      .update(updateData)
+      .eq("screenplayId", id)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get('origin') || ''
     const shareUrl = buildShareUrl(shareLink.token, baseUrl)
@@ -179,10 +216,10 @@ export const PATCH = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const access = await checkScreenplayOwnership(id, user.id)
+    const access = await checkScreenplayOwnership(id, user.id, supabase)
     if (!access.allowed) {
       if (access.status === 404) throw new NotFoundError("Screenplay")
       throw new ForbiddenError(access.error)
@@ -192,9 +229,12 @@ export const DELETE = createApiHandler({
       throw new NotFoundError("Share link")
     }
 
-    await prisma.shareLink.delete({
-      where: { screenplayId: id },
-    })
+    const { error: deleteError } = await supabase
+      .from("ShareLink")
+      .delete()
+      .eq("screenplayId", id)
+
+    if (deleteError) throw deleteError
 
     return { success: true }
   },

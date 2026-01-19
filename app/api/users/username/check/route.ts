@@ -1,6 +1,5 @@
 import { z } from "zod"
-import { createApiHandler, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
+import { createApiHandler } from "@/lib/api"
 import { validateUsername, normalizeUsername, generateUsernameSuggestions } from "@/lib/username"
 
 const checkUsernameSchema = z.object({
@@ -10,7 +9,7 @@ const checkUsernameSchema = z.object({
 export const POST = createApiHandler({
   auth: "required",
   schema: checkUsernameSchema,
-  handler: async ({ user, data }) => {
+  handler: async ({ user, data, supabase }) => {
     const { username } = data
 
     const validation = validateUsername(username)
@@ -20,28 +19,32 @@ export const POST = createApiHandler({
 
     const normalized = normalizeUsername(username)
 
-    const existing = await prisma.user.findFirst({
-      where: {
-        username: normalized,
-        NOT: { id: user.id },
-      },
-      select: { id: true },
-    })
+    // Check if username is taken by another user
+    const { data: existing } = await supabase
+      .from("User")
+      .select("id")
+      .eq("username", normalized)
+      .neq("id", user.id)
+      .single()
 
     if (existing) {
-      const userData = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { name: true },
-      })
+      // Get user's name for suggestions
+      const { data: userData } = await supabase
+        .from("User")
+        .select("name")
+        .eq("id", user.id)
+        .single()
 
       const suggestions = userData?.name ? generateUsernameSuggestions(userData.name) : []
 
       const availableSuggestions: string[] = []
       for (const suggestion of suggestions) {
-        const taken = await prisma.user.findUnique({
-          where: { username: suggestion },
-          select: { id: true },
-        })
+        const { data: taken } = await supabase
+          .from("User")
+          .select("id")
+          .eq("username", suggestion)
+          .single()
+
         if (!taken) {
           availableSuggestions.push(suggestion)
         }

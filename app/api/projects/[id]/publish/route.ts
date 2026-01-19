@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const publishSchema = z.object({
   isPublic: z.boolean(),
@@ -8,21 +7,20 @@ const publishSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const project = await prisma.project.findFirst({
-      where: { id, userId: user.id },
-      select: {
-        id: true,
-        isPublic: true,
-        publishedAt: true,
-      },
-    })
+    const { data: project, error } = await supabase
+      .from("Project")
+      .select("id, isPublic, publishedAt")
+      .eq("id", id)
+      .eq("userId", user.id)
+      .single()
 
-    if (!project) {
+    if (error?.code === "PGRST116" || !project) {
       throw new NotFoundError("Project not found or access denied")
     }
+    if (error) throw error
 
     return project
   },
@@ -31,29 +29,32 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: publishSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
-    const project = await prisma.project.findFirst({
-      where: { id, userId: user.id },
-    })
+    const { data: project, error: fetchError } = await supabase
+      .from("Project")
+      .select("id, publishedAt")
+      .eq("id", id)
+      .eq("userId", user.id)
+      .single()
 
-    if (!project) {
+    if (fetchError?.code === "PGRST116" || !project) {
       throw new NotFoundError("Project not found or access denied")
     }
+    if (fetchError) throw fetchError
 
-    const updated = await prisma.project.update({
-      where: { id },
-      data: {
+    const { data: updated, error: updateError } = await supabase
+      .from("Project")
+      .update({
         isPublic: data.isPublic,
-        publishedAt: data.isPublic ? (project.publishedAt || new Date()) : null,
-      },
-      select: {
-        id: true,
-        isPublic: true,
-        publishedAt: true,
-      },
-    })
+        publishedAt: data.isPublic ? (project.publishedAt || new Date().toISOString()) : null,
+      })
+      .eq("id", id)
+      .select("id, isPublic, publishedAt")
+      .single()
+
+    if (updateError) throw updateError
 
     return updated
   },

@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, GoneError, ConflictError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const requestAccessSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -11,30 +10,28 @@ const requestAccessSchema = z.object({
 export const POST = createApiHandler({
   auth: "none",
   schema: requestAccessSchema,
-  handler: async ({ params, data }) => {
+  handler: async ({ params, data, supabase }) => {
     const { token } = params
     const { email, name, message } = data
 
-    const shareLink = await prisma.shareLink.findUnique({
-      where: { token },
-      include: {
-        screenplay: {
-          select: {
-            id: true,
-            title: true,
-            userId: true,
-            user: {
-              select: {
-                email: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
-    })
+    const { data: shareLink, error } = await supabase
+      .from("ShareLink")
+      .select(`
+        id,
+        token,
+        isActive,
+        expiresAt,
+        screenplay:Screenplay!screenplayId(
+          id,
+          title,
+          userId,
+          user:User!userId(email, name)
+        )
+      `)
+      .eq("token", token)
+      .single()
 
-    if (!shareLink) {
+    if (error || !shareLink) {
       throw new NotFoundError("Share link")
     }
 
@@ -42,57 +39,56 @@ export const POST = createApiHandler({
       throw new GoneError("This share link is no longer active")
     }
 
-    if (shareLink.expiresAt && new Date() > shareLink.expiresAt) {
+    if (shareLink.expiresAt && new Date() > new Date(shareLink.expiresAt)) {
       throw new GoneError("This share link has expired")
     }
 
-    const existingRequest = await prisma.accessRequest.findUnique({
-      where: {
-        shareLinkId_email: {
-          shareLinkId: shareLink.id,
-          email: email.toLowerCase(),
-        },
-      },
-    })
+    // Check for existing request
+    const { data: existingRequest } = await supabase
+      .from("AccessRequest")
+      .select("id, status")
+      .eq("shareLinkId", shareLink.id)
+      .eq("email", email.toLowerCase())
+      .single()
 
     if (existingRequest) {
       if (existingRequest.status === "APPROVED") {
         throw new ConflictError("Access has already been granted to this email")
       }
       if (existingRequest.status === "PENDING") {
-        await prisma.accessRequest.update({
-          where: { id: existingRequest.id },
-          data: {
+        await supabase
+          .from("AccessRequest")
+          .update({
             name,
             message,
-            updatedAt: new Date(),
-          },
-        })
+            updatedAt: new Date().toISOString(),
+          })
+          .eq("id", existingRequest.id)
         return { success: true, updated: true }
       }
       if (existingRequest.status === "DENIED") {
-        await prisma.accessRequest.update({
-          where: { id: existingRequest.id },
-          data: {
+        await supabase
+          .from("AccessRequest")
+          .update({
             name,
             message,
             status: "PENDING",
             respondedAt: null,
-            updatedAt: new Date(),
-          },
-        })
+            updatedAt: new Date().toISOString(),
+          })
+          .eq("id", existingRequest.id)
         return { success: true, resubmitted: true }
       }
     }
 
-    await prisma.accessRequest.create({
-      data: {
+    await supabase
+      .from("AccessRequest")
+      .insert({
         shareLinkId: shareLink.id,
         email: email.toLowerCase(),
         name,
         message,
-      },
-    })
+      })
 
     return { success: true }
   },

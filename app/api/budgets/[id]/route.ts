@@ -1,30 +1,29 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
-async function checkBudgetAccess(budgetId: string, userId: string) {
-  const budget = await prisma.budget.findUnique({
-    where: { id: budgetId },
-    include: {
-      project: {
-        include: {
-          team: {
-            include: { members: { where: { userId } } },
-          },
-        },
-      },
-    },
-  })
+async function checkBudgetAccess(budgetId: string, userId: string, supabase: any) {
+  const { data: budget, error } = await supabase
+    .from("Budget")
+    .select(`
+      *,
+      project:Project(
+        id, userId, teamId,
+        team:Team(id, members:TeamMember(userId))
+      )
+    `)
+    .eq("id", budgetId)
+    .single()
 
-  if (!budget) {
+  if (error?.code === "PGRST116" || !budget) {
     return { allowed: false, notFound: true, budget: null }
   }
+  if (error) throw error
 
   if (budget.userId === userId) {
     return { allowed: true, notFound: false, budget }
   }
 
-  if (budget.project?.team && budget.project.team.members.length > 0) {
+  if (budget.project?.team?.members?.some((m: { userId: string }) => m.userId === userId)) {
     return { allowed: true, notFound: false, budget }
   }
 
@@ -39,10 +38,10 @@ const updateBudgetSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const access = await checkBudgetAccess(id, user.id)
+    const access = await checkBudgetAccess(id, user.id, supabase)
 
     if (access.notFound) {
       throw new NotFoundError("Budget")
@@ -59,10 +58,10 @@ export const GET = createApiHandler({
 export const PUT = createApiHandler({
   auth: "required",
   schema: updateBudgetSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
-    const access = await checkBudgetAccess(id, user.id)
+    const access = await checkBudgetAccess(id, user.id, supabase)
 
     if (access.notFound) {
       throw new NotFoundError("Budget")
@@ -72,10 +71,14 @@ export const PUT = createApiHandler({
       throw new ForbiddenError("Access denied")
     }
 
-    const budget = await prisma.budget.update({
-      where: { id },
-      data,
-    })
+    const { data: budget, error } = await supabase
+      .from("Budget")
+      .update(data)
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) throw error
 
     return budget
   },
@@ -83,10 +86,10 @@ export const PUT = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const access = await checkBudgetAccess(id, user.id)
+    const access = await checkBudgetAccess(id, user.id, supabase)
 
     if (access.notFound) {
       throw new NotFoundError("Budget")
@@ -96,9 +99,12 @@ export const DELETE = createApiHandler({
       throw new ForbiddenError("Access denied")
     }
 
-    await prisma.budget.delete({
-      where: { id },
-    })
+    const { error } = await supabase
+      .from("Budget")
+      .delete()
+      .eq("id", id)
+
+    if (error) throw error
 
     return { success: true }
   },

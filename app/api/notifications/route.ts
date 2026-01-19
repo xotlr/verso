@@ -1,29 +1,41 @@
 import { createApiHandler } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, searchParams }) => {
+  handler: async ({ user, searchParams, supabase }) => {
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50)
     const unreadOnly = searchParams.get("unreadOnly") === "true"
 
-    const [notifications, unreadCount] = await Promise.all([
-      prisma.notification.findMany({
-        where: {
-          userId: user.id,
-          ...(unreadOnly && { isRead: false }),
-        },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-      }),
-      prisma.notification.count({
-        where: {
-          userId: user.id,
-          isRead: false,
-        },
-      }),
+    // Build notifications query
+    let notificationsQuery = supabase
+      .from("Notification")
+      .select("*")
+      .eq("userId", user.id)
+      .order("createdAt", { ascending: false })
+      .limit(limit)
+
+    if (unreadOnly) {
+      notificationsQuery = notificationsQuery.eq("isRead", false)
+    }
+
+    // Get unread count
+    const unreadCountQuery = supabase
+      .from("Notification")
+      .select("*", { count: "exact", head: true })
+      .eq("userId", user.id)
+      .eq("isRead", false)
+
+    const [notificationsResult, unreadCountResult] = await Promise.all([
+      notificationsQuery,
+      unreadCountQuery,
     ])
 
-    return { notifications, unreadCount }
+    if (notificationsResult.error) throw notificationsResult.error
+    if (unreadCountResult.error) throw unreadCountResult.error
+
+    return {
+      notifications: notificationsResult.data || [],
+      unreadCount: unreadCountResult.count || 0,
+    }
   },
 })

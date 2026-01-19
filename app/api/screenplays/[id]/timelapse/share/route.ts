@@ -1,28 +1,22 @@
 import { createApiHandler, NotFoundError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { createId } from "@paralleldrive/cuid2"
 
 export const POST = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: screenplayId } = params
 
-    const screenplay = await prisma.screenplay.findFirst({
-      where: {
-        id: screenplayId,
-        userId: user.id,
-      },
-      select: {
-        id: true,
-        timelapseEnabled: true,
-        timelapseStarted: true,
-        timelapseShareId: true,
-      },
-    })
+    const { data: screenplay, error } = await supabase
+      .from("Screenplay")
+      .select("id, timelapseEnabled, timelapseStarted, timelapseShareId")
+      .eq("id", screenplayId)
+      .eq("userId", user.id)
+      .single()
 
-    if (!screenplay) {
+    if (error?.code === "PGRST116" || !screenplay) {
       throw new NotFoundError("Screenplay")
     }
+    if (error) throw error
 
     if (!screenplay.timelapseStarted) {
       throw new BadRequestError("No timelapse recording exists for this screenplay")
@@ -30,10 +24,12 @@ export const POST = createApiHandler({
 
     const shareId = createId()
 
-    await prisma.screenplay.update({
-      where: { id: screenplayId },
-      data: { timelapseShareId: shareId },
-    })
+    const { error: updateError } = await supabase
+      .from("Screenplay")
+      .update({ timelapseShareId: shareId })
+      .eq("id", screenplayId)
+
+    if (updateError) throw updateError
 
     return {
       shareId,
@@ -44,24 +40,27 @@ export const POST = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: screenplayId } = params
 
-    const screenplay = await prisma.screenplay.findFirst({
-      where: {
-        id: screenplayId,
-        userId: user.id,
-      },
-    })
+    const { data: screenplay, error } = await supabase
+      .from("Screenplay")
+      .select("id")
+      .eq("id", screenplayId)
+      .eq("userId", user.id)
+      .single()
 
-    if (!screenplay) {
+    if (error?.code === "PGRST116" || !screenplay) {
       throw new NotFoundError("Screenplay")
     }
+    if (error) throw error
 
-    await prisma.screenplay.update({
-      where: { id: screenplayId },
-      data: { timelapseShareId: null },
-    })
+    const { error: updateError } = await supabase
+      .from("Screenplay")
+      .update({ timelapseShareId: null })
+      .eq("id", screenplayId)
+
+    if (updateError) throw updateError
 
     return { success: true }
   },

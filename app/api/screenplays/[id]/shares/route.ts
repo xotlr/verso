@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
-import { ShareRole } from "@prisma/client"
+
+type ShareRole = "VIEWER" | "COMMENTER" | "EDITOR" | "ADMIN"
 
 interface ShareAccessResult {
   allowed: boolean
@@ -18,28 +18,25 @@ interface ShareAccessResult {
 
 async function checkShareAccess(
   screenplayId: string,
-  userId: string
+  userId: string,
+  supabase: any
 ): Promise<ShareAccessResult> {
-  const screenplay = await prisma.screenplay.findUnique({
-    where: { id: screenplayId },
-    select: {
-      userId: true,
-      teamId: true,
-      project: { select: { teamId: true } },
-      user: {
-        select: { id: true, name: true, email: true, image: true },
-      },
-      shares: {
-        where: { userId },
-        select: { role: true },
-        take: 1,
-      },
-    },
-  })
+  const { data: screenplay, error } = await supabase
+    .from("Screenplay")
+    .select(`
+      userId, teamId,
+      project:Project(teamId),
+      user:User!userId(id, name, email, image),
+      shares:ScreenplayShare(role)
+    `)
+    .eq("id", screenplayId)
+    .eq("shares.userId", userId)
+    .single()
 
-  if (!screenplay) {
+  if (error?.code === "PGRST116" || !screenplay) {
     return { allowed: false, isOwner: false, error: "Screenplay not found", status: 404 }
   }
+  if (error) throw error
 
   if (screenplay.userId === userId) {
     return {
@@ -54,7 +51,7 @@ async function checkShareAccess(
     }
   }
 
-  const userShare = screenplay.shares[0]
+  const userShare = screenplay.shares?.[0]
   if (userShare?.role === "ADMIN") {
     return {
       allowed: true,
@@ -70,10 +67,12 @@ async function checkShareAccess(
 
   const teamId = screenplay.teamId || screenplay.project?.teamId
   if (teamId) {
-    const membership = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId } },
-      select: { role: true },
-    })
+    const { data: membership } = await supabase
+      .from("TeamMember")
+      .select("role")
+      .eq("teamId", teamId)
+      .eq("userId", userId)
+      .single()
 
     if (membership && (membership.role === "OWNER" || membership.role === "ADMIN")) {
       return {
@@ -94,43 +93,29 @@ async function checkShareAccess(
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const [access, shares, invites] = await Promise.all([
-      checkShareAccess(id, user.id),
-      prisma.screenplayShare.findMany({
-        where: { screenplayId: id },
-        select: {
-          id: true,
-          role: true,
-          createdAt: true,
-          user: {
-            select: { id: true, name: true, email: true, image: true },
-          },
-          sharer: {
-            select: { id: true, name: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.shareInvite.findMany({
-        where: {
-          screenplayId: id,
-          expiresAt: { gt: new Date() },
-        },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          createdAt: true,
-          expiresAt: true,
-          inviter: {
-            select: { id: true, name: true },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      }),
+    const [access, sharesResult, invitesResult] = await Promise.all([
+      checkShareAccess(id, user.id, supabase),
+      supabase
+        .from("ScreenplayShare")
+        .select(`
+          id, role, createdAt,
+          user:User!userId(id, name, email, image),
+          sharer:User!sharedBy(id, name)
+        `)
+        .eq("screenplayId", id)
+        .order("createdAt", { ascending: false }),
+      supabase
+        .from("ShareInvite")
+        .select(`
+          id, email, role, createdAt, expiresAt,
+          inviter:User!invitedBy(id, name)
+        `)
+        .eq("screenplayId", id)
+        .gt("expiresAt", new Date().toISOString())
+        .order("createdAt", { ascending: false }),
     ])
 
     if (!access.allowed) {
@@ -140,8 +125,8 @@ export const GET = createApiHandler({
 
     return {
       owner: access.screenplay?.owner,
-      shares,
-      pendingInvites: invites,
+      shares: sharesResult.data || [],
+      pendingInvites: invitesResult.data || [],
     }
   },
 })
@@ -158,21 +143,24 @@ const createShareSchema = z.object({
 export const POST = createApiHandler({
   auth: "required",
   schema: createShareSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
     const { userId: targetUserId, email, role } = data
 
     if (targetUserId) {
-      const [access, targetUser, existingShare] = await Promise.all([
-        checkShareAccess(id, user.id),
-        prisma.user.findUnique({
-          where: { id: targetUserId },
-          select: { id: true, name: true, email: true, image: true },
-        }),
-        prisma.screenplayShare.findUnique({
-          where: { screenplayId_userId: { screenplayId: id, userId: targetUserId } },
-          select: { id: true },
-        }),
+      const [access, targetUserResult, existingShareResult] = await Promise.all([
+        checkShareAccess(id, user.id, supabase),
+        supabase
+          .from("User")
+          .select("id, name, email, image")
+          .eq("id", targetUserId)
+          .single(),
+        supabase
+          .from("ScreenplayShare")
+          .select("id")
+          .eq("screenplayId", id)
+          .eq("userId", targetUserId)
+          .single(),
       ])
 
       if (!access.allowed) {
@@ -180,41 +168,41 @@ export const POST = createApiHandler({
         throw new ForbiddenError(access.error)
       }
 
-      if (!targetUser) {
+      if (targetUserResult.error?.code === "PGRST116" || !targetUserResult.data) {
         throw new NotFoundError("User")
       }
 
-      if (existingShare) {
+      if (existingShareResult.data) {
         throw new BadRequestError("User already has access to this screenplay")
       }
 
-      const share = await prisma.screenplayShare.create({
-        data: {
+      const { data: share, error: createError } = await supabase
+        .from("ScreenplayShare")
+        .insert({
           screenplayId: id,
           userId: targetUserId,
           role: role as ShareRole,
           sharedBy: user.id,
-        },
-        select: {
-          id: true,
-          role: true,
-          createdAt: true,
-          user: {
-            select: { id: true, name: true, email: true, image: true },
-          },
-        },
-      })
+        })
+        .select(`
+          id, role, createdAt,
+          user:User!userId(id, name, email, image)
+        `)
+        .single()
+
+      if (createError) throw createError
 
       return share
     }
 
     if (email) {
-      const [access, existingUser] = await Promise.all([
-        checkShareAccess(id, user.id),
-        prisma.user.findUnique({
-          where: { email },
-          select: { id: true, name: true, email: true, image: true },
-        }),
+      const [access, existingUserResult] = await Promise.all([
+        checkShareAccess(id, user.id, supabase),
+        supabase
+          .from("User")
+          .select("id, name, email, image")
+          .eq("email", email)
+          .single(),
       ])
 
       if (!access.allowed) {
@@ -222,69 +210,64 @@ export const POST = createApiHandler({
         throw new ForbiddenError(access.error)
       }
 
+      const existingUser = existingUserResult.data
+
       if (existingUser) {
-        const existingShare = await prisma.screenplayShare.findUnique({
-          where: {
-            screenplayId_userId: {
-              screenplayId: id,
-              userId: existingUser.id,
-            },
-          },
-        })
+        const { data: existingShare } = await supabase
+          .from("ScreenplayShare")
+          .select("id")
+          .eq("screenplayId", id)
+          .eq("userId", existingUser.id)
+          .single()
 
         if (existingShare) {
           throw new BadRequestError("User already has access to this screenplay")
         }
 
-        const share = await prisma.screenplayShare.create({
-          data: {
+        const { data: share, error: createError } = await supabase
+          .from("ScreenplayShare")
+          .insert({
             screenplayId: id,
             userId: existingUser.id,
             role: role as ShareRole,
             sharedBy: user.id,
-          },
-          select: {
-            id: true,
-            role: true,
-            createdAt: true,
-            user: {
-              select: { id: true, name: true, email: true, image: true },
-            },
-          },
-        })
+          })
+          .select(`
+            id, role, createdAt,
+            user:User!userId(id, name, email, image)
+          `)
+          .single()
+
+        if (createError) throw createError
 
         return share
       }
 
-      const existingInvite = await prisma.shareInvite.findFirst({
-        where: {
-          screenplayId: id,
-          email,
-          expiresAt: { gt: new Date() },
-        },
-      })
+      const { data: existingInvite } = await supabase
+        .from("ShareInvite")
+        .select("id")
+        .eq("screenplayId", id)
+        .eq("email", email)
+        .gt("expiresAt", new Date().toISOString())
+        .single()
 
       if (existingInvite) {
         throw new BadRequestError("Invite already sent to this email")
       }
 
-      const invite = await prisma.shareInvite.create({
-        data: {
+      const { data: invite, error: inviteError } = await supabase
+        .from("ShareInvite")
+        .insert({
           screenplayId: id,
           email,
           role: role as ShareRole,
           invitedBy: user.id,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          token: true,
-          createdAt: true,
-          expiresAt: true,
-        },
-      })
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        })
+        .select("id, email, role, token, createdAt, expiresAt")
+        .single()
+
+      if (inviteError) throw inviteError
 
       return {
         type: "invite",

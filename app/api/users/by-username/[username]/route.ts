@@ -1,114 +1,122 @@
 import { createApiHandler, NotFoundError, RATE_LIMITS } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
-
-const profileSelect = {
-  id: true,
-  name: true,
-  username: true,
-  emailVerified: true,
-  image: true,
-  banner: true,
-  location: true,
-  website: true,
-  twitter: true,
-  linkedin: true,
-  imdb: true,
-  isPublic: true,
-  createdAt: true,
-  plan: true,
-  oneLiner: true,
-  roles: true,
-  reelUrl: true,
-  availability: true,
-  featuredProjectId: true,
-  featuredProject: {
-    select: {
-      id: true,
-      name: true,
-      coverImage: true,
-      description: true,
-    },
-  },
-  showcaseTimelapse: true,
-  credits: {
-    orderBy: [{ displayOrder: "asc" as const }, { year: "desc" as const }],
-    take: 10,
-    select: {
-      id: true,
-      title: true,
-      role: true,
-      year: true,
-      projectId: true,
-      isManual: true,
-      displayOrder: true,
-    },
-  },
-  responseRate: true,
-  projectsCompleted: true,
-  influences: true,
-  lookingFor: true,
-  gear: true,
-  languages: true,
-  bio: true,
-  title: true,
-  interests: true,
-  skills: true,
-  projects: {
-    where: { isPublic: true },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      coverImage: true,
-      createdAt: true,
-      _count: { select: { screenplays: true } },
-    },
-    orderBy: { updatedAt: "desc" as const },
-    take: 12,
-  },
-  screenplays: {
-    where: { isPublic: true, timelapseShareId: { not: null } },
-    select: {
-      id: true,
-      title: true,
-      synopsis: true,
-      timelapseShareId: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-    orderBy: { updatedAt: "desc" as const },
-    take: 20,
-  },
-  _count: { select: { projects: true, screenplays: true } },
-}
 
 export const GET = createApiHandler({
   auth: "optional",
   rateLimit: RATE_LIMITS.API,
-  handler: async ({ user: sessionUser, params }) => {
+  handler: async ({ user: sessionUser, params, supabase }) => {
     const { username } = params
     const normalizedUsername = username.toLowerCase()
 
-    const user = await prisma.user.findUnique({
-      where: { username: normalizedUsername },
-      select: profileSelect,
-    })
+    // Fetch user by username
+    const { data: userData, error: userError } = await supabase
+      .from("User")
+      .select(`
+        id, name, username, emailVerified, image, banner,
+        location, website, twitter, linkedin, imdb, isPublic, createdAt, plan,
+        oneLiner, roles, reelUrl, availability, featuredProjectId,
+        showcaseTimelapse, responseRate, projectsCompleted, influences,
+        lookingFor, gear, languages, bio, title, interests, skills
+      `)
+      .eq("username", normalizedUsername)
+      .single()
 
-    const isOwnProfile = user && sessionUser?.id === user.id
-    const isAccessible = user && (isOwnProfile || user.isPublic)
+    if (userError?.code === "PGRST116" || !userData) {
+      throw new NotFoundError("Profile not available")
+    }
+    if (userError) throw userError
+
+    const isOwnProfile = sessionUser?.id === userData.id
+    const isAccessible = isOwnProfile || userData.isPublic
 
     if (!isAccessible) {
       throw new NotFoundError("Profile not available")
     }
 
-    if (isOwnProfile) {
-      const fullUser = await prisma.user.findUnique({
-        where: { id: user.id },
-        select: { email: true },
-      })
-      return { ...user, email: fullUser?.email }
+    // Fetch credits
+    const { data: credits } = await supabase
+      .from("Credit")
+      .select("id, title, role, year, projectId, isManual, displayOrder")
+      .eq("userId", userData.id)
+      .order("displayOrder", { ascending: true })
+      .order("year", { ascending: false })
+      .limit(10)
+
+    // Fetch featured project if set
+    let featuredProject = null
+    if (userData.featuredProjectId) {
+      const { data: fp } = await supabase
+        .from("Project")
+        .select("id, name, coverImage, description")
+        .eq("id", userData.featuredProjectId)
+        .single()
+      featuredProject = fp
     }
 
-    return user
+    // Fetch public projects
+    const { data: projects } = await supabase
+      .from("Project")
+      .select("id, name, description, coverImage, createdAt")
+      .eq("userId", userData.id)
+      .eq("isPublic", true)
+      .order("updatedAt", { ascending: false })
+      .limit(12)
+
+    // Get screenplay counts per project
+    type ProjectItem = { id: string; name: string; description: string | null; coverImage: string | null; createdAt: string }
+    const projectsWithCounts = await Promise.all(
+      (projects || []).map(async (p: ProjectItem) => {
+        const { count } = await supabase
+          .from("Screenplay")
+          .select("*", { count: "exact", head: true })
+          .eq("projectId", p.id)
+        return { ...p, _count: { screenplays: count || 0 } }
+      })
+    )
+
+    // Fetch public screenplays with timelapse share
+    const { data: screenplays } = await supabase
+      .from("Screenplay")
+      .select("id, title, synopsis, timelapseShareId, createdAt, updatedAt")
+      .eq("userId", userData.id)
+      .eq("isPublic", true)
+      .not("timelapseShareId", "is", null)
+      .order("updatedAt", { ascending: false })
+      .limit(20)
+
+    // Get counts
+    const [projectCount, screenplayCount] = await Promise.all([
+      supabase
+        .from("Project")
+        .select("*", { count: "exact", head: true })
+        .eq("userId", userData.id),
+      supabase
+        .from("Screenplay")
+        .select("*", { count: "exact", head: true })
+        .eq("userId", userData.id),
+    ])
+
+    // Get email only for own profile
+    let email = null
+    if (isOwnProfile) {
+      const { data: emailData } = await supabase
+        .from("User")
+        .select("email")
+        .eq("id", userData.id)
+        .single()
+      email = emailData?.email
+    }
+
+    return {
+      ...userData,
+      email,
+      credits: credits || [],
+      featuredProject,
+      projects: projectsWithCounts,
+      screenplays: screenplays || [],
+      _count: {
+        projects: projectCount.count || 0,
+        screenplays: screenplayCount.count || 0,
+      },
+    }
   },
 })

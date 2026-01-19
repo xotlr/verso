@@ -1,12 +1,17 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
+import { createServerActionClient } from "@/lib/supabase/server"
 
 async function isProjectOwner(projectId: string, userId: string): Promise<boolean> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { userId: true },
-  })
+  const supabase = await createServerActionClient()
+
+  const result = await supabase
+    .from("Project")
+    .select("userId")
+    .eq("id", projectId)
+    .single()
+
+  const project = result.data as { userId: string } | null
   return project?.userId === userId
 }
 
@@ -17,7 +22,7 @@ const updateApplicationSchema = z.object({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateApplicationSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: projectId, needId, appId } = params
 
     const isOwner = await isProjectOwner(projectId, user.id)
@@ -25,80 +30,98 @@ export const PATCH = createApiHandler({
       throw new ForbiddenError("Only project owner can update applications")
     }
 
-    const application = await prisma.projectRoleApplication.findFirst({
-      where: {
-        id: appId,
-        roleNeedId: needId,
-        roleNeed: {
-          projectId,
-        },
-      },
-      include: {
-        roleNeed: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    })
+    // Get application with roleNeed and user info
+    const { data: application, error: fetchError } = await supabase
+      .from("ProjectRoleApplication")
+      .select(`
+        id,
+        userId,
+        status,
+        roleNeed:ProjectRoleNeed!roleNeedId(
+          id,
+          role,
+          projectId
+        ),
+        user:User!userId(
+          id,
+          name
+        )
+      `)
+      .eq("id", appId)
+      .eq("roleNeedId", needId)
+      .single()
 
-    if (!application) {
+    if (fetchError?.code === "PGRST116" || !application) {
+      throw new NotFoundError("Application")
+    }
+    if (fetchError) throw fetchError
+
+    const roleNeed = application.roleNeed as { id: string; role: string; projectId: string }
+    const appUser = application.user as { id: string; name: string | null }
+
+    if (roleNeed.projectId !== projectId) {
       throw new NotFoundError("Application")
     }
 
-    const updatedApplication = await prisma.projectRoleApplication.update({
-      where: { id: appId },
-      data: { status: data.status },
-    })
+    const { data: updatedApplication, error: updateError } = await supabase
+      .from("ProjectRoleApplication")
+      .update({ status: data.status })
+      .eq("id", appId)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
 
     if (data.status === "ACCEPTED") {
-      const existingRole = await prisma.projectRole.findFirst({
-        where: {
-          projectId,
-          userId: application.userId,
-          role: application.roleNeed.role,
-        },
-      })
+      // Check if user already has this role
+      const { data: existingRole } = await supabase
+        .from("ProjectRole")
+        .select("id")
+        .eq("projectId", projectId)
+        .eq("userId", application.userId)
+        .eq("role", roleNeed.role)
+        .single()
 
       if (!existingRole) {
-        const unfilledSlot = await prisma.projectRole.findFirst({
-          where: {
-            projectId,
-            role: application.roleNeed.role,
-            userId: null,
-          },
-        })
+        // Check for unfilled slot
+        const { data: unfilledSlot } = await supabase
+          .from("ProjectRole")
+          .select("id")
+          .eq("projectId", projectId)
+          .eq("role", roleNeed.role)
+          .is("userId", null)
+          .limit(1)
+          .single()
 
         if (unfilledSlot) {
-          await prisma.projectRole.update({
-            where: { id: unfilledSlot.id },
-            data: {
+          await supabase
+            .from("ProjectRole")
+            .update({
               userId: application.userId,
-              name: application.user.name || "Team Member",
-            },
-          })
+              name: appUser.name || "Team Member",
+            })
+            .eq("id", unfilledSlot.id)
         } else {
-          await prisma.projectRole.create({
-            data: {
+          await supabase
+            .from("ProjectRole")
+            .insert({
               projectId,
-              role: application.roleNeed.role,
-              name: application.user.name || "Team Member",
+              role: roleNeed.role,
+              name: appUser.name || "Team Member",
               userId: application.userId,
-            },
-          })
+            })
         }
       }
 
-      await prisma.activity.create({
-        data: {
+      // Create activity
+      await supabase
+        .from("Activity")
+        .insert({
           userId: user.id,
           type: "role_accepted",
           entityId: projectId,
-          entityTitle: `${application.user.name} as ${application.roleNeed.role}`,
-        },
-      })
+          entityTitle: `${appUser.name} as ${roleNeed.role}`,
+        })
     }
 
     return updatedApplication
@@ -107,20 +130,29 @@ export const PATCH = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: projectId, needId, appId } = params
 
-    const application = await prisma.projectRoleApplication.findFirst({
-      where: {
-        id: appId,
-        roleNeedId: needId,
-        roleNeed: {
-          projectId,
-        },
-      },
-    })
+    const { data: application, error: fetchError } = await supabase
+      .from("ProjectRoleApplication")
+      .select(`
+        id,
+        userId,
+        status,
+        roleNeed:ProjectRoleNeed!roleNeedId(projectId)
+      `)
+      .eq("id", appId)
+      .eq("roleNeedId", needId)
+      .single()
 
-    if (!application) {
+    if (fetchError?.code === "PGRST116" || !application) {
+      throw new NotFoundError("Application")
+    }
+    if (fetchError) throw fetchError
+
+    const roleNeed = application.roleNeed as { projectId: string }
+
+    if (roleNeed.projectId !== projectId) {
       throw new NotFoundError("Application")
     }
 
@@ -132,9 +164,12 @@ export const DELETE = createApiHandler({
       throw new BadRequestError("Can only withdraw pending applications")
     }
 
-    await prisma.projectRoleApplication.delete({
-      where: { id: appId },
-    })
+    const { error: deleteError } = await supabase
+      .from("ProjectRoleApplication")
+      .delete()
+      .eq("id", appId)
+
+    if (deleteError) throw deleteError
 
     return { success: true }
   },

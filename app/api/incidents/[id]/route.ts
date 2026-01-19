@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { createApiHandler } from '@/lib/api';
 import { NotFoundError, UnauthorizedError } from '@/lib/api/errors';
-import { prisma } from '@/lib/prisma';
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').filter(Boolean);
 
@@ -26,21 +25,29 @@ const updateIncidentSchema = z.object({
  */
 export const GET = createApiHandler({
   auth: 'none',
-  handler: async ({ params }) => {
-    const incident = await prisma.incident.findUnique({
-      where: { id: params.id },
-      include: {
-        updates: {
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    });
+  handler: async ({ params, supabase }) => {
+    const { data: incident, error } = await supabase
+      .from('Incident')
+      .select(`
+        *,
+        updates:IncidentUpdate(*)
+      `)
+      .eq('id', params.id)
+      .single();
 
-    if (!incident) {
+    if (error?.code === 'PGRST116' || !incident) {
       throw new NotFoundError('Incident');
     }
+    if (error) throw error;
 
-    return incident;
+    // Sort updates by createdAt descending
+    const sortedUpdates = ((incident.updates as unknown[]) || []).sort(
+      (a: unknown, b: unknown) =>
+        new Date((b as { createdAt: string }).createdAt).getTime() -
+        new Date((a as { createdAt: string }).createdAt).getTime()
+    );
+
+    return { ...incident, updates: sortedUpdates };
   },
 });
 
@@ -51,25 +58,31 @@ export const GET = createApiHandler({
 export const PUT = createApiHandler({
   auth: 'required',
   schema: updateIncidentSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     // Check admin access
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { email: true },
-    });
+    const { data: dbUser, error: userError } = await supabase
+      .from('User')
+      .select('email')
+      .eq('id', user.id)
+      .single();
+
+    if (userError) throw userError;
 
     if (!isAdmin(dbUser?.email)) {
       throw new UnauthorizedError('Admin access required');
     }
 
     // Check incident exists
-    const existing = await prisma.incident.findUnique({
-      where: { id: params.id },
-    });
+    const { data: existing, error: existingError } = await supabase
+      .from('Incident')
+      .select('id, resolvedAt')
+      .eq('id', params.id)
+      .single();
 
-    if (!existing) {
+    if (existingError?.code === 'PGRST116' || !existing) {
       throw new NotFoundError('Incident');
     }
+    if (existingError) throw existingError;
 
     // Build update data
     const updateData: Record<string, unknown> = {};
@@ -81,24 +94,30 @@ export const PUT = createApiHandler({
       updateData.status = data.status;
       // Auto-set resolvedAt when marking as resolved
       if (data.status === 'resolved' && !existing.resolvedAt) {
-        updateData.resolvedAt = new Date();
+        updateData.resolvedAt = new Date().toISOString();
       }
     }
     if (data.resolvedAt !== undefined) {
-      updateData.resolvedAt = data.resolvedAt ? new Date(data.resolvedAt) : null;
+      updateData.resolvedAt = data.resolvedAt ? new Date(data.resolvedAt).toISOString() : null;
     }
 
-    const incident = await prisma.incident.update({
-      where: { id: params.id },
-      data: updateData,
-      include: {
-        updates: {
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    });
+    const { data: incident, error: updateError } = await supabase
+      .from('Incident')
+      .update(updateData)
+      .eq('id', params.id)
+      .select()
+      .single();
 
-    return incident;
+    if (updateError) throw updateError;
+
+    // Fetch updates
+    const { data: updates } = await supabase
+      .from('IncidentUpdate')
+      .select('*')
+      .eq('incidentId', params.id)
+      .order('createdAt', { ascending: false });
+
+    return { ...incident, updates: updates || [] };
   },
 });
 
@@ -108,29 +127,38 @@ export const PUT = createApiHandler({
  */
 export const DELETE = createApiHandler({
   auth: 'required',
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     // Check admin access
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { email: true },
-    });
+    const { data: dbUser, error: userError } = await supabase
+      .from('User')
+      .select('email')
+      .eq('id', user.id)
+      .single();
+
+    if (userError) throw userError;
 
     if (!isAdmin(dbUser?.email)) {
       throw new UnauthorizedError('Admin access required');
     }
 
     // Check incident exists
-    const existing = await prisma.incident.findUnique({
-      where: { id: params.id },
-    });
+    const { data: existing, error: existingError } = await supabase
+      .from('Incident')
+      .select('id')
+      .eq('id', params.id)
+      .single();
 
-    if (!existing) {
+    if (existingError?.code === 'PGRST116' || !existing) {
       throw new NotFoundError('Incident');
     }
+    if (existingError) throw existingError;
 
-    await prisma.incident.delete({
-      where: { id: params.id },
-    });
+    const { error: deleteError } = await supabase
+      .from('Incident')
+      .delete()
+      .eq('id', params.id);
+
+    if (deleteError) throw deleteError;
 
     return { success: true };
   },

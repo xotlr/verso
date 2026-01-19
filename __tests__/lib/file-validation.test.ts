@@ -111,21 +111,19 @@ describe('validateFileUrl', () => {
   })
 
   describe('HTTPS enforcement', () => {
-    const originalEnv = process.env.NODE_ENV
-
     afterEach(() => {
-      process.env.NODE_ENV = originalEnv
+      vi.unstubAllEnvs()
     })
 
     it('should reject HTTP URLs in production', () => {
-      process.env.NODE_ENV = 'production'
+      vi.stubEnv('NODE_ENV', 'production')
       expect(() =>
         validateFileUrl('http://project.supabase.co/storage/photo.jpg')
       ).toThrow('URL must use HTTPS')
     })
 
     it('should allow HTTP URLs in development', () => {
-      process.env.NODE_ENV = 'development'
+      vi.stubEnv('NODE_ENV', 'development')
       const result = validateFileUrl('http://project.supabase.co/storage/photo.jpg')
       expect(result.valid).toBe(true)
     })

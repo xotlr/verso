@@ -1,18 +1,21 @@
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { canUseProduction, type PlanType } from "@/lib/stripe"
 import type { ProductionProgress, SceneProgress, ShotProgress, ShotStatus } from "@/types/production-tracking"
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: screenplayId } = params
 
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { plan: true },
-    })
+    const { data: dbUser, error: userError } = await supabase
+      .from("User")
+      .select("plan")
+      .eq("id", user.id)
+      .single()
+
+    if (userError) throw userError
+
     const plan = (dbUser?.plan as PlanType) || "FREE"
 
     if (!canUseProduction(plan)) {
@@ -27,18 +30,14 @@ export const GET = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const shots = await prisma.shot.findMany({
-      where: { screenplayId },
-      select: {
-        id: true,
-        sceneId: true,
-        status: true,
-      },
-      orderBy: [
-        { sceneId: "asc" },
-        { shotNumber: "asc" },
-      ],
-    })
+    const { data: shots, error: shotsError } = await supabase
+      .from("Shot")
+      .select("id, sceneId, status")
+      .eq("screenplayId", screenplayId)
+      .order("sceneId", { ascending: true })
+      .order("shotNumber", { ascending: true })
+
+    if (shotsError) throw shotsError
 
     const statusCounts = {
       planned: 0,
@@ -47,21 +46,24 @@ export const GET = createApiHandler({
       approved: 0,
     }
 
-    shots.forEach((shot) => {
+    interface ShotData { id: string; status: string; sceneId: string }
+    const typedShots = (shots || []) as ShotData[]
+
+    typedShots.forEach((shot) => {
       const status = shot.status as ShotStatus
       if (status in statusCounts) {
         statusCounts[status]++
       }
     })
 
-    const totalShots = shots.length
+    const totalShots = typedShots.length
     const completedShots = statusCounts.shot + statusCounts.approved
     const percentComplete = totalShots > 0
       ? Math.round((completedShots / totalShots) * 100)
       : 0
 
-    const sceneMap = new Map<string, { shots: typeof shots }>()
-    shots.forEach((shot) => {
+    const sceneMap = new Map<string, { shots: ShotData[] }>()
+    typedShots.forEach((shot) => {
       if (!sceneMap.has(shot.sceneId)) {
         sceneMap.set(shot.sceneId, { shots: [] })
       }

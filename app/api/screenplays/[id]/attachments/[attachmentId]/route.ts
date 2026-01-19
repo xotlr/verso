@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { logger } from "@/lib/logger"
 
@@ -12,7 +11,7 @@ const updateAttachmentSchema = z.object({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateAttachmentSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id, attachmentId } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -21,21 +20,33 @@ export const PATCH = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const attachment = await prisma.sceneAttachment.findUnique({
-      where: { id: attachmentId },
-    })
+    const { data: attachment, error: fetchError } = await supabase
+      .from("SceneAttachment")
+      .select("id, screenplayId")
+      .eq("id", attachmentId)
+      .single()
 
-    if (!attachment || attachment.screenplayId !== id) {
+    if (fetchError?.code === "PGRST116" || !attachment) {
+      throw new NotFoundError("Attachment")
+    }
+    if (fetchError) throw fetchError
+
+    if (attachment.screenplayId !== id) {
       throw new NotFoundError("Attachment")
     }
 
-    const updated = await prisma.sceneAttachment.update({
-      where: { id: attachmentId },
-      data: {
-        ...(data.caption !== undefined && { caption: data.caption }),
-        ...(data.displayOrder !== undefined && { displayOrder: data.displayOrder }),
-      },
-    })
+    const updateData: Record<string, unknown> = {}
+    if (data.caption !== undefined) updateData.caption = data.caption
+    if (data.displayOrder !== undefined) updateData.displayOrder = data.displayOrder
+
+    const { data: updated, error: updateError } = await supabase
+      .from("SceneAttachment")
+      .update(updateData)
+      .eq("id", attachmentId)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
 
     logger.audit('update', 'sceneAttachment', attachmentId, {
       screenplayId: id,
@@ -48,7 +59,7 @@ export const PATCH = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id, attachmentId } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -57,17 +68,27 @@ export const DELETE = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const attachment = await prisma.sceneAttachment.findUnique({
-      where: { id: attachmentId },
-    })
+    const { data: attachment, error: fetchError } = await supabase
+      .from("SceneAttachment")
+      .select("id, screenplayId, sceneId")
+      .eq("id", attachmentId)
+      .single()
 
-    if (!attachment || attachment.screenplayId !== id) {
+    if (fetchError?.code === "PGRST116" || !attachment) {
+      throw new NotFoundError("Attachment")
+    }
+    if (fetchError) throw fetchError
+
+    if (attachment.screenplayId !== id) {
       throw new NotFoundError("Attachment")
     }
 
-    await prisma.sceneAttachment.delete({
-      where: { id: attachmentId },
-    })
+    const { error: deleteError } = await supabase
+      .from("SceneAttachment")
+      .delete()
+      .eq("id", attachmentId)
+
+    if (deleteError) throw deleteError
 
     logger.audit('delete', 'sceneAttachment', attachmentId, {
       screenplayId: id,

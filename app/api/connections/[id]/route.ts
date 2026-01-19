@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const updateConnectionSchema = z.object({
   status: z.enum(["ACCEPTED", "DECLINED"]),
@@ -9,17 +8,20 @@ const updateConnectionSchema = z.object({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateConnectionSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: connectionId } = params
     const { status } = data
 
-    const connection = await prisma.connection.findUnique({
-      where: { id: connectionId },
-    })
+    const { data: connection, error: fetchError } = await supabase
+      .from("Connection")
+      .select("*")
+      .eq("id", connectionId)
+      .single()
 
-    if (!connection) {
+    if (fetchError?.code === "PGRST116" || !connection) {
       throw new NotFoundError("Connection")
     }
+    if (fetchError) throw fetchError
 
     if (connection.addresseeId !== user.id) {
       throw new ForbiddenError("Only the recipient can respond to this request")
@@ -29,10 +31,14 @@ export const PATCH = createApiHandler({
       throw new BadRequestError("This request has already been processed")
     }
 
-    const updated = await prisma.connection.update({
-      where: { id: connectionId },
-      data: { status },
-    })
+    const { data: updated, error: updateError } = await supabase
+      .from("Connection")
+      .update({ status })
+      .eq("id", connectionId)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
 
     return {
       connection: updated,
@@ -43,24 +49,30 @@ export const PATCH = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: connectionId } = params
 
-    const connection = await prisma.connection.findUnique({
-      where: { id: connectionId },
-    })
+    const { data: connection, error: fetchError } = await supabase
+      .from("Connection")
+      .select("*")
+      .eq("id", connectionId)
+      .single()
 
-    if (!connection) {
+    if (fetchError?.code === "PGRST116" || !connection) {
       throw new NotFoundError("Connection")
     }
+    if (fetchError) throw fetchError
 
     if (connection.requesterId !== user.id && connection.addresseeId !== user.id) {
       throw new ForbiddenError()
     }
 
-    await prisma.connection.delete({
-      where: { id: connectionId },
-    })
+    const { error: deleteError } = await supabase
+      .from("Connection")
+      .delete()
+      .eq("id", connectionId)
+
+    if (deleteError) throw deleteError
 
     return {
       message: connection.status === "PENDING" ? "Request cancelled" : "Connection removed",

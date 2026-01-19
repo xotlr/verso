@@ -1,38 +1,43 @@
 import { NextResponse } from "next/server"
 import { createApiHandler, NotFoundError, RATE_LIMITS } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 export const GET = createApiHandler({
   auth: "none",
   rateLimit: RATE_LIMITS.API,
-  handler: async ({ params }) => {
+  handler: async ({ params, supabase }) => {
     const { token } = params
 
-    const invite = await prisma.teamInvite.findUnique({
-      where: { token },
-      include: {
-        team: {
-          select: {
-            id: true,
-            name: true,
-            logo: true,
-            description: true,
-            _count: { select: { members: true } },
-          },
-        },
-        inviter: {
-          select: { id: true, name: true, image: true },
-        },
-      },
-    })
+    const { data: invite, error } = await supabase
+      .from("TeamInvite")
+      .select(`
+        id, email, role, expiresAt, teamId,
+        team:Team(id, name, logo, description),
+        inviter:User!inviterId(id, name, image)
+      `)
+      .eq("token", token)
+      .single()
 
-    if (!invite) {
+    if (error?.code === "PGRST116" || !invite) {
       throw new NotFoundError("Invite")
     }
+    if (error) throw error
 
-    if (new Date() > invite.expiresAt) {
-      await prisma.teamInvite.delete({ where: { token } })
+    if (new Date() > new Date(invite.expiresAt)) {
+      await supabase.from("TeamInvite").delete().eq("token", token)
       return NextResponse.json({ error: "This invite has expired" }, { status: 410 })
+    }
+
+    // Get member count for team
+    let teamWithCount = invite.team
+    if (invite.team) {
+      const { count } = await supabase
+        .from("TeamMember")
+        .select("*", { count: "exact", head: true })
+        .eq("teamId", invite.team.id)
+      teamWithCount = {
+        ...invite.team,
+        _count: { members: count || 0 },
+      }
     }
 
     return {
@@ -40,7 +45,7 @@ export const GET = createApiHandler({
       email: invite.email,
       role: invite.role,
       expiresAt: invite.expiresAt,
-      team: invite.team,
+      team: teamWithCount,
       inviter: invite.inviter,
     }
   },

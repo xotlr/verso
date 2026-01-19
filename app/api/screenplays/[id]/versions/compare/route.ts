@@ -1,10 +1,9 @@
 import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params, searchParams }) => {
+  handler: async ({ user, params, searchParams, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -23,32 +22,37 @@ export const GET = createApiHandler({
       throw new BadRequestError("Both 'from' and 'to' version IDs are required")
     }
 
-    const [fromVersion, toVersion] = await Promise.all([
-      prisma.screenplayVersion.findUnique({
-        where: { id: fromId },
-        include: {
-          creator: {
-            select: { id: true, name: true, image: true },
-          },
-        },
-      }),
-      prisma.screenplayVersion.findUnique({
-        where: { id: toId },
-        include: {
-          creator: {
-            select: { id: true, name: true, image: true },
-          },
-        },
-      }),
+    const [fromResult, toResult] = await Promise.all([
+      supabase
+        .from("ScreenplayVersion")
+        .select(`
+          *,
+          creator:User!createdBy(id, name, image)
+        `)
+        .eq("id", fromId)
+        .single(),
+      supabase
+        .from("ScreenplayVersion")
+        .select(`
+          *,
+          creator:User!createdBy(id, name, image)
+        `)
+        .eq("id", toId)
+        .single(),
     ])
 
-    if (!fromVersion) {
+    if (fromResult.error?.code === "PGRST116" || !fromResult.data) {
       throw new NotFoundError("'from' version")
     }
+    if (fromResult.error) throw fromResult.error
 
-    if (!toVersion) {
+    if (toResult.error?.code === "PGRST116" || !toResult.data) {
       throw new NotFoundError("'to' version")
     }
+    if (toResult.error) throw toResult.error
+
+    const fromVersion = fromResult.data
+    const toVersion = toResult.data
 
     if (fromVersion.screenplayId !== id || toVersion.screenplayId !== id) {
       throw new BadRequestError("Versions do not belong to this screenplay")

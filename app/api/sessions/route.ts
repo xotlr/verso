@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const createSessionSchema = z.object({
   wordCount: z.number().min(0),
@@ -10,23 +9,31 @@ const createSessionSchema = z.object({
 export const POST = createApiHandler({
   auth: "required",
   schema: createSessionSchema,
-  handler: async ({ user, data }) => {
+  handler: async ({ user, data, supabase }) => {
     const { wordCount, duration } = data
 
-    const writingSession = await prisma.writingSession.create({
-      data: {
+    // Create writing session
+    const { data: writingSession, error: sessionError } = await supabase
+      .from("WritingSession")
+      .insert({
         userId: user.id,
         wordCount,
         duration,
-      },
-    })
+      })
+      .select()
+      .single()
+
+    if (sessionError) throw sessionError
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    const stats = await prisma.userStats.findUnique({
-      where: { userId: user.id },
-    })
+    // Get user stats
+    const { data: stats } = await supabase
+      .from("UserStats")
+      .select("*")
+      .eq("userId", user.id)
+      .single()
 
     if (stats) {
       const yesterday = new Date(today)
@@ -51,24 +58,24 @@ export const POST = createApiHandler({
         newStreak = 1
       }
 
-      await prisma.userStats.update({
-        where: { userId: user.id },
-        data: {
-          lastWriteDate: new Date(),
+      await supabase
+        .from("UserStats")
+        .update({
+          lastWriteDate: new Date().toISOString(),
           currentStreak: newStreak,
           longestStreak: Math.max(stats.longestStreak, newStreak),
-        },
-      })
+        })
+        .eq("userId", user.id)
     } else {
-      await prisma.userStats.create({
-        data: {
+      await supabase
+        .from("UserStats")
+        .insert({
           userId: user.id,
           dailyGoal: 500,
           currentStreak: 1,
           longestStreak: 1,
-          lastWriteDate: new Date(),
-        },
-      })
+          lastWriteDate: new Date().toISOString(),
+        })
     }
 
     return writingSession
@@ -77,21 +84,22 @@ export const POST = createApiHandler({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, searchParams }) => {
+  handler: async ({ user, searchParams, supabase }) => {
     const days = Math.min(parseInt(searchParams.get("days") || "7"), 30)
 
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - days)
     startDate.setHours(0, 0, 0, 0)
 
-    const sessions = await prisma.writingSession.findMany({
-      where: {
-        userId: user.id,
-        date: { gte: startDate },
-      },
-      orderBy: { date: "desc" },
-    })
+    const { data: sessions, error } = await supabase
+      .from("WritingSession")
+      .select("*")
+      .eq("userId", user.id)
+      .gte("date", startDate.toISOString())
+      .order("date", { ascending: false })
 
-    return sessions
+    if (error) throw error
+
+    return sessions || []
   },
 })

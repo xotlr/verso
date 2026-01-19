@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { getSession } from '@/lib/supabase-auth';
 import { rateLimit, RATE_LIMITS, getClientIp } from '@/lib/rate-limit';
 
 type RateLimitConfig = {
@@ -81,7 +81,7 @@ export function withApiMiddleware(handler: ApiHandler, options: ApiHandlerOption
     // Authentication
     let userId: string | undefined;
     if (options.requireAuth) {
-      const session = await auth();
+      const session = await getSession();
       if (!session?.user?.id) {
         return NextResponse.json(
           { error: 'Authentication required' },

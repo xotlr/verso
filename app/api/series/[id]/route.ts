@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const updateSeriesSchema = z.object({
   title: z.string().min(1).max(255).optional(),
@@ -14,102 +13,130 @@ const updateSeriesSchema = z.object({
   banner: z.string().url().optional().nullable(),
 })
 
+type SeasonData = {
+  id: string
+  number: number
+  title: string | null
+  description: string | null
+  status: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+type EpisodeData = {
+  id: string
+  title: string
+  season: number | null
+  episode: number | null
+  episodeTitle: string | null
+  wordCount: number
+  updatedAt: string
+  isFavorite: boolean
+}
+
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const series = await prisma.series.findFirst({
-      where: { id, userId: user.id },
-      select: {
-        id: true,
-        title: true,
-        logline: true,
-        genre: true,
-        format: true,
-        banner: true,
-        createdAt: true,
-        updatedAt: true,
-        projectId: true,
-        project: { select: { id: true, name: true } },
-        seasons: {
-          select: {
-            id: true,
-            number: true,
-            title: true,
-            description: true,
-            status: true,
-            createdAt: true,
-            updatedAt: true,
-            episodes: {
-              select: {
-                id: true,
-                title: true,
-                episode: true,
-                episodeTitle: true,
-                wordCount: true,
-                updatedAt: true,
-                isFavorite: true,
-              },
-              orderBy: { episode: "asc" },
-            },
-            _count: { select: { episodes: true } },
-          },
-          orderBy: { number: "asc" },
-        },
-        episodes: {
-          select: {
-            id: true,
-            title: true,
-            season: true,
-            episode: true,
-            episodeTitle: true,
-            wordCount: true,
-            updatedAt: true,
-            isFavorite: true,
-          },
-          orderBy: [{ season: "asc" }, { episode: "asc" }],
-        },
-        _count: { select: { episodes: true, seasons: true } },
-      },
-    })
+    const { data: series, error } = await supabase
+      .from("Series")
+      .select(`
+        id, title, logline, genre, format, banner, createdAt, updatedAt, projectId,
+        project:Project(id, name)
+      `)
+      .eq("id", id)
+      .eq("userId", user.id)
+      .single()
 
-    if (!series) {
+    if (error?.code === "PGRST116" || !series) {
       throw new NotFoundError("Series")
     }
+    if (error) throw error
 
-    return series
+    // Get seasons with their episodes
+    const { data: seasons } = await supabase
+      .from("Season")
+      .select("id, number, title, description, status, createdAt, updatedAt")
+      .eq("seriesId", id)
+      .order("number", { ascending: true })
+
+    const seasonsWithEpisodes = await Promise.all(
+      (seasons || []).map(async (s: SeasonData) => {
+        const { data: episodes } = await supabase
+          .from("Screenplay")
+          .select("id, title, episode, episodeTitle, wordCount, updatedAt, isFavorite")
+          .eq("seriesId", id)
+          .eq("seasonId", s.id)
+          .order("episode", { ascending: true })
+
+        return {
+          ...s,
+          episodes: episodes || [],
+          _count: { episodes: episodes?.length || 0 },
+        }
+      })
+    )
+
+    // Get all episodes for this series
+    const { data: allEpisodes } = await supabase
+      .from("Screenplay")
+      .select("id, title, season, episode, episodeTitle, wordCount, updatedAt, isFavorite")
+      .eq("seriesId", id)
+      .order("season", { ascending: true })
+      .order("episode", { ascending: true })
+
+    return {
+      ...series,
+      seasons: seasonsWithEpisodes,
+      episodes: allEpisodes || [],
+      _count: {
+        episodes: allEpisodes?.length || 0,
+        seasons: seasons?.length || 0,
+      },
+    }
   },
 })
 
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateSeriesSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
-    const existingSeries = await prisma.series.findFirst({
-      where: { id, userId: user.id },
-    })
+    const { data: existingSeries, error: fetchError } = await supabase
+      .from("Series")
+      .select("id")
+      .eq("id", id)
+      .eq("userId", user.id)
+      .single()
 
-    if (!existingSeries) {
+    if (fetchError?.code === "PGRST116" || !existingSeries) {
       throw new NotFoundError("Series")
     }
+    if (fetchError) throw fetchError
 
     if (data.projectId) {
-      const project = await prisma.project.findFirst({
-        where: { id: data.projectId, userId: user.id },
-      })
+      const { data: project } = await supabase
+        .from("Project")
+        .select("id")
+        .eq("id", data.projectId)
+        .eq("userId", user.id)
+        .single()
 
       if (!project) {
         throw new ForbiddenError("Project not found or access denied")
       }
     }
 
-    const series = await prisma.series.update({
-      where: { id },
-      data,
-    })
+    const { data: series, error: updateError } = await supabase
+      .from("Series")
+      .update(data)
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
 
     return series
   },
@@ -117,26 +144,34 @@ export const PATCH = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const series = await prisma.series.findFirst({
-      where: { id, userId: user.id },
-      include: { _count: { select: { episodes: true } } },
-    })
+    const { data: series, error: fetchError } = await supabase
+      .from("Series")
+      .select("id")
+      .eq("id", id)
+      .eq("userId", user.id)
+      .single()
 
-    if (!series) {
+    if (fetchError?.code === "PGRST116" || !series) {
       throw new NotFoundError("Series")
     }
+    if (fetchError) throw fetchError
 
-    await prisma.screenplay.updateMany({
-      where: { seriesId: id },
-      data: { seriesId: null },
-    })
+    // Unlink screenplays from series
+    await supabase
+      .from("Screenplay")
+      .update({ seriesId: null })
+      .eq("seriesId", id)
 
-    await prisma.series.delete({
-      where: { id },
-    })
+    // Delete series
+    const { error: deleteError } = await supabase
+      .from("Series")
+      .delete()
+      .eq("id", id)
+
+    if (deleteError) throw deleteError
 
     return { success: true }
   },

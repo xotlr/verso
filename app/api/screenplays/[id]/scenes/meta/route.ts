@@ -1,10 +1,9 @@
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -16,9 +15,12 @@ export const GET = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const sceneMetas = await prisma.sceneMeta.findMany({
-      where: { screenplayId: id },
-    })
+    const { data: sceneMetas, error } = await supabase
+      .from("SceneMeta")
+      .select("*")
+      .eq("screenplayId", id)
+
+    if (error) throw error
 
     const metaMap: Record<string, {
       color: string | null
@@ -27,7 +29,7 @@ export const GET = createApiHandler({
       act: string | null
     }> = {}
 
-    for (const meta of sceneMetas) {
+    for (const meta of sceneMetas || []) {
       metaMap[meta.sceneId] = {
         color: meta.color,
         notes: meta.notes,

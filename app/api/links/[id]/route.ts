@@ -1,27 +1,38 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
-async function hasLinkAccess(linkId: string, userId: string): Promise<boolean> {
-  const link = await prisma.externalLink.findUnique({
-    where: { id: linkId },
-    include: {
-      project: {
-        include: {
-          team: {
-            include: {
-              members: { where: { userId } },
-            },
-          },
-        },
-      },
-    },
-  })
+async function hasLinkAccess(linkId: string, userId: string, supabase: any): Promise<boolean> {
+  // Get link with project and team membership info
+  const { data: link, error } = await supabase
+    .from("ExternalLink")
+    .select(`
+      id, userId,
+      project:Project(
+        id, userId, teamId,
+        team:Team(
+          id,
+          members:TeamMember(userId)
+        )
+      )
+    `)
+    .eq("id", linkId)
+    .single()
 
-  if (!link) return false
+  if (error || !link) return false
+
+  // Owner has access
   if (link.userId === userId) return true
-  if (link.project.userId === userId) return true
-  if (link.project.team && link.project.team.members.length > 0) return true
+
+  // Project owner has access
+  if (link.project?.userId === userId) return true
+
+  // Check team membership
+  if (link.project?.team) {
+    const isMember = link.project.team.members?.some(
+      (m: { userId: string }) => m.userId === userId
+    )
+    if (isMember) return true
+  }
 
   return false
 }
@@ -35,17 +46,21 @@ const updateLinkSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const hasAccess = await hasLinkAccess(id, user.id)
+    const hasAccess = await hasLinkAccess(id, user.id, supabase)
     if (!hasAccess) {
       throw new NotFoundError("Link")
     }
 
-    const link = await prisma.externalLink.findUnique({
-      where: { id },
-    })
+    const { data: link, error } = await supabase
+      .from("ExternalLink")
+      .select("*")
+      .eq("id", id)
+      .single()
+
+    if (error) throw error
 
     return link
   },
@@ -54,18 +69,22 @@ export const GET = createApiHandler({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateLinkSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
-    const hasAccess = await hasLinkAccess(id, user.id)
+    const hasAccess = await hasLinkAccess(id, user.id, supabase)
     if (!hasAccess) {
       throw new NotFoundError("Link")
     }
 
-    const link = await prisma.externalLink.update({
-      where: { id },
-      data,
-    })
+    const { data: link, error } = await supabase
+      .from("ExternalLink")
+      .update(data)
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) throw error
 
     return link
   },
@@ -73,15 +92,20 @@ export const PATCH = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const hasAccess = await hasLinkAccess(id, user.id)
+    const hasAccess = await hasLinkAccess(id, user.id, supabase)
     if (!hasAccess) {
       throw new NotFoundError("Link")
     }
 
-    await prisma.externalLink.delete({ where: { id } })
+    const { error } = await supabase
+      .from("ExternalLink")
+      .delete()
+      .eq("id", id)
+
+    if (error) throw error
 
     return { success: true }
   },

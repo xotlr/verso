@@ -6,8 +6,14 @@ vi.mock('@/lib/stripe', () => ({
   getStripe: vi.fn(() => ({})),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {},
+vi.mock('@/lib/supabase/server', () => ({
+  createServerActionClient: vi.fn(() => Promise.resolve({
+    from: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn(),
+    update: vi.fn().mockReturnThis(),
+  })),
 }))
 
 // Import after mocks are set up

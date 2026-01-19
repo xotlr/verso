@@ -1,31 +1,56 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
+import { createServerActionClient } from "@/lib/supabase/server"
 
-async function checkCallsheetAccess(callsheetId: string, userId: string) {
-  const callsheet = await prisma.callsheet.findUnique({
-    where: { id: callsheetId },
-    include: {
-      project: {
-        include: {
-          team: {
-            include: { members: { where: { userId } } },
-          },
-        },
-      },
-    },
-  })
+interface CallsheetAccessResult {
+  allowed: boolean
+  notFound: boolean
+  callsheet: { id: string; userId: string } | null
+}
 
-  if (!callsheet) {
+async function checkCallsheetAccess(callsheetId: string, userId: string): Promise<CallsheetAccessResult> {
+  const supabase = await createServerActionClient()
+
+  const { data, error } = await supabase
+    .from("Callsheet")
+    .select(`
+      id,
+      userId,
+      project:Project!projectId(
+        id,
+        team:Team(
+          id,
+          members:TeamMember(userId)
+        )
+      )
+    `)
+    .eq("id", callsheetId)
+    .single()
+
+  if (error?.code === "PGRST116" || !data) {
     return { allowed: false, notFound: true, callsheet: null }
+  }
+  if (error) throw error
+
+  // Type the callsheet data
+  const callsheet = data as {
+    id: string
+    userId: string
+    project: {
+      id: string
+      team: { id: string; members: { userId: string }[] } | null
+    }
   }
 
   if (callsheet.userId === userId) {
     return { allowed: true, notFound: false, callsheet }
   }
 
-  if (callsheet.project?.team && callsheet.project.team.members.length > 0) {
-    return { allowed: true, notFound: false, callsheet }
+  if (callsheet.project?.team && Array.isArray(callsheet.project.team.members)) {
+    const isMember = callsheet.project.team.members.some((m) => m.userId === userId)
+    if (isMember) {
+      return { allowed: true, notFound: false, callsheet }
+    }
   }
 
   return { allowed: false, notFound: false, callsheet: null }
@@ -39,7 +64,7 @@ const checkInSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
     const access = await checkCallsheetAccess(id, user.id)
@@ -52,19 +77,22 @@ export const GET = createApiHandler({
       throw new ForbiddenError("Access denied")
     }
 
-    const checkIns = await prisma.crewCheckIn.findMany({
-      where: { callsheetId: id },
-      orderBy: { checkedInAt: "desc" },
-    })
+    const { data: checkIns, error } = await supabase
+      .from("CrewCheckIn")
+      .select("*")
+      .eq("callsheetId", id)
+      .order("checkedInAt", { ascending: false })
 
-    return { checkIns }
+    if (error) throw error
+
+    return { checkIns: checkIns || [] }
   },
 })
 
 export const POST = createApiHandler({
   auth: "required",
   schema: checkInSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
     const access = await checkCallsheetAccess(id, user.id)
@@ -77,45 +105,61 @@ export const POST = createApiHandler({
       throw new ForbiddenError("Access denied")
     }
 
-    const existingCheckIn = await prisma.crewCheckIn.findUnique({
-      where: {
-        callsheetId_crewName: { callsheetId: id, crewName: data.crewName },
-      },
-    })
-    const isNewCheckIn = !existingCheckIn
+    // Check for existing check-in
+    const { data: existingCheckIn } = await supabase
+      .from("CrewCheckIn")
+      .select("id")
+      .eq("callsheetId", id)
+      .eq("crewName", data.crewName)
+      .single()
 
-    const checkIn = await prisma.crewCheckIn.upsert({
-      where: {
-        callsheetId_crewName: { callsheetId: id, crewName: data.crewName },
-      },
-      update: {
-        checkedInAt: new Date(),
-        checkedInBy: user.id,
-        notes: data.notes,
-      },
-      create: {
-        callsheetId: id,
-        crewName: data.crewName,
-        department: data.department,
-        checkedInBy: user.id,
-        notes: data.notes,
-      },
-    })
+    const isNewCheckIn = !existingCheckIn
+    let checkIn
+
+    if (existingCheckIn) {
+      const { data: updated, error: updateError } = await supabase
+        .from("CrewCheckIn")
+        .update({
+          checkedInAt: new Date().toISOString(),
+          checkedInBy: user.id,
+          notes: data.notes,
+        })
+        .eq("callsheetId", id)
+        .eq("crewName", data.crewName)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+      checkIn = updated
+    } else {
+      const { data: created, error: createError } = await supabase
+        .from("CrewCheckIn")
+        .insert({
+          callsheetId: id,
+          crewName: data.crewName,
+          department: data.department,
+          checkedInBy: user.id,
+          notes: data.notes,
+        })
+        .select()
+        .single()
+
+      if (createError) throw createError
+      checkIn = created
+    }
 
     if (isNewCheckIn && access.callsheet) {
       const callsheetOwnerId = access.callsheet.userId
       if (callsheetOwnerId !== user.id) {
-        await prisma.notification.create({
+        await supabase.from("Notification").insert({
+          userId: callsheetOwnerId,
+          type: "checkin",
+          title: `${data.crewName} checked in`,
+          body: `${data.department}`,
           data: {
-            userId: callsheetOwnerId,
-            type: "checkin",
-            title: `${data.crewName} checked in`,
-            body: `${data.department}`,
-            data: {
-              callsheetId: id,
-              crewName: data.crewName,
-              department: data.department,
-            },
+            callsheetId: id,
+            crewName: data.crewName,
+            department: data.department,
           },
         })
       }
@@ -127,7 +171,7 @@ export const POST = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params, searchParams }) => {
+  handler: async ({ user, params, searchParams, supabase }) => {
     const { id } = params
 
     const access = await checkCallsheetAccess(id, user.id)
@@ -146,11 +190,13 @@ export const DELETE = createApiHandler({
       throw new BadRequestError("crewName query parameter required")
     }
 
-    await prisma.crewCheckIn.delete({
-      where: {
-        callsheetId_crewName: { callsheetId: id, crewName },
-      },
-    })
+    const { error } = await supabase
+      .from("CrewCheckIn")
+      .delete()
+      .eq("callsheetId", id)
+      .eq("crewName", crewName)
+
+    if (error) throw error
 
     return { success: true }
   },

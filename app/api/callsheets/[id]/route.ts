@@ -1,31 +1,61 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
+import { createServerActionClient } from "@/lib/supabase/server"
 
-async function checkCallsheetAccess(callsheetId: string, userId: string) {
-  const callsheet = await prisma.callsheet.findUnique({
-    where: { id: callsheetId },
-    include: {
-      project: {
-        include: {
-          team: {
-            include: { members: { where: { userId } } },
-          },
-        },
-      },
-    },
-  })
+interface CallsheetAccessResult {
+  allowed: boolean
+  notFound: boolean
+  callsheet: { id: string; userId: string; status: string; title: string; projectId: string } | null
+}
 
-  if (!callsheet) {
+async function checkCallsheetAccess(callsheetId: string, userId: string): Promise<CallsheetAccessResult> {
+  const supabase = await createServerActionClient()
+
+  const { data, error } = await supabase
+    .from("Callsheet")
+    .select(`
+      id,
+      userId,
+      status,
+      title,
+      projectId,
+      project:Project!projectId(
+        id,
+        team:Team(
+          id,
+          members:TeamMember(userId)
+        )
+      )
+    `)
+    .eq("id", callsheetId)
+    .single()
+
+  if (error?.code === "PGRST116" || !data) {
     return { allowed: false, notFound: true, callsheet: null }
+  }
+  if (error) throw error
+
+  const callsheet = data as {
+    id: string
+    userId: string
+    status: string
+    title: string
+    projectId: string
+    project: {
+      id: string
+      team: { id: string; members: { userId: string }[] } | null
+    }
   }
 
   if (callsheet.userId === userId) {
     return { allowed: true, notFound: false, callsheet }
   }
 
-  if (callsheet.project?.team && callsheet.project.team.members.length > 0) {
-    return { allowed: true, notFound: false, callsheet }
+  if (callsheet.project?.team && Array.isArray(callsheet.project.team.members)) {
+    const isMember = callsheet.project.team.members.some((m) => m.userId === userId)
+    if (isMember) {
+      return { allowed: true, notFound: false, callsheet }
+    }
   }
 
   return { allowed: false, notFound: false, callsheet: null }
@@ -45,7 +75,7 @@ const updateCallsheetSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
     const access = await checkCallsheetAccess(id, user.id)
@@ -58,12 +88,16 @@ export const GET = createApiHandler({
       throw new ForbiddenError("Access denied")
     }
 
-    const callsheet = await prisma.callsheet.findUnique({
-      where: { id },
-      include: {
-        project: { select: { id: true, name: true } },
-      },
-    })
+    const { data: callsheet, error } = await supabase
+      .from("Callsheet")
+      .select(`
+        *,
+        project:Project!projectId(id, name)
+      `)
+      .eq("id", id)
+      .single()
+
+    if (error) throw error
 
     return callsheet
   },
@@ -72,7 +106,7 @@ export const GET = createApiHandler({
 export const PUT = createApiHandler({
   auth: "required",
   schema: updateCallsheetSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
     const access = await checkCallsheetAccess(id, user.id)
@@ -87,48 +121,57 @@ export const PUT = createApiHandler({
 
     const previousCallsheet = access.callsheet
 
-    const callsheet = await prisma.callsheet.update({
-      where: { id },
-      data: {
-        ...(data.title !== undefined && { title: data.title }),
-        ...(data.shootDate !== undefined && { shootDate: new Date(data.shootDate) }),
-        ...(data.callTime !== undefined && { callTime: new Date(data.callTime) }),
-        ...(data.wrapTime !== undefined && {
-          wrapTime: data.wrapTime ? new Date(data.wrapTime) : null,
-        }),
-        ...(data.status !== undefined && { status: data.status }),
-        ...(data.primaryLocation !== undefined && { primaryLocation: data.primaryLocation }),
-        ...(data.data !== undefined && { data: data.data }),
-        ...(data.weatherForecast !== undefined && { weatherForecast: data.weatherForecast }),
-        ...(data.weatherTemp !== undefined && { weatherTemp: data.weatherTemp }),
-      },
-      include: {
-        project: {
-          include: {
-            team: { include: { members: true } },
-          },
-        },
-      },
-    })
+    const updateData: Record<string, unknown> = {}
+    if (data.title !== undefined) updateData.title = data.title
+    if (data.shootDate !== undefined) updateData.shootDate = data.shootDate
+    if (data.callTime !== undefined) updateData.callTime = data.callTime
+    if (data.wrapTime !== undefined) updateData.wrapTime = data.wrapTime
+    if (data.status !== undefined) updateData.status = data.status
+    if (data.primaryLocation !== undefined) updateData.primaryLocation = data.primaryLocation
+    if (data.data !== undefined) updateData.data = data.data
+    if (data.weatherForecast !== undefined) updateData.weatherForecast = data.weatherForecast
+    if (data.weatherTemp !== undefined) updateData.weatherTemp = data.weatherTemp
 
+    const { data: callsheet, error: updateError } = await supabase
+      .from("Callsheet")
+      .update(updateData)
+      .eq("id", id)
+      .select(`
+        *,
+        project:Project!projectId(
+          id,
+          team:Team(
+            members:TeamMember(userId)
+          )
+        )
+      `)
+      .single()
+
+    if (updateError) throw updateError
+
+    // Send notifications if status changed to PUBLISHED
     if (data.status === "PUBLISHED" && previousCallsheet?.status !== "PUBLISHED") {
-      const teamMembers = callsheet.project?.team?.members || []
+      const project = callsheet.project as {
+        id: string
+        team: { members: { userId: string }[] } | null
+      }
+      const teamMembers = project?.team?.members || []
+
       const notificationPromises = teamMembers
         .filter((m) => m.userId !== user.id)
         .map((member) =>
-          prisma.notification.create({
+          supabase.from("Notification").insert({
+            userId: member.userId,
+            type: "callsheet_update",
+            title: "Callsheet Published",
+            body: `${callsheet.title} is now available`,
             data: {
-              userId: member.userId,
-              type: "callsheet_update",
-              title: "Callsheet Published",
-              body: `${callsheet.title} is now available`,
-              data: {
-                callsheetId: callsheet.id,
-                projectId: callsheet.projectId,
-              },
+              callsheetId: callsheet.id,
+              projectId: callsheet.projectId,
             },
           })
         )
+
       await Promise.all(notificationPromises)
     }
 
@@ -138,7 +181,7 @@ export const PUT = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
     const access = await checkCallsheetAccess(id, user.id)
@@ -151,9 +194,12 @@ export const DELETE = createApiHandler({
       throw new ForbiddenError("Access denied")
     }
 
-    await prisma.callsheet.delete({
-      where: { id },
-    })
+    const { error } = await supabase
+      .from("Callsheet")
+      .delete()
+      .eq("id", id)
+
+    if (error) throw error
 
     return { success: true }
   },

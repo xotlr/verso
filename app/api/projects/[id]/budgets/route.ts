@@ -1,20 +1,19 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
-async function hasProjectAccess(projectId: string, userId: string): Promise<boolean> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      team: {
-        include: { members: { where: { userId } } },
-      },
-    },
-  })
+async function hasProjectAccess(projectId: string, userId: string, supabase: any): Promise<boolean> {
+  const { data: project } = await supabase
+    .from("Project")
+    .select(`
+      id, userId, teamId,
+      team:Team(id, members:TeamMember(userId))
+    `)
+    .eq("id", projectId)
+    .single()
 
   if (!project) return false
   if (project.userId === userId) return true
-  if (project.team && project.team.members.length > 0) return true
+  if (project.team?.members?.some((m: { userId: string }) => m.userId === userId)) return true
 
   return false
 }
@@ -27,18 +26,21 @@ const createBudgetSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: projectId } = params
 
-    const hasAccess = await hasProjectAccess(projectId, user.id)
+    const hasAccess = await hasProjectAccess(projectId, user.id, supabase)
     if (!hasAccess) {
       throw new NotFoundError("Project")
     }
 
-    const budgets = await prisma.budget.findMany({
-      where: { projectId },
-      orderBy: { createdAt: "desc" },
-    })
+    const { data: budgets, error } = await supabase
+      .from("Budget")
+      .select("*")
+      .eq("projectId", projectId)
+      .order("createdAt", { ascending: false })
+
+    if (error) throw error
 
     return budgets
   },
@@ -47,21 +49,25 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: "required",
   schema: createBudgetSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: projectId } = params
 
-    const hasAccess = await hasProjectAccess(projectId, user.id)
+    const hasAccess = await hasProjectAccess(projectId, user.id, supabase)
     if (!hasAccess) {
       throw new NotFoundError("Project")
     }
 
-    const budget = await prisma.budget.create({
-      data: {
+    const { data: budget, error } = await supabase
+      .from("Budget")
+      .insert({
         ...data,
         userId: user.id,
         projectId,
-      },
-    })
+      })
+      .select()
+      .single()
+
+    if (error) throw error
 
     return budget
   },

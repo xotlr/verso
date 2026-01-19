@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const createCreditSchema = z.object({
   title: z.string().min(1).max(200),
@@ -15,62 +14,61 @@ const reorderCreditsSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "none",
-  handler: async ({ params }) => {
+  handler: async ({ params, supabase }) => {
     const { id } = params
 
-    const credits = await prisma.credit.findMany({
-      where: { userId: id },
-      orderBy: [{ displayOrder: "asc" }, { year: "desc" }],
-      select: {
-        id: true,
-        title: true,
-        role: true,
-        year: true,
-        projectId: true,
-        isManual: true,
-        displayOrder: true,
-        project: {
-          select: {
-            id: true,
-            name: true,
-            coverImage: true,
-          },
-        },
-      },
-    })
+    const { data: credits, error } = await supabase
+      .from("Credit")
+      .select(`
+        id, title, role, year, projectId, isManual, displayOrder,
+        project:Project(id, name, coverImage)
+      `)
+      .eq("userId", id)
+      .order("displayOrder", { ascending: true })
+      .order("year", { ascending: false })
 
-    return credits
+    if (error) throw error
+
+    return credits || []
   },
 })
 
 export const POST = createApiHandler({
   auth: "required",
   schema: createCreditSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
     if (user.id !== id) {
       throw new ForbiddenError()
     }
 
-    const existingCount = await prisma.credit.count({
-      where: { userId: id },
-    })
+    // Check existing count
+    const { count } = await supabase
+      .from("Credit")
+      .select("*", { count: "exact", head: true })
+      .eq("userId", id)
 
-    if (existingCount >= 10) {
+    if ((count || 0) >= 10) {
       throw new BadRequestError(
         "Maximum 10 credits allowed. Remove one to add another."
       )
     }
 
-    const maxOrder = await prisma.credit.aggregate({
-      where: { userId: id },
-      _max: { displayOrder: true },
-    })
-    const nextOrder = (maxOrder._max.displayOrder ?? -1) + 1
+    // Get max display order
+    const { data: maxOrderData } = await supabase
+      .from("Credit")
+      .select("displayOrder")
+      .eq("userId", id)
+      .order("displayOrder", { ascending: false })
+      .limit(1)
+      .single()
 
-    const credit = await prisma.credit.create({
-      data: {
+    const nextOrder = ((maxOrderData?.displayOrder as number) ?? -1) + 1
+
+    const { data: credit, error } = await supabase
+      .from("Credit")
+      .insert({
         userId: id,
         title: data.title,
         role: data.role,
@@ -78,17 +76,11 @@ export const POST = createApiHandler({
         projectId: data.projectId ?? null,
         isManual: !data.projectId,
         displayOrder: nextOrder,
-      },
-      select: {
-        id: true,
-        title: true,
-        role: true,
-        year: true,
-        projectId: true,
-        isManual: true,
-        displayOrder: true,
-      },
-    })
+      })
+      .select("id, title, role, year, projectId, isManual, displayOrder")
+      .single()
+
+    if (error) throw error
 
     return credit
   },
@@ -97,21 +89,23 @@ export const POST = createApiHandler({
 export const PUT = createApiHandler({
   auth: "required",
   schema: reorderCreditsSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
     if (user.id !== id) {
       throw new ForbiddenError()
     }
 
-    await prisma.$transaction(
-      data.creditIds.map((creditId, index) =>
-        prisma.credit.update({
-          where: { id: creditId, userId: id },
-          data: { displayOrder: index },
-        })
-      )
-    )
+    // Update each credit's display order
+    for (let i = 0; i < data.creditIds.length; i++) {
+      const { error } = await supabase
+        .from("Credit")
+        .update({ displayOrder: i })
+        .eq("id", data.creditIds[i])
+        .eq("userId", id)
+
+      if (error) throw error
+    }
 
     return { success: true }
   },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/providers/auth-provider";
 import { toast } from "sonner";
 import type { PlanType } from "@/lib/stripe";
 import {

@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { logTeamAction } from "@/lib/audit-log"
 
 const createTeamSchema = z.object({
@@ -11,67 +10,83 @@ const createTeamSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user }) => {
-    const teams = await prisma.team.findMany({
-      where: {
-        OR: [
-          { ownerId: user.id },
-          { members: { some: { userId: user.id } } },
-        ],
-      },
-      include: {
-        owner: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-        members: {
-          include: {
-            user: {
-              select: { id: true, name: true, email: true, image: true },
-            },
-          },
-        },
-        _count: { select: { projects: true, members: true, invites: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    })
+  handler: async ({ user, supabase }) => {
+    // RLS filters to teams user is owner or member of
+    const { data: teams, error } = await supabase
+      .from("Team")
+      .select(`
+        *,
+        owner:User!ownerId(id, name, email, image),
+        members:TeamMember(
+          id, role, userId, createdAt,
+          user:User(id, name, email, image)
+        ),
+        projects:Project(id)
+      `)
+      .order("createdAt", { ascending: false })
 
-    return teams
+    if (error) throw error
+
+    // Transform to include counts
+    const transformedTeams = (teams || []).map((team: any) => ({
+      ...team,
+      _count: {
+        projects: team.projects?.length || 0,
+        members: team.members?.length || 0,
+        invites: 0, // Would need separate query
+      },
+    }))
+
+    return transformedTeams
   },
 })
 
 export const POST = createApiHandler({
   auth: "required",
   schema: createTeamSchema,
-  handler: async ({ user, data }) => {
+  handler: async ({ user, data, supabase }) => {
     const { name, description, logo } = data
 
-    const team = await prisma.team.create({
-      data: {
+    // Create team
+    const { data: team, error: teamError } = await supabase
+      .from("Team")
+      .insert({
         name,
         description,
         logo,
         ownerId: user.id,
-        members: {
-          create: {
-            userId: user.id,
-            role: "OWNER",
-          },
-        },
-      },
-      include: {
-        owner: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-        members: {
-          include: {
-            user: {
-              select: { id: true, name: true, email: true, image: true },
-            },
-          },
-        },
-        _count: { select: { projects: true, members: true, invites: true } },
-      },
-    })
+      })
+      .select()
+      .single()
+
+    if (teamError) throw teamError
+
+    // Add owner as member with OWNER role
+    const { error: memberError } = await supabase
+      .from("TeamMember")
+      .insert({
+        teamId: team.id,
+        userId: user.id,
+        role: "OWNER",
+      })
+
+    if (memberError) throw memberError
+
+    // Fetch complete team with relations
+    const { data: completeTeam, error: fetchError } = await supabase
+      .from("Team")
+      .select(`
+        *,
+        owner:User!ownerId(id, name, email, image),
+        members:TeamMember(
+          id, role, userId, createdAt,
+          user:User(id, name, email, image)
+        )
+      `)
+      .eq("id", team.id)
+      .single()
+
+    if (fetchError) throw fetchError
 
     await logTeamAction({
       teamId: team.id,
@@ -80,6 +95,13 @@ export const POST = createApiHandler({
       metadata: { name, description, logo },
     })
 
-    return team
+    return {
+      ...completeTeam,
+      _count: {
+        projects: 0,
+        members: 1,
+        invites: 0,
+      },
+    }
   },
 })

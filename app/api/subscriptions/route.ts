@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { getStripe } from "@/lib/stripe"
 import { reconcileUserSubscription } from "@/lib/stripe-helpers"
 
@@ -8,27 +7,23 @@ export const dynamic = "force-dynamic"
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user }) => {
-    const userData = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: {
-        plan: true,
-        stripeCustomerId: true,
-        stripeSubscriptionId: true,
-        stripePriceId: true,
-        stripeCurrentPeriodEnd: true,
-      },
-    })
+  handler: async ({ user, supabase }) => {
+    const { data: userData, error } = await supabase
+      .from("User")
+      .select("plan, stripeCustomerId, stripeSubscriptionId, stripePriceId, stripeCurrentPeriodEnd")
+      .eq("id", user.id)
+      .single()
 
-    if (!userData) {
+    if (error?.code === "PGRST116" || !userData) {
       throw new NotFoundError("User")
     }
+    if (error) throw error
 
     const isActive =
       userData.plan !== "FREE" &&
       userData.stripeSubscriptionId &&
       userData.stripeCurrentPeriodEnd &&
-      userData.stripeCurrentPeriodEnd > new Date()
+      new Date(userData.stripeCurrentPeriodEnd) > new Date()
 
     return {
       plan: userData.plan,
@@ -37,7 +32,7 @@ export const GET = createApiHandler({
       stripeCustomerId: userData.stripeCustomerId,
       stripeSubscriptionId: userData.stripeSubscriptionId,
       stripePriceId: userData.stripePriceId,
-      currentPeriodEnd: userData.stripeCurrentPeriodEnd?.toISOString() || null,
+      currentPeriodEnd: userData.stripeCurrentPeriodEnd || null,
     }
   },
 })
@@ -49,17 +44,19 @@ const subscriptionActionSchema = z.object({
 export const POST = createApiHandler({
   auth: "required",
   schema: subscriptionActionSchema,
-  handler: async ({ user, data }) => {
+  handler: async ({ user, data, supabase }) => {
     const { action } = data
 
-    const userData = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { stripeSubscriptionId: true, stripeCustomerId: true },
-    })
+    const { data: userData, error } = await supabase
+      .from("User")
+      .select("stripeSubscriptionId, stripeCustomerId")
+      .eq("id", user.id)
+      .single()
 
-    if (!userData) {
+    if (error?.code === "PGRST116" || !userData) {
       throw new NotFoundError("User")
     }
+    if (error) throw error
 
     const stripe = getStripe()
 

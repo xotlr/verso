@@ -1,7 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, RATE_LIMITS } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
-import { logger } from "@/lib/logger"
 
 const exploreQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -14,7 +12,7 @@ const exploreQuerySchema = z.object({
 export const GET = createApiHandler({
   auth: "none",
   rateLimit: RATE_LIMITS.API,
-  handler: async ({ searchParams }) => {
+  handler: async ({ searchParams, supabase }) => {
     const queryResult = exploreQuerySchema.safeParse({
       limit: searchParams.get("limit") || undefined,
       offset: searchParams.get("offset") || undefined,
@@ -30,50 +28,54 @@ export const GET = createApiHandler({
     const { limit, offset, genre, search, type } = queryResult.data
 
     if (type === "genres") {
-      const genres = await prisma.screenplay.findMany({
-        where: { isPublic: true, genre: { not: null } },
-        select: { genre: true },
-        distinct: ["genre"],
-      })
-      return { genres: genres.map((g) => g.genre).filter(Boolean) }
+      const { data: genreData, error } = await supabase
+        .from("Screenplay")
+        .select("genre")
+        .eq("isPublic", true)
+        .not("genre", "is", null)
+
+      if (error) throw error
+
+      // Get distinct genres
+      const uniqueGenres = [...new Set((genreData || []).map((g: { genre: string | null }) => g.genre).filter(Boolean))]
+      return { genres: uniqueGenres }
     }
 
-    const where: Record<string, unknown> = { isPublic: true }
+    // Build query for screenplays
+    let query = supabase
+      .from("Screenplay")
+      .select(`
+        id,
+        title,
+        synopsis,
+        genre,
+        views,
+        publishedAt,
+        user:User!userId(id, name, image)
+      `, { count: "exact" })
+      .eq("isPublic", true)
+      .order("views", { ascending: false })
+      .order("publishedAt", { ascending: false })
+      .range(offset, offset + limit - 1)
 
     if (genre) {
-      where.genre = genre
+      query = query.eq("genre", genre)
     }
 
     if (search) {
-      where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { synopsis: { contains: search, mode: "insensitive" } },
-      ]
+      query = query.or(`title.ilike.%${search}%,synopsis.ilike.%${search}%`)
     }
 
-    const [screenplays, total] = await Promise.all([
-      prisma.screenplay.findMany({
-        where,
-        orderBy: [{ views: "desc" }, { publishedAt: "desc" }],
-        skip: offset,
-        take: limit,
-        select: {
-          id: true,
-          title: true,
-          synopsis: true,
-          genre: true,
-          views: true,
-          publishedAt: true,
-          user: { select: { id: true, name: true, image: true } },
-        },
-      }),
-      prisma.screenplay.count({ where }),
-    ])
+    const { data: screenplays, count, error } = await query
+
+    if (error) throw error
+
+    const total = count || 0
 
     return {
-      screenplays,
+      screenplays: screenplays || [],
       total,
-      hasMore: offset + screenplays.length < total,
+      hasMore: offset + (screenplays?.length || 0) < total,
     }
   },
 })

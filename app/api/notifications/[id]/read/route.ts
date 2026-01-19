@@ -1,27 +1,35 @@
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 export const PATCH = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const notification = await prisma.notification.findUnique({
-      where: { id },
-    })
+    // Get notification
+    const { data: notification, error: fetchError } = await supabase
+      .from("Notification")
+      .select("id, userId")
+      .eq("id", id)
+      .single()
 
-    if (!notification) {
+    if (fetchError?.code === "PGRST116" || !notification) {
       throw new NotFoundError("Notification")
     }
+    if (fetchError) throw fetchError
 
     if (notification.userId !== user.id) {
       throw new ForbiddenError()
     }
 
-    const updated = await prisma.notification.update({
-      where: { id },
-      data: { isRead: true },
-    })
+    // Update notification
+    const { data: updated, error: updateError } = await supabase
+      .from("Notification")
+      .update({ isRead: true })
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
 
     return { notification: updated }
   },

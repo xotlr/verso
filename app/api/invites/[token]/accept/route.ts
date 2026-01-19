@@ -1,34 +1,32 @@
 import { NextResponse } from "next/server"
 import { createApiHandler, UnauthorizedError, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { logTeamAction } from "@/lib/audit-log"
 
 export const POST = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { token } = params
 
     if (!user.email) {
       throw new UnauthorizedError("You must be logged in to accept an invite")
     }
 
-    const invite = await prisma.teamInvite.findUnique({
-      where: { token },
-      include: {
-        team: {
-          include: {
-            _count: { select: { members: true, invites: true } },
-          },
-        },
-      },
-    })
+    const { data: invite, error: inviteError } = await supabase
+      .from("TeamInvite")
+      .select(`
+        id, email, role, expiresAt, teamId,
+        team:Team(id, name, logo, maxSeats)
+      `)
+      .eq("token", token)
+      .single()
 
-    if (!invite) {
+    if (inviteError?.code === "PGRST116" || !invite) {
       throw new NotFoundError("Invite")
     }
+    if (inviteError) throw inviteError
 
-    if (new Date() > invite.expiresAt) {
-      await prisma.teamInvite.delete({ where: { token } })
+    if (new Date() > new Date(invite.expiresAt)) {
+      await supabase.from("TeamInvite").delete().eq("token", token)
       return NextResponse.json({ error: "This invite has expired" }, { status: 410 })
     }
 
@@ -36,47 +34,47 @@ export const POST = createApiHandler({
       throw new ForbiddenError("This invite was sent to a different email address")
     }
 
-    const existingMembership = await prisma.teamMember.findUnique({
-      where: {
-        teamId_userId: { teamId: invite.teamId, userId: user.id },
-      },
-    })
+    const { data: existingMembership } = await supabase
+      .from("TeamMember")
+      .select("id")
+      .eq("teamId", invite.teamId)
+      .eq("userId", user.id)
+      .single()
 
     if (existingMembership) {
-      await prisma.teamInvite.delete({ where: { token } })
+      await supabase.from("TeamInvite").delete().eq("token", token)
       throw new BadRequestError("You are already a member of this team")
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      const currentMemberCount = await tx.teamMember.count({
-        where: { teamId: invite.teamId },
+    // Check seat limit
+    const { count: currentMemberCount } = await supabase
+      .from("TeamMember")
+      .select("*", { count: "exact", head: true })
+      .eq("teamId", invite.teamId)
+
+    if ((currentMemberCount || 0) >= (invite.team?.maxSeats || 0)) {
+      throw new ForbiddenError("Team has reached its seat limit")
+    }
+
+    // Create membership
+    const { data: member, error: memberError } = await supabase
+      .from("TeamMember")
+      .insert({
+        teamId: invite.teamId,
+        userId: user.id,
+        role: invite.role,
       })
+      .select(`
+        id, teamId, userId, role,
+        team:Team(id, name, logo),
+        user:User(id, name, email, image)
+      `)
+      .single()
 
-      if (currentMemberCount >= invite.team.maxSeats) {
-        throw new Error("SEAT_LIMIT_REACHED")
-      }
+    if (memberError) throw memberError
 
-      const member = await tx.teamMember.create({
-        data: {
-          teamId: invite.teamId,
-          userId: user.id,
-          role: invite.role,
-        },
-        include: {
-          team: { select: { id: true, name: true, logo: true } },
-          user: { select: { id: true, name: true, email: true, image: true } },
-        },
-      })
-
-      await tx.teamInvite.delete({ where: { token } })
-
-      return member
-    }).catch((error) => {
-      if (error instanceof Error && error.message === "SEAT_LIMIT_REACHED") {
-        throw new ForbiddenError("Team has reached its seat limit")
-      }
-      throw error
-    })
+    // Delete the invite
+    await supabase.from("TeamInvite").delete().eq("token", token)
 
     await logTeamAction({
       teamId: invite.teamId,
@@ -87,30 +85,33 @@ export const POST = createApiHandler({
       metadata: {
         inviteId: invite.id,
         role: invite.role,
-        teamName: result.team.name,
+        teamName: member.team?.name || "",
       },
     })
 
-    return { success: true, membership: result }
+    return { success: true, membership: member }
   },
 })
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { token } = params
 
     if (!user.email) {
       throw new UnauthorizedError("You must be logged in to decline an invite")
     }
 
-    const invite = await prisma.teamInvite.findUnique({
-      where: { token },
-    })
+    const { data: invite, error: inviteError } = await supabase
+      .from("TeamInvite")
+      .select("id, email, teamId")
+      .eq("token", token)
+      .single()
 
-    if (!invite) {
+    if (inviteError?.code === "PGRST116" || !invite) {
       throw new NotFoundError("Invite")
     }
+    if (inviteError) throw inviteError
 
     if (invite.email.toLowerCase() !== user.email.toLowerCase()) {
       throw new ForbiddenError("This invite was sent to a different email address")
@@ -118,7 +119,7 @@ export const DELETE = createApiHandler({
 
     const teamId = invite.teamId
 
-    await prisma.teamInvite.delete({ where: { token } })
+    await supabase.from("TeamInvite").delete().eq("token", token)
 
     await logTeamAction({
       teamId,

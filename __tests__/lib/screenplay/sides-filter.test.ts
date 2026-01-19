@@ -151,9 +151,9 @@ describe('filterByCharacter', () => {
       createDialogue('Scene 3'),
     ])
 
-    const result = filterByCharacter(doc, 'JOHN') as { content: object[] }
+    const result = filterByCharacter(doc, 'JOHN') as { content: Array<{ type: string }> }
     // Should include scenes 1 and 3
-    const sceneHeadings = result.content.filter((n: { type: string }) => n.type === 'scene_heading')
+    const sceneHeadings = result.content.filter((n) => n.type === 'scene_heading')
     expect(sceneHeadings).toHaveLength(2)
   })
 })

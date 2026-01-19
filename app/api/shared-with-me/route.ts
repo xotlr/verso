@@ -1,79 +1,94 @@
 import { createApiHandler } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user }) => {
-    const [screenplays, projects, series] = await Promise.all([
-      prisma.screenplayShare.findMany({
-        where: { userId: user.id },
-        select: {
-          id: true,
-          role: true,
-          createdAt: true,
-          sharer: { select: { id: true, name: true, image: true } },
-          screenplay: {
-            select: {
-              id: true,
-              title: true,
-              logline: true,
-              genre: true,
-              updatedAt: true,
-              type: true,
-              user: { select: { id: true, name: true, image: true } },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.projectShare.findMany({
-        where: { userId: user.id },
-        select: {
-          id: true,
-          role: true,
-          createdAt: true,
-          sharer: { select: { id: true, name: true, image: true } },
-          project: {
-            select: {
-              id: true,
-              name: true,
-              description: true,
-              type: true,
-              status: true,
-              updatedAt: true,
-              user: { select: { id: true, name: true, image: true } },
-              _count: { select: { screenplays: true } },
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.seriesShare.findMany({
-        where: { userId: user.id },
-        select: {
-          id: true,
-          role: true,
-          createdAt: true,
-          sharer: { select: { id: true, name: true, image: true } },
+  handler: async ({ user, supabase }) => {
+    // Fetch screenplay shares
+    const { data: screenplayShares } = await supabase
+      .from("ScreenplayShare")
+      .select(`
+        id, role, createdAt,
+        sharer:User!sharerId(id, name, image),
+        screenplay:Screenplay(
+          id, title, logline, genre, updatedAt, type,
+          user:User(id, name, image)
+        )
+      `)
+      .eq("userId", user.id)
+      .order("createdAt", { ascending: false })
+
+    // Fetch project shares
+    const { data: projectShares } = await supabase
+      .from("ProjectShare")
+      .select(`
+        id, role, createdAt,
+        sharer:User!sharerId(id, name, image),
+        project:Project(
+          id, name, description, type, status, updatedAt,
+          user:User(id, name, image)
+        )
+      `)
+      .eq("userId", user.id)
+      .order("createdAt", { ascending: false })
+
+    // Get screenplay counts for projects
+    const projectsWithCounts = await Promise.all(
+      (projectShares || []).map(async (share: any) => {
+        if (!share.project) return share
+        const { count } = await supabase
+          .from("Screenplay")
+          .select("*", { count: "exact", head: true })
+          .eq("projectId", share.project.id)
+        return {
+          ...share,
+          project: { ...share.project, _count: { screenplays: count || 0 } },
+        }
+      })
+    )
+
+    // Fetch series shares
+    const { data: seriesShares } = await supabase
+      .from("SeriesShare")
+      .select(`
+        id, role, createdAt,
+        sharer:User!sharerId(id, name, image),
+        series:Series(
+          id, title, logline, genre, format, updatedAt,
+          user:User(id, name, image)
+        )
+      `)
+      .eq("userId", user.id)
+      .order("createdAt", { ascending: false })
+
+    // Get counts for series
+    const seriesWithCounts = await Promise.all(
+      (seriesShares || []).map(async (share: any) => {
+        if (!share.series) return share
+        const [seasonsResult, episodesResult] = await Promise.all([
+          supabase
+            .from("Season")
+            .select("*", { count: "exact", head: true })
+            .eq("seriesId", share.series.id),
+          supabase
+            .from("Episode")
+            .select("*", { count: "exact", head: true })
+            .eq("seriesId", share.series.id),
+        ])
+        return {
+          ...share,
           series: {
-            select: {
-              id: true,
-              title: true,
-              logline: true,
-              genre: true,
-              format: true,
-              updatedAt: true,
-              user: { select: { id: true, name: true, image: true } },
-              _count: { select: { seasons: true, episodes: true } },
+            ...share.series,
+            _count: {
+              seasons: seasonsResult.count || 0,
+              episodes: episodesResult.count || 0,
             },
           },
-        },
-        orderBy: { createdAt: "desc" },
-      }),
-    ])
+        }
+      })
+    )
 
     return {
-      screenplays: screenplays.map((s) => ({
+      screenplays: (screenplayShares || []).map((s: any) => ({
         ...s.screenplay,
         shareId: s.id,
         shareRole: s.role,
@@ -81,7 +96,7 @@ export const GET = createApiHandler({
         sharedBy: s.sharer,
         type: "screenplay" as const,
       })),
-      projects: projects.map((p) => ({
+      projects: projectsWithCounts.map((p: any) => ({
         ...p.project,
         shareId: p.id,
         shareRole: p.role,
@@ -89,7 +104,7 @@ export const GET = createApiHandler({
         sharedBy: p.sharer,
         type: "project" as const,
       })),
-      series: series.map((s) => ({
+      series: seriesWithCounts.map((s: any) => ({
         ...s.series,
         shareId: s.id,
         shareRole: s.role,

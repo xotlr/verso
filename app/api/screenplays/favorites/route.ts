@@ -1,27 +1,23 @@
 import { createApiHandler } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, searchParams }) => {
+  handler: async ({ searchParams, supabase }) => {
     const limit = Math.min(parseInt(searchParams.get("limit") || "10"), 20)
 
-    const favorites = await prisma.screenplay.findMany({
-      where: {
-        userId: user.id,
-        isFavorite: true,
-      },
-      orderBy: { updatedAt: "desc" },
-      take: limit,
-      select: {
-        id: true,
-        title: true,
-        updatedAt: true,
-        isFavorite: true,
-        project: { select: { id: true, name: true } },
-      },
-    })
+    // RLS automatically filters to accessible screenplays
+    const { data: favorites, error } = await supabase
+      .from("Screenplay")
+      .select(`
+        id, title, updatedAt, isFavorite,
+        project:Project(id, name)
+      `)
+      .eq("isFavorite", true)
+      .order("updatedAt", { ascending: false })
+      .limit(limit)
 
-    return favorites
+    if (error) throw error
+
+    return favorites || []
   },
 })

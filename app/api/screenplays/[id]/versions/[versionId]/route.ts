@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
 const updateVersionSchema = z.object({
@@ -9,7 +8,7 @@ const updateVersionSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id, versionId } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -21,16 +20,21 @@ export const GET = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const version = await prisma.screenplayVersion.findUnique({
-      where: { id: versionId },
-      include: {
-        creator: {
-          select: { id: true, name: true, image: true },
-        },
-      },
-    })
+    const { data: version, error } = await supabase
+      .from("ScreenplayVersion")
+      .select(`
+        *,
+        creator:User!createdBy(id, name, image)
+      `)
+      .eq("id", versionId)
+      .single()
 
-    if (!version || version.screenplayId !== id) {
+    if (error?.code === "PGRST116" || !version) {
+      throw new NotFoundError("Version")
+    }
+    if (error) throw error
+
+    if (version.screenplayId !== id) {
       throw new NotFoundError("Version")
     }
 
@@ -41,7 +45,7 @@ export const GET = createApiHandler({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateVersionSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id, versionId } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -53,10 +57,14 @@ export const PATCH = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const version = await prisma.screenplayVersion.update({
-      where: { id: versionId },
-      data: { label: data.label },
-    })
+    const { data: version, error: updateError } = await supabase
+      .from("ScreenplayVersion")
+      .update({ label: data.label })
+      .eq("id", versionId)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
 
     return version
   },
@@ -64,7 +72,7 @@ export const PATCH = createApiHandler({
 
 export const POST = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id, versionId } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -76,35 +84,49 @@ export const POST = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const versionToRestore = await prisma.screenplayVersion.findUnique({
-      where: { id: versionId },
-    })
+    const { data: versionToRestore, error: versionError } = await supabase
+      .from("ScreenplayVersion")
+      .select("*")
+      .eq("id", versionId)
+      .single()
 
-    if (!versionToRestore || versionToRestore.screenplayId !== id) {
+    if (versionError?.code === "PGRST116" || !versionToRestore) {
+      throw new NotFoundError("Version")
+    }
+    if (versionError) throw versionError
+
+    if (versionToRestore.screenplayId !== id) {
       throw new NotFoundError("Version")
     }
 
-    const screenplay = await prisma.screenplay.findUnique({
-      where: { id },
-    })
+    const { data: screenplay, error: screenplayError } = await supabase
+      .from("Screenplay")
+      .select("*")
+      .eq("id", id)
+      .single()
 
-    if (!screenplay) {
+    if (screenplayError?.code === "PGRST116" || !screenplay) {
       throw new NotFoundError("Screenplay")
     }
+    if (screenplayError) throw screenplayError
 
-    const lastVersion = await prisma.screenplayVersion.findFirst({
-      where: { screenplayId: id },
-      orderBy: { versionNumber: "desc" },
-      select: { versionNumber: true },
-    })
+    const { data: lastVersion } = await supabase
+      .from("ScreenplayVersion")
+      .select("versionNumber")
+      .eq("screenplayId", id)
+      .order("versionNumber", { ascending: false })
+      .limit(1)
+      .single()
 
     const versionNumber = (lastVersion?.versionNumber ?? 0) + 1
 
     const currentWordCount = screenplay.content.split(/\s+/).filter(Boolean).length
     const currentSceneCount = (screenplay.content.match(/^(INT\.|EXT\.|INT\/EXT\.|I\/E\.)/gim) || []).length
 
-    await prisma.screenplayVersion.create({
-      data: {
+    // Create backup version
+    await supabase
+      .from("ScreenplayVersion")
+      .insert({
         screenplayId: id,
         content: screenplay.content,
         versionNumber,
@@ -113,13 +135,17 @@ export const POST = createApiHandler({
         wordCount: currentWordCount,
         sceneCount: currentSceneCount,
         createdBy: user.id,
-      },
-    })
+      })
 
-    const updatedScreenplay = await prisma.screenplay.update({
-      where: { id },
-      data: { content: versionToRestore.content },
-    })
+    // Restore the screenplay content
+    const { data: updatedScreenplay, error: updateError } = await supabase
+      .from("Screenplay")
+      .update({ content: versionToRestore.content })
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
 
     return {
       success: true,
@@ -131,7 +157,7 @@ export const POST = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id, versionId } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -143,17 +169,27 @@ export const DELETE = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const version = await prisma.screenplayVersion.findUnique({
-      where: { id: versionId },
-    })
+    const { data: version, error: fetchError } = await supabase
+      .from("ScreenplayVersion")
+      .select("id, screenplayId")
+      .eq("id", versionId)
+      .single()
 
-    if (!version || version.screenplayId !== id) {
+    if (fetchError?.code === "PGRST116" || !version) {
+      throw new NotFoundError("Version")
+    }
+    if (fetchError) throw fetchError
+
+    if (version.screenplayId !== id) {
       throw new NotFoundError("Version")
     }
 
-    await prisma.screenplayVersion.delete({
-      where: { id: versionId },
-    })
+    const { error: deleteError } = await supabase
+      .from("ScreenplayVersion")
+      .delete()
+      .eq("id", versionId)
+
+    if (deleteError) throw deleteError
 
     return { success: true }
   },

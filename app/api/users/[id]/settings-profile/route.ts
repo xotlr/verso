@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, UnauthorizedError, NotFoundError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 // Valid use case IDs from onboarding
 const validUseCases = [
@@ -25,35 +24,26 @@ const updateSettingsProfileSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
     if (user.id !== id) {
       throw new UnauthorizedError()
     }
 
-    const userData = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        username: true,
-        email: true,
-        image: true,
-        banner: true,
-        bio: true,
-        title: true,
-        isPublic: true,
-        plan: true,
-        location: true,
-        website: true,
-        useCases: true,
-      },
-    })
+    const { data: userData, error } = await supabase
+      .from("User")
+      .select(`
+        id, name, username, email, image, banner,
+        bio, title, isPublic, plan, location, website, useCases
+      `)
+      .eq("id", id)
+      .single()
 
-    if (!userData) {
+    if (error?.code === "PGRST116" || !userData) {
       throw new NotFoundError("User")
     }
+    if (error) throw error
 
     return userData
   },
@@ -62,22 +52,21 @@ export const GET = createApiHandler({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateSettingsProfileSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
     if (user.id !== id) {
       throw new UnauthorizedError()
     }
 
-    const updatedUser = await prisma.user.update({
-      where: { id },
-      data,
-      select: {
-        id: true,
-        name: true,
-        useCases: true,
-      },
-    })
+    const { data: updatedUser, error } = await supabase
+      .from("User")
+      .update(data)
+      .eq("id", id)
+      .select("id, name, useCases")
+      .single()
+
+    if (error) throw error
 
     return updatedUser
   },

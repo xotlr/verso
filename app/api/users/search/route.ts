@@ -1,5 +1,4 @@
 import { createApiHandler } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@")
@@ -12,7 +11,7 @@ function maskEmail(email: string): string {
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, searchParams }) => {
+  handler: async ({ user, searchParams, supabase }) => {
     const query = searchParams.get("q")?.trim()
 
     if (!query || query.length < 2) {
@@ -21,31 +20,19 @@ export const GET = createApiHandler({
 
     const limit = Math.min(parseInt(searchParams.get("limit") || "10"), 20)
 
-    const users = await prisma.user.findMany({
-      where: {
-        AND: [
-          { id: { not: user.id } },
-          {
-            OR: [
-              { name: { contains: query, mode: "insensitive" } },
-              { email: { contains: query, mode: "insensitive" } },
-              { username: { contains: query, mode: "insensitive" } },
-            ],
-          },
-        ],
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-        username: true,
-      },
-      take: limit,
-      orderBy: { name: "asc" },
-    })
+    // Supabase uses ilike for case-insensitive matching
+    const { data: users, error } = await supabase
+      .from("User")
+      .select("id, name, email, image, username")
+      .neq("id", user.id)
+      .or(`name.ilike.%${query}%,email.ilike.%${query}%,username.ilike.%${query}%`)
+      .order("name", { ascending: true })
+      .limit(limit)
 
-    return users.map((u) => ({
+    if (error) throw error
+
+    type UserResult = { id: string; name: string | null; email: string | null; image: string | null; username: string | null }
+    return (users || []).map((u: UserResult) => ({
       ...u,
       email: u.email ? maskEmail(u.email) : null,
     }))

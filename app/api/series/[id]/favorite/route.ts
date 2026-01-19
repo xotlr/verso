@@ -1,24 +1,30 @@
 import { createApiHandler, NotFoundError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 export const POST = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const series = await prisma.series.findFirst({
-      where: { id, userId: user.id },
-    })
+    const { data: series, error: fetchError } = await supabase
+      .from("Series")
+      .select("id, isFavorite")
+      .eq("id", id)
+      .eq("userId", user.id)
+      .single()
 
-    if (!series) {
+    if (fetchError?.code === "PGRST116" || !series) {
       throw new NotFoundError("Series")
     }
+    if (fetchError) throw fetchError
 
-    const updated = await prisma.series.update({
-      where: { id },
-      data: { isFavorite: !series.isFavorite },
-      select: { id: true, isFavorite: true },
-    })
+    const { data: updated, error: updateError } = await supabase
+      .from("Series")
+      .update({ isFavorite: !series.isFavorite })
+      .eq("id", id)
+      .select("id, isFavorite")
+      .single()
+
+    if (updateError) throw updateError
 
     return updated
   },

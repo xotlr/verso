@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/components/theme-provider';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession, signOut } from '@/components/providers/auth-provider';
 import { useMounted } from '@/hooks/use-mobile';
 import { Search, Bell, Sun, Moon, Settings, LogOut, User } from 'lucide-react';
 import { FriesIcon } from '@/components/icons/fries-icon';

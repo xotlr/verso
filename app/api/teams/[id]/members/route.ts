@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { logTeamAction } from "@/lib/audit-log"
 
 const addMemberSchema = z.object({
@@ -10,48 +9,61 @@ const addMemberSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const membership = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: id, userId: user.id } },
-    })
+    // Check membership - RLS also enforces this
+    const { data: membership } = await supabase
+      .from("TeamMember")
+      .select("role")
+      .eq("teamId", id)
+      .eq("userId", user.id)
+      .single()
 
     if (!membership) {
       throw new ForbiddenError("Access denied")
     }
 
-    const members = await prisma.teamMember.findMany({
-      where: { teamId: id },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    })
+    const { data: members, error } = await supabase
+      .from("TeamMember")
+      .select(`
+        id, role, userId, createdAt,
+        user:User(id, name, email, image)
+      `)
+      .eq("teamId", id)
+      .order("createdAt", { ascending: true })
 
-    return members
+    if (error) throw error
+
+    return members || []
   },
 })
 
 export const POST = createApiHandler({
   auth: "required",
   schema: addMemberSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
-    const membership = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: id, userId: user.id } },
-    })
+    // Check membership
+    const { data: membership } = await supabase
+      .from("TeamMember")
+      .select("role")
+      .eq("teamId", id)
+      .eq("userId", user.id)
+      .single()
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-    })
+    // Check team exists
+    const { data: team, error: teamError } = await supabase
+      .from("Team")
+      .select("ownerId, maxSeats")
+      .eq("id", id)
+      .single()
 
-    if (!team) {
+    if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
+    if (teamError) throw teamError
 
     const canInvite =
       team.ownerId === user.id ||
@@ -61,10 +73,20 @@ export const POST = createApiHandler({
       throw new ForbiddenError("Only owners and admins can invite members")
     }
 
-    const [memberCount, inviteCount] = await Promise.all([
-      prisma.teamMember.count({ where: { teamId: id } }),
-      prisma.teamInvite.count({ where: { teamId: id } }),
+    // Check seat limits
+    const [memberCountResult, inviteCountResult] = await Promise.all([
+      supabase
+        .from("TeamMember")
+        .select("*", { count: "exact", head: true })
+        .eq("teamId", id),
+      supabase
+        .from("TeamInvite")
+        .select("*", { count: "exact", head: true })
+        .eq("teamId", id),
     ])
+
+    const memberCount = memberCountResult.count || 0
+    const inviteCount = inviteCountResult.count || 0
     const totalSeats = memberCount + inviteCount
 
     if (totalSeats >= team.maxSeats) {
@@ -73,34 +95,45 @@ export const POST = createApiHandler({
       )
     }
 
-    const userToAdd = await prisma.user.findUnique({
-      where: { email: data.email },
-    })
+    // Find user to add
+    const { data: userToAdd, error: userError } = await supabase
+      .from("User")
+      .select("id, name")
+      .eq("email", data.email)
+      .single()
 
-    if (!userToAdd) {
+    if (userError?.code === "PGRST116" || !userToAdd) {
       throw new NotFoundError("User not found. They need to create an account first.")
     }
+    if (userError) throw userError
 
-    const existingMembership = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: id, userId: userToAdd.id } },
-    })
+    // Check if already a member
+    const { data: existingMembership } = await supabase
+      .from("TeamMember")
+      .select("id")
+      .eq("teamId", id)
+      .eq("userId", userToAdd.id)
+      .single()
 
     if (existingMembership) {
       throw new BadRequestError("User is already a member of this team")
     }
 
-    const newMember = await prisma.teamMember.create({
-      data: {
+    // Add member
+    const { data: newMember, error: insertError } = await supabase
+      .from("TeamMember")
+      .insert({
         teamId: id,
         userId: userToAdd.id,
         role: data.role,
-      },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true, image: true },
-        },
-      },
-    })
+      })
+      .select(`
+        id, role, userId, createdAt,
+        user:User(id, name, email, image)
+      `)
+      .single()
+
+    if (insertError) throw insertError
 
     await logTeamAction({
       teamId: id,

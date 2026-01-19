@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { getStripe } from "@/lib/stripe"
-import { prisma } from "@/lib/prisma"
-import { Plan } from "@prisma/client"
+import { createServerActionClient } from "@/lib/supabase/server"
 import Stripe from "stripe"
 import { updateTeamSubscription, cancelTeamSubscription } from "@/lib/stripe-helpers"
 import { logger } from "@/lib/logger"
@@ -11,27 +10,31 @@ export const dynamic = "force-dynamic"
 
 // Valid plan types for validation
 const VALID_PLANS = ["FREE", "PLUS", "PRO", "MAX"] as const
+type Plan = (typeof VALID_PLANS)[number]
 
 /**
  * Check if a webhook event has already been processed (database-backed idempotency)
  */
 async function isEventProcessed(eventId: string): Promise<boolean> {
-  const existing = await prisma.processedWebhookEvent.findUnique({
-    where: { id: eventId },
-  })
-  return existing !== null
+  const supabase = await createServerActionClient()
+  const result = await supabase
+    .from("ProcessedWebhookEvent")
+    .select("id")
+    .eq("id", eventId)
+    .single()
+  return result.data !== null
 }
 
 /**
  * Mark a webhook event as processed in the database
  */
 async function markEventProcessed(eventId: string, eventType: string): Promise<void> {
-  await prisma.processedWebhookEvent.create({
-    data: {
+  const supabase = await createServerActionClient()
+  await (supabase.from("ProcessedWebhookEvent") as ReturnType<typeof supabase.from>)
+    .insert({
       id: eventId,
       eventType,
-    },
-  })
+    })
 }
 
 export async function POST(request: Request) {
@@ -165,6 +168,7 @@ async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
   stripe: Stripe
 ) {
+  const supabase = await createServerActionClient()
   const userId = session.metadata?.userId
   const planName = session.metadata?.plan
   const customerId =
@@ -199,16 +203,15 @@ async function handleCheckoutCompleted(
     : "PRO"
 
   // Update user with subscription info
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
+  await (supabase.from("User") as ReturnType<typeof supabase.from>)
+    .update({
       plan,
       stripeCustomerId: customerId || undefined,
       stripeSubscriptionId: subscription.id,
       stripePriceId: subscription.items.data[0]?.price?.id || null,
-      stripeCurrentPeriodEnd: getStripeDate(subscription.items.data[0]?.current_period_end),
-    },
-  })
+      stripeCurrentPeriodEnd: getStripeDate(subscription.items.data[0]?.current_period_end).toISOString(),
+    })
+    .eq("id", userId)
 
   logger.info("Subscription activated from checkout", {
     userId,
@@ -232,16 +235,19 @@ function getStripeDate(timestamp: number | undefined | null): Date {
  * Handle subscription updates
  */
 async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
+  const supabase = await createServerActionClient()
   const userId = subscription.metadata?.userId
   const planName = subscription.metadata?.plan
 
   if (!userId) {
     // Try to find user by customer ID
     const customerId = subscription.customer as string
-    const user = await prisma.user.findFirst({
-      where: { stripeCustomerId: customerId },
-      select: { id: true },
-    })
+    const userResult = await supabase
+      .from("User")
+      .select("id")
+      .eq("stripeCustomerId", customerId)
+      .single()
+    const user = userResult.data as { id: string } | null
 
     if (!user) {
       logger.warn("Subscription update: cannot find user", {
@@ -259,15 +265,14 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
           : "PRO"
         : "FREE"
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
+    await (supabase.from("User") as ReturnType<typeof supabase.from>)
+      .update({
         plan,
         stripeSubscriptionId: subscription.id,
         stripePriceId: subscription.items.data[0]?.price?.id || null,
-        stripeCurrentPeriodEnd: getStripeDate(subscription.items.data[0]?.current_period_end),
-      },
-    })
+        stripeCurrentPeriodEnd: getStripeDate(subscription.items.data[0]?.current_period_end).toISOString(),
+      })
+      .eq("id", user.id)
 
     logger.info("Subscription updated (by customer ID)", {
       userId: user.id,
@@ -285,15 +290,14 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
         : "PRO"
       : "FREE"
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
+  await (supabase.from("User") as ReturnType<typeof supabase.from>)
+    .update({
       plan,
       stripeSubscriptionId: subscription.id,
       stripePriceId: subscription.items.data[0]?.price?.id || null,
-      stripeCurrentPeriodEnd: getStripeDate(subscription.items.data[0]?.current_period_end),
-    },
-  })
+      stripeCurrentPeriodEnd: getStripeDate(subscription.items.data[0]?.current_period_end).toISOString(),
+    })
+    .eq("id", userId)
 
   logger.info("Subscription updated", {
     userId,
@@ -308,31 +312,30 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
 async function handleSubscriptionCancellation(
   subscription: Stripe.Subscription
 ) {
+  const supabase = await createServerActionClient()
   const userId = subscription.metadata?.userId
   const customerId = subscription.customer as string
 
   if (userId) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
+    await (supabase.from("User") as ReturnType<typeof supabase.from>)
+      .update({
         plan: "FREE",
         stripeSubscriptionId: null,
         stripePriceId: null,
         stripeCurrentPeriodEnd: null,
-      },
-    })
+      })
+      .eq("id", userId)
     logger.info("Subscription canceled", { userId })
   } else {
-    // Update by customer ID
-    await prisma.user.updateMany({
-      where: { stripeCustomerId: customerId },
-      data: {
+    // Update by customer ID - find all users with this customer ID
+    await (supabase.from("User") as ReturnType<typeof supabase.from>)
+      .update({
         plan: "FREE",
         stripeSubscriptionId: null,
         stripePriceId: null,
         stripeCurrentPeriodEnd: null,
-      },
-    })
+      })
+      .eq("stripeCustomerId", customerId)
     logger.info("Subscription canceled (by customer ID)", { customerId })
   }
 }
@@ -341,6 +344,7 @@ async function handleSubscriptionCancellation(
  * Handle successful payment (reactivates past_due subscriptions)
  */
 async function handlePaymentSucceeded(invoiceData: Stripe.Invoice) {
+  const supabase = await createServerActionClient()
   // Cast to access properties that may not be in the type definitions
   const invoice = invoiceData as Stripe.Invoice & {
     subscription?: string | null
@@ -355,10 +359,12 @@ async function handlePaymentSucceeded(invoiceData: Stripe.Invoice) {
   }
 
   // Find user and update their plan status if they were past_due
-  const user = await prisma.user.findFirst({
-    where: { stripeCustomerId: customerId },
-    select: { id: true, plan: true },
-  })
+  const userResult = await supabase
+    .from("User")
+    .select("id, plan")
+    .eq("stripeCustomerId", customerId)
+    .single()
+  const user = userResult.data as { id: string; plan: string } | null
 
   if (user && user.plan === "FREE") {
     // User was downgraded due to payment failure, reactivate
@@ -368,15 +374,16 @@ async function handlePaymentSucceeded(invoiceData: Stripe.Invoice) {
       ? (planName.toUpperCase() as Plan)
       : "PRO"
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
+    const periodEnd = invoice.lines.data[0]?.period?.end
+      ? new Date(invoice.lines.data[0].period.end * 1000).toISOString()
+      : undefined
+
+    await (supabase.from("User") as ReturnType<typeof supabase.from>)
+      .update({
         plan,
-        stripeCurrentPeriodEnd: invoice.lines.data[0]?.period?.end
-          ? new Date(invoice.lines.data[0].period.end * 1000)
-          : undefined,
-      },
-    })
+        ...(periodEnd ? { stripeCurrentPeriodEnd: periodEnd } : {}),
+      })
+      .eq("id", user.id)
 
     logger.info("Subscription reactivated after payment", {
       userId: user.id,
@@ -413,6 +420,7 @@ async function handleTeamCheckoutCompleted(
   session: Stripe.Checkout.Session,
   stripe: Stripe
 ) {
+  const supabase = await createServerActionClient()
   const teamId = session.metadata?.teamId
   const customerId =
     typeof session.customer === "string"
@@ -447,16 +455,15 @@ async function handleTeamCheckoutCompleted(
   const maxSeats = parseInt(subscription.metadata?.maxSeats || "10", 10)
 
   // Update team with subscription info
-  await prisma.team.update({
-    where: { id: teamId },
-    data: {
+  await (supabase.from("Team") as ReturnType<typeof supabase.from>)
+    .update({
       stripeCustomerId: customerId || undefined,
       stripeSubscriptionId: subscription.id,
       stripePriceId: subscription.items.data[0]?.price?.id || null,
-      stripeCurrentPeriodEnd: getStripeDate(subscription.items.data[0]?.current_period_end),
+      stripeCurrentPeriodEnd: getStripeDate(subscription.items.data[0]?.current_period_end).toISOString(),
       maxSeats,
-    },
-  })
+    })
+    .eq("id", teamId)
 
   logger.info("Team subscription activated from checkout", {
     teamId,
@@ -469,16 +476,19 @@ async function handleTeamCheckoutCompleted(
  * Handle team subscription updates
  */
 async function handleTeamSubscriptionUpdate(subscriptionData: Stripe.Subscription) {
+  const supabase = await createServerActionClient()
   const subscription = subscriptionData as Stripe.Subscription & { current_period_end: number }
   const teamId = subscription.metadata?.teamId
 
   if (!teamId) {
     // Try to find team by customer ID
     const customerId = subscription.customer as string
-    const team = await prisma.team.findFirst({
-      where: { stripeCustomerId: customerId },
-      select: { id: true },
-    })
+    const teamResult = await supabase
+      .from("Team")
+      .select("id")
+      .eq("stripeCustomerId", customerId)
+      .single()
+    const team = teamResult.data as { id: string } | null
 
     if (!team) {
       logger.warn("Team subscription update: cannot find team", {
@@ -537,6 +547,7 @@ async function handleTeamSubscriptionUpdate(subscriptionData: Stripe.Subscriptio
 async function handleTeamSubscriptionCancellation(
   subscription: Stripe.Subscription
 ) {
+  const supabase = await createServerActionClient()
   const teamId = subscription.metadata?.teamId
   const customerId = subscription.customer as string
 
@@ -545,10 +556,12 @@ async function handleTeamSubscriptionCancellation(
     logger.info("Team subscription canceled", { teamId })
   } else {
     // Cancel by customer ID
-    const team = await prisma.team.findFirst({
-      where: { stripeCustomerId: customerId },
-      select: { id: true },
-    })
+    const teamResult = await supabase
+      .from("Team")
+      .select("id")
+      .eq("stripeCustomerId", customerId)
+      .single()
+    const team = teamResult.data as { id: string } | null
 
     if (team) {
       await cancelTeamSubscription(team.id)

@@ -1,8 +1,7 @@
 import { z } from "zod"
-import { createApiHandler, NotFoundError, BadRequestError, UnauthorizedError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
-import { Prisma } from "@prisma/client"
-import { auth } from "@/lib/auth"
+import { createApiHandler, NotFoundError, BadRequestError } from "@/lib/api"
+import { createServiceRoleClient } from "@/lib/supabase/server"
+import { getSession } from "@/lib/supabase-auth"
 import { NextResponse } from "next/server"
 import { logger } from "@/lib/logger"
 
@@ -18,33 +17,30 @@ const recordOperationSchema = z.object({
 export const POST = createApiHandler({
   auth: "required",
   schema: recordOperationSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: screenplayId } = params
 
-    const screenplay = await prisma.screenplay.findFirst({
-      where: {
-        id: screenplayId,
-        userId: user.id,
-      },
-      select: {
-        timelapseEnabled: true,
-        timelapseStarted: true,
-      },
-    })
+    const { data: screenplay, error } = await supabase
+      .from("Screenplay")
+      .select("timelapseEnabled, timelapseStarted")
+      .eq("id", screenplayId)
+      .eq("userId", user.id)
+      .single()
 
-    if (!screenplay) {
+    if (error?.code === "PGRST116" || !screenplay) {
       throw new NotFoundError("Screenplay")
     }
+    if (error) throw error
 
     if (!screenplay.timelapseEnabled) {
       throw new BadRequestError("Timelapse recording is disabled")
     }
 
     if (!screenplay.timelapseStarted) {
-      await prisma.screenplay.update({
-        where: { id: screenplayId },
-        data: { timelapseStarted: new Date() },
-      })
+      await supabase
+        .from("Screenplay")
+        .update({ timelapseStarted: new Date().toISOString() })
+        .eq("id", screenplayId)
     }
 
     const operations = data.operations.map((op) => ({
@@ -53,12 +49,14 @@ export const POST = createApiHandler({
       operationType: op.operationType,
       position: op.position ?? null,
       content: op.content ?? null,
-      metadata: op.metadata ? (op.metadata as Prisma.InputJsonValue) : Prisma.JsonNull,
+      metadata: op.metadata ?? null,
     }))
 
-    await prisma.screenplayOperation.createMany({
-      data: operations,
-    })
+    const { error: insertError } = await supabase
+      .from("ScreenplayOperation")
+      .insert(operations)
+
+    if (insertError) throw insertError
 
     return { success: true, count: operations.length }
   },
@@ -69,104 +67,88 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth()
   const { id: screenplayId } = await params
+
   try {
     const { searchParams } = new URL(request.url)
+    const session = await getSession()
+    const userId = session?.user?.id
+
+    const supabase = await createServiceRoleClient()
 
     const cursor = searchParams.get("cursor")
     const limit = Math.min(parseInt(searchParams.get("limit") || "1000"), 5000)
     const fromTimestamp = searchParams.get("from")
     const toTimestamp = searchParams.get("to")
 
-    const screenplay = await prisma.screenplay.findFirst({
-      where: {
-        id: screenplayId,
-        OR: [
-          { userId: session?.user?.id || "" },
-          { timelapseShareId: { not: null } },
-        ],
-      },
-      select: {
-        id: true,
-        userId: true,
-        timelapseEnabled: true,
-        timelapseStarted: true,
-        timelapseShareId: true,
-      },
-    })
+    // Check screenplay access (owner or has shareId)
+    interface ScreenplayData { id: string; userId: string; timelapseEnabled: boolean; timelapseStarted: string | null; timelapseShareId: string | null }
+    const screenplayResult = await supabase
+      .from("Screenplay")
+      .select("id, userId, timelapseEnabled, timelapseStarted, timelapseShareId")
+      .eq("id", screenplayId)
+      .single()
 
-    if (!screenplay) {
+    const screenplay = screenplayResult.data as ScreenplayData | null
+    if (screenplayResult.error?.code === "PGRST116" || !screenplay) {
       return NextResponse.json({ error: "Screenplay not found" }, { status: 404 })
     }
 
-    if (screenplay.userId !== session?.user?.id && !screenplay.timelapseShareId) {
+    if (screenplay.userId !== userId && !screenplay.timelapseShareId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const where: {
-      screenplayId: string
-      sequenceNumber?: { gt: bigint }
-      timestamp?: { gte?: Date; lte?: Date }
-    } = {
-      screenplayId,
-    }
+    let query = supabase
+      .from("ScreenplayOperation")
+      .select(`
+        id, operationType, position, content, metadata, timestamp, sequenceNumber,
+        user:User!userId(id, name, image)
+      `)
+      .eq("screenplayId", screenplayId)
+      .order("sequenceNumber", { ascending: true })
+      .limit(limit)
 
     if (cursor) {
-      where.sequenceNumber = { gt: BigInt(cursor) }
+      query = query.gt("sequenceNumber", cursor)
     }
 
-    if (fromTimestamp || toTimestamp) {
-      where.timestamp = {}
-      if (fromTimestamp) where.timestamp.gte = new Date(fromTimestamp)
-      if (toTimestamp) where.timestamp.lte = new Date(toTimestamp)
+    if (fromTimestamp) {
+      query = query.gte("timestamp", fromTimestamp)
     }
 
-    const operations = await prisma.screenplayOperation.findMany({
-      where,
-      orderBy: { sequenceNumber: "asc" },
-      take: limit,
-      select: {
-        id: true,
-        operationType: true,
-        position: true,
-        content: true,
-        metadata: true,
-        timestamp: true,
-        sequenceNumber: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
-        },
-      },
-    })
+    if (toTimestamp) {
+      query = query.lte("timestamp", toTimestamp)
+    }
 
-    const totalCount = await prisma.screenplayOperation.count({
-      where: { screenplayId },
-    })
+    const { data: operations, error: opError } = await query
 
-    const serializedOperations = operations.map((op) => ({
+    if (opError) throw opError
+
+    const { count: totalCount } = await supabase
+      .from("ScreenplayOperation")
+      .select("*", { count: "exact", head: true })
+      .eq("screenplayId", screenplayId)
+
+    interface OpData { id: string; operationType: string; position: number | null; content: string | null; metadata: unknown; timestamp: string; sequenceNumber: number; user: { id: string; name: string | null; image: string | null } | null }
+    const typedOps = (operations || []) as OpData[]
+    const serializedOperations = typedOps.map((op) => ({
       ...op,
-      sequenceNumber: op.sequenceNumber.toString(),
+      sequenceNumber: op.sequenceNumber?.toString(),
     }))
 
-    const nextCursor = operations.length === limit
-      ? operations[operations.length - 1].sequenceNumber.toString()
+    const nextCursor = typedOps.length === limit
+      ? typedOps[typedOps.length - 1].sequenceNumber?.toString()
       : null
 
     return NextResponse.json({
       operations: serializedOperations,
       nextCursor,
-      totalCount,
+      totalCount: totalCount || 0,
       timelapseStarted: screenplay.timelapseStarted,
     })
   } catch (error) {
     logger.error("Failed to fetch timelapse operations", error instanceof Error ? error : undefined, {
       screenplayId,
-      userId: session?.user?.id,
     })
     return NextResponse.json(
       { error: "Failed to fetch operations" },
@@ -177,31 +159,37 @@ export async function GET(
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: screenplayId } = params
 
-    const screenplay = await prisma.screenplay.findFirst({
-      where: {
-        id: screenplayId,
-        userId: user.id,
-      },
-    })
+    const { data: screenplay, error } = await supabase
+      .from("Screenplay")
+      .select("id")
+      .eq("id", screenplayId)
+      .eq("userId", user.id)
+      .single()
 
-    if (!screenplay) {
+    if (error?.code === "PGRST116" || !screenplay) {
       throw new NotFoundError("Screenplay")
     }
+    if (error) throw error
 
-    await prisma.screenplayOperation.deleteMany({
-      where: { screenplayId },
-    })
+    // Delete all operations
+    await supabase
+      .from("ScreenplayOperation")
+      .delete()
+      .eq("screenplayId", screenplayId)
 
-    await prisma.screenplay.update({
-      where: { id: screenplayId },
-      data: {
+    // Reset timelapse state
+    const { error: updateError } = await supabase
+      .from("Screenplay")
+      .update({
         timelapseStarted: null,
         timelapseShareId: null,
-      },
-    })
+      })
+      .eq("id", screenplayId)
+
+    if (updateError) throw updateError
 
     return { success: true }
   },

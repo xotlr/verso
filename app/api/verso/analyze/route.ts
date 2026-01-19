@@ -3,7 +3,7 @@ import { withApiMiddleware } from '@/lib/api-utils';
 import { logger } from '@/lib/logger';
 import Anthropic from '@anthropic-ai/sdk';
 import { canUseScriptCheck, type PlanType } from '@/lib/stripe';
-import { auth } from '@/lib/auth';
+import { getSession } from '@/lib/supabase-auth';
 
 // System prompt that establishes context and guards against injection
 const SYSTEM_PROMPT = `You are Verso, an expert screenplay analyst. Your sole purpose is to analyze screenplays and provide constructive feedback.
@@ -53,7 +53,7 @@ export const POST = withApiMiddleware(
   async (request: NextRequest) => {
     try {
       // Server-side plan check (backup validation)
-      const session = await auth();
+      const session = await getSession();
       const userPlan = (session?.user?.plan as PlanType) || 'FREE';
       if (!canUseScriptCheck(userPlan)) {
         return NextResponse.json(

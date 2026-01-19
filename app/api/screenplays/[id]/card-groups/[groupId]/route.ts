@@ -1,5 +1,4 @@
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { z } from "zod"
 
@@ -15,7 +14,7 @@ const UpdateGroupSchema = z.object({
  */
 export const PATCH = createApiHandler({
   auth: "required",
-  handler: async ({ user, params, request }) => {
+  handler: async ({ user, params, request, supabase }) => {
     const { id, groupId } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -28,24 +27,29 @@ export const PATCH = createApiHandler({
     }
 
     // Verify group belongs to this screenplay
-    const existingGroup = await prisma.customCardGroup.findFirst({
-      where: {
-        id: groupId,
-        screenplayId: id,
-      },
-    })
+    const { data: existingGroup, error: fetchError } = await supabase
+      .from("CustomCardGroup")
+      .select("id")
+      .eq("id", groupId)
+      .eq("screenplayId", id)
+      .single()
 
-    if (!existingGroup) {
+    if (fetchError?.code === "PGRST116" || !existingGroup) {
       throw new NotFoundError("Custom card group")
     }
+    if (fetchError) throw fetchError
 
     const body = await request.json()
     const data = UpdateGroupSchema.parse(body)
 
-    const updatedGroup = await prisma.customCardGroup.update({
-      where: { id: groupId },
-      data,
-    })
+    const { data: updatedGroup, error: updateError } = await supabase
+      .from("CustomCardGroup")
+      .update(data)
+      .eq("id", groupId)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
 
     return updatedGroup
   },
@@ -57,7 +61,7 @@ export const PATCH = createApiHandler({
  */
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id, groupId } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -70,21 +74,25 @@ export const DELETE = createApiHandler({
     }
 
     // Verify group belongs to this screenplay
-    const existingGroup = await prisma.customCardGroup.findFirst({
-      where: {
-        id: groupId,
-        screenplayId: id,
-      },
-    })
+    const { data: existingGroup, error: fetchError } = await supabase
+      .from("CustomCardGroup")
+      .select("id")
+      .eq("id", groupId)
+      .eq("screenplayId", id)
+      .single()
 
-    if (!existingGroup) {
+    if (fetchError?.code === "PGRST116" || !existingGroup) {
       throw new NotFoundError("Custom card group")
     }
+    if (fetchError) throw fetchError
 
     // Delete the group (cascade will set customGroupId to null in SceneMeta due to onDelete: SetNull)
-    await prisma.customCardGroup.delete({
-      where: { id: groupId },
-    })
+    const { error: deleteError } = await supabase
+      .from("CustomCardGroup")
+      .delete()
+      .eq("id", groupId)
+
+    if (deleteError) throw deleteError
 
     return { success: true }
   },

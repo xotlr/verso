@@ -1,9 +1,11 @@
-import { prisma } from "./prisma"
+import { createServerActionClient } from "./supabase/server"
 import { getStripe } from "./stripe"
 import type Stripe from "stripe"
-import type { Plan } from "@prisma/client"
 
 const stripe = getStripe()
+
+// Plan type for validation
+type Plan = "FREE" | "PLUS" | "PRO" | "MAX"
 
 /**
  * Get or create a Stripe customer for a user
@@ -13,11 +15,15 @@ export async function getOrCreateStripeCustomer(
   email: string,
   name?: string
 ): Promise<string> {
+  const supabase = await createServerActionClient()
+
   // Check if user already has a Stripe customer ID
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { stripeCustomerId: true },
-  })
+  const userResult = await supabase
+    .from("User")
+    .select("stripeCustomerId")
+    .eq("id", userId)
+    .single()
+  const user = userResult.data as { stripeCustomerId: string | null } | null
 
   if (user?.stripeCustomerId) {
     return user.stripeCustomerId
@@ -33,10 +39,9 @@ export async function getOrCreateStripeCustomer(
   })
 
   // Update user with Stripe customer ID
-  await prisma.user.update({
-    where: { id: userId },
-    data: { stripeCustomerId: customer.id },
-  })
+  await (supabase.from("User") as ReturnType<typeof supabase.from>)
+    .update({ stripeCustomerId: customer.id })
+    .eq("id", userId)
 
   return customer.id
 }
@@ -101,14 +106,15 @@ export async function reconcileUserSubscription(userId: string): Promise<{
   plan: Plan
   synced: boolean
 }> {
+  const supabase = await createServerActionClient()
+
   // Get user with Stripe customer ID
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      stripeCustomerId: true,
-      plan: true,
-    },
-  })
+  const userResult = await supabase
+    .from("User")
+    .select("stripeCustomerId, plan")
+    .eq("id", userId)
+    .single()
+  const user = userResult.data as { stripeCustomerId: string | null; plan: string | null } | null
 
   if (!user?.stripeCustomerId) {
     return {
@@ -126,15 +132,14 @@ export async function reconcileUserSubscription(userId: string): Promise<{
 
   if (subscriptions.data.length === 0) {
     // No active subscription in Stripe
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
+    await (supabase.from("User") as ReturnType<typeof supabase.from>)
+      .update({
         plan: "FREE",
         stripeSubscriptionId: null,
         stripePriceId: null,
         stripeCurrentPeriodEnd: null,
-      },
-    })
+      })
+      .eq("id", userId)
 
     return {
       plan: "FREE",
@@ -148,15 +153,14 @@ export async function reconcileUserSubscription(userId: string): Promise<{
   const plan = (subscription.metadata?.plan?.toUpperCase() || "PRO") as Plan
 
   // Update user with correct subscription status
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
+  await (supabase.from("User") as ReturnType<typeof supabase.from>)
+    .update({
       plan,
       stripeSubscriptionId: subscription.id,
       stripePriceId: subscription.items.data[0]?.price?.id || null,
-      stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000),
-    },
-  })
+      stripeCurrentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+    })
+    .eq("id", userId)
 
   return {
     plan,
@@ -198,11 +202,15 @@ export async function getOrCreateTeamStripeCustomer(
   teamName: string,
   ownerEmail: string
 ): Promise<string> {
+  const supabase = await createServerActionClient()
+
   // Check if team already has a Stripe customer ID
-  const team = await prisma.team.findUnique({
-    where: { id: teamId },
-    select: { stripeCustomerId: true },
-  })
+  const teamResult = await supabase
+    .from("Team")
+    .select("stripeCustomerId")
+    .eq("id", teamId)
+    .single()
+  const team = teamResult.data as { stripeCustomerId: string | null } | null
 
   if (team?.stripeCustomerId) {
     return team.stripeCustomerId
@@ -219,10 +227,9 @@ export async function getOrCreateTeamStripeCustomer(
   })
 
   // Update team with Stripe customer ID
-  await prisma.team.update({
-    where: { id: teamId },
-    data: { stripeCustomerId: customer.id },
-  })
+  await (supabase.from("Team") as ReturnType<typeof supabase.from>)
+    .update({ stripeCustomerId: customer.id })
+    .eq("id", teamId)
 
   return customer.id
 }
@@ -279,10 +286,14 @@ export async function createTeamPortalSession(
   teamId: string,
   returnUrl: string
 ): Promise<Stripe.BillingPortal.Session> {
-  const team = await prisma.team.findUnique({
-    where: { id: teamId },
-    select: { stripeCustomerId: true },
-  })
+  const supabase = await createServerActionClient()
+
+  const teamResult = await supabase
+    .from("Team")
+    .select("stripeCustomerId")
+    .eq("id", teamId)
+    .single()
+  const team = teamResult.data as { stripeCustomerId: string | null } | null
 
   if (!team?.stripeCustomerId) {
     throw new Error("Team does not have a Stripe customer ID")
@@ -306,14 +317,14 @@ export async function getTeamBillingStatus(teamId: string): Promise<{
   cancelAtPeriodEnd: boolean
   maxSeats: number
 }> {
-  const team = await prisma.team.findUnique({
-    where: { id: teamId },
-    select: {
-      stripeSubscriptionId: true,
-      stripeCurrentPeriodEnd: true,
-      maxSeats: true,
-    },
-  })
+  const supabase = await createServerActionClient()
+
+  const teamResult = await supabase
+    .from("Team")
+    .select("stripeSubscriptionId, stripeCurrentPeriodEnd, maxSeats")
+    .eq("id", teamId)
+    .single()
+  const team = teamResult.data as { stripeSubscriptionId: string | null; stripeCurrentPeriodEnd: string | null; maxSeats: number } | null
 
   if (!team?.stripeSubscriptionId) {
     return {
@@ -331,7 +342,7 @@ export async function getTeamBillingStatus(teamId: string): Promise<{
     return {
       hasSubscription: true,
       status: mapSubscriptionStatus(subscription.status),
-      currentPeriodEnd: team.stripeCurrentPeriodEnd,
+      currentPeriodEnd: team.stripeCurrentPeriodEnd ? new Date(team.stripeCurrentPeriodEnd) : null,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
       maxSeats: team.maxSeats,
     }
@@ -357,28 +368,30 @@ export async function updateTeamSubscription(
   currentPeriodEnd: number,
   maxSeats: number
 ): Promise<void> {
-  await prisma.team.update({
-    where: { id: teamId },
-    data: {
+  const supabase = await createServerActionClient()
+
+  await (supabase.from("Team") as ReturnType<typeof supabase.from>)
+    .update({
       stripeSubscriptionId: subscriptionId,
       stripePriceId: priceId,
-      stripeCurrentPeriodEnd: new Date(currentPeriodEnd * 1000),
+      stripeCurrentPeriodEnd: new Date(currentPeriodEnd * 1000).toISOString(),
       maxSeats,
-    },
-  })
+    })
+    .eq("id", teamId)
 }
 
 /**
  * Cancel team subscription
  */
 export async function cancelTeamSubscription(teamId: string): Promise<void> {
-  await prisma.team.update({
-    where: { id: teamId },
-    data: {
+  const supabase = await createServerActionClient()
+
+  await (supabase.from("Team") as ReturnType<typeof supabase.from>)
+    .update({
       stripeSubscriptionId: null,
       stripePriceId: null,
       stripeCurrentPeriodEnd: null,
       maxSeats: 3, // Reset to free tier
-    },
-  })
+    })
+    .eq("id", teamId)
 }

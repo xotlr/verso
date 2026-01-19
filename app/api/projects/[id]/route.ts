@@ -1,23 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
-
-async function hasProjectAccess(projectId: string, userId: string): Promise<boolean> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      team: {
-        include: { members: { where: { userId } } },
-      },
-    },
-  })
-
-  if (!project) return false
-  if (project.userId === userId) return true
-  if (project.team && project.team.members.length > 0) return true
-
-  return false
-}
 
 const updateProjectSchema = z.object({
   name: z.string().min(1).max(255).optional(),
@@ -40,121 +22,68 @@ const updateProjectSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ params, supabase }) => {
     const { id } = params
 
-    const hasAccess = await hasProjectAccess(id, user.id)
-    if (!hasAccess) {
+    // RLS ensures user has access
+    const { data: project, error } = await supabase
+      .from("Project")
+      .select(`
+        id, name, description, coverImage, banner, logo, status, budget,
+        isPublic, publishedAt, userId, teamId, createdAt, updatedAt,
+        team:Team(id, name),
+        screenplays:Screenplay(id, title, logline, synopsis, wordCount, genre, isFavorite, type, createdAt, updatedAt),
+        notes:Note(id, title, category, createdAt, updatedAt),
+        schedules:Schedule(id, title, startDate, endDate, createdAt),
+        budgets:Budget(id, title, total, createdAt),
+        roles:ProjectRole(id, role, name, userId, user:User(id, name, image))
+      `)
+      .eq("id", id)
+      .single()
+
+    if (error?.code === "PGRST116" || !project) {
       throw new NotFoundError("Project")
     }
+    if (error) throw error
 
-    const project = await prisma.project.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        coverImage: true,
-        banner: true,
-        logo: true,
-        status: true,
-        budget: true,
-        isPublic: true,
-        publishedAt: true,
-        userId: true,
-        teamId: true,
-        createdAt: true,
-        updatedAt: true,
-        team: { select: { id: true, name: true } },
-        screenplays: {
-          select: {
-            id: true,
-            title: true,
-            logline: true,
-            synopsis: true,
-            wordCount: true,
-            genre: true,
-            isFavorite: true,
-            type: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-          orderBy: { updatedAt: "desc" },
-        },
-        notes: {
-          select: {
-            id: true,
-            title: true,
-            category: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-          orderBy: { updatedAt: "desc" },
-        },
-        schedules: {
-          select: {
-            id: true,
-            title: true,
-            startDate: true,
-            endDate: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: "desc" },
-        },
-        budgets: {
-          select: {
-            id: true,
-            title: true,
-            total: true,
-            createdAt: true,
-          },
-          orderBy: { createdAt: "desc" },
-        },
-        roles: {
-          select: {
-            id: true,
-            role: true,
-            name: true,
-            userId: true,
-            user: { select: { id: true, name: true, image: true } },
-          },
-          orderBy: { role: "asc" },
-        },
-        _count: {
-          select: { screenplays: true, notes: true, schedules: true, budgets: true },
-        },
+    // Add counts
+    const result = {
+      ...project,
+      _count: {
+        screenplays: project.screenplays?.length || 0,
+        notes: project.notes?.length || 0,
+        schedules: project.schedules?.length || 0,
+        budgets: project.budgets?.length || 0,
       },
-    })
+    }
 
-    return project
+    return result
   },
 })
 
 export const PUT = createApiHandler({
   auth: "required",
   schema: updateProjectSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
-    const hasAccess = await hasProjectAccess(id, user.id)
-    if (!hasAccess) {
+    // RLS policy requires EDITOR access for updates
+    const { data: project, error } = await supabase
+      .from("Project")
+      .update(data)
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error?.code === "PGRST116" || !project) {
       throw new NotFoundError("Project")
     }
-
-    // Validate team membership if moving to a team
-    if (data.teamId !== undefined && data.teamId !== null) {
-      const teamMembership = await prisma.teamMember.findUnique({
-        where: { teamId_userId: { teamId: data.teamId, userId: user.id } },
-      })
-      if (!teamMembership) {
-        throw new ForbiddenError("You must be a team member to move a project to that team")
+    if (error) {
+      if (error.message?.includes("policy")) {
+        throw new ForbiddenError("You don't have edit access to this project")
       }
+      throw error
     }
-
-    const project = await prisma.project.update({
-      where: { id },
-      data,
-    })
 
     return project
   },
@@ -162,34 +91,45 @@ export const PUT = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const project = await prisma.project.findUnique({
-      where: { id },
-      include: {
-        team: {
-          include: { members: { where: { userId: user.id } } },
-        },
-      },
-    })
+    // Check if user is owner or team admin
+    const { data: project } = await supabase
+      .from("Project")
+      .select("userId, teamId")
+      .eq("id", id)
+      .single()
 
     if (!project) {
       throw new NotFoundError("Project")
     }
 
     const isOwner = project.userId === user.id
-    const isTeamAdmin =
-      project.team?.members[0]?.role === "OWNER" ||
-      project.team?.members[0]?.role === "ADMIN"
+
+    // Check team admin status if not owner
+    let isTeamAdmin = false
+    if (!isOwner && project.teamId) {
+      const { data: membership } = await supabase
+        .from("TeamMember")
+        .select("role")
+        .eq("teamId", project.teamId)
+        .eq("userId", user.id)
+        .single()
+
+      isTeamAdmin = membership?.role === "OWNER" || membership?.role === "ADMIN"
+    }
 
     if (!isOwner && !isTeamAdmin) {
       throw new ForbiddenError("Only project owner or team admins can delete")
     }
 
-    await prisma.project.delete({
-      where: { id },
-    })
+    const { error } = await supabase
+      .from("Project")
+      .delete()
+      .eq("id", id)
+
+    if (error) throw error
 
     return { success: true }
   },

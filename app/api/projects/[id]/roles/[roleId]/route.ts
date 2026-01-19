@@ -1,20 +1,36 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
+import { createServerActionClient } from "@/lib/supabase/server"
+
+interface ProjectWithTeam {
+  id: string
+  userId: string
+  team: { id: string; members: Array<{ userId: string }> } | null
+}
 
 async function hasProjectAccess(projectId: string, userId: string): Promise<boolean> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      team: {
-        include: { members: { where: { userId } } },
-      },
-    },
-  })
+  const supabase = await createServerActionClient()
 
-  if (!project) return false
+  const result = await supabase
+    .from("Project")
+    .select(`
+      id,
+      userId,
+      team:Team(
+        id,
+        members:TeamMember(userId)
+      )
+    `)
+    .eq("id", projectId)
+    .single()
+
+  const project = result.data as ProjectWithTeam | null
+  if (result.error || !project) return false
   if (project.userId === userId) return true
-  if (project.team && project.team.members.length > 0) return true
+  if (project.team && Array.isArray(project.team.members)) {
+    const isMember = project.team.members.some((m: { userId: string }) => m.userId === userId)
+    if (isMember) return true
+  }
 
   return false
 }
@@ -28,7 +44,7 @@ const updateRoleSchema = z.object({
 export const PATCH = createApiHandler({
   auth: "required",
   schema: updateRoleSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: projectId, roleId } = params
 
     const hasAccess = await hasProjectAccess(projectId, user.id)
@@ -36,21 +52,29 @@ export const PATCH = createApiHandler({
       throw new NotFoundError("Project")
     }
 
-    const existingRole = await prisma.projectRole.findFirst({
-      where: { id: roleId, projectId },
-    })
+    const { data: existingRole, error: fetchError } = await supabase
+      .from("ProjectRole")
+      .select("id")
+      .eq("id", roleId)
+      .eq("projectId", projectId)
+      .single()
 
-    if (!existingRole) {
+    if (fetchError?.code === "PGRST116" || !existingRole) {
       throw new NotFoundError("Role")
     }
+    if (fetchError) throw fetchError
 
-    const updatedRole = await prisma.projectRole.update({
-      where: { id: roleId },
-      data,
-      include: {
-        user: { select: { id: true, name: true, image: true } },
-      },
-    })
+    const { data: updatedRole, error: updateError } = await supabase
+      .from("ProjectRole")
+      .update(data)
+      .eq("id", roleId)
+      .select(`
+        *,
+        user:User!userId(id, name, image)
+      `)
+      .single()
+
+    if (updateError) throw updateError
 
     return updatedRole
   },
@@ -58,7 +82,7 @@ export const PATCH = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: projectId, roleId } = params
 
     const hasAccess = await hasProjectAccess(projectId, user.id)
@@ -66,17 +90,24 @@ export const DELETE = createApiHandler({
       throw new NotFoundError("Project")
     }
 
-    const existingRole = await prisma.projectRole.findFirst({
-      where: { id: roleId, projectId },
-    })
+    const { data: existingRole, error: fetchError } = await supabase
+      .from("ProjectRole")
+      .select("id")
+      .eq("id", roleId)
+      .eq("projectId", projectId)
+      .single()
 
-    if (!existingRole) {
+    if (fetchError?.code === "PGRST116" || !existingRole) {
       throw new NotFoundError("Role")
     }
+    if (fetchError) throw fetchError
 
-    await prisma.projectRole.delete({
-      where: { id: roleId },
-    })
+    const { error: deleteError } = await supabase
+      .from("ProjectRole")
+      .delete()
+      .eq("id", roleId)
+
+    if (deleteError) throw deleteError
 
     return { success: true }
   },

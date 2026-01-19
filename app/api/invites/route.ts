@@ -1,35 +1,63 @@
 import { createApiHandler, UnauthorizedError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
+
+type InviteData = {
+  id: string
+  email: string
+  role: string
+  expiresAt: string
+  createdAt: string
+  teamId: string
+  team: {
+    id: string
+    name: string
+    logo: string | null
+    description: string | null
+  } | null
+  inviter: {
+    id: string
+    name: string | null
+    image: string | null
+  } | null
+}
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user }) => {
+  handler: async ({ user, supabase }) => {
     if (!user.email) {
       throw new UnauthorizedError()
     }
 
-    const invites = await prisma.teamInvite.findMany({
-      where: {
-        email: user.email,
-        expiresAt: { gt: new Date() },
-      },
-      include: {
-        team: {
-          select: {
-            id: true,
-            name: true,
-            logo: true,
-            description: true,
-            _count: { select: { members: true } },
-          },
-        },
-        inviter: {
-          select: { id: true, name: true, image: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    })
+    const { data: invites, error } = await supabase
+      .from("TeamInvite")
+      .select(`
+        id, email, role, expiresAt, createdAt, teamId,
+        team:Team(id, name, logo, description),
+        inviter:User!inviterId(id, name, image)
+      `)
+      .eq("email", user.email)
+      .gt("expiresAt", new Date().toISOString())
+      .order("createdAt", { ascending: false })
 
-    return invites
+    if (error) throw error
+
+    // Add member counts
+    const invitesWithCounts = await Promise.all(
+      (invites || []).map(async (invite: InviteData) => {
+        if (!invite.team) return invite
+        const { count } = await supabase
+          .from("TeamMember")
+          .select("*", { count: "exact", head: true })
+          .eq("teamId", invite.team.id)
+        return {
+          ...invite,
+          team: {
+            ...invite.team,
+            _count: { members: count || 0 },
+          },
+        }
+      })
+    )
+
+    return invitesWithCounts
   },
 })

@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, BadRequestError, RATE_LIMITS } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const createEpisodeSchema = z.object({
   episode: z.number().int().min(1).max(999),
@@ -11,28 +10,39 @@ export const POST = createApiHandler({
   auth: "required",
   schema: createEpisodeSchema,
   rateLimit: RATE_LIMITS.PROJECT_CREATE,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: seriesId, seasonId } = params
 
-    const series = await prisma.series.findFirst({
-      where: { id: seriesId, userId: user.id },
-    })
+    const { data: series, error: seriesError } = await supabase
+      .from("Series")
+      .select("id, title, format, genre")
+      .eq("id", seriesId)
+      .eq("userId", user.id)
+      .single()
 
-    if (!series) {
+    if (seriesError?.code === "PGRST116" || !series) {
       throw new NotFoundError("Series")
     }
+    if (seriesError) throw seriesError
 
-    const season = await prisma.season.findFirst({
-      where: { id: seasonId, seriesId },
-    })
+    const { data: season, error: seasonError } = await supabase
+      .from("Season")
+      .select("id, number")
+      .eq("id", seasonId)
+      .eq("seriesId", seriesId)
+      .single()
 
-    if (!season) {
+    if (seasonError?.code === "PGRST116" || !season) {
       throw new NotFoundError("Season")
     }
+    if (seasonError) throw seasonError
 
-    const existingEpisode = await prisma.screenplay.findFirst({
-      where: { seasonId, episode: data.episode },
-    })
+    const { data: existingEpisode } = await supabase
+      .from("Screenplay")
+      .select("id")
+      .eq("seasonId", seasonId)
+      .eq("episode", data.episode)
+      .single()
 
     if (existingEpisode) {
       throw new BadRequestError(
@@ -49,8 +59,9 @@ export const POST = createApiHandler({
 
     const title = `${series.title} - S${String(season.number).padStart(2, "0")}E${String(data.episode).padStart(2, "0")} - ${data.episodeTitle}`
 
-    const screenplay = await prisma.screenplay.create({
-      data: {
+    const { data: screenplay, error: createError } = await supabase
+      .from("Screenplay")
+      .insert({
         title,
         content: "",
         userId: user.id,
@@ -62,16 +73,17 @@ export const POST = createApiHandler({
         episode: data.episode,
         episodeTitle: data.episodeTitle,
         genre: series.genre,
-      },
-    })
+      })
+      .select()
+      .single()
 
-    await prisma.activity.create({
-      data: {
-        userId: user.id,
-        type: "screenplay_created",
-        entityId: screenplay.id,
-        entityTitle: screenplay.title,
-      },
+    if (createError) throw createError
+
+    await supabase.from("Activity").insert({
+      userId: user.id,
+      type: "screenplay_created",
+      entityId: screenplay.id,
+      entityTitle: screenplay.title,
     })
 
     return screenplay

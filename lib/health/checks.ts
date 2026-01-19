@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { HealthCheckResult, ServiceStatus } from './types';
 
 /**
@@ -8,7 +8,12 @@ export async function checkDatabase(): Promise<HealthCheckResult> {
   const start = performance.now();
 
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    const supabase = createServiceRoleClient();
+    // Simple query to verify connection
+    const { error } = await supabase.from('User').select('id').limit(1);
+
+    if (error) throw error;
+
     const responseTime = Math.round(performance.now() - start);
 
     return {
@@ -29,24 +34,24 @@ export async function checkDatabase(): Promise<HealthCheckResult> {
 }
 
 /**
- * Check auth service by verifying NextAuth is configured
+ * Check auth service by verifying Supabase Auth is configured
  */
 export async function checkAuth(): Promise<HealthCheckResult> {
   const start = performance.now();
 
   try {
-    // Check that auth environment variables are set
-    const hasAuthSecret = !!process.env.AUTH_SECRET || !!process.env.NEXTAUTH_SECRET;
-    const hasProviders = !!process.env.GOOGLE_CLIENT_ID || !!process.env.AUTH_GOOGLE_ID;
+    // Check that Supabase environment variables are set
+    const hasSupabaseUrl = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const hasSupabaseKey = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     const responseTime = Math.round(performance.now() - start);
 
-    if (!hasAuthSecret || !hasProviders) {
+    if (!hasSupabaseUrl || !hasSupabaseKey) {
       return {
         service: 'auth',
         status: 'degraded',
         responseTime,
-        error: 'Auth configuration incomplete',
+        error: 'Supabase configuration incomplete',
         checkedAt: new Date().toISOString(),
       };
     }
@@ -192,35 +197,47 @@ export async function runAllChecks(): Promise<{
  * Save health check results to database
  */
 export async function saveHealthChecks(results: HealthCheckResult[]): Promise<void> {
-  await prisma.serviceHealthCheck.createMany({
-    data: results.map(r => ({
+  const supabase = createServiceRoleClient();
+  await (supabase.from('ServiceHealthCheck') as ReturnType<typeof supabase.from>).insert(
+    results.map(r => ({
       service: r.service,
       status: r.status,
       responseTime: r.responseTime,
       errorMessage: r.error,
-      checkedAt: new Date(r.checkedAt),
-    })),
-  });
+      checkedAt: new Date(r.checkedAt).toISOString(),
+    }))
+  );
 }
 
 /**
  * Get recent health checks for a service
  */
+interface HealthCheckRow {
+  service: string;
+  status: string;
+  responseTime: number | null;
+  errorMessage: string | null;
+  checkedAt: string;
+}
+
 export async function getRecentHealthChecks(
   service: string,
   limit: number = 10
 ): Promise<HealthCheckResult[]> {
-  const checks = await prisma.serviceHealthCheck.findMany({
-    where: { service },
-    orderBy: { checkedAt: 'desc' },
-    take: limit,
-  });
+  const supabase = createServiceRoleClient();
+  const result = await supabase
+    .from('ServiceHealthCheck')
+    .select('*')
+    .eq('service', service)
+    .order('checkedAt', { ascending: false })
+    .limit(limit);
+  const checks = (result.data || []) as HealthCheckRow[];
 
   return checks.map(c => ({
     service: c.service as HealthCheckResult['service'],
     status: c.status as ServiceStatus,
     responseTime: c.responseTime ?? undefined,
     error: c.errorMessage ?? undefined,
-    checkedAt: c.checkedAt.toISOString(),
+    checkedAt: c.checkedAt,
   }));
 }

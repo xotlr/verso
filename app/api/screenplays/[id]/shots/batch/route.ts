@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import { SHOT_TYPES, SHOT_STATUSES } from "@/types/shotlist"
 
@@ -18,7 +17,7 @@ const batchCreateSchema = z.object({
 export const POST = createApiHandler({
   auth: "required",
   schema: batchCreateSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: screenplayId } = params
 
     const access = await checkScreenplayAccess(screenplayId, user.id, "EDITOR")
@@ -39,19 +38,23 @@ export const POST = createApiHandler({
 
     const sceneIds = Array.from(shotsByScene.keys())
 
-    // Fetch all last shot numbers in one query (outside transaction for speed)
-    const lastShots = await prisma.shot.groupBy({
-      by: ["sceneId"],
-      where: {
-        screenplayId,
-        sceneId: { in: sceneIds },
-      },
-      _max: { shotNumber: true },
-    })
+    // Fetch max shot numbers per scene
+    const { data: lastShots, error: lastShotsError } = await supabase
+      .from("Shot")
+      .select("sceneId, shotNumber")
+      .eq("screenplayId", screenplayId)
+      .in("sceneId", sceneIds)
+      .order("shotNumber", { ascending: false })
 
-    const lastShotByScene = new Map(
-      lastShots.map((s) => [s.sceneId, s._max.shotNumber ?? 0])
-    )
+    if (lastShotsError) throw lastShotsError
+
+    // Get max shot number per scene
+    const lastShotByScene = new Map<string, number>()
+    for (const shot of lastShots || []) {
+      if (!lastShotByScene.has(shot.sceneId) || shot.shotNumber > lastShotByScene.get(shot.sceneId)!) {
+        lastShotByScene.set(shot.sceneId, shot.shotNumber)
+      }
+    }
 
     // Prepare all shot data for batch insert
     const shotsToCreate: Array<{
@@ -100,22 +103,25 @@ export const POST = createApiHandler({
     }
 
     // Batch insert all shots at once
-    await prisma.shot.createMany({
-      data: shotsToCreate,
-    })
+    const { error: insertError } = await supabase
+      .from("Shot")
+      .insert(shotsToCreate)
+
+    if (insertError) throw insertError
 
     // Fetch the created shots to return them
-    const createdShots = await prisma.shot.findMany({
-      where: {
-        screenplayId,
-        sceneId: { in: sceneIds },
-        shotNumber: {
-          gte: Math.min(...shotsToCreate.map((s) => s.shotNumber)),
-        },
-      },
-      orderBy: [{ sceneId: "asc" }, { shotNumber: "asc" }],
-    })
+    const minShotNumber = Math.min(...shotsToCreate.map((s) => s.shotNumber))
+    const { data: createdShots, error: fetchError } = await supabase
+      .from("Shot")
+      .select("*")
+      .eq("screenplayId", screenplayId)
+      .in("sceneId", sceneIds)
+      .gte("shotNumber", minShotNumber)
+      .order("sceneId", { ascending: true })
+      .order("shotNumber", { ascending: true })
 
-    return { shots: createdShots, count: createdShots.length }
+    if (fetchError) throw fetchError
+
+    return { shots: createdShots || [], count: createdShots?.length || 0 }
   },
 })

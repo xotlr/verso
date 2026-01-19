@@ -1,13 +1,16 @@
 import { createApiHandler, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { stripe } from "@/lib/stripe"
 
 export const POST = createApiHandler({
   auth: "required",
-  handler: async ({ user }) => {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-    })
+  handler: async ({ user, supabase }) => {
+    const { data: dbUser, error } = await supabase
+      .from("User")
+      .select("stripeCustomerId")
+      .eq("id", user.id)
+      .single()
+
+    if (error) throw error
 
     if (!dbUser?.stripeCustomerId) {
       throw new BadRequestError("No billing account found")

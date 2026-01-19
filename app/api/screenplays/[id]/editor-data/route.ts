@@ -1,47 +1,65 @@
-import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
-import { checkScreenplayAccess } from "@/lib/auth-utils"
+import { createApiHandler, NotFoundError } from "@/lib/api"
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const access = await checkScreenplayAccess(id, user.id)
+    // RLS policy ensures user has access
+    const { data: screenplay, error: screenplayError } = await supabase
+      .from("Screenplay")
+      .select(`
+        *,
+        project:Project(id, name),
+        team:Team(id, name),
+        series:Series(id, title),
+        seasonRef:Season(id, number, title)
+      `)
+      .eq("id", id)
+      .single()
 
-    if (!access.allowed) {
-      if (access.status === 404) {
-        throw new NotFoundError("Screenplay")
-      }
-      throw new ForbiddenError(access.error)
+    if (screenplayError?.code === "PGRST116" || !screenplay) {
+      throw new NotFoundError("Screenplay")
     }
+    if (screenplayError) throw screenplayError
 
-    const [screenplay, shots] = await Promise.all([
-      prisma.screenplay.update({
-        where: { id },
-        data: { lastOpenedAt: new Date() },
-        include: {
-          project: { select: { id: true, name: true } },
-          team: { select: { id: true, name: true } },
-          series: { select: { id: true, title: true } },
-          seasonRef: { select: { id: true, number: true, title: true } },
-        },
-      }),
-      prisma.shot.findMany({
-        where: { screenplayId: id },
-        orderBy: [
-          { sceneId: "asc" },
-          { shotNumber: "asc" },
-        ],
-      }),
-    ])
+    // Update lastOpenedAt (silently fails if no edit access, which is fine for viewers)
+    await supabase
+      .from("Screenplay")
+      .update({ lastOpenedAt: new Date().toISOString() })
+      .eq("id", id)
+
+    // Fetch shots for this screenplay (RLS inherits access from screenplay)
+    const { data: shots, error: shotsError } = await supabase
+      .from("Shot")
+      .select("*")
+      .eq("screenplayId", id)
+      .order("sceneId", { ascending: true })
+      .order("shotNumber", { ascending: true })
+
+    if (shotsError) throw shotsError
+
+    // Determine access level for UI hints
+    const isOwner = screenplay.userId === user.id
+    let shareRole: string | undefined
+
+    if (!isOwner) {
+      const { data: share } = await supabase
+        .from("ScreenplayShare")
+        .select("role")
+        .eq("screenplayId", id)
+        .eq("userId", user.id)
+        .single()
+
+      shareRole = share?.role
+    }
 
     return {
       screenplay,
-      shots,
+      shots: shots || [],
       access: {
-        isOwner: access.isOwner,
-        shareRole: access.shareRole,
+        isOwner,
+        shareRole,
       },
     }
   },

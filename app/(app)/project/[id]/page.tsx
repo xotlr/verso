@@ -60,7 +60,7 @@ import { AddExistingScreenplayDialog } from '@/components/add-existing-screenpla
 import { ProjectRolesManager, type ProjectRole } from '@/components/project/roles';
 import { ProjectRoleNeedsManager } from '@/components/project/project-role-needs-manager';
 import { RenameProjectDialog } from '@/components/project/rename-project-dialog';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/components/providers/auth-provider';
 import type { EmbedType } from '@/lib/export/embed';
 import { ImportDropZoneOverlay } from '@/components/import-drop-zone';
 import type { ImportResult } from '@/components/import-drop-zone/types';

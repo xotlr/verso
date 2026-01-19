@@ -1,7 +1,6 @@
 import { z } from "zod"
 import { createApiHandler, BadRequestError, RateLimitError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
-import { hashPassword } from "@/lib/auth"
+import { hashPassword } from "@/lib/password"
 import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit"
 
 const signupSchema = z.object({
@@ -19,7 +18,7 @@ const signupSchema = z.object({
 export const POST = createApiHandler({
   auth: "none",
   schema: signupSchema,
-  handler: async ({ request, data }) => {
+  handler: async ({ request, data, supabase }) => {
     const clientIp = getClientIp(request)
     const rateLimitResult = await rateLimit(`signup:${clientIp}`, RATE_LIMITS.AUTH)
 
@@ -30,9 +29,11 @@ export const POST = createApiHandler({
       )
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
-    })
+    const { data: existingUser } = await supabase
+      .from("User")
+      .select("id")
+      .eq("email", data.email)
+      .single()
 
     if (existingUser) {
       throw new BadRequestError("An account with this email already exists")
@@ -40,13 +41,17 @@ export const POST = createApiHandler({
 
     const hashedPassword = await hashPassword(data.password)
 
-    const user = await prisma.user.create({
-      data: {
+    const { data: user, error } = await supabase
+      .from("User")
+      .insert({
         name: data.name,
         email: data.email,
         password: hashedPassword,
-      },
-    })
+      })
+      .select("id, name, email")
+      .single()
+
+    if (error) throw error
 
     return {
       user: {

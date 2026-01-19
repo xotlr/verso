@@ -1,20 +1,36 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, BadRequestError, ConflictError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
+import { createServerActionClient } from "@/lib/supabase/server"
+
+interface ProjectWithTeam {
+  id: string
+  userId: string
+  team: { id: string; members: Array<{ userId: string }> } | null
+}
 
 async function hasProjectAccess(projectId: string, userId: string): Promise<boolean> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      team: {
-        include: { members: { where: { userId } } },
-      },
-    },
-  })
+  const supabase = await createServerActionClient()
 
-  if (!project) return false
+  const result = await supabase
+    .from("Project")
+    .select(`
+      id,
+      userId,
+      team:Team(
+        id,
+        members:TeamMember(userId)
+      )
+    `)
+    .eq("id", projectId)
+    .single()
+
+  const project = result.data as ProjectWithTeam | null
+  if (result.error || !project) return false
   if (project.userId === userId) return true
-  if (project.team && project.team.members.length > 0) return true
+  if (project.team && Array.isArray(project.team.members)) {
+    const isMember = project.team.members.some((m: { userId: string }) => m.userId === userId)
+    if (isMember) return true
+  }
 
   return false
 }
@@ -28,7 +44,7 @@ const createRoleSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: projectId } = params
 
     const hasAccess = await hasProjectAccess(projectId, user.id)
@@ -36,22 +52,25 @@ export const GET = createApiHandler({
       throw new NotFoundError("Project")
     }
 
-    const roles = await prisma.projectRole.findMany({
-      where: { projectId },
-      include: {
-        user: { select: { id: true, name: true, image: true } },
-      },
-      orderBy: { role: "asc" },
-    })
+    const { data: roles, error } = await supabase
+      .from("ProjectRole")
+      .select(`
+        *,
+        user:User!userId(id, name, image)
+      `)
+      .eq("projectId", projectId)
+      .order("role", { ascending: true })
 
-    return roles
+    if (error) throw error
+
+    return roles || []
   },
 })
 
 export const POST = createApiHandler({
   auth: "required",
   schema: createRoleSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: projectId } = params
 
     const hasAccess = await hasProjectAccess(projectId, user.id)
@@ -66,10 +85,12 @@ export const POST = createApiHandler({
       finalUserId = user.id
       finalName = user.name || user.email || "Me"
     } else if (data.userId && !data.name) {
-      const targetUser = await prisma.user.findUnique({
-        where: { id: data.userId },
-        select: { name: true, email: true },
-      })
+      const { data: targetUser } = await supabase
+        .from("User")
+        .select("name, email")
+        .eq("id", data.userId)
+        .single()
+
       if (targetUser) {
         finalName = targetUser.name || targetUser.email || "Unknown"
       }
@@ -79,41 +100,48 @@ export const POST = createApiHandler({
       throw new BadRequestError("Name is required")
     }
 
-    const existing = await prisma.projectRole.findUnique({
-      where: {
-        projectId_role_name: {
-          projectId,
-          role: data.role,
-          name: finalName,
-        },
-      },
-    })
+    // Check for existing role with same name
+    const { data: existing } = await supabase
+      .from("ProjectRole")
+      .select("id")
+      .eq("projectId", projectId)
+      .eq("role", data.role)
+      .eq("name", finalName)
+      .single()
 
     if (existing) {
       throw new ConflictError("This role assignment already exists")
     }
 
     if (finalUserId) {
-      const existingUserRole = await prisma.projectRole.findFirst({
-        where: { projectId, role: data.role, userId: finalUserId },
-      })
+      const { data: existingUserRole } = await supabase
+        .from("ProjectRole")
+        .select("id")
+        .eq("projectId", projectId)
+        .eq("role", data.role)
+        .eq("userId", finalUserId)
+        .single()
 
       if (existingUserRole) {
         throw new ConflictError("This user already has this role on the project")
       }
     }
 
-    const role = await prisma.projectRole.create({
-      data: {
+    const { data: role, error: createError } = await supabase
+      .from("ProjectRole")
+      .insert({
         projectId,
         role: data.role,
         name: finalName,
         userId: finalUserId,
-      },
-      include: {
-        user: { select: { id: true, name: true, image: true } },
-      },
-    })
+      })
+      .select(`
+        *,
+        user:User!userId(id, name, image)
+      `)
+      .single()
+
+    if (createError) throw createError
 
     return role
   },

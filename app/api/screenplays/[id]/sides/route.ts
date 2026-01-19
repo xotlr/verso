@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 
 const createSideSchema = z.object({
@@ -13,7 +12,7 @@ const createSideSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -25,26 +24,25 @@ export const GET = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const sides = await prisma.digitalSide.findMany({
-      where: { screenplayId: id },
-      orderBy: { createdAt: "desc" },
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    })
+    const { data: sides, error } = await supabase
+      .from("DigitalSide")
+      .select(`
+        *,
+        user:User!userId(name)
+      `)
+      .eq("screenplayId", id)
+      .order("createdAt", { ascending: false })
 
-    return { sides }
+    if (error) throw error
+
+    return { sides: sides || [] }
   },
 })
 
 export const POST = createApiHandler({
   auth: "required",
   schema: createSideSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id } = params
 
     const access = await checkScreenplayAccess(id, user.id)
@@ -59,33 +57,48 @@ export const POST = createApiHandler({
     const { filterType, filterValue, title, expiresAt, callsheetId } = data
 
     if (callsheetId) {
-      const callsheet = await prisma.callsheet.findUnique({
-        where: { id: callsheetId },
-      })
-      if (!callsheet) {
+      const { data: callsheet, error: callsheetError } = await supabase
+        .from("Callsheet")
+        .select("id")
+        .eq("id", callsheetId)
+        .single()
+
+      if (callsheetError?.code === "PGRST116" || !callsheet) {
         throw new NotFoundError("Callsheet")
       }
+      if (callsheetError) throw callsheetError
     }
+
+    // Fetch screenplay title for default title generation
+    const { data: screenplay } = await supabase
+      .from("Screenplay")
+      .select("title")
+      .eq("id", id)
+      .single()
 
     const generatedTitle = title || (
       filterType === "character" && filterValue
         ? `${filterValue}'s Sides`
         : filterType === "scenes" && filterValue
         ? `Selected Scenes`
-        : `${access.screenplay?.title} - Full Sides`
+        : `${screenplay?.title || "Screenplay"} - Full Sides`
     )
 
-    const side = await prisma.digitalSide.create({
-      data: {
+    const { data: side, error: createError } = await supabase
+      .from("DigitalSide")
+      .insert({
         screenplayId: id,
         userId: user.id,
         filterType,
         filterValue: filterValue || null,
         title: generatedTitle,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
         callsheetId: callsheetId || null,
-      },
-    })
+      })
+      .select()
+      .single()
+
+    if (createError) throw createError
 
     return { side }
   },

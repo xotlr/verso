@@ -1,6 +1,6 @@
 "use client"
 
-import { useSession } from "next-auth/react"
+import { useSession } from "@/components/providers/auth-provider"
 import { useState } from "react"
 import { canUseProduction, type PlanType } from "@/lib/stripe"
 import { Button } from "@/components/ui/button"

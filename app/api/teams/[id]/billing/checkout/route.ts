@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError, BadRequestError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { createTeamCheckoutSession } from "@/lib/stripe-helpers"
 import { logTeamAction } from "@/lib/audit-log"
 
@@ -11,26 +10,24 @@ const checkoutSchema = z.object({
 export const POST = createApiHandler({
   auth: "required",
   schema: checkoutSchema,
-  handler: async ({ user, params, data, request }) => {
+  handler: async ({ user, params, data, request, supabase }) => {
     const { id } = params
 
     if (!user.email) {
       throw new ForbiddenError("Email is required")
     }
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        ownerId: true,
-        stripeSubscriptionId: true,
-      },
-    })
+    // Get team
+    const { data: team, error: teamError } = await supabase
+      .from("Team")
+      .select("id, name, ownerId, stripeSubscriptionId")
+      .eq("id", id)
+      .single()
 
-    if (!team) {
+    if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
+    if (teamError) throw teamError
 
     if (team.ownerId !== user.id) {
       throw new ForbiddenError("Only the team owner can manage billing")

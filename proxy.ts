@@ -1,4 +1,4 @@
-import { authEdge } from "@/lib/auth.edge"
+import { authUnified } from "@/lib/auth.edge.unified"
 import { NextRequest, NextResponse } from "next/server"
 
 // Correlation ID header name (standard)
@@ -219,9 +219,9 @@ function getAppUrl(host: string, pathname: string, protocol: string): string {
   return `${protocol}://app.${mainDomain}${pathname}`
 }
 
-export const proxy = authEdge((req) => {
-  const isLoggedIn = !!req.auth
+export const proxy = authUnified((req) => {
   const { pathname } = req.nextUrl
+  const isLoggedIn = !!req.auth
   const host = req.headers.get("host") || ""
   // Use x-forwarded-proto header (set by Vercel) or default to https in production
   const forwardedProto = req.headers.get("x-forwarded-proto")

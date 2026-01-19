@@ -1,5 +1,4 @@
 import { createApiHandler } from '@/lib/api';
-import { prisma } from '@/lib/prisma';
 import { SERVICES, type ServiceName, type UptimeData } from '@/lib/health';
 
 /**
@@ -9,7 +8,7 @@ import { SERVICES, type ServiceName, type UptimeData } from '@/lib/health';
  */
 export const GET = createApiHandler({
   auth: 'none',
-  handler: async ({ searchParams }) => {
+  handler: async ({ searchParams, supabase }) => {
     const days = parseInt(searchParams.get('days') || '90', 10);
     const limitedDays = Math.min(Math.max(days, 1), 365); // 1-365 days
 
@@ -18,12 +17,13 @@ export const GET = createApiHandler({
     startDate.setHours(0, 0, 0, 0);
 
     // Fetch uptime records
-    const records = await prisma.uptimeRecord.findMany({
-      where: {
-        date: { gte: startDate },
-      },
-      orderBy: { date: 'desc' },
-    });
+    const { data: records, error } = await supabase
+      .from('UptimeRecord')
+      .select('*')
+      .gte('date', startDate.toISOString())
+      .order('date', { ascending: false });
+
+    if (error) throw error;
 
     // Group by service
     const history: Record<ServiceName, UptimeData[]> = {
@@ -33,12 +33,18 @@ export const GET = createApiHandler({
       wasm: [],
     };
 
-    records.forEach((record) => {
+    interface UptimeRecordResult {
+      service: string
+      date: string
+      uptimePercent: number
+      downtimeMinutes: number
+    }
+    ((records as UptimeRecordResult[]) || []).forEach((record) => {
       const service = record.service as ServiceName;
       if (SERVICES.includes(service)) {
         history[service].push({
           service,
-          date: record.date.toISOString().split('T')[0],
+          date: new Date(record.date).toISOString().split('T')[0],
           uptimePercent: record.uptimePercent,
           downtimeMinutes: record.downtimeMinutes,
         });

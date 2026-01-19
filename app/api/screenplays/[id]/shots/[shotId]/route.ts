@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { checkScreenplayAccess } from "@/lib/auth-utils"
 import {
   SHOT_TYPES,
@@ -29,7 +28,7 @@ const updateShotSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: screenplayId, shotId } = params
 
     const access = await checkScreenplayAccess(screenplayId, user.id)
@@ -40,13 +39,17 @@ export const GET = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const shot = await prisma.shot.findUnique({
-      where: { id: shotId, screenplayId },
-    })
+    const { data: shot, error } = await supabase
+      .from("Shot")
+      .select("*")
+      .eq("id", shotId)
+      .eq("screenplayId", screenplayId)
+      .single()
 
-    if (!shot) {
+    if (error?.code === "PGRST116" || !shot) {
       throw new NotFoundError("Shot")
     }
+    if (error) throw error
 
     return shot
   },
@@ -55,7 +58,7 @@ export const GET = createApiHandler({
 export const PUT = createApiHandler({
   auth: "required",
   schema: updateShotSchema,
-  handler: async ({ user, params, data }) => {
+  handler: async ({ user, params, data, supabase }) => {
     const { id: screenplayId, shotId } = params
 
     const access = await checkScreenplayAccess(screenplayId, user.id, "EDITOR")
@@ -66,34 +69,43 @@ export const PUT = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const existingShot = await prisma.shot.findUnique({
-      where: { id: shotId, screenplayId },
-    })
+    const { data: existingShot, error: fetchError } = await supabase
+      .from("Shot")
+      .select("id")
+      .eq("id", shotId)
+      .eq("screenplayId", screenplayId)
+      .single()
 
-    if (!existingShot) {
+    if (fetchError?.code === "PGRST116" || !existingShot) {
       throw new NotFoundError("Shot")
     }
+    if (fetchError) throw fetchError
 
-    const shot = await prisma.shot.update({
-      where: { id: shotId },
-      data: {
-        ...(data.sceneId !== undefined && { sceneId: data.sceneId }),
-        ...(data.shotNumber !== undefined && { shotNumber: data.shotNumber }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.shotType !== undefined && { shotType: data.shotType }),
-        ...(data.cameraAngle !== undefined && { cameraAngle: data.cameraAngle }),
-        ...(data.movement !== undefined && { movement: data.movement }),
-        ...(data.duration !== undefined && { duration: data.duration }),
-        ...(data.lens !== undefined && { lens: data.lens }),
-        ...(data.equipment !== undefined && { equipment: data.equipment }),
-        ...(data.lighting !== undefined && { lighting: data.lighting }),
-        ...(data.audio !== undefined && { audio: data.audio }),
-        ...(data.notes !== undefined && { notes: data.notes }),
-        ...(data.status !== undefined && { status: data.status }),
-        ...(data.thumbnailUrl !== undefined && { thumbnailUrl: data.thumbnailUrl }),
-        ...(data.thumbnailType !== undefined && { thumbnailType: data.thumbnailType }),
-      },
-    })
+    const updateData: Record<string, any> = {}
+    if (data.sceneId !== undefined) updateData.sceneId = data.sceneId
+    if (data.shotNumber !== undefined) updateData.shotNumber = data.shotNumber
+    if (data.description !== undefined) updateData.description = data.description
+    if (data.shotType !== undefined) updateData.shotType = data.shotType
+    if (data.cameraAngle !== undefined) updateData.cameraAngle = data.cameraAngle
+    if (data.movement !== undefined) updateData.movement = data.movement
+    if (data.duration !== undefined) updateData.duration = data.duration
+    if (data.lens !== undefined) updateData.lens = data.lens
+    if (data.equipment !== undefined) updateData.equipment = data.equipment
+    if (data.lighting !== undefined) updateData.lighting = data.lighting
+    if (data.audio !== undefined) updateData.audio = data.audio
+    if (data.notes !== undefined) updateData.notes = data.notes
+    if (data.status !== undefined) updateData.status = data.status
+    if (data.thumbnailUrl !== undefined) updateData.thumbnailUrl = data.thumbnailUrl
+    if (data.thumbnailType !== undefined) updateData.thumbnailType = data.thumbnailType
+
+    const { data: shot, error: updateError } = await supabase
+      .from("Shot")
+      .update(updateData)
+      .eq("id", shotId)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
 
     return shot
   },
@@ -101,7 +113,7 @@ export const PUT = createApiHandler({
 
 export const DELETE = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id: screenplayId, shotId } = params
 
     const access = await checkScreenplayAccess(screenplayId, user.id, "EDITOR")
@@ -112,17 +124,24 @@ export const DELETE = createApiHandler({
       throw new ForbiddenError(access.error)
     }
 
-    const existingShot = await prisma.shot.findUnique({
-      where: { id: shotId, screenplayId },
-    })
+    const { data: existingShot, error: fetchError } = await supabase
+      .from("Shot")
+      .select("id")
+      .eq("id", shotId)
+      .eq("screenplayId", screenplayId)
+      .single()
 
-    if (!existingShot) {
+    if (fetchError?.code === "PGRST116" || !existingShot) {
       throw new NotFoundError("Shot")
     }
+    if (fetchError) throw fetchError
 
-    await prisma.shot.delete({
-      where: { id: shotId },
-    })
+    const { error: deleteError } = await supabase
+      .from("Shot")
+      .delete()
+      .eq("id", shotId)
+
+    if (deleteError) throw deleteError
 
     return { success: true }
   },

@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { createApiHandler } from '@/lib/api';
 import { UnauthorizedError } from '@/lib/api/errors';
-import { prisma } from '@/lib/prisma';
 
 // Admin emails - in production, this would be in a database or environment variable
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').filter(Boolean);
@@ -27,29 +26,51 @@ const createIncidentSchema = z.object({
  */
 export const GET = createApiHandler({
   auth: 'none',
-  handler: async ({ searchParams }) => {
+  handler: async ({ searchParams, supabase }) => {
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const status = searchParams.get('status'); // 'active' | 'resolved' | null (all)
 
-    const where: { status?: { not?: string } | string } = {};
+    let query = supabase
+      .from('Incident')
+      .select(`
+        *,
+        updates:IncidentUpdate(*)
+      `)
+      .order('startedAt', { ascending: false })
+      .limit(Math.min(limit, 100));
+
     if (status === 'active') {
-      where.status = { not: 'resolved' };
+      query = query.neq('status', 'resolved');
     } else if (status === 'resolved') {
-      where.status = 'resolved';
+      query = query.eq('status', 'resolved');
     }
 
-    const incidents = await prisma.incident.findMany({
-      where,
-      include: {
-        updates: {
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-      orderBy: { startedAt: 'desc' },
-      take: Math.min(limit, 100),
-    });
+    const { data: incidents, error } = await query;
 
-    return incidents;
+    if (error) throw error;
+
+    // Sort updates by createdAt descending
+    interface IncidentResult {
+      id: string
+      title: string
+      description: string | null
+      status: string
+      severity: string
+      services: string[]
+      startedAt: string
+      resolvedAt: string | null
+      updates: Array<{ id: string; createdAt: string; message: string; status: string }> | null
+    }
+    const sortedIncidents = ((incidents as IncidentResult[]) || []).map((incident) => ({
+      ...incident,
+      updates: ((incident.updates as unknown[]) || []).sort(
+        (a: unknown, b: unknown) =>
+          new Date((b as { createdAt: string }).createdAt).getTime() -
+          new Date((a as { createdAt: string }).createdAt).getTime()
+      ),
+    }));
+
+    return sortedIncidents;
   },
 });
 
@@ -60,31 +81,35 @@ export const GET = createApiHandler({
 export const POST = createApiHandler({
   auth: 'required',
   schema: createIncidentSchema,
-  handler: async ({ user, data }) => {
+  handler: async ({ user, data, supabase }) => {
     // Check admin access
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { email: true },
-    });
+    const { data: dbUser, error: userError } = await supabase
+      .from('User')
+      .select('email')
+      .eq('id', user.id)
+      .single();
+
+    if (userError) throw userError;
 
     if (!isAdmin(dbUser?.email)) {
       throw new UnauthorizedError('Admin access required');
     }
 
-    const incident = await prisma.incident.create({
-      data: {
+    const { data: incident, error } = await supabase
+      .from('Incident')
+      .insert({
         title: data.title,
         description: data.description,
         severity: data.severity,
         affectedServices: data.affectedServices,
-        startedAt: data.startedAt ? new Date(data.startedAt) : new Date(),
+        startedAt: data.startedAt ? new Date(data.startedAt).toISOString() : new Date().toISOString(),
         status: 'investigating',
-      },
-      include: {
-        updates: true,
-      },
-    });
+      })
+      .select()
+      .single();
 
-    return incident;
+    if (error) throw error;
+
+    return { ...incident, updates: [] };
   },
 });

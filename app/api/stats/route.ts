@@ -1,6 +1,5 @@
 import { z } from "zod"
 import { createApiHandler } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 
 const updateStatsSchema = z.object({
   dailyGoal: z.number().min(100).max(10000).optional(),
@@ -8,34 +7,48 @@ const updateStatsSchema = z.object({
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user }) => {
-    let stats = await prisma.userStats.findUnique({
-      where: { userId: user.id },
-    })
+  handler: async ({ user, supabase }) => {
+    // Get or create user stats
+    let { data: stats, error: fetchError } = await supabase
+      .from("UserStats")
+      .select("*")
+      .eq("userId", user.id)
+      .single()
 
-    if (!stats) {
-      stats = await prisma.userStats.create({
-        data: {
+    if (fetchError?.code === "PGRST116" || !stats) {
+      // Create default stats
+      const { data: newStats, error: createError } = await supabase
+        .from("UserStats")
+        .insert({
           userId: user.id,
           dailyGoal: 500,
           currentStreak: 0,
           longestStreak: 0,
-        },
-      })
+        })
+        .select()
+        .single()
+
+      if (createError) throw createError
+      stats = newStats
+    } else if (fetchError) {
+      throw fetchError
     }
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    const todaySessions = await prisma.writingSession.findMany({
-      where: {
-        userId: user.id,
-        date: { gte: today },
-      },
-    })
+    // Get today's writing sessions
+    const { data: todaySessions, error: sessionsError } = await supabase
+      .from("WritingSession")
+      .select("wordCount, duration")
+      .eq("userId", user.id)
+      .gte("date", today.toISOString())
 
-    const todayWordCount = todaySessions.reduce((sum, s) => sum + s.wordCount, 0)
-    const todayDuration = todaySessions.reduce((sum, s) => sum + s.duration, 0)
+    if (sessionsError) throw sessionsError
+
+    type SessionData = { wordCount: number; duration: number }
+    const todayWordCount = (todaySessions || []).reduce((sum: number, s: SessionData) => sum + s.wordCount, 0)
+    const todayDuration = (todaySessions || []).reduce((sum: number, s: SessionData) => sum + s.duration, 0)
 
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
@@ -64,19 +77,42 @@ export const GET = createApiHandler({
 export const PUT = createApiHandler({
   auth: "required",
   schema: updateStatsSchema,
-  handler: async ({ user, data }) => {
+  handler: async ({ user, data, supabase }) => {
     const { dailyGoal } = data
 
-    const stats = await prisma.userStats.upsert({
-      where: { userId: user.id },
-      update: {
-        ...(dailyGoal !== undefined && { dailyGoal }),
-      },
-      create: {
-        userId: user.id,
-        dailyGoal: dailyGoal || 500,
-      },
-    })
+    // Try to update existing stats
+    const { data: existingStats } = await supabase
+      .from("UserStats")
+      .select("id")
+      .eq("userId", user.id)
+      .single()
+
+    let stats
+    if (existingStats) {
+      const { data: updated, error } = await supabase
+        .from("UserStats")
+        .update({
+          ...(dailyGoal !== undefined && { dailyGoal }),
+        })
+        .eq("userId", user.id)
+        .select()
+        .single()
+
+      if (error) throw error
+      stats = updated
+    } else {
+      const { data: created, error } = await supabase
+        .from("UserStats")
+        .insert({
+          userId: user.id,
+          dailyGoal: dailyGoal || 500,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+      stats = created
+    }
 
     return stats
   },

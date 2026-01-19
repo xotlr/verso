@@ -1,24 +1,30 @@
 import { createApiHandler, NotFoundError, ForbiddenError } from "@/lib/api"
-import { prisma } from "@/lib/prisma"
 import { getTeamBillingStatus } from "@/lib/stripe-helpers"
 
 export const GET = createApiHandler({
   auth: "required",
-  handler: async ({ user, params }) => {
+  handler: async ({ user, params, supabase }) => {
     const { id } = params
 
-    const membership = await prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: id, userId: user.id } },
-    })
+    // Check membership
+    const { data: membership } = await supabase
+      .from("TeamMember")
+      .select("role")
+      .eq("teamId", id)
+      .eq("userId", user.id)
+      .single()
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-      select: { ownerId: true },
-    })
+    // Check team exists
+    const { data: team, error: teamError } = await supabase
+      .from("Team")
+      .select("ownerId")
+      .eq("id", id)
+      .single()
 
-    if (!team) {
+    if (teamError?.code === "PGRST116" || !team) {
       throw new NotFoundError("Team")
     }
+    if (teamError) throw teamError
 
     const isMember = membership || team.ownerId === user.id
     if (!isMember) {

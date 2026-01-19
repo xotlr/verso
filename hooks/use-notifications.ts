@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { useSession } from "next-auth/react"
+import { useSession } from "@/components/providers/auth-provider"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import { useSafeFetch, useAbortSignal } from "./use-safe-fetch"
