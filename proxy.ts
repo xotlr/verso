@@ -305,8 +305,13 @@ export const proxy = authUnified((req) => {
   // Determine if we're on app subdomain (only in production)
   const onAppSubdomain = isAppSubdomain(host)
 
-  // If on app subdomain, all routes require auth
+  // If on app subdomain, all routes require auth (except auth callback)
   if (onAppSubdomain) {
+    // Allow auth callback route without authentication (it exchanges the code for a session)
+    if (pathname === "/auth/callback" || pathname.startsWith("/auth/callback")) {
+      return addSecurityHeaders(NextResponse.next(), host, correlationId)
+    }
+
     // Redirect to main domain login if not authenticated
     if (!isLoggedIn) {
       const mainDomain = getMainDomain(host)
